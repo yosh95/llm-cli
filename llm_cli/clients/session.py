@@ -2,6 +2,7 @@
 
 import difflib
 import subprocess
+import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -51,7 +52,10 @@ class ChatSession:
         sources: Optional[List[str]] = None
     ):
         """Entry point for the interactive chat loop."""
+        # initial_data is used only for the first turn
+        # After that, it's already in conversation history
         data = initial_data or []
+
         while True:
             try:
                 console.print(md_separator)
@@ -78,6 +82,8 @@ class ChatSession:
                     "content_type": "text/plain"
                 })
                 self.process_and_print(data)
+                # After first turn, initial_data is in conversation
+                # Only new user input should be added in subsequent turns
                 data = []
             except (KeyboardInterrupt, EOFError):
                 break
@@ -86,10 +92,12 @@ class ChatSession:
 
     def process_and_print(self, data: List[DataSource]):
         """Executes the request and handles the ReAct agent loop."""
+        self._log_chat(data, role="User")
         response_text, _ = self.client._send(data)
 
         while True:
             if response_text:
+                self._log_chat(response_text, role="Model")
                 if self.client.stdout:
                     print(response_text)
                 else:
@@ -119,9 +127,43 @@ class ChatSession:
                     "role": "function",
                     "parts": tool_results_parts
                 })
+                # Log tool outputs
+                if injected_datas:
+                    self._log_chat(injected_datas, role="Tool Output")
+
                 response_text, _ = self.client._send(injected_datas)
             else:
                 break
+
+    def _log_chat(self, content: Any, role: str):
+        """Append entry to chat log."""
+        if not self.client.chat_log_path:
+            return
+
+        try:
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            path = Path(self.client.chat_log_path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            text_content = ""
+            if isinstance(content, list):  # List[DataSource]
+                parts = []
+                for item in content:
+                    if item.get("content"):
+                        parts.append(str(item["content"]))
+                    elif item.get("file_uri"):
+                        parts.append(f"[File/Media: {item['file_uri']}]")
+                text_content = "\n".join(parts)
+            else:
+                text_content = str(content)
+
+            with path.open("a", encoding="utf-8") as f:
+                f.write(f"--- {timestamp} [{role}] ---\n{text_content}\n\n")
+
+            # Trim log file if it exceeds max lines
+            self.client._trim_log_file(path, self.client.max_chat_log_lines)
+        except Exception as e:
+            console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[tuple]:
         name = call["name"]

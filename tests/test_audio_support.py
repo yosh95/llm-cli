@@ -33,7 +33,7 @@ def test_gemini_audio_upload_called(mock_config_audio, tmp_path):
             "content_type": "audio/wav",
             "is_file_or_url": True
         }
-        mock_upload.assert_called_once_with(audio_file)
+        mock_upload.assert_called_once_with(audio_file, mime_type="audio/wav")
 
 
 def test_gemini_send_with_audio_file_uri(mock_config_audio):

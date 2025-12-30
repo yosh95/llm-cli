@@ -149,6 +149,15 @@ def main():
     except (ValueError, TypeError):
         config['general']['max_chat_log_lines'] = 10000
 
+    max_debug_log = prompt_for_general_setting(
+        "Max debug log lines to keep (0 for unlimited)",
+        str(config['general'].get('max_debug_log_lines', 10000))
+    )
+    try:
+        config['general']['max_debug_log_lines'] = int(max_debug_log)
+    except (ValueError, TypeError):
+        config['general']['max_debug_log_lines'] = 10000
+
     # --- Model Alias Configuration ---
     print("\n--- Optional: Default Model Aliases ---")
     print("You can set default models here. Press Enter to keep "

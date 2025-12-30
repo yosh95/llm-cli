@@ -2,6 +2,7 @@
 
 import requests
 import mimetypes
+import time
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
@@ -14,12 +15,15 @@ FALLBACK_MODEL = "gemini-flash-lite-latest"
 class GeminiClient(BaseLlmClient):
     """A client for interacting with the Google Gemini API."""
     BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta"
-    BASE_UPLOAD_API_URL = (
+    UPLOAD_API_URL = (
         "https://generativelanguage.googleapis.com/upload/v1beta/files"
     )
-    REQUEST_TIMEOUT = 1800
-    UPLOAD_TIMEOUT = 300
+    REQUEST_TIMEOUT = 120
+    # Increase upload timeout to 1 hour to support large files
+    UPLOAD_TIMEOUT = 360
     UPLOAD_START_TIMEOUT = 20
+    # PDF size threshold for using File API instead of inline base64
+    PDF_FILE_API_THRESHOLD = 10 * 1024 * 1024  # 10MB
 
     def __init__(self, initial_model_alias="default", **kwargs):
         super().__init__(
@@ -43,9 +47,20 @@ class GeminiClient(BaseLlmClient):
             import filetype
             kind = filetype.guess(str(path))
             mime = kind.mime if kind else mimetypes.guess_type(path)[0] or ""
+            file_size = path.stat().st_size
 
-            if mime.startswith('audio/') or mime.startswith('video/'):
-                upload_res = self._upload_file(path)
+            # Determine if we should use the File API
+            # Videos and Audios ALWAYS use File API in this client
+            # PDFs use File API if they are large
+            use_file_api = (
+                mime.startswith('audio/') or
+                mime.startswith('video/') or
+                (mime == 'application/pdf' and
+                 file_size > self.PDF_FILE_API_THRESHOLD)
+            )
+
+            if use_file_api:
+                upload_res = self._upload_file(path, mime_type=mime)
                 if upload_res:
                     uri, mime_type = upload_res
                     return {
@@ -53,6 +68,9 @@ class GeminiClient(BaseLlmClient):
                         "content_type": mime_type,
                         "is_file_or_url": True
                     }
+                else:
+                    # If File API upload failed, we don't fall back for media
+                    return None
 
         return super()._process_single_source(source)
 
@@ -85,16 +103,23 @@ class GeminiClient(BaseLlmClient):
             self.conversation, {}, new_parts
         )
         api_url = (
-            f"{self.BASE_API_URL}/models/{self.model}:generateContent?"
-            f"key={self.api_key}"
+            f"{self.BASE_API_URL}/models/{self.model}:generateContent"
         )
 
         try:
             response = requests.post(
-                api_url, json=payload, timeout=self.REQUEST_TIMEOUT
+                api_url,
+                headers={
+                    "x-goog-api-key": self.api_key,
+                    "Content-Type": "application/json"
+                },
+                json=payload,
+                timeout=self.REQUEST_TIMEOUT
             )
             response.raise_for_status()
             res_json = response.json()
+
+            self._log_debug(response_obj=response)
 
             model_msg, _ = self._from_provider_response_format(res_json)
             if new_parts:
@@ -147,11 +172,16 @@ class GeminiClient(BaseLlmClient):
         parts = candidate.get('content', {}).get('parts', [])
         return {"role": "model", "parts": parts}, {}
 
-    def _upload_file(self, path: Path) -> Optional[Tuple[str, str]]:
-        mime_type, _ = mimetypes.guess_type(path)
+    def _upload_file(
+        self, path: Path, mime_type: Optional[str] = None
+    ) -> Optional[Tuple[str, str]]:
+        if not mime_type:
+            mime_type, _ = mimetypes.guess_type(path)
         if not mime_type:
             return None
         file_size = path.stat().st_size
+
+        # Step 1: Initiate resumable upload
         headers = {
             "X-Goog-Upload-Protocol": "resumable",
             "X-Goog-Upload-Command": "start",
@@ -160,15 +190,23 @@ class GeminiClient(BaseLlmClient):
             "Content-Type": "application/json",
             "x-goog-api-key": self.api_key,
         }
+
         try:
+            console.print(
+                f"[dim]Initiating upload for {path.name} "
+                f"({file_size / 1024 / 1024:.2f} MB)...[/dim]"
+            )
             start_response = requests.post(
-                self.BASE_UPLOAD_API_URL,
+                self.UPLOAD_API_URL,
                 headers=headers,
                 json={"file": {"display_name": path.name}},
                 timeout=self.UPLOAD_START_TIMEOUT
             )
             start_response.raise_for_status()
             upload_url = start_response.headers["X-Goog-Upload-URL"]
+
+            # Step 2: Upload the actual data
+            console.print(f"[dim]Uploading {path.name}...[/dim]")
             with path.open("rb") as f:
                 upload_response = requests.post(
                     upload_url,
@@ -182,7 +220,54 @@ class GeminiClient(BaseLlmClient):
                 )
                 upload_response.raise_for_status()
                 file_info = upload_response.json()["file"]
+
+            # Step 3: Wait for file to be ACTIVE (especially for video)
+            if not self._wait_for_file_active(file_info["name"]):
+                return None
+
             return file_info["uri"], mime_type
         except Exception as e:
             console.print(f"[red]Upload failed: {e}[/red]")
-            return None, None
+            return None
+
+    def _wait_for_file_active(self, file_name: str) -> bool:
+        """Polls the file status until it is ACTIVE."""
+        console.print("[dim]Waiting for remote file processing...[/dim]")
+        url = f"{self.BASE_API_URL}/{file_name}?key={self.api_key}"
+
+        # Poll for up to 10 minutes (120 * 5s)
+        # Video processing can take significant time
+        for i in range(120):
+            try:
+                r = requests.get(url, timeout=10)
+                r.raise_for_status()
+                info = r.json()
+                state = info.get("state")
+
+                if state == "ACTIVE":
+                    console.print("[green]File is now active.[/green]")
+                    return True
+                elif state == "FAILED":
+                    error_msg = info.get("error", {}).get(
+                        "message", "Unknown error"
+                    )
+                    console.print(
+                        f"[red]Remote file processing failed: "
+                        f"{error_msg}[/red]"
+                    )
+                    return False
+
+                # PROCESSING or other state
+                if i % 2 == 0:
+                    console.print(
+                        f"[dim]State: {state or 'UNKNOWN'} (polling...)[/dim]"
+                    )
+                time.sleep(5)
+            except Exception as e:
+                console.print(
+                    f"[dim red]Error checking file status: {e}[/dim red]"
+                )
+                time.sleep(5)
+
+        console.print("[red]Timeout waiting for file to become active.[/red]")
+        return False

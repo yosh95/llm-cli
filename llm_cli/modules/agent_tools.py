@@ -1,0 +1,319 @@
+# llm_cli/modules/agent_tools.py
+import subprocess
+import os
+import requests
+import base64
+import cloudscraper
+import filetype
+from pathlib import Path
+from llm_cli.clients.config import get_setting
+
+
+def list_files(directory: str = ".") -> str:
+    """List all files in the given directory recursively."""
+    try:
+        paths = []
+        # Exclude common large or sensitive folders
+        exclude = {".git",
+                   "__pycache__",
+                   "node_modules",
+                   ".venv",
+                   ".pytest_cache"}
+        for root, dirs, files in os.walk(directory):
+            dirs[:] = [d for d in dirs if d not in exclude]
+            for file in files:
+                paths.append(os.path.relpath(os.path.join(root, file),
+                                             directory))
+        return "\n".join(paths) if paths else "No files found."
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+def read_file(path: str) -> str:
+    """Read and return the content of a file."""
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except Exception as e:
+        return f"Error reading {path}: {str(e)}"
+
+
+def write_file(path: str, content: str) -> str:
+    """Write or overwrite content to a specified file path."""
+    try:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
+        return f"Successfully wrote to {path}"
+    except Exception as e:
+        return f"Error writing to {path}: {str(e)}"
+
+
+def execute_command(command: str) -> str:
+    """Execute a shell command and return its output."""
+    try:
+        # Use a timeout to prevent infinite loops
+        result = subprocess.run(command,
+                                shell=True,
+                                capture_output=True,
+                                text=True,
+                                timeout=60)
+        output = f"STDOUT:\n{result.stdout}\n"
+        if result.stderr:
+            output += f"STDERR:\n{result.stderr}\n"
+        output += f"Exit Code: {result.returncode}"
+        return output
+    except subprocess.TimeoutExpired:
+        return "Error: Command timed out after 60 seconds."
+    except Exception as e:
+        return f"Error executing command: {str(e)}"
+
+
+def google_search(
+    queries: list[str], start_index: int = 1, num: int = 5
+) -> str:
+    """
+    Perform a Google Search using the Custom Search JSON API.
+    Uses the api_key and cse_id from the 'google' section of the config.
+    To get more results (pagination), increase the 'start_index'
+    (e.g., 11 for the second page).
+    """
+    api_key = get_setting("api_key", "google")
+    cse_id = get_setting("cse_id", "google")
+
+    if not api_key or not cse_id:
+        return ("Error: Google API key or Search Engine ID (cse_id) "
+                "not configured in config.toml.")
+
+    if isinstance(queries, str):
+        queries = [queries]
+
+    all_results = []
+    search_url = "https://www.googleapis.com/customsearch/v1"
+
+    for query in queries:
+        params = {
+            "key": api_key,
+            "cx": cse_id,
+            "q": query,
+            "start": start_index,
+            "num": min(num, 10)  # API max is 10
+        }
+        try:
+            response = requests.get(search_url, params=params, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+            items = data.get("items", [])
+
+            results = []
+            for item in items:
+                title = item.get("title")
+                link = item.get("link")
+                snippet = item.get("snippet")
+                results.append(
+                    f"Title: {title}\nURL: {link}\nSnippet: {snippet}\n"
+                )
+
+            if results:
+                info = (
+                    f"Results {start_index} to "
+                    f"{start_index + len(results) - 1}"
+                )
+                all_results.append(f"### Results for: {query} ({info})\n" +
+                                   "\n".join(results))
+            else:
+                all_results.append(f"No results found for: {query}")
+
+        except Exception as e:
+            all_results.append(f"Error searching for '{query}': {str(e)}")
+
+    return "\n\n---\n\n".join(all_results)
+
+
+def fetch_url(url: str) -> dict | str:
+    """
+    Fetch content from a URL.
+    Returns text content for web pages.
+    For PDFs and Images, returns a special dict to inject the content
+    into the LLM context.
+    """
+    scraper = cloudscraper.create_scraper()
+    try:
+        response = scraper.get(url, timeout=30)
+        response.raise_for_status()
+        content_type = response.headers.get('Content-Type', '')
+
+        # Handle PDF and Images (Binary)
+        if 'application/pdf' in content_type or \
+           'image/' in content_type or \
+           'audio/' in content_type:
+
+            # Detect specific type if header is generic
+            kind = filetype.guess(response.content)
+            mime = kind.mime if kind else content_type.split(';')[0]
+
+            b64_data = base64.b64encode(response.content).decode('utf-8')
+
+            # Save to a temp file for user reference (optional but helpful)
+            filename = url.split('/')[-1] or "downloaded_file"
+            if not Path(filename).suffix:
+                ext = kind.extension if kind else "bin"
+                filename = f"{filename}.{ext}"
+
+            # Try to write to a temp dir if possible, else current dir
+            # But let's keep it simple: just return data for injection.
+
+            return {
+                "result": f"Successfully fetched {mime} from {url}. "
+                          "Content has been added to context.",
+                "__llm_cli_data__": {
+                    "content": b64_data,
+                    "content_type": mime,
+                    "is_file_or_url": True
+                }
+            }
+
+        # Handle Text/HTML
+        elif 'text/html' in content_type:
+            # Basic stripping of HTML tags could go here, or return raw.
+            # For now, let's return text if possible, or raw html.
+            # Truncate to avoid context overflow
+            return (
+                f"Fetched HTML from {url} "
+                f"(Length: {len(response.text)} chars):\n"
+                f"{response.text[:20000]}..."
+            )
+
+        # Handle other text
+        else:
+            return response.text
+
+    except Exception as e:
+        return f"Error fetching {url}: {str(e)}"
+
+
+# Map of function names to actual callables
+TOOL_FUNCTIONS = {
+    "list_files": list_files,
+    "read_file": read_file,
+    "write_file": write_file,
+    "execute_command": execute_command,
+    "google_search": google_search,
+    "fetch_url": fetch_url,
+}
+
+# Gemini-compatible function declarations
+AGENT_TOOLS_SPEC = [
+    {
+        "function_declarations": [
+            {
+                "name": "list_files",
+                "description": "Get a list of all files in the project to "
+                               "understand the structure.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string",
+                            "description": "The root directory to start "
+                                           "listing."
+                        }
+                    }
+                }
+            },
+            {
+                "name": "read_file",
+                "description": "Read the content of a file to analyze its "
+                               "code or text.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "The relative path to the file."
+                        }
+                    },
+                    "required": ["path"]
+                }
+            },
+            {
+                "name": "write_file",
+                "description": "Create or update a file with new content. "
+                               "Use this to apply code changes.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "The path where the file will "
+                                           "be saved."
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "The full content to write into "
+                                           "the file."
+                        }
+                    },
+                    "required": ["path", "content"]
+                }
+            },
+            {
+                "name": "execute_command",
+                "description": "Run shell commands for tasks like testing, "
+                               "linting, or checking environment state.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The shell command to execute."
+                        }
+                    },
+                    "required": ["command"]
+                }
+            },
+            {
+                "name": "google_search",
+                "description": "Search the web using Google to get "
+                               "up-to-date information. For pagination, "
+                               "increase 'start_index' (e.g., 11 for page 2).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "queries": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "A list of search queries."
+                        },
+                        "start_index": {
+                            "type": "integer",
+                            "description": "The index of the first result to "
+                                           "return. Defaults to 1."
+                        },
+                        "num": {
+                            "type": "integer",
+                            "description": "Number of results to return "
+                                           "(max 10). Defaults to 5."
+                        }
+                    },
+                    "required": ["queries"]
+                }
+            },
+            {
+                "name": "fetch_url",
+                "description": "Fetch content from a URL. Can handle HTML "
+                               "(returns text) and PDFs/Images (injects "
+                               "multimodal data).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "The URL to fetch."
+                        }
+                    },
+                    "required": ["url"]
+                }
+            }
+        ]
+    }
+]

@@ -1,0 +1,244 @@
+# llm_cli/clients/base.py
+
+import datetime
+import uuid
+import base64
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from rich.console import Console
+from llm_cli.clients.config import get_setting
+from llm_cli.modules.media_utils import process_file, fetch_url_content
+from llm_cli.modules.tool_registry import registry
+
+console = Console()
+
+ContentPart = Dict[str, Any]
+Message = Dict[str, Any]
+Conversation = List[Message]
+DataSource = Dict[str, Any]
+
+
+class ProviderSwitchRequest(Exception):
+    def __init__(self, provider: str):
+        self.provider = provider
+
+
+class BaseLlmClient(ABC):
+    """Abstract Base Class for LLM API clients."""
+
+    def __init__(self,
+                 initial_model_alias: str,
+                 api_key_name: str,
+                 config_section: str,
+                 pdf_as_base64: bool,
+                 stdout: bool,
+                 render_markdown: bool = True,
+                 initial_tools: Optional[List[str]] = None,
+                 disable_system_prompt: bool = False):
+
+        self.config_section = config_section
+        self.api_key = get_setting(api_key_name, config_section)
+        self.pdf_as_base64 = pdf_as_base64
+        self.stdout = stdout
+        self.render_markdown = render_markdown
+
+        raw_prompt = get_setting("system_prompt", config_section) or ""
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S (%A)')
+        if raw_prompt:
+            self.system_prompt = f"Current date and time: {now}\n{raw_prompt}"
+        else:
+            self.system_prompt = f"Current date and time: {now}"
+        self.system_prompt_enabled = not disable_system_prompt
+
+        self.available_models: Dict[str, str] = {}
+        self.current_alias = ""
+        self.model = ""
+        self._load_model_aliases()
+        self.set_model(initial_model_alias) or self.set_model('default')
+
+        self.conversation: Conversation = []
+        self.last_usage: Optional[Dict[str, int]] = None
+        self.last_request_duration: Optional[float] = None
+
+        self.history_path = self._expand(
+            get_setting("LLM_PROMPT_HISTORY", "general")
+        )
+        self.chat_log_path = self._expand(
+            get_setting("LLM_CHAT_LOG", "general")
+        )
+        self.request_debug_log_path = self._expand(
+            get_setting("LLM_REQUEST_DEBUG_LOG", "general")
+        )
+
+        # Active tools as a simple list of aliases.
+        # Default to all tools if none provided.
+        self.active_tools: List[str] = (
+            initial_tools if initial_tools is not None
+            else list(registry.tools.keys())
+        )
+
+    def _expand(self, p: Optional[str]) -> Optional[str]:
+        return str(Path(p).expanduser()) if p else None
+
+    @abstractmethod
+    def _load_model_aliases(self):
+        """Load model aliases from config."""
+        pass
+
+    @abstractmethod
+    def _send(self, data: List[DataSource]) -> Tuple[
+        Optional[str], Optional[Dict]
+    ]:
+        """Send the request to the specific provider API."""
+        pass
+
+    def set_model(self, alias: str) -> bool:
+        if alias in self.available_models:
+            self.current_alias = alias
+            self.model = self.available_models[alias]
+            return True
+        return False
+
+    def talk(
+        self,
+        initial_data: Optional[List[DataSource]] = None,
+        sources: Optional[List[str]] = None
+    ):
+        """Start an interactive chat session."""
+        from llm_cli.clients.session import ChatSession
+        ChatSession(self).run(initial_data, sources)
+
+    def process_sources(self, sources: List[str]):
+        """Process input sources and either output result or start chat."""
+        data = []
+        for s in sources:
+            processed = self._process_single_source(s)
+            if processed:
+                data.append(processed)
+
+        from llm_cli.clients.session import ChatSession
+        session = ChatSession(self)
+
+        if data:
+            # If any source is a file or URL,
+            # we consider it a rich context session
+            has_media = any(d.get("is_file_or_url") for d in data)
+            if self.stdout or not has_media:
+                session.process_and_print(data)
+                if not self.stdout and not has_media:
+                    session.run(sources=sources)
+            else:
+                session.run(initial_data=data, sources=sources)
+        else:
+            session.run(sources=sources)
+
+    def _process_single_source(self, source: str) -> Optional[DataSource]:
+        if source.startswith("http"):
+            content, ctype = fetch_url_content(source, self.pdf_as_base64)
+            if content:
+                return {
+                    "content": content,
+                    "content_type": ctype,
+                    "is_file_or_url": True
+                }
+            return None
+
+        path = Path(source)
+        if len(source) < 256 and path.exists() and path.is_file():
+            res = process_file(path, self.pdf_as_base64)
+            if res:
+                res["is_file_or_url"] = True
+            return res
+
+        return {"content": source, "content_type": "text/plain"}
+
+    def _has_pending_tool_calls(self) -> bool:
+        if not self.conversation:
+            return False
+        if self.conversation[-1].get("role") != "model":
+            return False
+        return any(
+            "functionCall" in p
+            for p in self.conversation[-1].get("parts", [])
+        )
+
+    def _handle_command(
+        self, user_input: str, sources: Optional[List[str]]
+    ) -> bool:
+        """Handle in-chat slash commands."""
+        if not user_input.startswith('/'):
+            return False
+        cmd = user_input[1:]
+
+        if cmd in self.available_models:
+            self.set_model(cmd)
+            console.print(
+                f"[cyan]Model switched to: {self.current_alias}[/cyan]"
+            )
+            return True
+
+        if cmd in ('google', 'openai', 'anthropic', 'xai'):
+            raise ProviderSwitchRequest(cmd)
+
+        if cmd in ('c', 'clear'):
+            self.conversation.clear()
+            console.print("[yellow]Conversation history cleared.[/yellow]")
+            return True
+
+        if cmd in ('q', 'quit'):
+            raise EOFError
+
+        if cmd == 'tools':
+            console.print(
+                f"[bold]Active Tools:[/bold] "
+                f"{', '.join(self.active_tools) or 'None'}"
+            )
+            return True
+
+        if cmd == 'info' or cmd == 'i':
+            console.print(
+                "[bold]Session Info:[/bold]\n"
+                f"  Provider: [cyan]{self.config_section}[/cyan]\n"
+                f"  Model: [cyan]{self.model}[/cyan] "
+                f"(Alias: {self.current_alias})\n"
+                f"  Tools: {', '.join(self.active_tools) or 'None'}\n"
+                f"  History: {len(self.conversation)} messages"
+            )
+            return True
+
+        if cmd == 'help' or cmd == 'h':
+            console.print(
+                "[bold]Available Commands:[/bold]\n"
+                "  /clear (c)     Clear conversation history\n"
+                "  /quit (q)      Exit the application\n"
+                "  /info (i)      Show session info\n"
+                "  /tools         Show active tools\n"
+                "  /google        Switch to Google (Gemini)\n"
+                "  /openai        Switch to OpenAI\n"
+                "  /anthropic     Switch to Anthropic (Claude)\n"
+                "  /xai           Switch to xAI (Grok)\n"
+                f"  <model_alias>  Switch to specific model "
+                f"(Available: {', '.join(self.available_models.keys())})"
+            )
+            return True
+
+        return False
+
+    def _save_inline_image_and_get_log_entry(
+        self, inline_data: Dict[str, Any]
+    ) -> Optional[str]:
+        """Save received image data to a file."""
+        if inline_data.get('mimeType', '').startswith('image/'):
+            ext = inline_data['mimeType'].split('/')[-1]
+            now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            fname = (
+                f"output_image_{now_str}_{uuid.uuid4().hex[:4]}.{ext}"
+            )
+            try:
+                Path(fname).write_bytes(base64.b64decode(inline_data['data']))
+                return f"\n**output image: {fname}**"
+            except Exception as e:
+                console.print(f"[red]Failed to save image: {e}[/red]")
+        return None

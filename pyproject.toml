@@ -1,0 +1,46 @@
+[project]
+name = "llm_cli"
+version = "0.0.1"
+description = "A Unified Command-Line Interface for Multiple LLMs"
+authors = [
+    {name = "Yoshihiro Ando",email = "yosh5295@gmail.com"}
+]
+license = {text = " Apache License 2.0"}
+readme = "README.md"
+dependencies = [
+    "beautifulsoup4",
+    "cloudscraper",
+    "filetype",
+    "prompt-toolkit",
+    "pypdf",
+    "requests",
+    "rich",
+    "tomli-w",
+    "tqdm"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0"
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+
+[tool.setuptools]
+packages = ["llm_cli"]
+
+[project.scripts]
+llm-cli-config = "llm_cli.apps.configure:main"
+llm = "llm_cli.apps.unified:main"
+gemini-models= "llm_cli.apps.gemini_models:main"
+openai-models = "llm_cli.apps.openai_models:main"
+claude-models = "llm_cli.apps.claude_models:main"
+grok-models = "llm_cli.apps.grok_models:main"
+translate-json = "llm_cli.apps.translate_json_data:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,206 @@
+"""Shared test fixtures and configuration for pytest."""
+
+import base64
+import pytest
+from unittest.mock import Mock
+
+
+@pytest.fixture
+def mock_api_key():
+    """Provide a mock API key for testing."""
+    return "test_api_key_1234567890"
+
+
+@pytest.fixture
+def sample_text_content():
+    """Provide sample text content for testing."""
+    return "This is sample text content for testing."
+
+
+@pytest.fixture
+def sample_pdf_content():
+    """Provide a simple PDF binary content for testing."""
+    # Minimal valid PDF structure
+    pdf_content = b"""%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 44
+>>
+stream
+BT
+/F1 12 Tf
+100 700 Td
+(Test PDF) Tj
+ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000214 00000 n
+trailer
+<<
+/Size 5
+/Root 1 0 R
+>>
+startxref
+308
+%%EOF
+"""
+    return pdf_content
+
+
+@pytest.fixture
+def sample_pdf_base64(sample_pdf_content):
+    """Provide base64-encoded PDF content."""
+    return base64.b64encode(sample_pdf_content).decode('utf-8')
+
+
+@pytest.fixture
+def sample_image_base64():
+    """Provide a minimal base64-encoded image (1x1 PNG)."""
+    # 1x1 transparent PNG
+    png_b64 = (
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlE'
+        'QVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+    )
+    png_bytes = base64.b64decode(png_b64)
+    return base64.b64encode(png_bytes).decode('utf-8')
+
+
+@pytest.fixture
+def temp_pdf_file(tmp_path, sample_pdf_content):
+    """Create a temporary PDF file for testing."""
+    pdf_file = tmp_path / "test.pdf"
+    pdf_file.write_bytes(sample_pdf_content)
+    return pdf_file
+
+
+@pytest.fixture
+def temp_text_file(tmp_path, sample_text_content):
+    """Create a temporary text file for testing."""
+    text_file = tmp_path / "test.txt"
+    text_file.write_text(sample_text_content, encoding='utf-8')
+    return text_file
+
+
+@pytest.fixture
+def temp_empty_file(tmp_path):
+    """Create a temporary empty file for testing."""
+    empty_file = tmp_path / "empty.txt"
+    empty_file.touch()
+    return empty_file
+
+
+@pytest.fixture
+def mock_config(monkeypatch, mock_api_key):
+    """Mock the config module to return test values."""
+    def mock_get_setting(key, section):
+        config = {
+            'google': {
+                'api_key': mock_api_key,
+                'cse_id': 'test_cse_id',
+                'system_prompt': 'You are a helpful AI assistant.',
+            },
+            'openai': {
+                'api_key': mock_api_key,
+                'system_prompt': 'You are a helpful AI assistant.',
+            },
+            'anthropic': {
+                'api_key': mock_api_key,
+                'system_prompt': 'You are a helpful AI assistant.',
+            },
+            'xai': {
+                'api_key': mock_api_key,
+                'system_prompt': 'You are a helpful AI assistant.',
+            },
+            'general': {
+                'LLM_PROMPT_HISTORY': None,
+                'LLM_CHAT_LOG': None,
+                'LLM_REQUEST_DEBUG_LOG': None,
+            }
+        }
+        return config.get(section, {}).get(key)
+
+    def mock_get_model_aliases(section):
+        return {
+            'default': 'test-model',
+            'pro': 'test-model-pro',
+        }
+
+    def mock_get_provider_tools(section):
+        return {
+            "search": '{"type": "google_search_retrieval_tool"}'
+        }
+
+    monkeypatch.setattr(
+        'llm_cli.clients.config.get_setting',
+        mock_get_setting
+    )
+    monkeypatch.setattr(
+        'llm_cli.clients.config.get_model_aliases',
+        mock_get_model_aliases
+    )
+    monkeypatch.setattr(
+        'llm_cli.clients.config.get_provider_tools',
+        mock_get_provider_tools
+    )
+
+
+@pytest.fixture
+def mock_requests_success(monkeypatch):
+    """Mock successful HTTP requests."""
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.headers = {'Content-Type': 'text/html'}
+    mock_response.text = '<html><body>Test content</body></html>'
+    mock_response.content = b'Test content'
+    mock_response.json.return_value = {'result': 'success'}
+    mock_response.raise_for_status = Mock()
+
+    def mock_get(*args, **kwargs):
+        return mock_response
+
+    def mock_post(*args, **kwargs):
+        return mock_response
+
+    monkeypatch.setattr('requests.get', mock_get)
+    monkeypatch.setattr('requests.post', mock_post)
+    return mock_response
+
+
+@pytest.fixture
+def mock_cloudscraper(monkeypatch, mock_requests_success):
+    """Mock cloudscraper to return successful responses."""
+    mock_scraper = Mock()
+    mock_scraper.get.return_value = mock_requests_success
+
+    def mock_create_scraper():
+        return mock_scraper
+
+    monkeypatch.setattr('cloudscraper.create_scraper', mock_create_scraper)
+    return mock_scraper

@@ -36,7 +36,14 @@ The AI can use tools like `google_search` to find real-time information or `exec
 Ensure you have Python 3.11 or newer.
 
 ```bash
-pip install llm-cli
+# Clone the repository
+git clone https://github.com/yosh95/llm-cli.git
+
+# Navigate to the directory
+cd llm-cli
+
+# Install the package
+pip install .
 ```
 
 ## Configuration
@@ -120,6 +127,21 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 -   **シェル連携**: `!コマンド` でローカルコマンドを実行し、その結果をチャットのコンテキストに反映できます。
 -   **高度な入力**: `Ctrl+J` による複数行入力、Markdownレンダリング、シンタックスハイライトに対応。
 -   **自動ログ管理**: チャット履歴やコマンド履歴を自動的にローテーション・トリミングします。
+
+## インストール
+
+Python 3.11 以上が必要です。
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/yosh95/llm-cli.git
+
+# ディレクトリに移動
+cd llm-cli
+
+# インストール
+pip install .
+```
 
 ## 使い方
 

@@ -128,6 +128,10 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 -   **高度な入力**: `Ctrl+J` による複数行入力、Markdownレンダリング、シンタックスハイライトに対応。
 -   **自動ログ管理**: チャット履歴やコマンド履歴を自動的にローテーション・トリミングします。
 
+## スクリーンショット
+
+![コーディング支援](images/llm-fastapi.png)
+
 ## インストール
 
 Python 3.11 以上が必要です。

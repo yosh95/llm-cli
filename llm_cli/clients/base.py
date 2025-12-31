@@ -96,6 +96,12 @@ class BaseLlmClient(ABC):
             get_setting("max_debug_log_lines", "general") or 10000
         )
 
+        # Initialize base tools first
+        self.active_tools: List[str] = (
+            initial_tools if initial_tools is not None
+            else list(registry.tools.keys())
+        )
+
         # Handle MCP Remote Tools
         try:
             from llm_cli.clients.mcp_manager import mcp_manager
@@ -105,14 +111,15 @@ class BaseLlmClient(ABC):
                     f"[dim cyan]Registered {len(remote_tool_names)} "
                     "remote MCP tools.[/dim cyan]"
                 )
-        except Exception as e:
-            # Silently fail if mcp is not installed or configured
+                # Ensure remote tools are added to active list if not overriding
+                if initial_tools is None:
+                    for tn in remote_tool_names:
+                        if tn not in self.active_tools:
+                            self.active_tools.append(tn)
+        except ImportError:
             pass
-
-        self.active_tools: List[str] = (
-            initial_tools if initial_tools is not None
-            else list(registry.tools.keys())
-        )
+        except Exception as e:
+            console.print(f"[yellow]Note: MCP initialization failed: {e}[/yellow]")
 
     def _expand(self, p: Optional[str]) -> Optional[str]:
         return str(Path(p).expanduser()) if p else None
@@ -159,7 +166,7 @@ class BaseLlmClient(ABC):
         if data:
             has_media = any(d.get("is_file_or_url") for d in data)
             if self.stdout or not has_media:
-                session.process_and_print(data)
+                session.process_print(data)
                 if not self.stdout and not has_media:
                     session.run(sources=sources)
             else:

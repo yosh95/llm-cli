@@ -152,15 +152,18 @@ class ToolRegistry:
         """Discover and register tools from external MCP servers."""
         remote_tools = mcp_manager.initialize_servers()
         for t in remote_tools:
-            # Create a wrapper function that calls the remote MCP server
-            def make_wrapper(srv, orig):
+            # Fix: Ensure srv and orig are captured correctly in the lambda
+            server_name = t["server_name"]
+            original_name = t["original_name"]
+            
+            def create_wrapper(srv, orig):
                 return lambda **kwargs: mcp_manager.call_tool(srv, orig, kwargs)
 
             self.register(
                 name=t["name"],
                 description=t["description"],
                 parameters=t["parameters"],
-                func=make_wrapper(t["server_name"], t["original_name"])
+                func=create_wrapper(server_name, original_name)
             )
         return [t["name"] for t in remote_tools]
 

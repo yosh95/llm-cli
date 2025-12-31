@@ -366,4 +366,5 @@ class BaseLlmClient(ABC):
         if text is None:
             return None
         prefix = f"({self.config_section}/{self.current_alias}/{self.model})"
-        return f"{prefix}\n{text}"
+        # Strip leading whitespace from model response to ensure consistent newline
+        return f"{prefix}:\n{text.lstrip()}"

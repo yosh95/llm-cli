@@ -112,17 +112,12 @@ class ChatSession:
             for part in last_msg.get("parts", []):
                 if "functionCall" in part:
                     res = self._execute_tool_call(part["functionCall"])
-                    if res is None:  # Denied by user
-                        if len(self.client.conversation) >= 2:
-                            self.client.conversation.pop()
-                            self.client.conversation.pop()
-                        console.print(
-                            "[yellow]Conversation rolled back.[/yellow]"
-                        )
-                        return
-
                     if res == "CHECKPOINT_SUCCESS":
                         # History already cleared and summary injected.
+                        return
+
+                    if res is None:
+                        # Unexpected error in tool execution logic
                         return
 
                     tool_result, injected = res
@@ -209,14 +204,26 @@ class ChatSession:
                 return "CHECKPOINT_SUCCESS"
             else:
                 console.print("[yellow]Checkpoint denied.[/yellow]")
-                return None
+                return {
+                    "functionResponse": {
+                        "id": tool_id,
+                        "name": name,
+                        "response": {"result": "Error: User denied checkpoint."}
+                    }
+                }, None
 
         if name == "write_file":
             self._preview_diff(args)
 
         if prompt("Allow execution? (y/N): ").strip().lower() != 'y':
             console.print("[red]Operation denied.[/red]")
-            return None
+            return {
+                "functionResponse": {
+                    "id": tool_id,
+                    "name": name,
+                    "response": {"result": "Error: Operation denied by user."}
+                }
+            }, None
 
         try:
             result_data = TOOL_FUNCTIONS[name](**args)

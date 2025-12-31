@@ -122,6 +122,27 @@ class ToolRegistry:
             },
             func=TOOL_FUNCTIONS["fetch_url"]
         )
+        self.register(
+            name="checkpoint_conversation",
+            description=(
+                "Summarize the conversation so far and clear the "
+                "message history to keep the context window efficient. "
+                "The summary MUST include: "
+                "1) Original goal, 2) Current project state/structure, "
+                "3) Completed tasks/code changes, 4) Remaining tasks."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "Detailed technical snapshot."
+                    }
+                },
+                "required": ["summary"]
+            },
+            func=TOOL_FUNCTIONS["checkpoint_conversation"]
+        )
 
     def register(
         self,

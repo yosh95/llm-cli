@@ -76,9 +76,6 @@ def google_search(
 ) -> str:
     """
     Perform a Google Search using the Custom Search JSON API.
-    Uses the api_key and cse_id from the 'google' section of the config.
-    To get more results (pagination), increase the 'start_index'
-    (e.g., 11 for the second page).
     """
     api_key = get_setting("api_key", "google")
     cse_id = get_setting("cse_id", "google")
@@ -133,37 +130,20 @@ def google_search(
 
 
 def fetch_url(url: str) -> dict | str:
-    """
-    Fetch content from a URL.
-    Returns text content for web pages.
-    For PDFs and Images, returns a special dict to inject the content
-    into the LLM context.
-    """
+    """Fetch content from a URL."""
     scraper = cloudscraper.create_scraper()
     try:
         response = scraper.get(url, timeout=30)
         response.raise_for_status()
         content_type = response.headers.get('Content-Type', '')
 
-        # Handle PDF and Images (Binary)
         if 'application/pdf' in content_type or \
            'image/' in content_type or \
            'audio/' in content_type:
 
-            # Detect specific type if header is generic
             kind = filetype.guess(response.content)
             mime = kind.mime if kind else content_type.split(';')[0]
-
             b64_data = base64.b64encode(response.content).decode('utf-8')
-
-            # Save to a temp file for user reference (optional but helpful)
-            filename = url.split('/')[-1] or "downloaded_file"
-            if not Path(filename).suffix:
-                ext = kind.extension if kind else "bin"
-                filename = f"{filename}.{ext}"
-
-            # Try to write to a temp dir if possible, else current dir
-            # But let's keep it simple: just return data for injection.
 
             return {
                 "result": f"Successfully fetched {mime} from {url}. "
@@ -175,23 +155,25 @@ def fetch_url(url: str) -> dict | str:
                 }
             }
 
-        # Handle Text/HTML
         elif 'text/html' in content_type:
-            # Basic stripping of HTML tags could go here, or return raw.
-            # For now, let's return text if possible, or raw html.
-            # Truncate to avoid context overflow
             return (
                 f"Fetched HTML from {url} "
                 f"(Length: {len(response.text)} chars):\n"
                 f"{response.text[:20000]}..."
             )
-
-        # Handle other text
         else:
             return response.text
-
     except Exception as e:
         return f"Error fetching {url}: {str(e)}"
+
+
+def checkpoint_conversation(summary: str) -> str:
+    """
+    Consolidate the current session into a summary and reset history.
+    This helps keep the context window clean while maintaining vital info.
+    """
+    # The actual history clearing logic is handled in session.py
+    return summary
 
 
 # Map of function names to actual callables
@@ -202,6 +184,7 @@ TOOL_FUNCTIONS = {
     "execute_command": execute_command,
     "google_search": google_search,
     "fetch_url": fetch_url,
+    "checkpoint_conversation": checkpoint_conversation,
 }
 
 # Gemini-compatible function declarations
@@ -240,8 +223,7 @@ AGENT_TOOLS_SPEC = [
             },
             {
                 "name": "write_file",
-                "description": "Create or update a file with new content. "
-                               "Use this to apply code changes.",
+                "description": "Create or update a file with new content.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -252,8 +234,7 @@ AGENT_TOOLS_SPEC = [
                         },
                         "content": {
                             "type": "string",
-                            "description": "The full content to write into "
-                                           "the file."
+                            "description": "The full content to write."
                         }
                     },
                     "required": ["path", "content"]
@@ -261,8 +242,7 @@ AGENT_TOOLS_SPEC = [
             },
             {
                 "name": "execute_command",
-                "description": "Run shell commands for tasks like testing, "
-                               "linting, or checking environment state.",
+                "description": "Run shell commands.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -276,9 +256,7 @@ AGENT_TOOLS_SPEC = [
             },
             {
                 "name": "google_search",
-                "description": "Search the web using Google to get "
-                               "up-to-date information. For pagination, "
-                               "increase 'start_index' (e.g., 11 for page 2).",
+                "description": "Search the web using Google.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -289,13 +267,11 @@ AGENT_TOOLS_SPEC = [
                         },
                         "start_index": {
                             "type": "integer",
-                            "description": "The index of the first result to "
-                                           "return. Defaults to 1."
+                            "description": "Pagination start index."
                         },
                         "num": {
                             "type": "integer",
-                            "description": "Number of results to return "
-                                           "(max 10). Defaults to 5."
+                            "description": "Number of results (max 10)."
                         }
                     },
                     "required": ["queries"]
@@ -303,9 +279,7 @@ AGENT_TOOLS_SPEC = [
             },
             {
                 "name": "fetch_url",
-                "description": "Fetch content from a URL. Can handle HTML "
-                               "(returns text) and PDFs/Images (injects "
-                               "multimodal data).",
+                "description": "Fetch content from a URL.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -315,6 +289,26 @@ AGENT_TOOLS_SPEC = [
                         }
                     },
                     "required": ["url"]
+                }
+            },
+            {
+                "name": "checkpoint_conversation",
+                "description": (
+                    "Summarize the conversation so far and clear the "
+                    "message history to keep the context window efficient. "
+                    "The summary MUST include: "
+                    "1) Original goal, 2) Current project state/structure, "
+                    "3) Completed tasks/code changes, 4) Remaining tasks."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "Detailed technical snapshot."
+                        }
+                    },
+                    "required": ["summary"]
                 }
             }
         ]

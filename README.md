@@ -21,7 +21,8 @@ The AI can use tools like `google_search` to find real-time information or `exec
 -   **Unified Interface**: Access Gemini, OpenAI, Claude, and Grok through a single `llm` command.
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can read/write files, execute shell commands, and **search the web**.
--   **Safe Execution**: Includes a **Diff Preview** for file changes (via `write_file`) and asks for user confirmation before executing any tool or shell command.
+-   **Context Self-Management (Smart Checkpointing)**: The AI can propose summarizing the conversation and clearing history to keep the context window efficient while maintaining vital progress info.
+-   **Safe Execution**: Includes a **Diff Preview** for file changes (via `write_file`) and asks for user confirmation before executing any tool or shell command (Human-in-the-Loop).
 -   **One-Shot Execution**: Pipe input from other commands or pass prompts as arguments.
 -   **Multimodal Input**:
     -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**. (Automatically uses Gemini File API for large files and media).
@@ -119,7 +120,8 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 -   **統合インターフェース**: `llm` コマンド一つで全プロバイダを切り替え可能。
 -   **エージェントモード（常時有効）**: AIが自律的にファイル操作、コマンド実行、**Web検索**を行います。デフォルトで有効になっており、いつでもツールを利用可能です。
--   **安全な実行**: ファイル書き込み（`write_file`）時は**Diff（差分）表示**を行い、すべてのツール実行やシェルコマンド実行前にユーザーの確認を求めます。
+-   **スマートな履歴管理（チェックポイント機能）**: 会話が長くなった際、AI自身がそれまでの経緯を要約し、履歴をリフレッシュすることを提案します。これにより、トークン消費を抑えつつ重要な進捗を維持できます。
+-   **安全な実行**: ファイル書き込み（`write_file`）時は**Diff（差分）表示**を行い、すべてのツール実行やシェルコマンド実行前にユーザーの確認を求めます（Human-in-the-Loop）。
 -   **マルチモーダル対応**:
     -   **Gemini**: テキスト、画像、PDF、**音声**、**動画**。 (大容量ファイルやメディアは自動的に Gemini File API を使用)。
     -   **OpenAI / Claude / Grok**: テキスト、画像。

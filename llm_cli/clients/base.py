@@ -46,10 +46,28 @@ class BaseLlmClient(ABC):
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S (%A)')
+
+        # Context management instruction
+        context_instruction = (
+            "\n\n[CONTEXT MANAGEMENT]\n"
+            "If the conversation becomes long or the context window is "
+            "cluttered with large outputs, use the `checkpoint_conversation` "
+            "tool. This tool allows you to summarize current progress and "
+            "clear history. Your summary must be exhaustive enough to "
+            "continue the task without any previous messages."
+        )
+
         if raw_prompt:
-            self.system_prompt = f"Current date and time: {now}\n{raw_prompt}"
+            self.system_prompt = (
+                f"Current date and time: {now}\n{raw_prompt}"
+                f"{context_instruction}"
+            )
         else:
-            self.system_prompt = f"Current date and time: {now}"
+            self.system_prompt = (
+                f"Current date and time: {now}"
+                f"{context_instruction}"
+            )
+
         self.system_prompt_enabled = not disable_system_prompt
 
         self.available_models: Dict[str, str] = {}
@@ -78,8 +96,6 @@ class BaseLlmClient(ABC):
             get_setting("max_debug_log_lines", "general") or 10000
         )
 
-        # Active tools as a simple list of aliases.
-        # Default to all tools if none provided.
         self.active_tools: List[str] = (
             initial_tools if initial_tools is not None
             else list(registry.tools.keys())
@@ -128,8 +144,6 @@ class BaseLlmClient(ABC):
         session = ChatSession(self)
 
         if data:
-            # If any source is a file or URL,
-            # we consider it a rich context session
             has_media = any(d.get("is_file_or_url") for d in data)
             if self.stdout or not has_media:
                 session.process_and_print(data)
@@ -233,16 +247,11 @@ class BaseLlmClient(ABC):
         return False
 
     def _trim_log_file(self, path: Path, max_lines: int):
-        """
-        Trim log file to keep only the last max_lines lines.
-        """
         try:
             if not path.exists():
                 return
-
             lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
             if len(lines) > max_lines:
-                # Keep only the last max_lines
                 path.write_text("".join(lines[-max_lines:]), encoding="utf-8")
         except Exception as e:
             console.print(f"[dim red]Log trimming failed: {e}[/dim red]")
@@ -250,7 +259,6 @@ class BaseLlmClient(ABC):
     def _save_inline_image_and_get_log_entry(
         self, inline_data: Dict[str, Any]
     ) -> Optional[str]:
-        """Save received image data to a file."""
         if inline_data.get('mimeType', '').startswith('image/'):
             ext = inline_data['mimeType'].split('/')[-1]
             now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -270,54 +278,39 @@ class BaseLlmClient(ABC):
         request_payload: Any = None,
         response_content: Any = None
     ):
-        """
-        Log request and response to debug log file.
-        Accepts either a requests.Response object (response_obj)
-        OR manual payload/content.
-        """
         if not self.request_debug_log_path:
             return
-
         try:
             import json
             import os
-
             path = Path(self.request_debug_log_path)
             path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Ensure secure permissions (600) - Read/Write only for owner
             if not path.exists():
                 path.touch(mode=0o600)
             os.chmod(path, 0o600)
-
             now = datetime.datetime.now()
             timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
-
             log_parts = []
             log_parts.append(f"=== DEBUG LOG ENTRY {timestamp} ===")
             log_parts.append(f"Provider: {self.config_section}")
             log_parts.append(f"Model: {self.model}")
-
             if response_obj:
-                # Request
                 log_parts.append("\n--- Request ---")
                 if hasattr(response_obj, 'request'):
                     log_parts.append(f"URL: {response_obj.request.url}")
                     log_parts.append("Headers:")
                     for k, v in response_obj.request.headers.items():
                         log_parts.append(f"  {k}: {v}")
-
                     log_parts.append("Body:")
                     if response_obj.request.body:
                         try:
-                            # Try to pretty print body if it's JSON
                             if isinstance(response_obj.request.body, bytes):
-                                body_str = response_obj.request.body.decode(
+                                b_dec = response_obj.request.body.decode(
                                     'utf-8'
                                 )
+                                body_str = b_dec
                             else:
                                 body_str = str(response_obj.request.body)
-
                             parsed = json.loads(body_str)
                             log_parts.append(
                                 json.dumps(
@@ -328,14 +321,11 @@ class BaseLlmClient(ABC):
                             log_parts.append(str(response_obj.request.body))
                     else:
                         log_parts.append("(no body)")
-
-                # Response
                 log_parts.append("\n--- Response ---")
                 log_parts.append(f"Status: {response_obj.status_code}")
                 log_parts.append("Headers:")
                 for k, v in response_obj.headers.items():
                     log_parts.append(f"  {k}: {v}")
-
                 log_parts.append("Body:")
                 try:
                     parsed = response_obj.json()
@@ -344,9 +334,7 @@ class BaseLlmClient(ABC):
                     )
                 except Exception:
                     log_parts.append(response_obj.text)
-
             else:
-                # Fallback / Manual
                 if request_payload:
                     log_parts.append("\n--- Request Payload ---")
                     if isinstance(request_payload, (dict, list)):
@@ -357,7 +345,6 @@ class BaseLlmClient(ABC):
                         )
                     else:
                         log_parts.append(str(request_payload))
-
                 if response_content:
                     log_parts.append("\n--- Response Content ---")
                     if isinstance(response_content, (dict, list)):
@@ -368,21 +355,14 @@ class BaseLlmClient(ABC):
                         )
                     else:
                         log_parts.append(str(response_content))
-
             log_parts.append("\n" + "="*80 + "\n")
-
             with path.open("a", encoding="utf-8") as f:
                 f.write("\n".join(log_parts))
-
-            # Trim log file if it exceeds max lines
             self._trim_log_file(path, self.max_debug_log_lines)
-
         except Exception as e:
-            # We don't want logging errors to crash the app
             console.print(f"[dim red]Debug logging failed: {e}[/dim red]")
 
     def _format_response_text(self, text: Optional[str]) -> Optional[str]:
-        """Prepend provider/alias/model info for display/logging."""
         if text is None:
             return None
         prefix = f"({self.config_section}/{self.current_alias}/{self.model})"

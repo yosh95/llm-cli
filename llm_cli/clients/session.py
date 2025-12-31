@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.rule import Rule
 from rich.syntax import Syntax
+from rich.panel import Panel
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.custom_markdown import CustomMarkdown
@@ -52,8 +53,6 @@ class ChatSession:
         sources: Optional[List[str]] = None
     ):
         """Entry point for the interactive chat loop."""
-        # initial_data is used only for the first turn
-        # After that, it's already in conversation history
         data = initial_data or []
 
         while True:
@@ -82,8 +81,6 @@ class ChatSession:
                     "content_type": "text/plain"
                 })
                 self.process_and_print(data)
-                # After first turn, initial_data is in conversation
-                # Only new user input should be added in subsequent turns
                 data = []
             except (KeyboardInterrupt, EOFError):
                 break
@@ -116,15 +113,16 @@ class ChatSession:
                 if "functionCall" in part:
                     res = self._execute_tool_call(part["functionCall"])
                     if res is None:  # Denied by user
-                        # Remove the last two messages (user + model with tool call)
-                        # to keep conversation history consistent
                         if len(self.client.conversation) >= 2:
-                            self.client.conversation.pop()  # Remove model msg
-                            self.client.conversation.pop()  # Remove user msg
+                            self.client.conversation.pop()
+                            self.client.conversation.pop()
                         console.print(
-                            "[yellow]Conversation rolled back due to "
-                            "denied tool execution.[/yellow]"
+                            "[yellow]Conversation rolled back.[/yellow]"
                         )
+                        return
+
+                    if res == "CHECKPOINT_SUCCESS":
+                        # History already cleared and summary injected.
                         return
 
                     tool_result, injected = res
@@ -137,7 +135,6 @@ class ChatSession:
                     "role": "function",
                     "parts": tool_results_parts
                 })
-                # Log tool outputs
                 if injected_datas:
                     self._log_chat(injected_datas, role="Tool Output")
 
@@ -159,7 +156,7 @@ class ChatSession:
             path.parent.mkdir(parents=True, exist_ok=True)
 
             text_content = ""
-            if isinstance(content, list):  # List[DataSource]
+            if isinstance(content, list):
                 parts = []
                 for item in content:
                     if item.get("content"):
@@ -173,12 +170,11 @@ class ChatSession:
             with path.open("a", encoding="utf-8") as f:
                 f.write(f"--- {timestamp} [{role}] ---\n{text_content}\n\n")
 
-            # Trim log file if it exceeds max lines
             self.client._trim_log_file(path, self.client.max_chat_log_lines)
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
-    def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[tuple]:
+    def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
         tool_id = call.get("id", "unknown")
         name = call["name"]
         args = call.get("args", {})
@@ -194,7 +190,27 @@ class ChatSession:
             f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
         )
 
-        # Specific preview for write_file
+        if name == "checkpoint_conversation":
+            summary = args.get("summary", "")
+            panel_title = "[bold cyan]Proposed Context Summary[/bold cyan]"
+            console.print(Panel(summary, title=panel_title))
+            prompt_text = "Clear history and use this summary? (y/N): "
+            if prompt(prompt_text).lower() == 'y':
+                self.client.conversation = []
+                # Inject summary from user role
+                self.client.conversation.append({
+                    "role": "user",
+                    "parts": [{
+                        "text": f"SYSTEM: History cleared. "
+                                f"Continue from this summary:\n\n{summary}"
+                    }]
+                })
+                console.print("[green]✅ Context refreshed.[/green]")
+                return "CHECKPOINT_SUCCESS"
+            else:
+                console.print("[yellow]Checkpoint denied.[/yellow]")
+                return None
+
         if name == "write_file":
             self._preview_diff(args)
 

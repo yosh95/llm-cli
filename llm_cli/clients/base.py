@@ -176,7 +176,7 @@ class BaseLlmClient(ABC):
         if data:
             has_media = any(d.get("is_file_or_url") for d in data)
             if self.stdout or not has_media:
-                session.process_print(data)
+                session.process_and_print(data)
                 if not self.stdout and not has_media:
                     session.run(sources=sources)
             else:

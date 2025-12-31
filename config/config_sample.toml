@@ -37,6 +37,20 @@ system_prompt = "For mathematical expressions, use Unicode instead of TeX whenev
 [xai.models]
 default = "grok-4-1-fast-reasoning"
 
+# MCP Server Configurations
+# You can connect to remote llm-cli instances via SSH or other MCP servers.
+[[mcp_servers]]
+name = "remote_server"
+command = "ssh"
+args = ["user@your-remote-host", "python3", "-m", "llm_cli.apps.mcp_server"]
+
+# Example of a local Node.js based MCP server
+# [[mcp_servers]]
+# name = "brave-search"
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-brave-search"]
+# env = { BRAVE_API_KEY = "<YOUR_KEY>" }
+
 [general]
 LLM_PROMPT_HISTORY = "~/.local/state/llm_cli/history.txt"
 LLM_CHAT_LOG = "~/.local/share/llm_cli/chat.log"

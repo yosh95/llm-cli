@@ -12,8 +12,6 @@ class ToolRegistry:
         self._load_default_tools()
 
     def _load_default_tools(self):
-        # This metadata would ideally be closer to the function implementation
-        # For now, we define the schema here for consistency.
         self.register(
             name="list_files",
             description="Get a list of all files in the project to "
@@ -149,6 +147,22 @@ class ToolRegistry:
             "parameters": parameters,
             "func": func
         }
+
+    def register_remote_tools(self, mcp_manager):
+        """Discover and register tools from external MCP servers."""
+        remote_tools = mcp_manager.initialize_servers()
+        for t in remote_tools:
+            # Create a wrapper function that calls the remote MCP server
+            def make_wrapper(srv, orig):
+                return lambda **kwargs: mcp_manager.call_tool(srv, orig, kwargs)
+
+            self.register(
+                name=t["name"],
+                description=t["description"],
+                parameters=t["parameters"],
+                func=make_wrapper(t["server_name"], t["original_name"])
+            )
+        return [t["name"] for t in remote_tools]
 
     def get_gemini_spec(self, tool_names: List[str]) -> List[Dict[str, Any]]:
         declarations = []

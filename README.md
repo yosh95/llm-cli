@@ -21,6 +21,7 @@ The AI can use tools like `google_search` to find real-time information or `exec
 -   **Unified Interface**: Access Gemini, OpenAI, Claude, and Grok through a single `llm` command.
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can read/write files, execute shell commands, and **search the web**.
+-   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
 -   **Context Self-Management (Smart Checkpointing)**: The AI can propose summarizing the conversation and clearing history to keep the context window efficient while maintaining vital progress info.
 -   **Safe Execution**: Includes a **Diff Preview** for file changes (via `write_file`) and asks for user confirmation before executing any tool or shell command (Human-in-the-Loop).
 -   **One-Shot Execution**: Pipe input from other commands or pass prompts as arguments.
@@ -47,6 +48,29 @@ cd llm-cli
 pip install .
 ```
 
+## MCP (Model Context Protocol) Support
+
+`llm-cli` can act as both an MCP client and an MCP server. This allows for powerful remote development workflows.
+
+### 1. Remote Development via SSH
+You can let your local LLM session control a remote server. Add the following to your `~/.config/llm_cli/config.toml`:
+
+```toml
+[[mcp_servers]]
+name = "my_remote_box"
+command = "ssh"
+args = ["user@remote-host", "python3", "-m", "llm_cli.apps.mcp_server"]
+```
+
+When you start `llm`, it will automatically connect via SSH, and you'll see tools like `my_remote_box__execute_command` and `my_remote_box__read_file` available in the chat.
+
+### 2. Running as an MCP Server
+To expose your local tools to another MCP client:
+
+```bash
+llm --mcp-server
+```
+
 ## Configuration
 
 Before using the tools, run the interactive setup script:
@@ -55,7 +79,7 @@ Before using the tools, run the interactive setup script:
 llm-cli-config
 ```
 
-Settings are saved to `~/.config/llm_cli/config.toml`. You can also configure model aliases (e.g., `pro`, `opus`, `gpt4`) there.
+Settings are saved to `~/.config/llm_cli/config.toml`.
 
 ## Usage
 
@@ -67,44 +91,20 @@ llm
 
 **Common In-Chat Commands:**
 -   `/<provider>`: Switch provider instantly.
-    -   `/google` (or `/gemini`)
-    -   `/openai` (or `/gpt`)
-    -   `/anthropic` (or `/claude`)
-    -   `/xai` (or `/grok`)
 -   `/<alias>`: Switch model within the current provider (e.g., `/pro`, `/gpt4`, `/opus`).
--   `/info` (or `/i`): Show session info (current provider, model, tools, and history count).
--   `/tools`: Show currently active tools.
+-   `/info` (or `/i`): Show session info.
+-   `/tools`: Show currently active tools (including remote MCP tools).
 -   `/clear` (or `/c`): Clear conversation history.
--   `!command`: Execute a local shell command. You can choose to add the output to the chat context.
+-   `!command`: Execute a local shell command.
 -   `/help` (or `/h`): Show full command list.
 -   `/quit` (or `/q`): Exit.
-
-**Keyboard Shortcuts:**
--   `Ctrl+J`: Insert a newline for multi-line input.
--   `Ctrl+C`: Cancel current prompt or exit.
 
 ### 2. One-Shot Prompts
 
 ```bash
 # Analyze code from a pipe
 cat main.py | llm "Explain this code"
-
-# Specific provider with file input
-llm -p google "What happens in this video?" presentation.mp4
 ```
-
-**CLI Options:**
--   `-p, --provider`: Specify provider.
--   `-m, --model`: Use a specific model alias.
--   `-t, --tools`: Enable specific tools (e.g., `-t google_search`).
--   `-s, --stdout`: Non-interactive output (prints only the response).
--   `--raw`: Disable Markdown rendering.
--   `--no-system-prompt`: Disable the configured system prompt for this session.
-
-### 3. Utility Commands
-
--   `translate-json in.json out.json -k key.name`: Batch translate JSON values using LLM.
--   `gemini-models`, `openai-models`, `claude-models`, `grok-models`: List available models and their aliases for each provider.
 
 ## License
 
@@ -114,74 +114,49 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 # llm-cli: 複数LLM対応 統合コマンドラインインターフェース
 
-`llm-cli`は、Gemini, OpenAI, Claude, Grokを一つの `llm` コマンドで自在に操れる、強力なコマンドラインツールです。
-
 ## 主な機能
 
 -   **統合インターフェース**: `llm` コマンド一つで全プロバイダを切り替え可能。
--   **エージェントモード（常時有効）**: AIが自律的にファイル操作、コマンド実行、**Web検索**を行います。デフォルトで有効になっており、いつでもツールを利用可能です。
--   **スマートな履歴管理（チェックポイント機能）**: 会話が長くなった際、AI自身がそれまでの経緯を要約し、履歴をリフレッシュすることを提案します。これにより、トークン消費を抑えつつ重要な進捗を維持できます。
--   **安全な実行**: ファイル書き込み（`write_file`）時は**Diff（差分）表示**を行い、すべてのツール実行やシェルコマンド実行前にユーザーの確認を求めます（Human-in-the-Loop）。
--   **マルチモーダル対応**:
-    -   **Gemini**: テキスト、画像、PDF、**音声**、**動画**。 (大容量ファイルやメディアは自動的に Gemini File API を使用)。
-    -   **OpenAI / Claude / Grok**: テキスト、画像。
--   **URL解析**: URLを渡すだけでウェブサイトの内容を解析します（PDFや画像URLの場合はマルチモーダルデータとして注入）。
--   **シェル連携**: `!コマンド` でローカルコマンドを実行し、その結果をチャットのコンテキストに反映できます。
--   **高度な入力**: `Ctrl+J` による複数行入力、Markdownレンダリング、シンタックスハイライトに対応。
--   **自動ログ管理**: チャット履歴やコマンド履歴を自動的にローテーション・トリミングします。
+-   **エージェントモード（常時有効）**: AIが自律的にファイル操作、コマンド実行、**Web検索**を行います。
+-   **MCPによる分散エージェント**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートサーバー上の `llm-cli` に接続し、遠隔地のファイルを操作したりテストを実行したりといった操作を、ローカルのツールと同じ感覚でAIに行わせることができます。
+-   **スマートな履歴管理（チェックポイント機能）**: トークン消費を抑えつつ重要な進捗を維持。
+-   **安全な実行**: 全てのツール実行前にユーザーの確認を求める Human-in-the-Loop 方式。
+-   **マルチモーダル対応**: Gemini (動画/音声対応), OpenAI, Claude, Grok。
 
-## スクリーンショット
+## MCP (Model Context Protocol) 対応
 
-![コーディング支援](images/llm-fastapi.png)
+`llm-cli` は、自分自身を MCP サーバーとして動かすことも、外部の MCP サーバーに接続するクライアントとして動かすことも可能です。
 
-## インストール
+### 1. SSH経由のリモート開発
+ローカルのチャットセッションからリモートサーバーを操作させるには、`~/.config/llm_cli/config.toml` に以下を追加します：
 
-Python 3.11 以上が必要です。
+```toml
+[[mcp_servers]]
+name = "remote_server"
+command = "ssh"
+args = ["user@remote-host", "python3", "-m", "llm_cli.apps.mcp_server"]
+```
+
+これにより、`remote_server__execute_command` などのツールが自動的にチャット内で利用可能になります。
+
+### 2. MCPサーバーとして起動
+ローカルのツールを他のクライアント（別のターミナルの `llm-cli` など）に公開する場合：
 
 ```bash
-# リポジトリをクローン
-git clone https://github.com/yosh95/llm-cli.git
+llm --mcp-server
+```
 
-# ディレクトリに移動
-cd llm-cli
+## インストールと設定
 
-# インストール
+```bash
 pip install .
+llm-cli-config
 ```
 
 ## 使い方
 
-### 1. 対話モード
-
+### 対話モード
 ```bash
 llm
 ```
-
-**主なコマンド:**
--   `/<プロバイダ>`: `/google`, `/openai`, `/anthropic`, `/xai` 等でプロバイダを即座に切り替え。
--   `/<エイリアス>`: `/pro`, `/gpt4`, `/opus` 等でモデルを切り替え。
--   `/info` (または `/i`): セッション情報の表示（プロバイダ、モデル、有効なツール、履歴数）。
--   `/tools`: 有効なツールの一覧を表示。
--   `/clear` (または `/c`): 会話履歴をクリア。
--   `!コマンド`: シェルコマンドの実行。結果をコンテキストに追加するか選択可能。
--   `/help` (または `/h`): ヘルプを表示。
-
-### 2. ワンショット実行
-
-```bash
-# パイプから入力
-cat file.txt | llm "この内容を要約して"
-
-# 画像や動画を解析 (Geminiの場合)
-llm -p google "この動画の内容を説明して" video.mp4
-```
-
-### 3. ユーティリティ
-
--   `llm-cli-config`: 初期設定とAPIキーの設定。
--   `translate-json`: LLMを使用したJSONデータの翻訳。
--   `gemini-models`, `openai-models` 等: 各プロバイダの利用可能なモデル一覧を表示。
-
-## ライセンス
-
-[Apache License 2.0](LICENSE)
+`/info` で現在のセッション状態や、接続されているリモートツールを確認できます。

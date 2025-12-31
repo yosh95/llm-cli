@@ -93,6 +93,13 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
         help="Disable system prompt even if configured"
     )
 
+    # MCP Server Mode
+    parser.add_argument(
+        '--mcp-server',
+        action='store_true',
+        help="Run as an MCP server to expose tools to other clients"
+    )
+
     # Add any provider-specific extra arguments
     for arg_name, arg_config in config.extra_args:
         parser.add_argument(arg_name, **arg_config)
@@ -116,6 +123,22 @@ def run_client_cli(config: ClientConfig) -> None:
     # Parse arguments
     parser = create_standard_parser(config)
     args = parser.parse_args()
+
+    # Handle MCP Server mode if requested
+    if args.mcp_server:
+        try:
+            from llm_cli.apps.mcp_server import main as run_mcp_server
+            run_mcp_server()
+            sys.exit(0)
+        except ImportError:
+            console.print(
+                "[red]Error: 'mcp' package is not installed.[/red]\n"
+                "Please install it with: pip install 'mcp>=1.0.0'"
+            )
+            sys.exit(1)
+        except Exception as e:
+            console.print(f"[red]Failed to start MCP server: {e}[/red]")
+            sys.exit(1)
 
     # Determine output mode
     stdout = args.stdout or not sys.stdin.isatty()

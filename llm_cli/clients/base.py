@@ -96,6 +96,19 @@ class BaseLlmClient(ABC):
             get_setting("max_debug_log_lines", "general") or 10000
         )
 
+        # Handle MCP Remote Tools
+        try:
+            from llm_cli.clients.mcp_manager import mcp_manager
+            remote_tool_names = registry.register_remote_tools(mcp_manager)
+            if remote_tool_names:
+                console.print(
+                    f"[dim cyan]Registered {len(remote_tool_names)} "
+                    "remote MCP tools.[/dim cyan]"
+                )
+        except Exception as e:
+            # Silently fail if mcp is not installed or configured
+            pass
+
         self.active_tools: List[str] = (
             initial_tools if initial_tools is not None
             else list(registry.tools.keys())

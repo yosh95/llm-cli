@@ -155,9 +155,11 @@ class ToolRegistry:
             # Fix: Ensure srv and orig are captured correctly in the lambda
             server_name = t["server_name"]
             original_name = t["original_name"]
-            
+
             def create_wrapper(srv, orig):
-                return lambda **kwargs: mcp_manager.call_tool(srv, orig, kwargs)
+                return lambda **kwargs: mcp_manager.call_tool(
+                    srv, orig, kwargs
+                )
 
             self.register(
                 name=t["name"],

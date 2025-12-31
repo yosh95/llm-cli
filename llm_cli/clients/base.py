@@ -36,7 +36,8 @@ class BaseLlmClient(ABC):
                  stdout: bool,
                  render_markdown: bool = True,
                  initial_tools: Optional[List[str]] = None,
-                 disable_system_prompt: bool = False):
+                 disable_system_prompt: bool = False,
+                 enable_mcp: bool = False):
 
         self.config_section = config_section
         self.api_key = get_setting(api_key_name, config_section)
@@ -103,23 +104,32 @@ class BaseLlmClient(ABC):
         )
 
         # Handle MCP Remote Tools
-        try:
-            from llm_cli.clients.mcp_manager import mcp_manager
-            remote_tool_names = registry.register_remote_tools(mcp_manager)
-            if remote_tool_names:
+        if enable_mcp:
+            try:
+                from llm_cli.clients.mcp_manager import mcp_manager
+                # Check if already initialized to avoid double printing
+                # when using UnifiedClient which wraps other clients.
+                already_initialized = mcp_manager._initialized
+
+                remote_tool_names = registry.register_remote_tools(mcp_manager)
+                if remote_tool_names:
+                    if not already_initialized:
+                        console.print(
+                            f"[dim cyan]Registered {len(remote_tool_names)} "
+                            "remote MCP tools.[/dim cyan]"
+                        )
+                    # Ensure remote tools are added to active list
+                    # if not overriding
+                    if initial_tools is None:
+                        for tn in remote_tool_names:
+                            if tn not in self.active_tools:
+                                self.active_tools.append(tn)
+            except ImportError:
+                pass
+            except Exception as e:
                 console.print(
-                    f"[dim cyan]Registered {len(remote_tool_names)} "
-                    "remote MCP tools.[/dim cyan]"
+                    f"[yellow]Note: MCP initialization failed: {e}[/yellow]"
                 )
-                # Ensure remote tools are added to active list if not overriding
-                if initial_tools is None:
-                    for tn in remote_tool_names:
-                        if tn not in self.active_tools:
-                            self.active_tools.append(tn)
-        except ImportError:
-            pass
-        except Exception as e:
-            console.print(f"[yellow]Note: MCP initialization failed: {e}[/yellow]")
 
     def _expand(self, p: Optional[str]) -> Optional[str]:
         return str(Path(p).expanduser()) if p else None

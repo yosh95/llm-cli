@@ -270,10 +270,10 @@ class ChatSession:
             # Fix: Get tool function from the centralized registry
             if name not in registry.tools:
                 raise ValueError(f"Tool '{name}' not found in registry.")
-            
+
             tool_func = registry.tools[name]["func"]
             result_data = tool_func(**args)
-            
+
             injected = None
             if (
                 isinstance(result_data, dict) and

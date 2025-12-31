@@ -44,7 +44,8 @@ class UnifiedClient(BaseLlmClient):
             stdout=kwargs.get('stdout', False),
             render_markdown=kwargs.get('render_markdown', True),
             initial_tools=kwargs.get('initial_tools'),
-            disable_system_prompt=kwargs.get('disable_system_prompt', False)
+            disable_system_prompt=kwargs.get('disable_system_prompt', False),
+            enable_mcp=kwargs.get('enable_mcp', False)
         )
 
         # Synchronize state

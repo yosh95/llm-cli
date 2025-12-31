@@ -9,6 +9,7 @@ from llm_cli.modules.agent_tools import TOOL_FUNCTIONS
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
+
 def create_mcp_server():
     """Create and configure the FastMCP server instance."""
     mcp = FastMCP("llm-cli-remote")
@@ -23,11 +24,13 @@ def create_mcp_server():
 
     return mcp
 
+
 def main():
     """Run the MCP server in stdio mode."""
     mcp = create_mcp_server()
     logger.info("Starting LLM-CLI MCP Server (stdio)...")
     mcp.run()
+
 
 if __name__ == "__main__":
     main()

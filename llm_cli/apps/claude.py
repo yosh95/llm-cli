@@ -102,12 +102,14 @@ class ClaudeClient(BaseLlmClient):
         msgs = []
         for m in self.conversation:
             if m["role"] == "function":
-                # Convert function results to tool_result blocks in user message
+                # Convert function results to tool_result blocks
                 content = []
                 for p in m["parts"]:
                     if "functionResponse" in p:
                         func_resp = p["functionResponse"]
-                        result = func_resp.get("response", {}).get("result", "")
+                        result = func_resp.get(
+                            "response", {}
+                        ).get("result", "")
                         content.append({
                             "type": "tool_result",
                             "tool_use_id": func_resp.get("id", "unknown"),

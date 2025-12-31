@@ -108,7 +108,9 @@ class GrokClient(BaseLlmClient):
                 for p in m["parts"]:
                     if "functionResponse" in p:
                         func_resp = p["functionResponse"]
-                        result = func_resp.get("response", {}).get("result", "")
+                        result = func_resp.get(
+                            "response", {}
+                        ).get("result", "")
                         msgs.append({
                             "role": "tool",
                             "tool_call_id": func_resp.get("id", "unknown"),
@@ -129,7 +131,9 @@ class GrokClient(BaseLlmClient):
                             "type": "function",
                             "function": {
                                 "name": func_call.get("name", "unknown"),
-                                "arguments": json.dumps(func_call.get("args", {}))
+                                "arguments": json.dumps(
+                                    func_call.get("args", {})
+                                )
                             }
                         })
 

@@ -93,6 +93,13 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
         help="Disable system prompt even if configured"
     )
 
+    # MCP Integration
+    parser.add_argument(
+        '--mcp',
+        action='store_true',
+        help="Enable MCP (Model Context Protocol) integration"
+    )
+
     # MCP Server Mode
     parser.add_argument(
         '--mcp-server',
@@ -151,6 +158,7 @@ def run_client_cli(config: ClientConfig) -> None:
         'render_markdown': render_markdown,
         'initial_tools': args.tools,
         'disable_system_prompt': args.no_system_prompt,
+        'enable_mcp': args.mcp,
     }
 
     # Add optional capabilities if supported

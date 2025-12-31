@@ -18,7 +18,7 @@ from rich.panel import Panel
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.custom_markdown import CustomMarkdown
-from llm_cli.modules.agent_tools import TOOL_FUNCTIONS
+from llm_cli.modules.tool_registry import registry
 
 kb = KeyBindings()
 console = Console()
@@ -184,8 +184,6 @@ class ChatSession:
         try:
             tty_path = '/dev/tty' if sys.platform != 'win32' else 'CON'
             with open(tty_path, 'r') as tty:
-                # Use stderr for the prompt message to avoid polluting stdout
-                # which might be piped to another process.
                 sys.stderr.write(message)
                 sys.stderr.flush()
                 line = tty.readline()
@@ -193,7 +191,6 @@ class ChatSession:
                     return False
                 return line.strip().lower() == 'y'
         except Exception:
-            # Fallback: if we cannot open TTY, we must deny to be safe
             console.print(
                 "[yellow]Warning: Could not access TTY for confirmation. "
                 "Denying for safety.[/yellow]"
@@ -222,7 +219,6 @@ class ChatSession:
             console.print(Panel(summary, title=panel_title))
             if self._confirm("Clear history and use this summary? (y/N): "):
                 self.client.conversation = []
-                # Inject summary from user role
                 self.client.conversation.append({
                     "role": "user",
                     "parts": [{
@@ -271,7 +267,13 @@ class ChatSession:
             }, None
 
         try:
-            result_data = TOOL_FUNCTIONS[name](**args)
+            # Fix: Get tool function from the centralized registry
+            if name not in registry.tools:
+                raise ValueError(f"Tool '{name}' not found in registry.")
+            
+            tool_func = registry.tools[name]["func"]
+            result_data = tool_func(**args)
+            
             injected = None
             if (
                 isinstance(result_data, dict) and
@@ -280,7 +282,7 @@ class ChatSession:
                 injected = result_data.pop("__llm_cli_data__")
 
             p_str = str(result_data)
-            if name == "execute_command":
+            if name == "execute_command" or "__execute_command" in name:
                 console.print(f"[dim]Result:[/dim]\n{escape(p_str)}")
             else:
                 preview = p_str[:300] + ("..." if len(p_str) > 300 else "")

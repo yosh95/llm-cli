@@ -3,6 +3,7 @@
 import difflib
 import subprocess
 import datetime
+import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -169,6 +170,36 @@ class ChatSession:
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
+    def _confirm(self, message: str) -> bool:
+        """
+        Ask for y/n confirmation, handling cases where stdin is redirected.
+        """
+        if sys.stdin.isatty():
+            try:
+                return prompt(message).strip().lower() == 'y'
+            except (EOFError, KeyboardInterrupt):
+                return False
+
+        # If stdin is not a TTY (e.g. piped input), try to read from /dev/tty
+        try:
+            tty_path = '/dev/tty' if sys.platform != 'win32' else 'CON'
+            with open(tty_path, 'r') as tty:
+                # Use stderr for the prompt message to avoid polluting stdout
+                # which might be piped to another process.
+                sys.stderr.write(message)
+                sys.stderr.flush()
+                line = tty.readline()
+                if not line:
+                    return False
+                return line.strip().lower() == 'y'
+        except Exception:
+            # Fallback: if we cannot open TTY, we must deny to be safe
+            console.print(
+                "[yellow]Warning: Could not access TTY for confirmation. "
+                "Denying for safety.[/yellow]"
+            )
+            return False
+
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
         tool_id = call.get("id", "unknown")
         name = call["name"]
@@ -189,8 +220,7 @@ class ChatSession:
             summary = args.get("summary", "")
             panel_title = "[bold cyan]Proposed Context Summary[/bold cyan]"
             console.print(Panel(summary, title=panel_title))
-            prompt_text = "Clear history and use this summary? (y/N): "
-            if prompt(prompt_text).lower() == 'y':
+            if self._confirm("Clear history and use this summary? (y/N): "):
                 self.client.conversation = []
                 # Inject summary from user role
                 self.client.conversation.append({
@@ -208,20 +238,35 @@ class ChatSession:
                     "functionResponse": {
                         "id": tool_id,
                         "name": name,
-                        "response": {"result": "Error: User denied checkpoint."}
+                        "response": {
+                            "result": (
+                                "Error: User denied checkpoint. "
+                                "Do not attempt to summarize again "
+                                "unless instructed. Continue the "
+                                "conversation normally or ask the user "
+                                "how they want to manage the context."
+                            )
+                        }
                     }
                 }, None
 
         if name == "write_file":
             self._preview_diff(args)
 
-        if prompt("Allow execution? (y/N): ").strip().lower() != 'y':
+        if not self._confirm("Allow execution? (y/N): "):
             console.print("[red]Operation denied.[/red]")
             return {
                 "functionResponse": {
                     "id": tool_id,
                     "name": name,
-                    "response": {"result": "Error: Operation denied by user."}
+                    "response": {
+                        "result": (
+                            "Error: Operation denied by user. "
+                            "DO NOT retry this tool or proceed with other "
+                            "tool calls. Stop and ask the user for the "
+                            "reason for denial or for further instructions."
+                        )
+                    }
                 }
             }, None
 
@@ -259,25 +304,48 @@ class ChatSession:
             }, None
 
     def _preview_diff(self, args: Dict[str, Any]):
+        """Show what will be changed in write_file."""
         try:
-            path = Path(args["path"])
-            new_content = args["content"]
+            path = Path(args.get("path", ""))
+            new_content = args.get("content", "")
+            if not path or not new_content:
+                console.print(
+                    "[yellow]Missing path or content for preview.[/yellow]"
+                )
+                return
+
             if path.exists():
-                old_content = path.read_text(encoding="utf-8")
+                if path.is_dir():
+                    console.print(f"[red]Error: {path} is a directory.[/red]")
+                    return
+                try:
+                    old_content = path.read_text(encoding="utf-8")
+                except UnicodeDecodeError:
+                    console.print(
+                        f"[yellow]Cannot preview binary file: {path}[/yellow]"
+                    )
+                    return
+
                 diff = list(difflib.unified_diff(
                     old_content.splitlines(keepends=True),
                     new_content.splitlines(keepends=True),
                     fromfile=f"a/{path}", tofile=f"b/{path}"
                 ))
                 if diff:
-                    console.print(
-                        Syntax("".join(diff), "diff", theme="monokai")
-                    )
+                    console.print(Panel(
+                        Syntax("".join(diff), "diff", theme="monokai"),
+                        title=f"[bold]Diff: {path}[/bold]",
+                        border_style="yellow"
+                    ))
+                else:
+                    console.print(f"[dim]No changes to {path}[/dim]")
             else:
-                console.print(f"[bold green]New file: {path}[/bold green]")
                 lexer = Syntax.guess_lexer(str(path), code=new_content)
-                console.print(Syntax(
-                    new_content, lexer, theme="monokai", line_numbers=True
+                console.print(Panel(
+                    Syntax(new_content, lexer,
+                           theme="monokai", line_numbers=True),
+                    title=f"[bold green]New File: {path}[/bold green]",
+                    border_style="green"
                 ))
         except Exception as e:
             console.print(f"[dim]Preview failed: {e}[/dim]")
@@ -296,7 +364,7 @@ class ChatSession:
                 (f"\nSTDERR:\n{result.stderr}" if result.stderr else "")
             )
             print(output)
-            if prompt("Add to context? (y/N): ").strip().lower() == 'y':
+            if self._confirm("Add to context? (y/N): "):
                 data.append({
                     "content": f"Command: `{cmd}`\nOutput:\n"
                                f"```\n{output}\n```",

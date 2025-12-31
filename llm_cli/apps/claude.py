@@ -54,6 +54,7 @@ class ClaudeClient(BaseLlmClient):
             )
             response.raise_for_status()
             res = response.json()
+            self._log_debug(response_obj=response)
 
             model_parts = []
             full_text = ""
@@ -64,6 +65,7 @@ class ClaudeClient(BaseLlmClient):
                 elif block['type'] == 'tool_use':
                     model_parts.append({
                         "functionCall": {
+                            "id": block['id'],
                             "name": block['name'],
                             "args": block['input']
                         }
@@ -89,19 +91,47 @@ class ClaudeClient(BaseLlmClient):
 
             return full_text, res.get('usage')
         except Exception as e:
+            self._log_debug(
+                request_payload=payload,
+                response_content=str(e)
+            )
             console.print(f"[red]Claude Error: {e}[/red]")
             return None, None
 
     def _build_messages(self, data):
         msgs = []
         for m in self.conversation:
-            role = "assistant" if m["role"] == "model" else m["role"]
-            content = []
-            for p in m["parts"]:
-                if "text" in p:
-                    content.append({"type": "text", "text": p["text"]})
-            if content:
-                msgs.append({"role": role, "content": content})
+            if m["role"] == "function":
+                # Convert function results to tool_result blocks in user message
+                content = []
+                for p in m["parts"]:
+                    if "functionResponse" in p:
+                        func_resp = p["functionResponse"]
+                        result = func_resp.get("response", {}).get("result", "")
+                        content.append({
+                            "type": "tool_result",
+                            "tool_use_id": func_resp.get("id", "unknown"),
+                            "content": str(result)
+                        })
+                if content:
+                    msgs.append({"role": "user", "content": content})
+            else:
+                role = "assistant" if m["role"] == "model" else m["role"]
+                content = []
+                for p in m["parts"]:
+                    if "text" in p:
+                        content.append({"type": "text", "text": p["text"]})
+                    elif "functionCall" in p:
+                        # Convert functionCall to tool_use block
+                        func_call = p["functionCall"]
+                        content.append({
+                            "type": "tool_use",
+                            "id": func_call.get("id", "unknown"),
+                            "name": func_call.get("name", "unknown"),
+                            "input": func_call.get("args", {})
+                        })
+                if content:
+                    msgs.append({"role": role, "content": content})
 
         user_content = []
         for d in data:
@@ -116,5 +146,6 @@ class ClaudeClient(BaseLlmClient):
                         "data": d["content"]
                     }
                 })
-        msgs.append({"role": "user", "content": user_content})
+        if user_content:
+            msgs.append({"role": "user", "content": user_content})
         return msgs

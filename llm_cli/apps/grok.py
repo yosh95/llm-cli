@@ -51,6 +51,7 @@ class GrokClient(BaseLlmClient):
             )
             response.raise_for_status()
             res = response.json()
+            self._log_debug(response_obj=response)
 
             choice = res['choices'][0]['message']
             content = choice.get('content', "")
@@ -63,6 +64,7 @@ class GrokClient(BaseLlmClient):
                 for tc in choice['tool_calls']:
                     model_parts.append({
                         "functionCall": {
+                            "id": tc['id'],
                             "name": tc['function']['name'],
                             "args": json.loads(tc['function']['arguments'])
                         }
@@ -88,6 +90,10 @@ class GrokClient(BaseLlmClient):
 
             return content, res.get('usage')
         except Exception as e:
+            self._log_debug(
+                request_payload=payload,
+                response_content=str(e)
+            )
             console.print(f"[red]Grok Error: {e}[/red]")
             return None, None
 
@@ -97,13 +103,41 @@ class GrokClient(BaseLlmClient):
             msgs.append({"role": "system", "content": self.system_prompt})
 
         for m in self.conversation:
-            role = "assistant" if m["role"] == "model" else m["role"]
-            content = ""
-            for p in m["parts"]:
-                if "text" in p:
-                    content += p["text"]
-            if content:
-                msgs.append({"role": role, "content": content})
+            if m["role"] == "function":
+                # Convert function results to tool messages
+                for p in m["parts"]:
+                    if "functionResponse" in p:
+                        func_resp = p["functionResponse"]
+                        result = func_resp.get("response", {}).get("result", "")
+                        msgs.append({
+                            "role": "tool",
+                            "tool_call_id": func_resp.get("id", "unknown"),
+                            "content": str(result)
+                        })
+            else:
+                role = "assistant" if m["role"] == "model" else m["role"]
+                content = ""
+                tool_calls = []
+
+                for p in m["parts"]:
+                    if "text" in p:
+                        content += p["text"]
+                    elif "functionCall" in p:
+                        func_call = p["functionCall"]
+                        tool_calls.append({
+                            "id": func_call.get("id", "unknown"),
+                            "type": "function",
+                            "function": {
+                                "name": func_call.get("name", "unknown"),
+                                "arguments": json.dumps(func_call.get("args", {}))
+                            }
+                        })
+
+                if content or tool_calls:
+                    msg = {"role": role, "content": content}
+                    if tool_calls:
+                        msg["tool_calls"] = tool_calls
+                    msgs.append(msg)
 
         user_content = []
         for d in data:
@@ -118,5 +152,8 @@ class GrokClient(BaseLlmClient):
                         )
                     }
                 })
-        msgs.append({"role": "user", "content": user_content})
+
+        if user_content:
+            msgs.append({"role": "user", "content": user_content})
+
         return msgs

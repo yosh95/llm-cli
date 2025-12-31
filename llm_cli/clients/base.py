@@ -380,3 +380,10 @@ class BaseLlmClient(ABC):
         except Exception as e:
             # We don't want logging errors to crash the app
             console.print(f"[dim red]Debug logging failed: {e}[/dim red]")
+
+    def _format_response_text(self, text: Optional[str]) -> Optional[str]:
+        """Prepend provider/alias/model info for display/logging."""
+        if text is None:
+            return None
+        prefix = f"({self.config_section}/{self.current_alias}/{self.model})"
+        return f"{prefix}\n{text}"

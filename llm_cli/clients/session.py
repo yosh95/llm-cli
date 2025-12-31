@@ -94,6 +94,7 @@ class ChatSession:
         """Executes the request and handles the ReAct agent loop."""
         self._log_chat(data, role="User")
         response_text, _ = self.client._send(data)
+        response_text = self.client._format_response_text(response_text)
 
         while True:
             if response_text:
@@ -115,6 +116,15 @@ class ChatSession:
                 if "functionCall" in part:
                     res = self._execute_tool_call(part["functionCall"])
                     if res is None:  # Denied by user
+                        # Remove the last two messages (user + model with tool call)
+                        # to keep conversation history consistent
+                        if len(self.client.conversation) >= 2:
+                            self.client.conversation.pop()  # Remove model msg
+                            self.client.conversation.pop()  # Remove user msg
+                        console.print(
+                            "[yellow]Conversation rolled back due to "
+                            "denied tool execution.[/yellow]"
+                        )
                         return
 
                     tool_result, injected = res
@@ -132,6 +142,9 @@ class ChatSession:
                     self._log_chat(injected_datas, role="Tool Output")
 
                 response_text, _ = self.client._send(injected_datas)
+                response_text = self.client._format_response_text(
+                    response_text
+                )
             else:
                 break
 
@@ -166,6 +179,7 @@ class ChatSession:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[tuple]:
+        tool_id = call.get("id", "unknown")
         name = call["name"]
         args = call.get("args", {})
 
@@ -206,6 +220,7 @@ class ChatSession:
 
             return {
                 "functionResponse": {
+                    "id": tool_id,
                     "name": name,
                     "response": {"result": result_data}
                 }
@@ -214,6 +229,7 @@ class ChatSession:
             console.print(f"[bold red]Tool execution failed: {e}[/bold red]")
             return {
                 "functionResponse": {
+                    "id": tool_id,
                     "name": name,
                     "response": {"result": f"Error: {e}"}
                 }

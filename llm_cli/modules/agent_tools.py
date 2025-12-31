@@ -12,6 +12,9 @@ from llm_cli.clients.config import get_setting
 def list_files(directory: str = ".") -> str:
     """List all files in the given directory recursively."""
     try:
+        # Handle empty/None passed from some providers by falling back to CWD
+        directory = directory or "."
+
         paths = []
         # Exclude common large or sensitive folders
         exclude = {".git",

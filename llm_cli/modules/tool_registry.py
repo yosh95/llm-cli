@@ -93,14 +93,6 @@ class ToolRegistry:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "A list of search queries."
-                    },
-                    "start_index": {
-                        "type": "integer",
-                        "description": "Pagination start index."
-                    },
-                    "num": {
-                        "type": "integer",
-                        "description": "Number of results (max 10)."
                     }
                 },
                 "required": ["queries"]

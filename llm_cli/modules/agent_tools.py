@@ -72,7 +72,7 @@ def execute_command(command: str) -> str:
 
 
 def google_search(
-    queries: list[str], start_index: int = 1, num: int = 5
+    queries: list[str]
 ) -> str:
     """
     Perform a Google Search using the Custom Search JSON API.
@@ -94,9 +94,7 @@ def google_search(
         params = {
             "key": api_key,
             "cx": cse_id,
-            "q": query,
-            "start": start_index,
-            "num": min(num, 10)  # API max is 10
+            "q": query
         }
         try:
             response = requests.get(search_url, params=params, timeout=15)
@@ -114,11 +112,7 @@ def google_search(
                 )
 
             if results:
-                info = (
-                    f"Results {start_index} to "
-                    f"{start_index + len(results) - 1}"
-                )
-                all_results.append(f"### Results for: {query} ({info})\n" +
+                all_results.append(f"### Results for: {query}\n" +
                                    "\n".join(results))
             else:
                 all_results.append(f"No results found for: {query}")

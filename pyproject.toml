@@ -3,8 +3,8 @@ name = "llm_cli"
 version = "0.0.1"
 description = "A Unified Command-Line Interface for Multiple LLMs"
 authors = [
-    {name = "Yoshihiro Ando",email = "yosh5295@gmail.com"}
-}
+    {name = "Yoshihiro Ando", email = "yosh5295@gmail.com"}
+]
 license = {text = " Apache License 2.0"}
 readme = "README.md"
 dependencies = [

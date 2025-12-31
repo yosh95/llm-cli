@@ -1,6 +1,5 @@
 # llm_cli/modules/agent_tools.py
 import subprocess
-import os
 import requests
 import base64
 import cloudscraper
@@ -9,33 +8,106 @@ from pathlib import Path
 from llm_cli.clients.config import get_setting
 
 
-def list_files(directory: str = ".") -> str:
-    """List all files in the given directory recursively."""
+def list_files(
+    directory: str = ".",
+    depth: int = 1,
+    max_files: int = 500
+) -> str:
+    """
+    List files and directories.
+    Use depth to control how deep to go (default 1 for current dir only).
+    """
     try:
-        # Handle empty/None passed from some providers by falling back to CWD
         directory = directory or "."
+        base_path = Path(directory)
 
-        paths = []
-        # Exclude common large or sensitive folders
-        exclude = {".git",
-                   "__pycache__",
-                   "node_modules",
-                   ".venv",
-                   ".pytest_cache"}
-        for root, dirs, files in os.walk(directory):
-            dirs[:] = [d for d in dirs if d not in exclude]
-            for file in files:
-                paths.append(os.path.relpath(os.path.join(root, file),
-                                             directory))
-        return "\n".join(paths) if paths else "No files found."
+        exclude = {
+            ".git", "__pycache__", "node_modules",
+            ".venv", ".pytest_cache", ".DS_Store"
+        }
+
+        results = []
+        file_count = 0
+
+        def walk(current_path, current_depth):
+            nonlocal file_count
+            if depth is not None and current_depth > depth:
+                return
+
+            try:
+                # Get entries and sort them (dirs first, then files)
+                entries = sorted(
+                    list(current_path.iterdir()),
+                    key=lambda x: (not x.is_dir(), x.name)
+                )
+            except PermissionError:
+                return
+
+            for entry in entries:
+                if entry.name in exclude:
+                    continue
+
+                if file_count >= max_files:
+                    if file_count == max_files:
+                        results.append(
+                            f"\n... (Limit of {max_files} files reached) ..."
+                        )
+                        file_count += 1
+                    continue
+
+                rel_path = entry.relative_to(base_path)
+                prefix = "  " * (current_depth - 1)
+                if entry.is_dir():
+                    results.append(f"{prefix}📁 {rel_path}/")
+                    walk(entry, current_depth + 1)
+                else:
+                    results.append(f"{prefix}📄 {rel_path}")
+                    file_count += 1
+
+        walk(base_path, 1)
+
+        if not results:
+            return "No files found."
+
+        header = f"Listing contents of {directory} (depth={depth}):\n"
+        return header + "\n".join(results)
+
     except Exception as e:
         return f"Error: {str(e)}"
 
 
-def read_file(path: str) -> str:
-    """Read and return the content of a file."""
+def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
+    """
+    Read the content of a file.
+    Optional start_line and end_line (1-indexed) can be used to read parts.
+    """
     try:
-        return Path(path).read_text(encoding="utf-8")
+        p = Path(path)
+        if not p.is_file():
+            return f"Error: {path} is not a file."
+
+        lines = p.read_text(encoding="utf-8").splitlines()
+        total_lines = len(lines)
+
+        # Basic bounds checking
+        start = max(1, start_line) - 1
+        end = min(total_lines, end_line) if end_line else total_lines
+
+        content = "\n".join(lines[start:end])
+
+        if end_line or start_line > 1:
+            header = (
+                f"--- Reading {path} (Lines {start+1} to {end} "
+                f"of {total_lines}) ---\n"
+            )
+        else:
+            header = f"--- Reading {path} ({total_lines} lines) ---\n"
+            # Hard limit for safety if not specified
+            if len(content) > 50000:
+                trunc_msg = "\n... (Content truncated for length) ..."
+                content = content[:50000] + trunc_msg
+
+        return header + content
     except Exception as e:
         return f"Error reading {path}: {str(e)}"
 
@@ -52,7 +124,7 @@ def write_file(path: str, content: str) -> str:
 
 
 def execute_command(command: str) -> str:
-    """Execute a shell command and return its output."""
+    """Execute a shell command and return output (truncated if too long)."""
     try:
         # Use a timeout to prevent infinite loops
         result = subprocess.run(command,
@@ -60,9 +132,31 @@ def execute_command(command: str) -> str:
                                 capture_output=True,
                                 text=True,
                                 timeout=60)
-        output = f"STDOUT:\n{result.stdout}\n"
-        if result.stderr:
-            output += f"STDERR:\n{result.stderr}\n"
+
+        stdout = result.stdout
+        stderr = result.stderr
+
+        # Truncate if output is massive (e.g., > 10000 chars)
+        max_chars = 10000
+        if len(stdout) > max_chars:
+            half = max_chars // 2
+            stdout = (
+                stdout[:half] +
+                "\n... (Omitted for brevity) ...\n" +
+                stdout[-half:]
+            )
+
+        output = f"STDOUT:\n{stdout}\n"
+        if stderr:
+            if len(stderr) > max_chars:
+                half = max_chars // 2
+                stderr = (
+                    stderr[:half] +
+                    "\n... (Omitted for brevity) ...\n" +
+                    stderr[-half:]
+                )
+            output += f"STDERR:\n{stderr}\n"
+
         output += f"Exit Code: {result.returncode}"
         return output
     except subprocess.TimeoutExpired:
@@ -163,8 +257,8 @@ def fetch_url(url: str) -> dict | str:
 
 def checkpoint_conversation(summary: str) -> str:
     """
-    Consolidate the current session into a summary and reset history.
-    This helps keep the context window clean while maintaining vital info.
+    Consolidate current session into summary and reset history.
+    This helps keep context window clean while maintaining vital info.
     """
     # The actual history clearing logic is handled in session.py
     return summary

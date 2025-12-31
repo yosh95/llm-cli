@@ -14,14 +14,21 @@ class ToolRegistry:
     def _load_default_tools(self):
         self.register(
             name="list_files",
-            description="Get a list of all files in the project to "
-                        "understand the structure.",
+            description="List files and directories in the project. "
+                        "Use depth=1 for a quick overview of the root, "
+                        "or increase depth for more detail.",
             parameters={
                 "type": "object",
                 "properties": {
                     "directory": {
                         "type": "string",
                         "description": "The root directory to start listing."
+                    },
+                    "depth": {
+                        "type": "integer",
+                        "description": "How deep to traverse the directory "
+                                       "tree. Default is 1.",
+                        "default": 1
                     }
                 }
             },
@@ -29,14 +36,23 @@ class ToolRegistry:
         )
         self.register(
             name="read_file",
-            description="Read the content of a file to analyze its "
-                        "code or text.",
+            description="Read the content of a file. You can specify "
+                        "start_line and end_line for large files.",
             parameters={
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
                         "description": "The relative path to the file."
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "The first line to read (1-indexed).",
+                        "default": 1
+                    },
+                    "end_line": {
+                        "type": "integer",
+                        "description": "The last line to read (inclusive)."
                     }
                 },
                 "required": ["path"]
@@ -66,8 +82,7 @@ class ToolRegistry:
         )
         self.register(
             name="execute_command",
-            description="Run shell commands for tasks like testing, "
-                        "linting, or checking environment state.",
+            description="Run shell commands. Output is truncated if too long.",
             parameters={
                 "type": "object",
                 "properties": {

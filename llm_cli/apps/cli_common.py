@@ -14,107 +14,59 @@ from llm_cli.clients.base import BaseLlmClient, ProviderSwitchRequest, console
 @dataclass
 class ClientConfig:
     """Configuration for CLI entry point."""
-
-    client_class: Type[BaseLlmClient]  # The client class to instantiate
-    description: str  # CLI description for argparse
-
-    supports_provider_selection: bool = False  # For UnifiedClient
+    client_class: Type[BaseLlmClient]
+    description: str
+    supports_provider_selection: bool = False
     extra_args: List[Tuple[str, Dict[str, Any]]] = field(default_factory=list)
 
 
 def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
-    """
-    Create standard argument parser with common options.
-
-    Args:
-        config: ClientConfig with provider-specific details
-
-    Returns:
-        Configured ArgumentParser
-    """
     parser = argparse.ArgumentParser(
         description=config.description,
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    # Common positional arguments
     parser.add_argument(
-        'sources',
-        nargs='*',
-        help="Sources for the prompt (text, files, URLs). "
-             "If no sources are provided, starts interactive mode."
+        'sources', nargs='*', help="Sources (text, files, URLs)."
+    )
+    parser.add_argument(
+        '-m', '--model', default='default',
+        help="Model alias (default: 'default')"
+    )
+    parser.add_argument(
+        '-t', '--tools', action='append',
+        help="Enable a tool (e.g., -t search)."
     )
 
-    # Common optional arguments
-    parser.add_argument(
-        '-m', '--model',
-        default='default',
-        help="Specify the model alias to use (default: 'default')"
-    )
-
-    parser.add_argument(
-        '-t', '--tools',
-        action='append',
-        help="Enable a specific tool on startup (e.g., -t search). "
-             "Can be used multiple times."
-    )
-
-    # Provider selection for UnifiedClient
     if config.supports_provider_selection:
         parser.add_argument(
             '-p', '--provider',
-            choices=['google',
-                     'gemini',
-                     'openai',
-                     'anthropic',
-                     'claude',
-                     'xai',
-                     'grok'],
-            help="Specify the provider to use "
-                 "(default: from config or 'gemini')"
+            choices=[
+                'google', 'gemini', 'openai', 'anthropic',
+                'claude', 'xai', 'grok'
+            ],
+            help="Provider to use"
         )
 
-    # Output control arguments
     parser.add_argument(
-        '-s', '--stdout',
-        action='store_true',
-        help="Print response to stdout and exit (non-interactive mode)"
+        '-s', '--stdout', action='store_true', help="Print to stdout and exit"
+    )
+    parser.add_argument(
+        '--raw', action='store_true', help="Disable Markdown rendering"
+    )
+    parser.add_argument(
+        '--no-system-prompt', action='store_true', help="Disable system prompt"
+    )
+    parser.add_argument(
+        '-d', '--debug', action='store_true', help="Enable live debug mode"
+    )
+    parser.add_argument(
+        '--mcp', action='store_true', help="Enable MCP integration"
+    )
+    parser.add_argument(
+        '--mcp-server', action='store_true', help="Run as an MCP server"
     )
 
-    parser.add_argument(
-        '--raw',
-        action='store_true',
-        help="Disable Markdown rendering in output"
-    )
-
-    parser.add_argument(
-        '--no-system-prompt',
-        action='store_true',
-        help="Disable system prompt even if configured"
-    )
-
-    # Debugging
-    parser.add_argument(
-        '-d', '--debug',
-        action='store_true',
-        help="Enable live debug mode (print request/response details)"
-    )
-
-    # MCP Integration
-    parser.add_argument(
-        '--mcp',
-        action='store_true',
-        help="Enable MCP (Model Context Protocol) integration"
-    )
-
-    # MCP Server Mode
-    parser.add_argument(
-        '--mcp-server',
-        action='store_true',
-        help="Run as an MCP server to expose tools to other clients"
-    )
-
-    # Add any provider-specific extra arguments
     for arg_name, arg_config in config.extra_args:
         parser.add_argument(arg_name, **arg_config)
 
@@ -122,89 +74,50 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
 
 
 def run_client_cli(config: ClientConfig) -> None:
-    """
-    Standard CLI entry point logic for all clients.
-
-    Handles:
-    - Argument parsing
-    - Client instantiation
-    - stdin input detection and processing
-    - Mode selection (interactive vs one-shot)
-
-    Args:
-        config: ClientConfig with provider-specific details
-    """
-    # Parse arguments
     parser = create_standard_parser(config)
     args = parser.parse_args()
 
-    # Handle MCP Server mode if requested
     if args.mcp_server:
         try:
             from llm_cli.apps.mcp_server import main as run_mcp_server
             run_mcp_server()
             sys.exit(0)
-        except ImportError:
-            console.print(
-                "[red]Error: 'mcp' package is not installed.[/red]\n"
-                "Please install it with: pip install 'mcp>=1.0.0'"
-            )
-            sys.exit(1)
-        except Exception as e:
+        except (ImportError, Exception) as e:
             console.print(f"[red]Failed to start MCP server: {e}[/red]")
             sys.exit(1)
 
-    # Determine output mode
     stdout = args.stdout or not sys.stdin.isatty()
-    render_markdown = not args.raw
-
-    # Build client kwargs from args
     client_kwargs = {
         'initial_model_alias': args.model,
         'stdout': stdout,
-        'render_markdown': render_markdown,
+        'render_markdown': not args.raw,
         'initial_tools': args.tools,
         'disable_system_prompt': args.no_system_prompt,
         'enable_mcp': args.mcp,
         'live_debug': args.debug,
     }
 
-    # Add optional capabilities if supported
-    if config.supports_provider_selection and \
-            hasattr(args, 'provider') and args.provider:
+    if config.supports_provider_selection and getattr(args, 'provider', None):
         client_kwargs['initial_provider'] = args.provider
 
-    # Instantiate client
     client = config.client_class(**client_kwargs)
 
     try:
-        # Handle input sources
         if not sys.stdin.isatty():
-            # stdin is being piped in
             stdin_input = sys.stdin.read().strip()
-            if stdin_input:
-                # Combine stdin with command-line sources
-                all_sources = [stdin_input] + args.sources
+            all_sources = ([stdin_input] if stdin_input else []) + args.sources
+            if all_sources:
                 client.process_sources(all_sources)
-            elif args.sources:
-                # Only command-line sources, no stdin
-                client.process_sources(args.sources)
             else:
-                # No input at all (shouldn't happen, but handle gracefully)
                 client.talk()
         elif args.sources:
-            # Command-line sources provided, process them
             client.process_sources(args.sources)
         else:
-            # No sources provided, start interactive mode
             client.talk()
     except ProviderSwitchRequest as e:
         console.print(
             f"[bold red]Switching to provider '{escape(e.provider)}' "
-            "is not supported in this specific tool.[/bold red]"
+            "is not supported here.[/bold red]"
         )
-        console.print(
-            "Please use the [bold cyan]llm-unified[/bold cyan] command "
-            "for dynamic provider switching."
-        )
+        console.print("Use [bold cyan]llm-unified[/bold cyan] for switching.")
         sys.exit(0)

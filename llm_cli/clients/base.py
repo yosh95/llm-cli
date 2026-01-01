@@ -56,11 +56,9 @@ class BaseLlmClient(ABC):
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S (%A)')
-
+        self.system_prompt = f"Current date and time: {now}"
         if raw_prompt:
-            self.system_prompt = f"Current date and time: {now}\n{raw_prompt}"
-        else:
-            self.system_prompt = f"Current date and time: {now}"
+            self.system_prompt += f"\n{raw_prompt}"
 
         self.system_prompt_enabled = not disable_system_prompt
 
@@ -84,39 +82,35 @@ class BaseLlmClient(ABC):
             get_setting("max_chat_log_lines", "general") or 10000
         )
 
-        # Initialize base tools first
         self.active_tools: List[str] = (
             initial_tools if initial_tools is not None
             else list(registry.tools.keys())
         )
 
-        # Handle MCP Remote Tools
         if enable_mcp:
-            try:
-                from llm_cli.clients.mcp_manager import mcp_manager
-                # Check if already initialized to avoid double printing
-                # when using UnifiedClient which wraps other clients.
-                already_initialized = mcp_manager._initialized
+            self._init_mcp(initial_tools is None)
 
-                remote_tool_names = registry.register_remote_tools(mcp_manager)
-                if remote_tool_names:
-                    if not already_initialized:
-                        console.print(
-                            f"[dim cyan]Registered {len(remote_tool_names)} "
-                            "remote MCP tools.[/dim cyan]"
-                        )
-                    # Ensure remote tools are added to active list
-                    # if not overriding
-                    if initial_tools is None:
-                        for tn in remote_tool_names:
-                            if tn not in self.active_tools:
-                                self.active_tools.append(tn)
-            except ImportError:
-                pass
-            except Exception as e:
-                console.print(
-                    f"[yellow]Note: MCP initialization failed: {e}[/yellow]"
-                )
+    def _init_mcp(self, update_active_tools: bool):
+        try:
+            from llm_cli.clients.mcp_manager import mcp_manager
+            already_initialized = mcp_manager._initialized
+            remote_tool_names = registry.register_remote_tools(mcp_manager)
+            if remote_tool_names:
+                if not already_initialized:
+                    console.print(
+                        f"[dim cyan]Registered {len(remote_tool_names)} "
+                        "remote MCP tools.[/dim cyan]"
+                    )
+                if update_active_tools:
+                    for tn in remote_tool_names:
+                        if tn not in self.active_tools:
+                            self.active_tools.append(tn)
+        except ImportError:
+            pass
+        except Exception as e:
+            console.print(
+                f"[yellow]Note: MCP initialization failed: {e}[/yellow]"
+            )
 
     def _expand(self, p: Optional[str]) -> Optional[str]:
         return str(Path(p).expanduser()) if p else None
@@ -151,11 +145,10 @@ class BaseLlmClient(ABC):
 
     def process_sources(self, sources: List[str]):
         """Process input sources and either output result or start chat."""
-        data = []
-        for s in sources:
-            processed = self._process_single_source(s)
-            if processed:
-                data.append(processed)
+        data = [
+            processed for s in sources
+            if (processed := self._process_single_source(s))
+        ]
 
         from llm_cli.clients.session import ChatSession
         session = ChatSession(self)
@@ -192,9 +185,10 @@ class BaseLlmClient(ABC):
         return {"content": source, "content_type": "text/plain"}
 
     def _has_pending_tool_calls(self) -> bool:
-        if not self.conversation:
-            return False
-        if self.conversation[-1].get("role") != "model":
+        if (
+            not self.conversation or
+            self.conversation[-1].get("role") != "model"
+        ):
             return False
         return any(
             "functionCall" in p
@@ -235,12 +229,12 @@ class BaseLlmClient(ABC):
             json_str = json.dumps(
                 self.conversation, indent=2, ensure_ascii=False
             )
-            syntax = Syntax(
+            syn = Syntax(
                 json_str, "json", theme="monokai",
                 background_color="default", word_wrap=True
             )
             console.print(Panel(
-                syntax, title="Conversation Dump", border_style="blue"
+                syn, title="Conversation Dump", border_style="blue"
             ))
             return True
 
@@ -248,14 +242,10 @@ class BaseLlmClient(ABC):
             for msg in self.conversation:
                 role = msg.get("role", "unknown")
                 for p in msg.get("parts", []):
-                    if "text" in p:
-                        print(f"[{role.upper()}]")
-                        print(p["text"])
-                        print()
-                    elif "thought" in p:
-                        print(f"[{role.upper()} (THOUGHT)]")
-                        print(p["thought"])
-                        print()
+                    role_suffix = " (THOUGHT)" if "thought" in p else ""
+                    text = p.get("text") or p.get("thought")
+                    if text:
+                        print(f"[{role.upper()}{role_suffix}]\n{text}\n")
             return True
 
         if cmd in ('c', 'clear'):
@@ -267,10 +257,8 @@ class BaseLlmClient(ABC):
             raise EOFError
 
         if cmd == 'tools':
-            console.print(
-                f"[bold]Active Tools:[/bold] "
-                f"{', '.join(self.active_tools) or 'None'}"
-            )
+            tools_str = ', '.join(self.active_tools) or 'None'
+            console.print(f"[bold]Active Tools:[/bold] {tools_str}")
             return True
 
         if cmd in ('debug', 'd'):
@@ -279,41 +267,42 @@ class BaseLlmClient(ABC):
             console.print(f"[magenta]Live debug mode {status}.[/magenta]")
             return True
 
-        if cmd == 'info' or cmd == 'i':
+        if cmd in ('info', 'i'):
             debug_status = "ON" if self.live_debug else "OFF"
+            tools_str = ', '.join(self.active_tools) or 'None'
             console.print(
                 "[bold]Session Info:[/bold]\n"
                 f"  Provider: [cyan]{self.config_section}[/cyan]\n"
                 f"  Model: [cyan]{self.model}[/cyan] "
                 f"(Alias: {self.current_alias})\n"
-                f"  Tools: {', '.join(self.active_tools) or 'None'}\n"
+                f"  Tools: {tools_str}\n"
                 f"  Debug: [magenta]{debug_status}[/magenta]\n"
                 f"  History: {len(self.conversation)} messages"
             )
             return True
 
-        if cmd == 'help' or cmd == 'h':
-            console.print(
-                "[bold]Available Commands:[/bold]\n"
-                "  /clear (c)     Clear conversation history\n"
-                "  /checkpoint(cp)Summarize and clear conversation history\n"
-                "  /dump          Dump conversation history as JSON\n"
-                "  /raw           Show conversation as raw text (for copy-paste)\n"
-                "  /quit (q)      Exit the application\n"
-                "  /info (i)      Show session info\n"
-                "  /debug (d)     Toggle live debug mode (request/response)\n"
-                "  /models (m)    List available models (aliases)\n"
-                "  /tools         Show active tools\n"
-                "  /google        Switch to Google (Gemini)\n"
-                "  /openai        Switch to OpenAI\n"
-                "  /anthropic     Switch to Anthropic (Claude)\n"
-                "  /xai           Switch to xAI (Grok)\n"
-                f"  <model_alias>  Switch to specific model "
-                f"(Available: {', '.join(self.available_models.keys())})"
-            )
+        if cmd in ('help', 'h'):
+            self._print_help()
             return True
 
         return False
+
+    def _print_help(self):
+        models_str = ', '.join(self.available_models.keys())
+        console.print(
+            "[bold]Available Commands:[/bold]\n"
+            "  /clear (c)     Clear conversation history\n"
+            "  /checkpoint(cp)Summarize and clear history\n"
+            "  /dump          Dump conversation history as JSON\n"
+            "  /raw           Show conversation as raw text\n"
+            "  /quit (q)      Exit the application\n"
+            "  /info (i)      Show session info\n"
+            "  /debug (d)     Toggle live debug mode\n"
+            "  /models (m)    List available models\n"
+            "  /tools         Show active tools\n"
+            "  /google, /openai, /anthropic, /xai  Switch provider\n"
+            f"  <model_alias>  Switch to specific model ({models_str})"
+        )
 
     def _trim_log_file(self, path: Path, max_lines: int):
         try:
@@ -331,9 +320,7 @@ class BaseLlmClient(ABC):
         if inline_data.get('mimeType', '').startswith('image/'):
             ext = inline_data['mimeType'].split('/')[-1]
             now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            fname = (
-                f"output_image_{now_str}_{uuid.uuid4().hex[:4]}.{ext}"
-            )
+            fname = f"output_image_{now_str}_{uuid.uuid4().hex[:4]}.{ext}"
             try:
                 Path(fname).write_bytes(base64.b64decode(inline_data['data']))
                 return f"\n**output image: {fname}**"
@@ -350,8 +337,7 @@ class BaseLlmClient(ABC):
         if not self.live_debug:
             return
 
-        now = datetime.datetime.now()
-        timestamp = now.strftime('%H:%M:%S')
+        timestamp = datetime.datetime.now().strftime('%H:%M:%S')
 
         try:
             self._print_live_debug(
@@ -367,80 +353,67 @@ class BaseLlmClient(ABC):
         request_payload: Any = None,
         response_content: Any = None
     ):
-        """Print detailed request/response to console."""
-
         def _format_json(data):
             if isinstance(data, (dict, list)):
                 return Syntax(
                     json.dumps(data, indent=2, ensure_ascii=False),
-                    "json",
-                    theme="monokai",
-                    background_color="default",
-                    word_wrap=True
+                    "json", theme="monokai",
+                    background_color="default", word_wrap=True
                 )
             return str(data)
 
         if response_obj:
-            # Request Panel
             req_info = []
             if hasattr(response_obj, 'request'):
                 req = response_obj.request
                 req_info.append(f"[bold]URL:[/bold] {req.url}")
                 if req.body:
                     try:
-                        b_obj = req.body
                         b_str = (
-                            b_obj.decode('utf-8')
-                            if isinstance(b_obj, bytes)
-                            else str(b_obj)
+                            req.body.decode('utf-8')
+                            if isinstance(req.body, bytes)
+                            else str(req.body)
                         )
-                        parsed = json.loads(b_str)
-                        req_info.append(_format_json(parsed))
+                        req_info.append(_format_json(json.loads(b_str)))
                     except Exception:
                         req_info.append(str(req.body))
 
             if req_info:
-                req_t = f"[bold cyan]API Request ({timestamp})[/bold cyan]"
-                p = Panel(
-                    Group(*req_info), title=req_t, border_style="cyan",
-                    expand=False
-                )
-                console.print(p)
+                title = f"[bold cyan]API Request ({timestamp})[/bold cyan]"
+                console.print(Panel(
+                    Group(*req_info), title=title,
+                    border_style="cyan", expand=False
+                ))
 
-            # Response Panel
             res_info = [f"[bold]Status:[/bold] {response_obj.status_code}"]
             try:
-                parsed = response_obj.json()
-                res_info.append(_format_json(parsed))
+                res_info.append(_format_json(response_obj.json()))
             except Exception:
                 res_info.append(response_obj.text)
 
-            res_t = f"[bold green]API Response ({timestamp})[/bold green]"
-            p = Panel(
-                Group(*res_info), title=res_t, border_style="green",
-                expand=False
-            )
-            console.print(p)
+            title = f"[bold green]API Response ({timestamp})[/bold green]"
+            console.print(Panel(
+                Group(*res_info), title=title,
+                border_style="green", expand=False
+            ))
         else:
             if request_payload:
-                req_t = f"[bold cyan]Payload Request ({timestamp})[/bold cyan]"
-                p = Panel(
-                    _format_json(request_payload), title=req_t,
+                title = f"[bold cyan]Payload Request ({timestamp})[/bold cyan]"
+                console.print(Panel(
+                    _format_json(request_payload), title=title,
                     border_style="cyan", expand=False
-                )
-                console.print(p)
+                ))
             if response_content:
-                res_t = (
-                    f"[bold green]Payload Response ({timestamp})[/bold green]"
+                title = (
+                    f"[bold green]Payload Response ({timestamp})"
+                    "[/bold green]"
                 )
-                p = Panel(
-                    _format_json(response_content), title=res_t,
+                console.print(Panel(
+                    _format_json(response_content), title=title,
                     border_style="green", expand=False
-                )
-                console.print(p)
+                ))
 
     def _report_error(self, provider_name: str, e: Exception):
-        """Helper to report errors with detailed API response if available."""
         import requests
         error_msg = str(e)
         if (
@@ -448,9 +421,8 @@ class BaseLlmClient(ABC):
             e.response is not None
         ):
             try:
-                error_data = e.response.json()
                 body_str = json.dumps(
-                    error_data, indent=2, ensure_ascii=False
+                    e.response.json(), indent=2, ensure_ascii=False
                 )
                 error_msg += f"\nResponse Body: {body_str}"
             except Exception:

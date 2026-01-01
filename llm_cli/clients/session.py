@@ -55,31 +55,28 @@ class ChatSession:
         initial_data: Optional[List[DataSource]] = None,
         sources: Optional[List[str]] = None
     ):
-        """Entry point for the interactive chat loop."""
         data = initial_data or []
-
         while True:
             try:
-                conv_len = len(self.client.conversation)
-                if conv_len >= 30 and not self._checkpoint_hint_shown:
+                if (
+                    len(self.client.conversation) >= 30 and
+                    not self._checkpoint_hint_shown
+                ):
                     console.print(
-                        "[dim]Tip: Conversation has many messages. "
-                        "Use /checkpoint to compress context.[/dim]"
+                        "[dim]Tip: Use /checkpoint to compress context.[/dim]"
                     )
                     self._checkpoint_hint_shown = True
 
                 console.print(md_separator)
                 user_input = prompt(
                     '> ', history=self.prompt_history, key_bindings=kb,
-                    enable_system_prompt=True,
-                    enable_open_in_editor=True
+                    enable_system_prompt=True, enable_open_in_editor=True
                 ).strip()
 
                 if not user_input:
                     continue
 
                 console.print(md_separator)
-
                 if user_input.startswith('!'):
                     if self._handle_shell_command(user_input, data):
                         continue
@@ -103,7 +100,6 @@ class ChatSession:
                 console.print(f"[bold red]Error: {e}[/bold red]")
 
     def process_and_print(self, data: List[DataSource]):
-        """Executes the request and handles the ReAct agent loop."""
         self._log_chat(data, role="User")
         response_text, _ = self.client._send(data)
         response_text = self.client._format_response_text(response_text)
@@ -119,7 +115,6 @@ class ChatSession:
             if not self.client._has_pending_tool_calls():
                 break
 
-            # Handle Tool Calls
             last_msg = self.client.conversation[-1]
             tool_results_parts = []
             injected_datas = []
@@ -127,10 +122,8 @@ class ChatSession:
             for part in last_msg.get("parts", []):
                 if "functionCall" in part:
                     res = self._execute_tool_call(part["functionCall"])
-                    if res is None:
-                        # Unexpected error in tool execution logic
+                    if not res:
                         return
-
                     tool_result, injected = res
                     tool_results_parts.append(tool_result)
                     if injected:
@@ -138,12 +131,10 @@ class ChatSession:
 
             if tool_results_parts:
                 self.client.conversation.append({
-                    "role": "function",
-                    "parts": tool_results_parts
+                    "role": "function", "parts": tool_results_parts
                 })
                 if injected_datas:
                     self._log_chat(injected_datas, role="Tool Output")
-
                 response_text, _ = self.client._send(injected_datas)
                 response_text = self.client._format_response_text(
                     response_text
@@ -152,62 +143,49 @@ class ChatSession:
                 break
 
     def _handle_checkpoint(self):
-        """User-triggered checkpoint to summarize and clear history."""
         console.print("[yellow]Generating summary...[/yellow]")
-
-        # Save current conversation to restore if needed
-        # We temporarily inject a summarization request
         summarize_prompt = (
             "Summarize the conversation so far, preserving key context, "
             "decisions, code changes, and remaining tasks. "
             "Be comprehensive but concise."
         )
 
-        # We don't want to modify self.client.conversation permanently yet
-        # Create a copy for the summarization request
         temp_conversation = copy.deepcopy(self.client.conversation)
         temp_conversation.append({
-            "role": "user",
-            "parts": [{"text": summarize_prompt}]
+            "role": "user", "parts": [{"text": summarize_prompt}]
         })
 
-        # Temporarily swap conversation to send the request
         original_conversation = self.client.conversation
         self.client.conversation = temp_conversation
 
         try:
-            # Send empty data because prompt is already in conversation
             summary, _ = self.client._send([])
             if not summary:
                 console.print("[red]Failed to generate summary.[/red]")
                 self.client.conversation = original_conversation
                 return
 
-            panel_title = "[bold cyan]Proposed Context Summary[/bold cyan]"
-            console.print(Panel(summary, title=panel_title, expand=False))
+            title = "[bold cyan]Proposed Context Summary[/bold cyan]"
+            console.print(Panel(summary, title=title, expand=False))
 
             if self._confirm("Clear history and use this summary? (y/N): "):
-                self.client.conversation = []
-                # Re-enable system prompt check logic if needed
-                self.client.conversation.append({
+                self.client.conversation = [{
                     "role": "user",
                     "parts": [{
                         "text": f"SYSTEM: History cleared. "
                                 f"Continue from this summary:\n\n{summary}"
                     }]
-                })
+                }]
                 console.print("[green]✅ Context refreshed.[/green]")
-                self._checkpoint_hint_shown = False  # Reset hint
+                self._checkpoint_hint_shown = False
             else:
                 console.print("[yellow]Checkpoint canceled.[/yellow]")
                 self.client.conversation = original_conversation
-
         except Exception as e:
             console.print(f"[bold red]Checkpoint failed: {e}[/bold red]")
             self.client.conversation = original_conversation
 
     def _log_chat(self, content: Any, role: str):
-        """Append entry to chat log."""
         if not self.client.chat_log_path:
             return
 
@@ -218,13 +196,12 @@ class ChatSession:
 
             text_content = ""
             if isinstance(content, list):
-                parts = []
-                for item in content:
-                    if item.get("content"):
-                        parts.append(str(item["content"]))
-                    elif item.get("file_uri"):
-                        parts.append(f"[File/Media: {item['file_uri']}]")
-                text_content = "\n".join(parts)
+                text_content = "\n".join(
+                    str(item.get(
+                        "content", f"[File/Media: {item.get('file_uri')}]"
+                    ))
+                    for item in content
+                )
             else:
                 text_content = str(content)
 
@@ -236,46 +213,37 @@ class ChatSession:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
     def _confirm(self, message: str) -> bool:
-        """
-        Ask for y/n confirmation, handling cases where stdin is redirected.
-        """
         if sys.stdin.isatty():
             try:
                 return prompt(message).strip().lower() == 'y'
             except (EOFError, KeyboardInterrupt):
                 return False
 
-        # If stdin is not a TTY (e.g. piped input), try to read from /dev/tty
         try:
             tty_path = '/dev/tty' if sys.platform != 'win32' else 'CON'
             with open(tty_path, 'r') as tty:
                 sys.stderr.write(message)
                 sys.stderr.flush()
                 line = tty.readline()
-                if not line:
-                    return False
-                return line.strip().lower() == 'y'
+                return line.strip().lower() == 'y' if line else False
         except Exception:
             console.print(
                 "[yellow]Warning: Could not access TTY for confirmation. "
-                "Denying for safety.[/yellow]"
+                "Denying.[/yellow]"
             )
             return False
 
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
-        tool_id = call.get("id", "unknown")
-        name = call["name"]
-        args = call.get("args", {})
-
-        # Display request
+        tool_id, name, args = (
+            call.get("id", "unknown"), call["name"], call.get("args", {})
+        )
         display_args = {
-            k: (v[:200] + "...")
-            if isinstance(v, str) and len(v) > 200 else v
+            k: (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
             for k, v in args.items()
         }
+        title = "[bold yellow]🤖 Agent Request:[/bold yellow]"
         console.print(
-            f"[bold yellow]🤖 Agent Request:[/bold yellow] "
-            f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
+            f"{title} [cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
         )
 
         if name == "write_file":
@@ -285,36 +253,26 @@ class ChatSession:
             console.print("[red]Operation denied.[/red]")
             return {
                 "functionResponse": {
-                    "id": tool_id,
-                    "name": name,
+                    "id": tool_id, "name": name,
                     "response": {
-                        "result": (
-                            "Error: Operation denied by user. "
-                            "DO NOT retry this tool or proceed with other "
-                            "tool calls. Stop and ask the user for the "
-                            "reason for denial or for further instructions."
-                        )
+                        "result": "Error: Operation denied. "
+                                  "DO NOT retry. Ask for instructions."
                     }
                 }
             }, None
 
         try:
-            # Fix: Get tool function from the centralized registry
             if name not in registry.tools:
-                raise ValueError(f"Tool '{name}' not found in registry.")
+                raise ValueError(f"Tool '{name}' not found.")
 
-            tool_func = registry.tools[name]["func"]
-            result_data = tool_func(**args)
-
-            injected = None
-            if (
-                isinstance(result_data, dict) and
-                "__llm_cli_data__" in result_data
-            ):
-                injected = result_data.pop("__llm_cli_data__")
+            result_data = registry.tools[name]["func"](**args)
+            injected = (
+                result_data.pop("__llm_cli_data__", None)
+                if isinstance(result_data, dict) else None
+            )
 
             p_str = str(result_data)
-            if name == "execute_command" or "__execute_command" in name:
+            if "execute_command" in name:
                 console.print(f"[dim]Result:[/dim]\n{escape(p_str)}")
             else:
                 preview = p_str[:300] + ("..." if len(p_str) > 300 else "")
@@ -322,8 +280,7 @@ class ChatSession:
 
             return {
                 "functionResponse": {
-                    "id": tool_id,
-                    "name": name,
+                    "id": tool_id, "name": name,
                     "response": {"result": result_data}
                 }
             }, injected
@@ -331,35 +288,21 @@ class ChatSession:
             console.print(f"[bold red]Tool execution failed: {e}[/bold red]")
             return {
                 "functionResponse": {
-                    "id": tool_id,
-                    "name": name,
+                    "id": tool_id, "name": name,
                     "response": {"result": f"Error: {e}"}
                 }
             }, None
 
     def _preview_diff(self, args: Dict[str, Any]):
-        """Show what will be changed in write_file."""
         try:
-            path = Path(args.get("path", ""))
-            new_content = args.get("content", "")
+            path, new_content = (
+                Path(args.get("path", "")), args.get("content", "")
+            )
             if not path or not new_content:
-                console.print(
-                    "[yellow]Missing path or content for preview.[/yellow]"
-                )
                 return
 
             if path.exists():
-                if path.is_dir():
-                    console.print(f"[red]Error: {path} is a directory.[/red]")
-                    return
-                try:
-                    old_content = path.read_text(encoding="utf-8")
-                except UnicodeDecodeError:
-                    console.print(
-                        f"[yellow]Cannot preview binary file: {path}[/yellow]"
-                    )
-                    return
-
+                old_content = path.read_text(encoding="utf-8")
                 diff = list(difflib.unified_diff(
                     old_content.splitlines(keepends=True),
                     new_content.splitlines(keepends=True),
@@ -370,24 +313,21 @@ class ChatSession:
                         "".join(diff), "diff", theme="monokai", word_wrap=True
                     )
                     console.print(Panel(
-                        syn,
-                        title=f"[bold]Diff: {path}[/bold]",
-                        border_style="yellow",
-                        expand=False
+                        syn, title=f"[bold]Diff: {path}[/bold]",
+                        border_style="yellow", expand=False
                     ))
-                else:
-                    console.print(f"[dim]No changes to {path}[/dim]")
             else:
                 lexer = Syntax.guess_lexer(str(path), code=new_content)
+                syn = Syntax(
+                    new_content, lexer, theme="monokai",
+                    line_numbers=True, word_wrap=True
+                )
                 console.print(Panel(
-                    Syntax(new_content, lexer,
-                           theme="monokai", line_numbers=True, word_wrap=True),
-                    title=f"[bold green]New File: {path}[/bold green]",
-                    border_style="green",
-                    expand=False
+                    syn, title=f"[bold green]New File: {path}[/bold green]",
+                    border_style="green", expand=False
                 ))
-        except Exception as e:
-            console.print(f"[dim]Preview failed: {e}[/dim]")
+        except Exception:
+            pass
 
     def _handle_shell_command(
         self, user_input: str, data: List[DataSource]
@@ -409,7 +349,6 @@ class ChatSession:
                                f"```\n{output}\n```",
                     "content_type": "text/plain"
                 })
-                console.print("[green]Added.[/green]")
                 return True
         except Exception as e:
             console.print(f"[bold red]Execution Error: {e}[/bold red]")

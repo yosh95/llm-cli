@@ -19,25 +19,28 @@ class UnifiedClient(BaseLlmClient):
     providers within a single session.
     """
 
-    PROVIDER_MAP = {
-        'google': GeminiClient, 'gemini': GeminiClient,
-        'openai': OpenAIClient, 'gpt': OpenAIClient,
-        'anthropic': ClaudeClient, 'claude': ClaudeClient,
-        'xai': GrokClient, 'grok': GrokClient,
+    # Maps aliases to (ClientClass, config_section)
+    PROVIDER_CONFIG = {
+        'google': (GeminiClient, 'google'),
+        'gemini': (GeminiClient, 'google'),
+        'openai': (OpenAIClient, 'openai'),
+        'gpt': (OpenAIClient, 'openai'),
+        'anthropic': (ClaudeClient, 'anthropic'),
+        'claude': (ClaudeClient, 'anthropic'),
+        'xai': (GrokClient, 'xai'),
+        'grok': (GrokClient, 'xai'),
     }
 
     def __init__(self, initial_provider: Optional[str] = None, **kwargs):
         self.clients: Dict[str, BaseLlmClient] = {}
         self.client_kwargs = kwargs
 
-        # Determine initial provider
         self.current_provider_name = (
             initial_provider or
             get_setting("unified_default_provider", "general") or "google"
         )
         self._activate_provider(self.current_provider_name)
 
-        # Inherit settings from active client
         super().__init__(
             initial_model_alias=kwargs.get('initial_model_alias', 'default'),
             api_key_name="api_key",
@@ -73,71 +76,57 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, 'active_client'):
             self.active_client.live_debug = value
 
-    def _get_config_section(self, alias: str) -> str:
-        mapping = {
-            'gemini': 'google', 'google': 'google',
-            'openai': 'openai', 'gpt': 'openai',
-            'anthropic': 'anthropic', 'claude': 'anthropic',
-            'xai': 'xai', 'grok': 'xai',
-        }
-        return mapping.get(alias, 'google')
-
     def _activate_provider(self, provider_alias: str) -> bool:
-        if provider_alias not in self.PROVIDER_MAP:
+        if provider_alias not in self.PROVIDER_CONFIG:
             return False
 
-        provider_name = self._get_config_section(provider_alias)
-        if provider_name not in self.clients:
-            client_class = self.PROVIDER_MAP.get(provider_alias)
-            self.clients[provider_name] = client_class(**self.client_kwargs)
+        client_class, config_section = self.PROVIDER_CONFIG[provider_alias]
+        if config_section not in self.clients:
+            self.clients[config_section] = client_class(**self.client_kwargs)
 
-        self.active_client = self.clients[provider_name]
+        self.active_client = self.clients[config_section]
         self.active_client.live_debug = self.live_debug
-        self.current_provider_name = provider_name
+        self.current_provider_name = config_section
         self.config_section = self.active_client.config_section
         self.available_models = self.active_client.available_models
         self.pdf_as_base64 = self.active_client.pdf_as_base64
 
-        # Share conversation history
+        # Sync state
         self.active_client.conversation = self.conversation
-
-        # Sync tools
         if hasattr(self, 'active_tools'):
             self.active_client.active_tools = self.active_tools
 
         return True
 
     def _load_model_aliases(self):
-        # Already handled by sub-clients
+        """Handled by sub-clients."""
         pass
 
     def set_model(self, alias: str) -> bool:
-        res = self.active_client.set_model(alias)
-        if res:
+        if self.active_client.set_model(alias):
             self.model = self.active_client.model
             self.current_alias = self.active_client.current_alias
-        return res
+            return True
+        return False
 
     def _handle_command(
         self, user_input: str, sources: Optional[List[str]]
     ) -> bool:
-        if not user_input.startswith('/'):
-            return False
-        cmd = user_input[1:]
-
-        if cmd in self.PROVIDER_MAP:
+        if (
+            user_input.startswith('/') and
+            user_input[1:] in self.PROVIDER_CONFIG
+        ):
+            cmd = user_input[1:]
             if self._activate_provider(cmd):
                 console.print(f"[cyan]Switched to provider: {cmd}[/cyan]")
                 return True
 
         return super()._handle_command(user_input, sources)
 
-    def _send(self, data: List[DataSource]) -> Tuple[
-        Optional[str], Optional[Dict]
-    ]:
+    def _send(
+        self, data: List[DataSource]
+    ) -> Tuple[Optional[str], Optional[Dict]]:
         self.active_client.active_tools = self.active_tools
-        # Ensure conversation is synced just in case it was modified in-place
-        # but reference wasn't updated (though property handles reassignments)
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
         return self.active_client._send(data)

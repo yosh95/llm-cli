@@ -143,6 +143,16 @@ def main():
     except (ValueError, TypeError):
         config['general']['max_chat_log_lines'] = 10000
 
+    # --- Unified Provider Settings ---
+    print("\n--- Unified Client Settings ---")
+    current_provider = config['general'].get('unified_default_provider', 'google')
+    provider_prompt = ("Default provider for unified client "
+                       "(google, openai, anthropic, xai) "
+                       f"[current: {current_provider}]: ")
+    provider = input(provider_prompt).strip().lower()
+    config['general']['unified_default_provider'] = \
+        provider if provider else current_provider
+
     # --- Model Alias Configuration ---
     print("\n--- Optional: Default Model Aliases ---")
     print("You can set default models here. Press Enter to keep "

@@ -80,10 +80,13 @@ class UnifiedClient(BaseLlmClient):
         }
         return mapping.get(alias, 'google')
 
-    def _activate_provider(self, provider_alias: str):
+    def _activate_provider(self, provider_alias: str) -> bool:
+        if provider_alias not in self.PROVIDER_MAP:
+            return False
+
         provider_name = self._get_config_section(provider_alias)
         if provider_name not in self.clients:
-            client_class = self.PROVIDER_MAP.get(provider_alias, GeminiClient)
+            client_class = self.PROVIDER_MAP.get(provider_alias)
             self.clients[provider_name] = client_class(**self.client_kwargs)
 
         self.active_client = self.clients[provider_name]
@@ -99,6 +102,8 @@ class UnifiedClient(BaseLlmClient):
         # Sync tools
         if hasattr(self, 'active_tools'):
             self.active_client.active_tools = self.active_tools
+        
+        return True
 
     def _load_model_aliases(self):
         # Already handled by sub-clients
@@ -119,9 +124,9 @@ class UnifiedClient(BaseLlmClient):
         cmd = user_input[1:]
 
         if cmd in self.PROVIDER_MAP:
-            self._activate_provider(cmd)
-            console.print(f"[cyan]Switched to provider: {cmd}[/cyan]")
-            return True
+            if self._activate_provider(cmd):
+                console.print(f"[cyan]Switched to provider: {cmd}[/cyan]")
+                return True
 
         return super()._handle_command(user_input, sources)
 

@@ -4,6 +4,7 @@ import difflib
 import subprocess
 import datetime
 import sys
+import copy
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -16,7 +17,7 @@ from rich.rule import Rule
 from rich.syntax import Syntax
 from rich.panel import Panel
 
-from llm_cli.clients.base import BaseLlmClient, DataSource
+from llm_cli.clients.base import BaseLlmClient, DataSource, CheckpointRequest
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.tool_registry import registry
 
@@ -41,6 +42,7 @@ class ChatSession:
     def __init__(self, client: BaseLlmClient):
         self.client = client
         self.history_path = client.history_path
+        self._checkpoint_hint_shown = False
 
         if self.history_path:
             Path(self.history_path).parent.mkdir(parents=True, exist_ok=True)
@@ -58,6 +60,14 @@ class ChatSession:
 
         while True:
             try:
+                conv_len = len(self.client.conversation)
+                if conv_len >= 30 and not self._checkpoint_hint_shown:
+                    console.print(
+                        "[dim]Tip: Conversation has many messages. "
+                        "Use /checkpoint to compress context.[/dim]"
+                    )
+                    self._checkpoint_hint_shown = True
+
                 console.print(md_separator)
                 user_input = prompt(
                     '> ', history=self.prompt_history, key_bindings=kb,
@@ -74,7 +84,11 @@ class ChatSession:
                     if self._handle_shell_command(user_input, data):
                         continue
 
-                if self.client._handle_command(user_input, sources):
+                try:
+                    if self.client._handle_command(user_input, sources):
+                        continue
+                except CheckpointRequest:
+                    self._handle_checkpoint()
                     continue
 
                 data.append({
@@ -113,10 +127,6 @@ class ChatSession:
             for part in last_msg.get("parts", []):
                 if "functionCall" in part:
                     res = self._execute_tool_call(part["functionCall"])
-                    if res == "CHECKPOINT_SUCCESS":
-                        # History already cleared and summary injected.
-                        return
-
                     if res is None:
                         # Unexpected error in tool execution logic
                         return
@@ -140,6 +150,61 @@ class ChatSession:
                 )
             else:
                 break
+
+    def _handle_checkpoint(self):
+        """User-triggered checkpoint to summarize and clear history."""
+        console.print("[yellow]Generating summary...[/yellow]")
+
+        # Save current conversation to restore if needed
+        # We temporarily inject a summarization request
+        summarize_prompt = (
+            "Summarize the conversation so far, preserving key context, "
+            "decisions, code changes, and remaining tasks. "
+            "Be comprehensive but concise."
+        )
+
+        # We don't want to modify self.client.conversation permanently yet
+        # Create a copy for the summarization request
+        temp_conversation = copy.deepcopy(self.client.conversation)
+        temp_conversation.append({
+            "role": "user",
+            "parts": [{"text": summarize_prompt}]
+        })
+
+        # Temporarily swap conversation to send the request
+        original_conversation = self.client.conversation
+        self.client.conversation = temp_conversation
+
+        try:
+            # Send empty data because prompt is already in conversation
+            summary, _ = self.client._send([])
+            if not summary:
+                console.print("[red]Failed to generate summary.[/red]")
+                self.client.conversation = original_conversation
+                return
+
+            panel_title = "[bold cyan]Proposed Context Summary[/bold cyan]"
+            console.print(Panel(summary, title=panel_title))
+
+            if self._confirm("Clear history and use this summary? (y/N): "):
+                self.client.conversation = []
+                # Re-enable system prompt check logic if needed
+                self.client.conversation.append({
+                    "role": "user",
+                    "parts": [{
+                        "text": f"SYSTEM: History cleared. "
+                                f"Continue from this summary:\n\n{summary}"
+                    }]
+                })
+                console.print("[green]✅ Context refreshed.[/green]")
+                self._checkpoint_hint_shown = False  # Reset hint
+            else:
+                console.print("[yellow]Checkpoint canceled.[/yellow]")
+                self.client.conversation = original_conversation
+
+        except Exception as e:
+            console.print(f"[bold red]Checkpoint failed: {e}[/bold red]")
+            self.client.conversation = original_conversation
 
     def _log_chat(self, content: Any, role: str):
         """Append entry to chat log."""
@@ -212,39 +277,6 @@ class ChatSession:
             f"[bold yellow]🤖 Agent Request:[/bold yellow] "
             f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
         )
-
-        if name == "checkpoint_conversation":
-            summary = args.get("summary", "")
-            panel_title = "[bold cyan]Proposed Context Summary[/bold cyan]"
-            console.print(Panel(summary, title=panel_title))
-            if self._confirm("Clear history and use this summary? (y/N): "):
-                self.client.conversation = []
-                self.client.conversation.append({
-                    "role": "user",
-                    "parts": [{
-                        "text": f"SYSTEM: History cleared. "
-                                f"Continue from this summary:\n\n{summary}"
-                    }]
-                })
-                console.print("[green]✅ Context refreshed.[/green]")
-                return "CHECKPOINT_SUCCESS"
-            else:
-                console.print("[yellow]Checkpoint denied.[/yellow]")
-                return {
-                    "functionResponse": {
-                        "id": tool_id,
-                        "name": name,
-                        "response": {
-                            "result": (
-                                "Error: User denied checkpoint. "
-                                "Do not attempt to summarize again "
-                                "unless instructed. Continue the "
-                                "conversation normally or ask the user "
-                                "how they want to manage the context."
-                            )
-                        }
-                    }
-                }, None
 
         if name == "write_file":
             self._preview_diff(args)

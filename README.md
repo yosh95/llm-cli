@@ -22,7 +22,7 @@ The AI can use tools like `google_search` to find real-time information or `exec
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can read/write files, execute shell commands, and **search the web**.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
--   **Context Self-Management (Smart Checkpointing)**: The AI can propose summarizing the conversation and clearing history to keep the context window efficient while maintaining vital progress info.
+-   **User-Driven Context Management (Checkpointing)**: Manually trigger `/checkpoint` to summarize the conversation and clear history. This keeps the context window efficient while maintaining vital progress info.
 -   **Safe Execution**: Includes a **Diff Preview** for file changes (via `write_file`) and asks for user confirmation before executing any tool or shell command (Human-in-the-Loop).
 -   **One-Shot Execution**: Pipe input from other commands or pass prompts as arguments.
 -   **Multimodal Input**:
@@ -94,7 +94,8 @@ llm
 -   `/<alias>`: Switch model within the current provider (e.g., `/pro`, `/gpt4`, `/opus`).
 -   `/info` (or `/i`): Show session info.
 -   `/tools`: Show currently active tools (including remote MCP tools).
--   `/clear` (or `/c`): Clear conversation history.
+-   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
+-   `/clear` (or `/c`): Clear conversation history (without summary).
 -   `!command`: Execute a local shell command.
 -   `/help` (or `/h`): Show full command list.
 -   `/quit` (or `/q`): Exit.
@@ -119,7 +120,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 -   **統合インターフェース**: `llm` コマンド一つで全プロバイダを切り替え可能。
 -   **エージェントモード（常時有効）**: AIが自律的にファイル操作、コマンド実行、**Web検索**を行います。
 -   **MCPによる分散エージェント**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートサーバー上の `llm-cli` に接続し、遠隔地のファイルを操作したりテストを実行したりといった操作を、ローカルのツールと同じ感覚でAIに行わせることができます。
--   **スマートな履歴管理（チェックポイント機能）**: トークン消費を抑えつつ重要な進捗を維持。
+-   **ユーザー主導の履歴管理（チェックポイント機能）**: `/checkpoint` コマンドで会話の要約を作成し、履歴をリセット。トークン消費を抑えつつ重要な進捗を維持します。
 -   **安全な実行**: 全てのツール実行前にユーザーの確認を求める Human-in-the-Loop 方式。
 -   **マルチモーダル対応**: Gemini (動画/音声対応), OpenAI, Claude, Grok。
 
@@ -159,4 +160,8 @@ llm-cli-config
 ```bash
 llm
 ```
-`/info` で現在のセッション状態や、接続されているリモートツールを確認できます。
+
+**主なコマンド:**
+-   `/checkpoint` (or `/cp`): これまでの会話を要約し、履歴をクリアします。
+-   `/info` (or `/i`): 現在のセッション状態や、接続されているリモートツールを確認できます。
+-   `/help` (or `/h`): 全コマンドを表示します。

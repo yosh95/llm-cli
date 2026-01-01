@@ -255,15 +255,6 @@ def fetch_url(url: str) -> dict | str:
         return f"Error fetching {url}: {str(e)}"
 
 
-def checkpoint_conversation(summary: str) -> str:
-    """
-    Consolidate current session into summary and reset history.
-    This helps keep context window clean while maintaining vital info.
-    """
-    # The actual history clearing logic is handled in session.py
-    return summary
-
-
 # Map of function names to actual callables
 TOOL_FUNCTIONS = {
     "list_files": list_files,
@@ -272,5 +263,4 @@ TOOL_FUNCTIONS = {
     "execute_command": execute_command,
     "google_search": google_search,
     "fetch_url": fetch_url,
-    "checkpoint_conversation": checkpoint_conversation,
 }

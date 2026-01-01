@@ -26,6 +26,10 @@ class ProviderSwitchRequest(Exception):
         self.provider = provider
 
 
+class CheckpointRequest(Exception):
+    pass
+
+
 class BaseLlmClient(ABC):
     """Abstract Base Class for LLM API clients."""
 
@@ -49,26 +53,10 @@ class BaseLlmClient(ABC):
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S (%A)')
 
-        # Context management instruction
-        context_instruction = (
-            "\n\n[CONTEXT MANAGEMENT]\n"
-            "If the conversation becomes long or the context window is "
-            "cluttered with large outputs, use the `checkpoint_conversation` "
-            "tool. This tool allows you to summarize current progress and "
-            "clear history. Your summary must be exhaustive enough to "
-            "continue the task without any previous messages."
-        )
-
         if raw_prompt:
-            self.system_prompt = (
-                f"Current date and time: {now}\n{raw_prompt}"
-                f"{context_instruction}"
-            )
+            self.system_prompt = f"Current date and time: {now}\n{raw_prompt}"
         else:
-            self.system_prompt = (
-                f"Current date and time: {now}"
-                f"{context_instruction}"
-            )
+            self.system_prompt = f"Current date and time: {now}"
 
         self.system_prompt_enabled = not disable_system_prompt
 
@@ -242,6 +230,9 @@ class BaseLlmClient(ABC):
         if cmd in ('google', 'openai', 'anthropic', 'xai'):
             raise ProviderSwitchRequest(cmd)
 
+        if cmd in ('checkpoint', 'cp'):
+            raise CheckpointRequest()
+
         if cmd in ('c', 'clear'):
             self.conversation.clear()
             console.print("[yellow]Conversation history cleared.[/yellow]")
@@ -272,6 +263,7 @@ class BaseLlmClient(ABC):
             console.print(
                 "[bold]Available Commands:[/bold]\n"
                 "  /clear (c)     Clear conversation history\n"
+                "  /checkpoint(cp)Summarize and clear conversation history\n"
                 "  /quit (q)      Exit the application\n"
                 "  /info (i)      Show session info\n"
                 "  /models (m)    List available models (aliases)\n"

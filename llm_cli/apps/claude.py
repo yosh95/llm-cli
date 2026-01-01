@@ -87,7 +87,8 @@ class ClaudeClient(BaseLlmClient):
                         }
                     })
 
-            self.conversation.append({"role": "user", "parts": user_parts})
+            if user_parts:
+                self.conversation.append({"role": "user", "parts": user_parts})
             self.conversation.append(model_msg)
 
             return full_text, res.get('usage')

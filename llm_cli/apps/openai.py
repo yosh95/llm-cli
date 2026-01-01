@@ -81,7 +81,8 @@ class OpenAIClient(BaseLlmClient):
                         }
                     })
 
-            self.conversation.append({"role": "user", "parts": user_parts})
+            if user_parts:
+                self.conversation.append({"role": "user", "parts": user_parts})
             self.conversation.append(model_msg)
 
             return choice.get('content', ""), res.get('usage')

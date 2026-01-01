@@ -6,7 +6,7 @@ from llm_cli.apps.gemini import GeminiClient
 from llm_cli.apps.openai import OpenAIClient
 from llm_cli.apps.claude import ClaudeClient
 from llm_cli.apps.grok import GrokClient
-from llm_cli.clients.base import BaseLlmClient, DataSource, console
+from llm_cli.clients.base import BaseLlmClient, DataSource, console, Conversation
 from llm_cli.clients.config import get_setting
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
 
@@ -52,6 +52,16 @@ class UnifiedClient(BaseLlmClient):
         self.available_models = self.active_client.available_models
         self.active_client.conversation = self.conversation
 
+    @property
+    def conversation(self) -> Conversation:
+        return getattr(self, "_conversation", [])
+
+    @conversation.setter
+    def conversation(self, value: Conversation):
+        self._conversation = value
+        if hasattr(self, 'active_client'):
+            self.active_client.conversation = value
+
     def _get_config_section(self, alias: str) -> str:
         mapping = {
             'gemini': 'google', 'google': 'google',
@@ -84,8 +94,7 @@ class UnifiedClient(BaseLlmClient):
         self.pdf_as_base64 = self.active_client.pdf_as_base64
 
         # Share conversation history
-        if hasattr(self, 'conversation'):
-            self.active_client.conversation = self.conversation
+        self.active_client.conversation = self.conversation
 
         # Sync tools
         if hasattr(self, 'active_tools'):
@@ -126,6 +135,9 @@ class UnifiedClient(BaseLlmClient):
         Optional[str], Optional[Dict]
     ]:
         self.active_client.active_tools = self.active_tools
+        # Ensure conversation is synced just in case it was modified in-place 
+        # but the reference wasn't updated (though property handles reassignments)
+        self.active_client.conversation = self.conversation
         return self.active_client._send(data)
 
     def _has_pending_tool_calls(self) -> bool:

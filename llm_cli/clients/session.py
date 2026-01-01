@@ -366,8 +366,11 @@ class ChatSession:
                     fromfile=f"a/{path}", tofile=f"b/{path}"
                 ))
                 if diff:
+                    syn = Syntax(
+                        "".join(diff), "diff", theme="monokai", word_wrap=True
+                    )
                     console.print(Panel(
-                        Syntax("".join(diff), "diff", theme="monokai", word_wrap=True),
+                        syn,
                         title=f"[bold]Diff: {path}[/bold]",
                         border_style="yellow",
                         expand=False

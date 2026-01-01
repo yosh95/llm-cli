@@ -54,8 +54,6 @@ args = ["user@your-remote-host", "python3", "-m", "llm_cli.apps.mcp_server"]
 [general]
 LLM_PROMPT_HISTORY = "~/.local/state/llm_cli/history.txt"
 LLM_CHAT_LOG = "~/.local/share/llm_cli/chat.log"
-LLM_REQUEST_DEBUG_LOG = "~/.cache/llm_cli/debug.log"
 max_prompt_history_lines = 1000
 max_chat_log_lines = 10000
-max_debug_log_lines = 10000
 unified_default_provider = "google"

@@ -145,7 +145,8 @@ def main():
 
     # --- Unified Provider Settings ---
     print("\n--- Unified Client Settings ---")
-    current_provider = config['general'].get('unified_default_provider', 'google')
+    current_provider = config['general'].get('unified_default_provider',
+                                             'google')
     provider_prompt = ("Default provider for unified client "
                        "(google, openai, anthropic, xai) "
                        f"[current: {current_provider}]: ")

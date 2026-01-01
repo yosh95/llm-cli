@@ -6,7 +6,9 @@ from llm_cli.apps.gemini import GeminiClient
 from llm_cli.apps.openai import OpenAIClient
 from llm_cli.apps.claude import ClaudeClient
 from llm_cli.apps.grok import GrokClient
-from llm_cli.clients.base import BaseLlmClient, DataSource, console, Conversation
+from llm_cli.clients.base import (
+    BaseLlmClient, DataSource, console, Conversation
+)
 from llm_cli.clients.config import get_setting
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
 
@@ -102,7 +104,7 @@ class UnifiedClient(BaseLlmClient):
         # Sync tools
         if hasattr(self, 'active_tools'):
             self.active_client.active_tools = self.active_tools
-        
+
         return True
 
     def _load_model_aliases(self):
@@ -134,8 +136,8 @@ class UnifiedClient(BaseLlmClient):
         Optional[str], Optional[Dict]
     ]:
         self.active_client.active_tools = self.active_tools
-        # Ensure conversation is synced just in case it was modified in-place 
-        # but the reference wasn't updated (though property handles reassignments)
+        # Ensure conversation is synced just in case it was modified in-place
+        # but reference wasn't updated (though property handles reassignments)
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
         return self.active_client._send(data)

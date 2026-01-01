@@ -231,6 +231,19 @@ class BaseLlmClient(ABC):
         if cmd in ('checkpoint', 'cp'):
             raise CheckpointRequest()
 
+        if cmd == 'dump':
+            json_str = json.dumps(
+                self.conversation, indent=2, ensure_ascii=False
+            )
+            syntax = Syntax(
+                json_str, "json", theme="monokai",
+                background_color="default", word_wrap=True
+            )
+            console.print(Panel(
+                syntax, title="Conversation Dump", border_style="blue"
+            ))
+            return True
+
         if cmd in ('c', 'clear'):
             self.conversation.clear()
             console.print("[yellow]Conversation history cleared.[/yellow]")
@@ -270,6 +283,7 @@ class BaseLlmClient(ABC):
                 "[bold]Available Commands:[/bold]\n"
                 "  /clear (c)     Clear conversation history\n"
                 "  /checkpoint(cp)Summarize and clear conversation history\n"
+                "  /dump          Dump conversation history as JSON\n"
                 "  /quit (q)      Exit the application\n"
                 "  /info (i)      Show session info\n"
                 "  /debug (d)     Toggle live debug mode (request/response)\n"
@@ -339,7 +353,7 @@ class BaseLlmClient(ABC):
         response_content: Any = None
     ):
         """Print detailed request/response to console."""
-        
+
         def _format_json(data):
             if isinstance(data, (dict, list)):
                 return Syntax(
@@ -359,19 +373,24 @@ class BaseLlmClient(ABC):
                 req_info.append(f"[bold]URL:[/bold] {req.url}")
                 if req.body:
                     try:
-                        body_str = req.body.decode('utf-8') if isinstance(req.body, bytes) else str(req.body)
-                        parsed = json.loads(body_str)
+                        b_obj = req.body
+                        b_str = (
+                            b_obj.decode('utf-8')
+                            if isinstance(b_obj, bytes)
+                            else str(b_obj)
+                        )
+                        parsed = json.loads(b_str)
                         req_info.append(_format_json(parsed))
                     except Exception:
                         req_info.append(str(req.body))
-            
+
             if req_info:
-                console.print(Panel(
-                    Group(*req_info),
-                    title=f"[bold cyan]API Request ({timestamp})[/bold cyan]",
-                    border_style="cyan",
+                req_t = f"[bold cyan]API Request ({timestamp})[/bold cyan]"
+                p = Panel(
+                    Group(*req_info), title=req_t, border_style="cyan",
                     expand=False
-                ))
+                )
+                console.print(p)
 
             # Response Panel
             res_info = [f"[bold]Status:[/bold] {response_obj.status_code}"]
@@ -380,28 +399,30 @@ class BaseLlmClient(ABC):
                 res_info.append(_format_json(parsed))
             except Exception:
                 res_info.append(response_obj.text)
-            
-            console.print(Panel(
-                Group(*res_info),
-                title=f"[bold green]API Response ({timestamp})[/bold green]",
-                border_style="green",
+
+            res_t = f"[bold green]API Response ({timestamp})[/bold green]"
+            p = Panel(
+                Group(*res_info), title=res_t, border_style="green",
                 expand=False
-            ))
+            )
+            console.print(p)
         else:
             if request_payload:
-                console.print(Panel(
-                    _format_json(request_payload),
-                    title=f"[bold cyan]Payload Request ({timestamp})[/bold cyan]",
-                    border_style="cyan",
-                    expand=False
-                ))
+                req_t = f"[bold cyan]Payload Request ({timestamp})[/bold cyan]"
+                p = Panel(
+                    _format_json(request_payload), title=req_t,
+                    border_style="cyan", expand=False
+                )
+                console.print(p)
             if response_content:
-                console.print(Panel(
-                    _format_json(response_content),
-                    title=f"[bold green]Payload Response ({timestamp})[/bold green]",
-                    border_style="green",
-                    expand=False
-                ))
+                res_t = (
+                    f"[bold green]Payload Response ({timestamp})[/bold green]"
+                )
+                p = Panel(
+                    _format_json(response_content), title=res_t,
+                    border_style="green", expand=False
+                )
+                console.print(p)
 
     def _report_error(self, provider_name: str, e: Exception):
         """Helper to report errors with detailed API response if available."""

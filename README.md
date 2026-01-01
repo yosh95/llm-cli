@@ -95,6 +95,7 @@ llm
 -   `/info` (or `/i`): Show session info.
 -   `/tools`: Show currently active tools (including remote MCP tools).
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
+-   `/dump`: Dump conversation history as JSON.
 -   `/clear` (or `/c`): Clear conversation history (without summary).
 -   `!command`: Execute a local shell command.
 -   `/help` (or `/h`): Show full command list.
@@ -163,5 +164,6 @@ llm
 
 **主なコマンド:**
 -   `/checkpoint` (or `/cp`): これまでの会話を要約し、履歴をクリアします。
+-   `/dump`: これまでの会話履歴をJSON形式でダンプします。
 -   `/info` (or `/i`): 現在のセッション状態や、接続されているリモートツールを確認できます。
 -   `/help` (or `/h`): 全コマンドを表示します。

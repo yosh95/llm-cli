@@ -149,17 +149,26 @@ class BaseLlmClient(ABC):
             processed for s in sources
             if (processed := self._process_single_source(s))
         ]
+        # Check if there is any explicit prompt (text not from a file or URL)
+        has_prompt = any(not d.get("is_file_or_url") for d in data)
 
         from llm_cli.clients.session import ChatSession
         session = ChatSession(self)
 
         if data:
-            has_media = any(d.get("is_file_or_url") for d in data)
-            if self.stdout or not has_media:
+            # If prompt or stdout is requested, process immediately.
+            # This handles cases like:
+            # - llm "hi"
+            # - llm "Summarize this" https://...
+            # - llm -s README.md
+            if self.stdout or has_prompt:
                 session.process_and_print(data)
-                if not self.stdout and not has_media:
+                # If not stdout, enter interactive mode for follow-up.
+                if not self.stdout:
                     session.run(sources=sources)
             else:
+                # No prompt, only external resources (files/URLs).
+                # Start interactive session and wait for instructions.
                 session.run(initial_data=data, sources=sources)
         else:
             session.run(sources=sources)

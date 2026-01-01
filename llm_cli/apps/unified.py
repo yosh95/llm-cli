@@ -45,10 +45,9 @@ class UnifiedClient(BaseLlmClient):
             render_markdown=kwargs.get('render_markdown', True),
             initial_tools=kwargs.get('initial_tools'),
             disable_system_prompt=kwargs.get('disable_system_prompt', False),
-            enable_mcp=kwargs.get('enable_mcp', False)
+            enable_mcp=kwargs.get('enable_mcp', False),
+            live_debug=kwargs.get('live_debug', False)
         )
-
-        # Synchronize state
         self.available_models = self.active_client.available_models
         self.active_client.conversation = self.conversation
 
@@ -62,35 +61,36 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, 'active_client'):
             self.active_client.conversation = value
 
+    @property
+    def live_debug(self) -> bool:
+        return getattr(self, "_live_debug", False)
+
+    @live_debug.setter
+    def live_debug(self, value: bool):
+        self._live_debug = value
+        if hasattr(self, 'active_client'):
+            self.active_client.live_debug = value
+
     def _get_config_section(self, alias: str) -> str:
         mapping = {
             'gemini': 'google', 'google': 'google',
             'openai': 'openai', 'gpt': 'openai',
-            'claude': 'anthropic', 'anthropic': 'anthropic',
-            'grok': 'xai', 'xai': 'xai'
+            'anthropic': 'anthropic', 'claude': 'anthropic',
+            'xai': 'xai', 'grok': 'xai',
         }
-        return mapping.get(alias, alias)
+        return mapping.get(alias, 'google')
 
-    def _activate_provider(self, provider_alias: str) -> bool:
-        config_section = self._get_config_section(provider_alias)
-        provider_class = self.PROVIDER_MAP.get(provider_alias)
+    def _activate_provider(self, provider_alias: str):
+        provider_name = self._get_config_section(provider_alias)
+        if provider_name not in self.clients:
+            client_class = self.PROVIDER_MAP.get(provider_alias, GeminiClient)
+            self.clients[provider_name] = client_class(**self.client_kwargs)
 
-        if not provider_class:
-            console.print(f"[red]Provider '{provider_alias}' unknown.[/red]")
-            return False
-
-        if config_section not in self.clients:
-            self.clients[config_section] = provider_class(**self.client_kwargs)
-
-        self.active_client = self.clients[config_section]
-        self.config_section = config_section
-        self.current_provider_name = config_section  # For test compatibility
-
-        # Sync current state
-        self.api_key = self.active_client.api_key
+        self.active_client = self.clients[provider_name]
+        self.active_client.live_debug = self.live_debug
+        self.current_provider_name = provider_name
+        self.config_section = self.active_client.config_section
         self.available_models = self.active_client.available_models
-        self.current_alias = self.active_client.current_alias
-        self.model = self.active_client.model
         self.pdf_as_base64 = self.active_client.pdf_as_base64
 
         # Share conversation history
@@ -100,17 +100,16 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, 'active_tools'):
             self.active_client.active_tools = self.active_tools
 
-        return True
-
     def _load_model_aliases(self):
+        # Already handled by sub-clients
         pass
 
     def set_model(self, alias: str) -> bool:
-        if self.active_client.set_model(alias):
-            self.current_alias = self.active_client.current_alias
+        res = self.active_client.set_model(alias)
+        if res:
             self.model = self.active_client.model
-            return True
-        return False
+            self.current_alias = self.active_client.current_alias
+        return res
 
     def _handle_command(
         self, user_input: str, sources: Optional[List[str]]
@@ -120,13 +119,8 @@ class UnifiedClient(BaseLlmClient):
         cmd = user_input[1:]
 
         if cmd in self.PROVIDER_MAP:
-            if self.config_section == self._get_config_section(cmd):
-                console.print(f"[yellow]Already using {cmd}[/yellow]")
-            elif self._activate_provider(cmd):
-                console.print(
-                    f"[green]Switched to {cmd}. "
-                    f"Model: {self.current_alias}[/green]"
-                )
+            self._activate_provider(cmd)
+            console.print(f"[cyan]Switched to provider: {cmd}[/cyan]")
             return True
 
         return super()._handle_command(user_input, sources)
@@ -138,25 +132,17 @@ class UnifiedClient(BaseLlmClient):
         # Ensure conversation is synced just in case it was modified in-place 
         # but the reference wasn't updated (though property handles reassignments)
         self.active_client.conversation = self.conversation
+        self.active_client.live_debug = self.live_debug
         return self.active_client._send(data)
 
     def _has_pending_tool_calls(self) -> bool:
         return self.active_client._has_pending_tool_calls()
 
-    def _process_single_source(self, source: str) -> Optional[DataSource]:
-        """
-        Delegate to active client for provider-specific processing
-        (like Gemini uploads).
-        """
-        return self.active_client._process_single_source(source)
-
 
 def main():
-    """CLI entry point for the unified client."""
     config = ClientConfig(
         client_class=UnifiedClient,
-        description="Unified CLI for interacting with multiple LLM providers "
-                    "(Gemini, OpenAI, Claude, Grok)",
+        description="Unified LLM CLI with multi-provider support",
         supports_provider_selection=True
     )
     run_client_cli(config)

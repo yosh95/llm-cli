@@ -184,7 +184,7 @@ class ChatSession:
                 return
 
             panel_title = "[bold cyan]Proposed Context Summary[/bold cyan]"
-            console.print(Panel(summary, title=panel_title))
+            console.print(Panel(summary, title=panel_title, expand=False))
 
             if self._confirm("Clear history and use this summary? (y/N): "):
                 self.client.conversation = []
@@ -367,9 +367,10 @@ class ChatSession:
                 ))
                 if diff:
                     console.print(Panel(
-                        Syntax("".join(diff), "diff", theme="monokai"),
+                        Syntax("".join(diff), "diff", theme="monokai", word_wrap=True),
                         title=f"[bold]Diff: {path}[/bold]",
-                        border_style="yellow"
+                        border_style="yellow",
+                        expand=False
                     ))
                 else:
                     console.print(f"[dim]No changes to {path}[/dim]")
@@ -377,9 +378,10 @@ class ChatSession:
                 lexer = Syntax.guess_lexer(str(path), code=new_content)
                 console.print(Panel(
                     Syntax(new_content, lexer,
-                           theme="monokai", line_numbers=True),
+                           theme="monokai", line_numbers=True, word_wrap=True),
                     title=f"[bold green]New File: {path}[/bold green]",
-                    border_style="green"
+                    border_style="green",
+                    expand=False
                 ))
         except Exception as e:
             console.print(f"[dim]Preview failed: {e}[/dim]")

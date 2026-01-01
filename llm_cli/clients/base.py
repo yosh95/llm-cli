@@ -8,7 +8,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from rich.console import Console
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.syntax import Syntax
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.media_utils import process_file, fetch_url_content
 from llm_cli.modules.tool_registry import registry
@@ -42,13 +44,15 @@ class BaseLlmClient(ABC):
                  render_markdown: bool = True,
                  initial_tools: Optional[List[str]] = None,
                  disable_system_prompt: bool = False,
-                 enable_mcp: bool = False):
+                 enable_mcp: bool = False,
+                 live_debug: bool = False):
 
         self.config_section = config_section
         self.api_key = get_setting(api_key_name, config_section)
         self.pdf_as_base64 = pdf_as_base64
         self.stdout = stdout
         self.render_markdown = render_markdown
+        self.live_debug = live_debug
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S (%A)')
@@ -76,14 +80,8 @@ class BaseLlmClient(ABC):
         self.chat_log_path = self._expand(
             get_setting("LLM_CHAT_LOG", "general")
         )
-        self.request_debug_log_path = self._expand(
-            get_setting("LLM_REQUEST_DEBUG_LOG", "general")
-        )
         self.max_chat_log_lines = int(
             get_setting("max_chat_log_lines", "general") or 10000
-        )
-        self.max_debug_log_lines = int(
-            get_setting("max_debug_log_lines", "general") or 10000
         )
 
         # Initialize base tools first
@@ -248,13 +246,21 @@ class BaseLlmClient(ABC):
             )
             return True
 
+        if cmd in ('debug', 'd'):
+            self.live_debug = not self.live_debug
+            status = "ENABLED" if self.live_debug else "DISABLED"
+            console.print(f"[magenta]Live debug mode {status}.[/magenta]")
+            return True
+
         if cmd == 'info' or cmd == 'i':
+            debug_status = "ON" if self.live_debug else "OFF"
             console.print(
                 "[bold]Session Info:[/bold]\n"
                 f"  Provider: [cyan]{self.config_section}[/cyan]\n"
                 f"  Model: [cyan]{self.model}[/cyan] "
                 f"(Alias: {self.current_alias})\n"
                 f"  Tools: {', '.join(self.active_tools) or 'None'}\n"
+                f"  Debug: [magenta]{debug_status}[/magenta]\n"
                 f"  History: {len(self.conversation)} messages"
             )
             return True
@@ -266,6 +272,7 @@ class BaseLlmClient(ABC):
                 "  /checkpoint(cp)Summarize and clear conversation history\n"
                 "  /quit (q)      Exit the application\n"
                 "  /info (i)      Show session info\n"
+                "  /debug (d)     Toggle live debug mode (request/response)\n"
                 "  /models (m)    List available models (aliases)\n"
                 "  /tools         Show active tools\n"
                 "  /google        Switch to Google (Gemini)\n"
@@ -311,89 +318,90 @@ class BaseLlmClient(ABC):
         request_payload: Any = None,
         response_content: Any = None
     ):
-        if not self.request_debug_log_path:
+        if not self.live_debug:
             return
+
+        now = datetime.datetime.now()
+        timestamp = now.strftime('%H:%M:%S')
+
         try:
-            import json
-            import os
-            path = Path(self.request_debug_log_path)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            if not path.exists():
-                path.touch(mode=0o600)
-            os.chmod(path, 0o600)
-            now = datetime.datetime.now()
-            timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
-            log_parts = []
-            log_parts.append(f"=== DEBUG LOG ENTRY {timestamp} ===")
-            log_parts.append(f"Provider: {self.config_section}")
-            log_parts.append(f"Model: {self.model}")
-            if response_obj:
-                log_parts.append("\n--- Request ---")
-                if hasattr(response_obj, 'request'):
-                    log_parts.append(f"URL: {response_obj.request.url}")
-                    log_parts.append("Headers:")
-                    for k, v in response_obj.request.headers.items():
-                        log_parts.append(f"  {k}: {v}")
-                    log_parts.append("Body:")
-                    if response_obj.request.body:
-                        try:
-                            if isinstance(response_obj.request.body, bytes):
-                                b_dec = response_obj.request.body.decode(
-                                    'utf-8'
-                                )
-                                body_str = b_dec
-                            else:
-                                body_str = str(response_obj.request.body)
-                            parsed = json.loads(body_str)
-                            log_parts.append(
-                                json.dumps(
-                                    parsed, indent=2, ensure_ascii=False
-                                )
-                            )
-                        except Exception:
-                            log_parts.append(str(response_obj.request.body))
-                    else:
-                        log_parts.append("(no body)")
-                log_parts.append("\n--- Response ---")
-                log_parts.append(f"Status: {response_obj.status_code}")
-                log_parts.append("Headers:")
-                for k, v in response_obj.headers.items():
-                    log_parts.append(f"  {k}: {v}")
-                log_parts.append("Body:")
-                try:
-                    parsed = response_obj.json()
-                    log_parts.append(
-                        json.dumps(parsed, indent=2, ensure_ascii=False)
-                    )
-                except Exception:
-                    log_parts.append(response_obj.text)
-            else:
-                if request_payload:
-                    log_parts.append("\n--- Request Payload ---")
-                    if isinstance(request_payload, (dict, list)):
-                        log_parts.append(
-                            json.dumps(
-                                request_payload, indent=2, ensure_ascii=False
-                            )
-                        )
-                    else:
-                        log_parts.append(str(request_payload))
-                if response_content:
-                    log_parts.append("\n--- Response Content ---")
-                    if isinstance(response_content, (dict, list)):
-                        log_parts.append(
-                            json.dumps(
-                                response_content, indent=2, ensure_ascii=False
-                            )
-                        )
-                    else:
-                        log_parts.append(str(response_content))
-            log_parts.append("\n" + "="*80 + "\n")
-            with path.open("a", encoding="utf-8") as f:
-                f.write("\n".join(log_parts))
-            self._trim_log_file(path, self.max_debug_log_lines)
+            self._print_live_debug(
+                timestamp, response_obj, request_payload, response_content
+            )
         except Exception as e:
-            console.print(f"[dim red]Debug logging failed: {e}[/dim red]")
+            console.print(f"[dim red]Live debug display failed: {e}[/dim red]")
+
+    def _print_live_debug(
+        self,
+        timestamp: str,
+        response_obj: Any = None,
+        request_payload: Any = None,
+        response_content: Any = None
+    ):
+        """Print detailed request/response to console."""
+        
+        def _format_json(data):
+            if isinstance(data, (dict, list)):
+                return Syntax(
+                    json.dumps(data, indent=2, ensure_ascii=False),
+                    "json",
+                    theme="monokai",
+                    background_color="default",
+                    word_wrap=True
+                )
+            return str(data)
+
+        if response_obj:
+            # Request Panel
+            req_info = []
+            if hasattr(response_obj, 'request'):
+                req = response_obj.request
+                req_info.append(f"[bold]URL:[/bold] {req.url}")
+                if req.body:
+                    try:
+                        body_str = req.body.decode('utf-8') if isinstance(req.body, bytes) else str(req.body)
+                        parsed = json.loads(body_str)
+                        req_info.append(_format_json(parsed))
+                    except Exception:
+                        req_info.append(str(req.body))
+            
+            if req_info:
+                console.print(Panel(
+                    Group(*req_info),
+                    title=f"[bold cyan]API Request ({timestamp})[/bold cyan]",
+                    border_style="cyan",
+                    expand=False
+                ))
+
+            # Response Panel
+            res_info = [f"[bold]Status:[/bold] {response_obj.status_code}"]
+            try:
+                parsed = response_obj.json()
+                res_info.append(_format_json(parsed))
+            except Exception:
+                res_info.append(response_obj.text)
+            
+            console.print(Panel(
+                Group(*res_info),
+                title=f"[bold green]API Response ({timestamp})[/bold green]",
+                border_style="green",
+                expand=False
+            ))
+        else:
+            if request_payload:
+                console.print(Panel(
+                    _format_json(request_payload),
+                    title=f"[bold cyan]Payload Request ({timestamp})[/bold cyan]",
+                    border_style="cyan",
+                    expand=False
+                ))
+            if response_content:
+                console.print(Panel(
+                    _format_json(response_content),
+                    title=f"[bold green]Payload Response ({timestamp})[/bold green]",
+                    border_style="green",
+                    expand=False
+                ))
 
     def _report_error(self, provider_name: str, e: Exception):
         """Helper to report errors with detailed API response if available."""

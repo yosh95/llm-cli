@@ -93,6 +93,13 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
         help="Disable system prompt even if configured"
     )
 
+    # Debugging
+    parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        help="Enable live debug mode (print request/response details)"
+    )
+
     # MCP Integration
     parser.add_argument(
         '--mcp',
@@ -159,6 +166,7 @@ def run_client_cli(config: ClientConfig) -> None:
         'initial_tools': args.tools,
         'disable_system_prompt': args.no_system_prompt,
         'enable_mcp': args.mcp,
+        'live_debug': args.debug,
     }
 
     # Add optional capabilities if supported

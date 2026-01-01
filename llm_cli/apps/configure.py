@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# llm_cli/apps/configure.py
 
 import tomli_w
 import tomllib
@@ -112,7 +112,6 @@ def main():
         home_dir / '.local' / 'state' / 'llm_cli' / 'history.txt')
     default_chat_log_path = str(
         home_dir / '.local' / 'share' / 'llm_cli' / 'chat.log')
-    default_debug_log_path = str(home_dir / '.cache' / 'llm_cli' / 'debug.log')
 
     config['general']['LLM_PROMPT_HISTORY'] = prompt_for_general_setting(
         "Prompt history file path",
@@ -123,11 +122,6 @@ def main():
         "Chat log file path",
         config['general'].get('LLM_CHAT_LOG',
                               default_chat_log_path)
-    )
-    config['general']['LLM_REQUEST_DEBUG_LOG'] = prompt_for_general_setting(
-        "Request debug log file path",
-        config['general'].get('LLM_REQUEST_DEBUG_LOG',
-                              default_debug_log_path)
     )
 
     print("\n--- Log Retention Settings ---")
@@ -148,15 +142,6 @@ def main():
         config['general']['max_chat_log_lines'] = int(max_chat_log)
     except (ValueError, TypeError):
         config['general']['max_chat_log_lines'] = 10000
-
-    max_debug_log = prompt_for_general_setting(
-        "Max debug log lines to keep (0 for unlimited)",
-        str(config['general'].get('max_debug_log_lines', 10000))
-    )
-    try:
-        config['general']['max_debug_log_lines'] = int(max_debug_log)
-    except (ValueError, TypeError):
-        config['general']['max_debug_log_lines'] = 10000
 
     # --- Model Alias Configuration ---
     print("\n--- Optional: Default Model Aliases ---")

@@ -244,6 +244,20 @@ class BaseLlmClient(ABC):
             ))
             return True
 
+        if cmd == 'raw':
+            for msg in self.conversation:
+                role = msg.get("role", "unknown")
+                for p in msg.get("parts", []):
+                    if "text" in p:
+                        print(f"[{role.upper()}]")
+                        print(p["text"])
+                        print()
+                    elif "thought" in p:
+                        print(f"[{role.upper()} (THOUGHT)]")
+                        print(p["thought"])
+                        print()
+            return True
+
         if cmd in ('c', 'clear'):
             self.conversation.clear()
             console.print("[yellow]Conversation history cleared.[/yellow]")
@@ -284,6 +298,7 @@ class BaseLlmClient(ABC):
                 "  /clear (c)     Clear conversation history\n"
                 "  /checkpoint(cp)Summarize and clear conversation history\n"
                 "  /dump          Dump conversation history as JSON\n"
+                "  /raw           Show conversation as raw text (for copy-paste)\n"
                 "  /quit (q)      Exit the application\n"
                 "  /info (i)      Show session info\n"
                 "  /debug (d)     Toggle live debug mode (request/response)\n"

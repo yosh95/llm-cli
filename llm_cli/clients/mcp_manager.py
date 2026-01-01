@@ -25,6 +25,7 @@ class MCPManager:
         self.exit_stack: Dict[str, Any] = {}
         self.loop = asyncio.new_event_loop()
         self._initialized = False
+        self._cached_tools: List[Dict[str, Any]] = []
 
     def _run_async(self, coro):
         """Helper to run async coroutines in the manager's event loop."""
@@ -36,8 +37,8 @@ class MCPManager:
         Returns a list of tools with namespaced names.
         """
         if self._initialized:
-            # Already connected, just return tools from sessions
-            return self._get_registered_tools()
+            # Already connected, return cached tools
+            return self._cached_tools
 
         all_remote_tools = []
         if not self.servers_config:
@@ -74,26 +75,9 @@ class MCPManager:
                         f"'{name}': {e}[/red]"
                     )
 
+        self._cached_tools = all_remote_tools
         self._initialized = True
         return all_remote_tools
-
-    def _get_registered_tools(self) -> List[Dict[str, Any]]:
-        """Retrieves tools from already active sessions."""
-        all_tools = []
-        for server_name, session in self.sessions.items():
-            try:
-                response = self._run_async(session.list_tools())
-                for tool in response.tools:
-                    all_tools.append({
-                        "name": f"{server_name}__{tool.name}",
-                        "original_name": tool.name,
-                        "server_name": server_name,
-                        "description": tool.description,
-                        "parameters": tool.inputSchema
-                    })
-            except Exception:
-                pass
-        return all_tools
 
     async def _connect_and_list_tools(
         self, server_name: str, params: StdioServerParameters

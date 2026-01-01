@@ -21,20 +21,26 @@ def test_unified_client_switches_provider_via_alias(mock_config):
     mock_openai_instance.model = "gpt-4"
     mock_gemini_instance.model = "gemini-pro"
 
-    # Setup the new PROVIDER_MAP with mocks
-    new_provider_map = {
-        'google': mock_gemini_class,
-        'gemini': mock_gemini_class,
-        'openai': mock_openai_class,
-        'gpt': mock_openai_class,
-        'anthropic': MagicMock(),
-        'claude': MagicMock(),
-        'xai': MagicMock(),
-        'grok': MagicMock(),
+    mock_openai_instance.config_section = "openai"
+    mock_gemini_instance.config_section = "google"
+    mock_openai_instance.pdf_as_base64 = False
+    mock_gemini_instance.pdf_as_base64 = True
+
+    # Setup the new PROVIDER_CONFIG with mocks
+    # Format: alias -> (ClientClass, config_section)
+    new_provider_config = {
+        'google': (mock_gemini_class, 'google'),
+        'gemini': (mock_gemini_class, 'google'),
+        'openai': (mock_openai_class, 'openai'),
+        'gpt': (mock_openai_class, 'openai'),
+        'anthropic': (MagicMock(), 'anthropic'),
+        'claude': (MagicMock(), 'anthropic'),
+        'xai': (MagicMock(), 'xai'),
+        'grok': (MagicMock(), 'xai'),
     }
 
-    # Patch the PROVIDER_MAP on the UnifiedClient class
-    with patch.dict(UnifiedClient.PROVIDER_MAP, new_provider_map):
+    # Patch the PROVIDER_CONFIG on the UnifiedClient class
+    with patch.dict(UnifiedClient.PROVIDER_CONFIG, new_provider_config):
 
         # Initialize UnifiedClient with google/gemini initially
         client = UnifiedClient(initial_provider="google", stdout=True)

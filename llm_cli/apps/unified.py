@@ -109,6 +109,10 @@ class UnifiedClient(BaseLlmClient):
             return True
         return False
 
+    def _process_single_source(self, source: str) -> Optional[DataSource]:
+        """Delegate source processing to the active provider client."""
+        return self.active_client._process_single_source(source)
+
     def _handle_command(
         self, user_input: str, sources: Optional[List[str]]
     ) -> bool:

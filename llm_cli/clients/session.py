@@ -212,12 +212,13 @@ class ChatSession:
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
-    def _confirm(self, message: str) -> bool:
+    def _get_input(self, message: str) -> str:
+        """Helper for console input, supporting both TTY and prompt_toolkit."""
         if sys.stdin.isatty():
             try:
-                return prompt(message).strip().lower() == 'y'
+                return prompt(message).strip()
             except (EOFError, KeyboardInterrupt):
-                return False
+                return ""
 
         try:
             tty_path = '/dev/tty' if sys.platform != 'win32' else 'CON'
@@ -225,13 +226,16 @@ class ChatSession:
                 sys.stderr.write(message)
                 sys.stderr.flush()
                 line = tty.readline()
-                return line.strip().lower() == 'y' if line else False
+                return line.strip() if line else ""
         except Exception:
             console.print(
-                "[yellow]Warning: Could not access TTY for confirmation. "
-                "Denying.[/yellow]"
+                "[yellow]Warning: Could not access TTY for input. "
+                "Returning empty.[/yellow]"
             )
-            return False
+            return ""
+
+    def _confirm(self, message: str) -> bool:
+        return self._get_input(message).lower() == 'y'
 
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
         tool_id, name, args = (
@@ -249,14 +253,20 @@ class ChatSession:
         if name == "write_file":
             self._preview_diff(args)
 
-        if not self._confirm("Allow execution? (y/N): "):
+        user_input = self._get_input("Allow execution? (y/N or feedback): ")
+        if user_input.lower() != 'y':
+            feedback = user_input if user_input.lower() != 'n' else ""
             console.print("[red]Operation denied.[/red]")
+            result_msg = "Error: Operation denied."
+            if feedback:
+                result_msg += f" User feedback: {feedback}"
+            result_msg += " DO NOT retry. Ask for instructions."
+
             return {
                 "functionResponse": {
                     "id": tool_id, "name": name,
                     "response": {
-                        "result": "Error: Operation denied. "
-                                  "DO NOT retry. Ask for instructions."
+                        "result": result_msg
                     }
                 }
             }, None

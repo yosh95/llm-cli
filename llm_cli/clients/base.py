@@ -3,6 +3,7 @@
 import datetime
 import uuid
 import base64
+import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -229,6 +230,15 @@ class BaseLlmClient(ABC):
             )
             return True
 
+        if cmd in ('m', 'models'):
+            console.print("[bold]Available Models:[/bold]")
+            for alias, name in self.available_models.items():
+                active = "*" if alias == self.current_alias else " "
+                console.print(
+                    f" {active} [cyan]{alias:15}[/cyan] -> [dim]{name}[/dim]"
+                )
+            return True
+
         if cmd in ('google', 'openai', 'anthropic', 'xai'):
             raise ProviderSwitchRequest(cmd)
 
@@ -264,6 +274,7 @@ class BaseLlmClient(ABC):
                 "  /clear (c)     Clear conversation history\n"
                 "  /quit (q)      Exit the application\n"
                 "  /info (i)      Show session info\n"
+                "  /models (m)    List available models (aliases)\n"
                 "  /tools         Show active tools\n"
                 "  /google        Switch to Google (Gemini)\n"
                 "  /openai        Switch to OpenAI\n"
@@ -391,6 +402,28 @@ class BaseLlmClient(ABC):
             self._trim_log_file(path, self.max_debug_log_lines)
         except Exception as e:
             console.print(f"[dim red]Debug logging failed: {e}[/dim red]")
+
+    def _report_error(self, provider_name: str, e: Exception):
+        """Helper to report errors with detailed API response if available."""
+        import requests
+        error_msg = str(e)
+        if (
+            isinstance(e, requests.exceptions.HTTPError) and
+            e.response is not None
+        ):
+            try:
+                error_data = e.response.json()
+                body_str = json.dumps(
+                    error_data, indent=2, ensure_ascii=False
+                )
+                error_msg += f"\nResponse Body: {body_str}"
+            except Exception:
+                if e.response.text:
+                    error_msg += f"\nResponse Body: {e.response.text}"
+
+        console.print(
+            f"[bold red]{provider_name} Error: {error_msg}[/bold red]"
+        )
 
     def _format_response_text(self, text: Optional[str]) -> Optional[str]:
         if text is None:

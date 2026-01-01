@@ -116,10 +116,9 @@ class GeminiClient(BaseLlmClient):
                 json=payload,
                 timeout=self.REQUEST_TIMEOUT
             )
+            self._log_debug(response_obj=response)
             response.raise_for_status()
             res_json = response.json()
-
-            self._log_debug(response_obj=response)
 
             model_msg, _ = self._from_provider_response_format(res_json)
             if new_parts:
@@ -143,7 +142,7 @@ class GeminiClient(BaseLlmClient):
 
             return text, self.last_usage
         except Exception as e:
-            console.print(f"[bold red]Gemini Error: {e}[/bold red]")
+            self._report_error("Gemini", e)
             return None, None
 
     def _to_provider_request_format(self, history, context, new_parts):
@@ -227,7 +226,7 @@ class GeminiClient(BaseLlmClient):
 
             return file_info["uri"], mime_type
         except Exception as e:
-            console.print(f"[red]Upload failed: {e}[/red]")
+            self._report_error("Upload", e)
             return None
 
     def _wait_for_file_active(self, file_name: str) -> bool:

@@ -2,7 +2,7 @@
 
 import requests
 from typing import Dict, List, Optional, Tuple
-from llm_cli.clients.base import BaseLlmClient, DataSource, console
+from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
 
 FALLBACK_MODEL = "claude-haiku-4-5-20251001"
@@ -52,9 +52,10 @@ class ClaudeClient(BaseLlmClient):
             response = requests.post(
                 self.API_URL, headers=headers, json=payload, timeout=120
             )
+            # Log debug info regardless of success/failure
+            self._log_debug(response_obj=response)
             response.raise_for_status()
             res = response.json()
-            self._log_debug(response_obj=response)
 
             model_parts = []
             full_text = ""
@@ -91,11 +92,7 @@ class ClaudeClient(BaseLlmClient):
 
             return full_text, res.get('usage')
         except Exception as e:
-            self._log_debug(
-                request_payload=payload,
-                response_content=str(e)
-            )
-            console.print(f"[red]Claude Error: {e}[/red]")
+            self._report_error("Claude", e)
             return None, None
 
     def _build_messages(self, data):

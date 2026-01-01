@@ -18,8 +18,8 @@ def test_checkpoint_tool_approval(mock_gemini_client):
     """Test that approving a checkpoint clears history and injects summary."""
     session = ChatSession(mock_gemini_client)
 
-    # Mock prompt to return 'y' for the checkpoint approval
-    with patch("llm_cli.clients.session.prompt", return_value="y"):
+    # Mock _confirm to return True for the checkpoint approval
+    with patch.object(session, "_confirm", return_value=True):
         call = {
             "name": "checkpoint_conversation",
             "args": {"summary": "This is a test summary of progress."}
@@ -39,16 +39,22 @@ def test_checkpoint_tool_denial(mock_gemini_client):
     session = ChatSession(mock_gemini_client)
     initial_history_len = len(mock_gemini_client.conversation)
 
-    # Mock prompt to return 'n' for the checkpoint approval
-    with patch("llm_cli.clients.session.prompt", return_value="n"):
+    # Mock _confirm to return False for the checkpoint approval
+    with patch.object(session, "_confirm", return_value=False):
         call = {
             "name": "checkpoint_conversation",
             "args": {"summary": "Summary should be ignored."}
         }
         result = session._execute_tool_call(call)
 
-        # Verify result and state
-        assert result is None
+        # Verify result is a denial tuple (functionResponse, None)
+        assert isinstance(result, tuple)
+        assert result[1] is None
+        func_resp = result[0]["functionResponse"]
+        assert func_resp["name"] == "checkpoint_conversation"
+        assert "denied" in func_resp["response"]["result"]
+
+        # Verify history is preserved
         assert len(mock_gemini_client.conversation) == initial_history_len
         text = mock_gemini_client.conversation[0]["parts"][0]["text"]
         assert "First msg" in text
@@ -75,8 +81,8 @@ def test_checkpoint_tool_loop_interruption(mock_gemini_client):
     # Mock _send to prevent actual API calls
     mock_gemini_client._send = MagicMock(return_value=("Done", {}))
 
-    # Mock prompt to approve
-    with patch("llm_cli.clients.session.prompt", return_value="y"):
+    # Mock _confirm to approve
+    with patch.object(session, "_confirm", return_value=True):
         # We need to mock CustomMarkdown or just ignore console print
         with patch("llm_cli.clients.session.console.print"):
             session.process_and_print([])

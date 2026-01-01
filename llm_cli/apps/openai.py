@@ -3,7 +3,7 @@
 import requests
 import json
 from typing import Dict, List, Optional, Tuple
-from llm_cli.clients.base import BaseLlmClient, DataSource, console
+from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
 
 FALLBACK_MODEL = "gpt-5-nano"
@@ -47,9 +47,9 @@ class OpenAIClient(BaseLlmClient):
             response = requests.post(
                 self.API_URL, headers=headers, json=payload, timeout=60
             )
+            self._log_debug(response_obj=response)
             response.raise_for_status()
             res = response.json()
-            self._log_debug(response_obj=response)
 
             choice = res['choices'][0]['message']
             model_parts = []
@@ -86,11 +86,7 @@ class OpenAIClient(BaseLlmClient):
 
             return choice.get('content', ""), res.get('usage')
         except Exception as e:
-            self._log_debug(
-                request_payload=payload,
-                response_content=str(e)
-            )
-            console.print(f"[red]OpenAI Error: {e}[/red]")
+            self._report_error("OpenAI", e)
             return None, None
 
     def _build_messages(self, data):

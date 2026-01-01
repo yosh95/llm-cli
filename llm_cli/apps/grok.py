@@ -3,7 +3,7 @@
 import requests
 import json
 from typing import Dict, List, Optional, Tuple
-from llm_cli.clients.base import BaseLlmClient, DataSource, console
+from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
 
 FALLBACK_MODEL = "grok-4-1-fast-reasoning"
@@ -49,9 +49,9 @@ class GrokClient(BaseLlmClient):
             response = requests.post(
                 self.API_URL, headers=headers, json=payload, timeout=120
             )
+            self._log_debug(response_obj=response)
             response.raise_for_status()
             res = response.json()
-            self._log_debug(response_obj=response)
 
             choice = res['choices'][0]['message']
             content = choice.get('content', "")
@@ -90,11 +90,7 @@ class GrokClient(BaseLlmClient):
 
             return content, res.get('usage')
         except Exception as e:
-            self._log_debug(
-                request_payload=payload,
-                response_content=str(e)
-            )
-            console.print(f"[red]Grok Error: {e}[/red]")
+            self._report_error("Grok", e)
             return None, None
 
     def _build_messages(self, data):

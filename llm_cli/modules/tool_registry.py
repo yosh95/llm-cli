@@ -59,9 +59,28 @@ class ToolRegistry:
 registry = ToolRegistry()
 
 
-def tool(name: str, desc: str, params: Optional[Dict] = None):
+def tool(name: str,
+         description: Optional[str] = None,
+         parameters: Optional[Dict] = None,
+         desc: Optional[str] = None,
+         params: Optional[Dict] = None):
+    """
+    Decorator to register a function as a tool.
+    Supports both old (description, parameters) and new (desc, params) names.
+    """
+    # Support both old and new parameter names
+    final_desc = description or desc
+    final_params = parameters or params
+
+    if not final_desc:
+        raise ValueError("Either 'description' or 'desc' must be provided")
+
     def decorator(f: Callable):
-        registry.register(name, f, desc, params)
+        registry.register(name, f, final_desc, final_params)
         return f
 
     return decorator
+
+
+# Automatically discover and register local tools when module is imported
+registry.discover_local_tools()

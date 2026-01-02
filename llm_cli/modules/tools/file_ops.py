@@ -24,7 +24,7 @@ def list_files(
     directory: str = ".",
     depth: int = 1,
     max_files: int = 500
-):
+) -> str:
     try:
         base_path = Path(directory or ".")
         exclude = {".git", "__pycache__", "node_modules", ".venv"}

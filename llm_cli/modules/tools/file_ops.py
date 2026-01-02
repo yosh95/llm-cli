@@ -6,16 +6,25 @@ from llm_cli.modules.tool_registry import tool
 
 @tool(
     name="list_files",
-    desc="List files in a path.",
+    desc="List files in a directory with safety limits. "
+         "Use this to explore the project structure.",
     params={
         "type": "object",
         "properties": {
-            "directory": {"type": "string",
-                          "description": "Target directory."},
+            "directory": {
+                "type": "string",
+                "description": "Target directory (default: current directory)."
+            },
             "depth": {
                 "type": "integer",
-                "description": "Search depth.",
+                "description": "Maximum depth for recursive listing.",
                 "default": 1
+            },
+            "max_files": {
+                "type": "integer",
+                "description": "Maximum number of files to list to prevent "
+                "context overflow.",
+                "default": 500
             }
         }
     }
@@ -25,9 +34,19 @@ def list_files(
     depth: int = 1,
     max_files: int = 500
 ) -> str:
+    """
+    Lists files in a directory tree, excluding common noise directories
+    and limiting the output size for safety.
+    """
     try:
         base_path = Path(directory or ".")
-        exclude = {".git", "__pycache__", "node_modules", ".venv"}
+        if not base_path.exists():
+            return f"Error: Directory '{directory}' does not exist."
+
+        exclude = {
+            ".git", "__pycache__", "node_modules", ".venv",
+            ".pytest_cache", ".vscode", ".idea", ".mypy_cache"
+        }
         results, file_count = [], 0
 
         def walk(current_path, current_depth):
@@ -40,13 +59,20 @@ def list_files(
                     key=lambda x: (not x.is_dir(), x.name)
                 )
             except PermissionError:
+                results.append(f"{'  ' * (current_depth - 1)}⚠️ "
+                               f"Permission Denied: {current_path.name}")
                 return
 
             for entry in entries:
                 if entry.name in exclude:
                     continue
                 if file_count >= max_files:
+                    if file_count == max_files:
+                        results.append(
+                                "... (Too many files, listing truncated)")
+                        file_count += 1
                     break
+
                 rel_path = entry.relative_to(base_path)
                 prefix = "  " * (current_depth - 1)
                 if entry.is_dir():
@@ -64,13 +90,20 @@ def list_files(
 
 @tool(
     name="read_file",
-    desc="Read content from a text file.",
+    desc="Read content from a text file with optional line range.",
     params={
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "File path."},
-            "start_line": {"type": "integer", "default": 1},
-            "end_line": {"type": "integer"}
+            "start_line": {
+                "type": "integer",
+                "description": "First line to read (1-indexed).",
+                "default": 1
+            },
+            "end_line": {
+                "type": "integer",
+                "description": "Last line to read."
+            }
         },
         "required": ["path"]
     }
@@ -78,23 +111,36 @@ def list_files(
 def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
     try:
         p = Path(path)
+        if not p.is_file():
+            return f"Error: '{path}' is not a file."
+
         lines = p.read_text(encoding="utf-8").splitlines()
         start = max(1, start_line) - 1
         end = min(len(lines), end_line) if end_line else len(lines)
         content = "\n".join(lines[start:end])
-        return f"--- {path} ---\n{content[:50000]}"
+
+        header = f"--- {path} (Lines {start+1} to {end}) ---"
+        # Safety cap for very large files even within line range
+        return f"{header}\n{content[:50000]}"
     except Exception as e:
         return f"Error: {e}"
 
 
 @tool(
     name="write_file",
-    desc="Write content to a file.",
+    desc="Write content to a file. "
+         "Automatically creates directories if needed.",
     params={
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Save path."},
-            "content": {"type": "string", "description": "Content to write."}
+            "path": {
+                "type": "string",
+                "description": "Path to save the file."
+            },
+            "content": {
+                "type": "string",
+                "description": "The exact string content to write."
+            }
         },
         "required": ["path", "content"]
     }

@@ -6,6 +6,7 @@ import signal
 import platform
 from llm_cli.modules.tool_registry import tool
 
+
 @tool(
     name="execute_command",
     description="Execute a shell command.",
@@ -21,12 +22,12 @@ def execute_command(command: str) -> str:
     # Use a default timeout of 60 seconds.
     # We allow internal overriding for testing purposes.
     timeout = int(os.environ.get("LLM_CLI_COMMAND_TIMEOUT", 60))
-    
+
     kwargs = {
         "shell": True,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
-        "stdin": subprocess.DEVNULL, # Prevent hanging on interactive prompts
+        "stdin": subprocess.DEVNULL,  # Prevent hanging on interactive prompts
         "text": True,
     }
     if platform.system() != "Windows":
@@ -43,10 +44,14 @@ def execute_command(command: str) -> str:
                 else:
                     proc.kill()
                 stdout, stderr = proc.communicate()
-                return f"Error: Command timed out ({timeout}s). Partial STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+                return (
+                    f"Error: Command timed out ({timeout}s). "
+                    f"Partial STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+                )
 
         output = f"STDOUT:\n{stdout}"
-        if stderr: output += f"\nSTDERR:\n{stderr}"
+        if stderr:
+            output += f"\nSTDERR:\n{stderr}"
         return f"{output}\nExit Code: {proc.returncode}"
     except Exception as e:
         return f"Error: {e}"

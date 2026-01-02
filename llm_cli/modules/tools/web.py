@@ -7,6 +7,7 @@ import filetype
 from llm_cli.modules.tool_registry import tool
 from llm_cli.clients.config import get_setting
 
+
 @tool(
     name="google_search",
     description="Perform a Google Search.",
@@ -23,7 +24,7 @@ def google_search(queries: list[str]) -> str:
     cse_id = get_setting("cse_id", "google")
     if not api_key or not cse_id:
         return "Error: Google API credentials not configured."
-    
+
     all_results = []
     for q in queries:
         try:
@@ -33,11 +34,20 @@ def google_search(queries: list[str]) -> str:
                 timeout=15
             )
             items = resp.json().get("items", [])
-            results = [f"Title: {i.get('title')}\nURL: {i.get('link')}\nSnippet: {i.get('snippet')}\n" for i in items]
-            all_results.append(f"### Results for: {q}\n" + ("\n".join(results) or "No results."))
+            results = [
+                f"Title: {i.get('title')}\n"
+                f"URL: {i.get('link')}\n"
+                f"Snippet: {i.get('snippet')}\n"
+                for i in items
+            ]
+            all_results.append(
+                f"### Results for: {q}\n" +
+                ("\n".join(results) or "No results.")
+            )
         except Exception as e:
             all_results.append(f"Error searching '{q}': {e}")
     return "\n\n---\n\n".join(all_results)
+
 
 @tool(
     name="fetch_url",
@@ -60,7 +70,11 @@ def fetch_url(url: str) -> dict | str:
             b64 = base64.b64encode(resp.content).decode('utf-8')
             return {
                 "result": f"Fetched {mime} from {url}. Added to context.",
-                "__llm_cli_data__": {"content": b64, "content_type": mime, "is_file_or_url": True}
+                "__llm_cli_data__": {
+                    "content": b64,
+                    "content_type": mime,
+                    "is_file_or_url": True
+                }
             }
         return resp.text[:20000]
     except Exception as e:

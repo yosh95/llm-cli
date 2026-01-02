@@ -213,7 +213,7 @@ class BaseLlmClient(ABC):
         """Handle in-chat slash commands."""
         if not user_input.startswith('/'):
             return False
-        
+
         parts = user_input[1:].split(None, 1)
         cmd = parts[0]
         args = parts[1] if len(parts) > 1 else ""
@@ -245,7 +245,7 @@ class BaseLlmClient(ABC):
             if not path_str:
                 console.print("[red]Usage: /attach <path>[/red]")
                 return True
-            
+
             res = self._process_single_source(path_str)
             if res and res.get("is_file_or_url"):
                 if res.get("content_type") == "text/plain":

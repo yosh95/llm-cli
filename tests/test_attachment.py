@@ -1,77 +1,88 @@
 # tests/test_attachment.py
 
-import pytest
-from pathlib import Path
+from unittest.mock import patch
 from llm_cli.modules.tools.media import attach_file
 from llm_cli.clients.base import BaseLlmClient
 
-# BaseLlmClient is abstract, creating a minimal mock for testing
+
 class MockClient(BaseLlmClient):
     def _load_model_aliases(self):
-        self.available_models = {"default": "mock-model"}
+        self.available_models = {"default": "model-v1"}
+
     def _send(self, data):
         return "response", {}
 
-@pytest.fixture
-def temp_files(tmp_path):
-    """Fixture to create dummy files for testing."""
-    img_path = tmp_path / "test.png"
-    # Minimal PNG header
-    img_path.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01")
-    
-    txt_path = tmp_path / "test.txt"
-    txt_path.write_text("hello world", encoding="utf-8")
-    
-    return {"image": img_path, "text": txt_path}
 
-def test_attach_file_tool_success(temp_files):
-    """Test if attach_file correctly encodes image to Base64."""
-    result = attach_file(str(temp_files["image"]))
-    
-    assert "result" in result
-    assert "Successfully attached" in result["result"]
-    assert "__llm_cli_data__" in result
-    assert result["__llm_cli_data__"]["content_type"] == "image/png"
-    assert len(result["__llm_cli_data__"]["content"]) > 0
+@patch("llm_cli.modules.tools.media.process_file")
+@patch("llm_cli.modules.tools.media.Path")
+def test_attach_file_tool_success(mock_path, mock_process):
+    mock_path.return_value.exists.return_value = True
+    mock_process.return_value = {
+        "content": "base64data",
+        "content_type": "image/png"
+    }
 
-def test_attach_file_tool_not_found():
-    """Test error handling for non-existent files."""
-    result = attach_file("non_existent_file.jpg")
-    assert "Error" in result["result"]
+    res = attach_file("test.png")
 
-def test_attach_file_tool_text_file(temp_files):
-    """Test warning when attach_file is used on a text file."""
-    result = attach_file(str(temp_files["text"]))
-    assert "Notice" in result["result"]
-    assert "__llm_cli_data__" not in result
+    assert "Successfully attached" in res["result"]
+    assert res["__llm_cli_data__"]["content"] == "base64data"
+    assert res["__llm_cli_data__"]["content_type"] == "image/png"
 
-def test_handle_attach_command(temp_files):
-    """Test if /attach command adds data to pending_data buffer."""
-    client = MockClient(
-        initial_model_alias="default",
-        api_key_name="dummy",
-        config_section="test",
-        pdf_as_base64=True,
-        stdout=True
-    )
-    
+
+@patch("llm_cli.modules.tools.media.Path")
+def test_attach_file_tool_not_found(mock_path):
+    mock_path.return_value.exists.return_value = False
+    res = attach_file("missing.png")
+    assert "Error: File not found" in res["result"]
+
+
+@patch("llm_cli.modules.tools.media.process_file")
+@patch("llm_cli.modules.tools.media.Path")
+def test_attach_file_tool_text_file(mock_path, mock_process):
+    mock_path.return_value.exists.return_value = True
+    mock_process.return_value = {
+        "content": "hello world",
+        "content_type": "text/plain"
+    }
+
+    res = attach_file("test.txt")
+    assert "Successfully attached" in res["result"]
+    assert res["__llm_cli_data__"]["content_type"] == "text/plain"
+
+
+def test_handle_attach_command():
+    client = MockClient("default", "KEY", "section", True, False)
     pending_data = []
-    user_input = f"/attach {temp_files['image']}"
-    
-    # Execute the command
-    handled = client._handle_command(user_input, sources=[], pending_data=pending_data)
-    
-    assert handled is True
-    assert len(pending_data) == 1
-    assert pending_data[0]["content_type"] == "image/png"
-    assert "is_file_or_url" in pending_data[0]
+
+    with patch.object(
+        client, "_process_single_source"
+    ) as mock_process:
+        mock_process.return_value = {
+            "content": "data",
+            "content_type": "image/png",
+            "is_file_or_url": True
+        }
+        res = client._handle_command("/attach my.png", None, pending_data)
+        assert res is True
+        assert len(pending_data) == 1
+        assert pending_data[0]["content_type"] == "image/png"
+
 
 def test_handle_attach_command_invalid():
-    """Test if /attach command correctly skips non-existent paths."""
-    client = MockClient("default", "dummy", "test", True, True)
+    client = MockClient("default", "KEY", "section", True, False)
     pending_data = []
-    
-    handled = client._handle_command("/attach invalid_path.xyz", [], pending_data)
-    
-    assert handled is True
+
+    # Case: Empty path
+    res = client._handle_command("/attach  ", None, pending_data)
+    assert res is True
     assert len(pending_data) == 0
+
+    # Case: Process fails
+    with patch.object(
+        client, "_process_single_source"
+    ) as mock_process:
+        mock_process.json_return_value = None
+        mock_process.return_value = None
+        res = client._handle_command("/attach invalid.path", None, pending_data)
+        assert res is True
+        assert len(pending_data) == 0

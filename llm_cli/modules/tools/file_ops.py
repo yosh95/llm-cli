@@ -3,18 +3,27 @@
 from pathlib import Path
 from llm_cli.modules.tool_registry import tool
 
+
 @tool(
     name="list_files",
-    description="List files and directories in a specific path.",
-    parameters={
+    desc="List files in a path.",
+    params={
         "type": "object",
         "properties": {
             "directory": {"type": "string", "description": "Target directory."},
-            "depth": {"type": "integer", "description": "Search depth.", "default": 1}
+            "depth": {
+                "type": "integer",
+                "description": "Search depth.",
+                "default": 1
+            }
         }
     }
 )
-def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> str:
+def list_files(
+    directory: str = ".",
+    depth: int = 1,
+    max_files: int = 500
+):
     try:
         base_path = Path(directory or ".")
         exclude = {".git", "__pycache__", "node_modules", ".venv"}
@@ -25,13 +34,18 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
             if depth is not None and current_depth > depth:
                 return
             try:
-                entries = sorted(list(current_path.iterdir()), key=lambda x: (not x.is_dir(), x.name))
+                entries = sorted(
+                    list(current_path.iterdir()),
+                    key=lambda x: (not x.is_dir(), x.name)
+                )
             except PermissionError:
                 return
 
             for entry in entries:
-                if entry.name in exclude: continue
-                if file_count >= max_files: break
+                if entry.name in exclude:
+                    continue
+                if file_count >= max_files:
+                    break
                 rel_path = entry.relative_to(base_path)
                 prefix = "  " * (current_depth - 1)
                 if entry.is_dir():
@@ -46,10 +60,11 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
     except Exception as e:
         return f"Error: {e}"
 
+
 @tool(
     name="read_file",
-    description="Read content from a text file.",
-    parameters={
+    desc="Read content from a text file.",
+    params={
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "File path."},
@@ -70,10 +85,11 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+
 @tool(
     name="write_file",
-    description="Write content to a file.",
-    parameters={
+    desc="Write content to a file.",
+    params={
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Save path."},

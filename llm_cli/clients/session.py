@@ -241,17 +241,26 @@ class ChatSession:
         tool_id, name, args = (
             call.get("id", "unknown"), call["name"], call.get("args", {})
         )
-        display_args = {
-            k: (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
-            for k, v in args.items()
-        }
-        title = "[bold yellow]🤖 Agent Request:[/bold yellow]"
-        console.print(
-            f"{title} [cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
-        )
+
+        title_prefix = "[bold yellow]🤖 Agent Request:[/bold yellow]"
+        if name in ("write_file", "execute_command"):
+            # Detailed preview panel will be shown, so skip inline args
+            console.print(f"{title_prefix} [cyan]{escape(name)}[/cyan]")
+        else:
+            display_args = {
+                k: (v[:200] + "...")
+                if isinstance(v, str) and len(v) > 200 else v
+                for k, v in args.items()
+            }
+            console.print(
+                f"{title_prefix} [cyan]{escape(name)}[/cyan]"
+                f"({escape(str(display_args))})"
+            )
 
         if name == "write_file":
             self._preview_diff(args)
+        elif name == "execute_command":
+            self._preview_command(args)
 
         user_input = self._get_input("Allow execution? (y/N or feedback): ")
         if user_input.lower() != 'y':
@@ -336,6 +345,22 @@ class ChatSession:
                     syn, title=f"[bold green]New File: {path}[/bold green]",
                     border_style="green", expand=False
                 ))
+        except Exception:
+            pass
+
+    def _preview_command(self, args: Dict[str, Any]):
+        try:
+            command = args.get("command", "")
+            if not command:
+                return
+
+            syn = Syntax(
+                command, "bash", theme="monokai", word_wrap=True
+            )
+            console.print(Panel(
+                syn, title="[bold]Execute Command[/bold]",
+                border_style="magenta", expand=False
+            ))
         except Exception:
             pass
 

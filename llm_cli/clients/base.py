@@ -205,7 +205,10 @@ class BaseLlmClient(ABC):
         )
 
     def _handle_command(
-        self, user_input: str, sources: Optional[List[str]]
+        self,
+        user_input: str,
+        sources: Optional[List[str]],
+        pending_data: Optional[List[DataSource]] = None
     ) -> bool:
         """Handle in-chat slash commands."""
         if not user_input.startswith('/'):
@@ -235,6 +238,7 @@ class BaseLlmClient(ABC):
             raise CheckpointRequest()
 
         if cmd == 'dump':
+            # 1. Display conversation history first
             json_str = json.dumps(
                 self.conversation, indent=2, ensure_ascii=False
             )
@@ -243,8 +247,22 @@ class BaseLlmClient(ABC):
                 background_color="default", word_wrap=True
             )
             console.print(Panel(
-                syn, title="Conversation Dump", border_style="blue"
+                syn, title="Conversation History", border_style="blue"
             ))
+
+            # 2. Display pending context if it exists (at the end)
+            if pending_data:
+                json_pending = json.dumps(
+                    pending_data, indent=2, ensure_ascii=False
+                )
+                syn_pending = Syntax(
+                    json_pending, "json", theme="monokai",
+                    background_color="default", word_wrap=True
+                )
+                console.print(Panel(
+                    syn_pending, title="Pending Context (Next Request)",
+                    border_style="yellow"
+                ))
             return True
 
         if cmd == 'raw':

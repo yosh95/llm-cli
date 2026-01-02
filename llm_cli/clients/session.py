@@ -82,7 +82,7 @@ class ChatSession:
                         continue
 
                 try:
-                    if self.client._handle_command(user_input, sources):
+                    if self.client._handle_command(user_input, sources, data):
                         continue
                 except CheckpointRequest:
                     self._handle_checkpoint()
@@ -359,7 +359,10 @@ class ChatSession:
                                f"```\n{output}\n```",
                     "content_type": "text/plain"
                 })
-                return True
+                console.print("[green]Output added to context.[/green]")
+            else:
+                console.print("[yellow]Canceled.[/yellow]")
+            return True
         except Exception as e:
             console.print(f"[bold red]Execution Error: {e}[/bold red]")
-        return False
+            return True

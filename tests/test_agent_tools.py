@@ -2,8 +2,8 @@ import unittest
 import subprocess
 import time
 import os
-import signal
 from llm_cli.modules.agent_tools import execute_command
+
 
 class TestExecuteCommand(unittest.TestCase):
     def test_basic_execution(self):
@@ -19,8 +19,11 @@ class TestExecuteCommand(unittest.TestCase):
         start_time = time.time()
         result = execute_command("cat")
         duration = time.time() - start_time
-        
-        self.assertLess(duration, 5, "Interactive command should exit immediately via DEVNULL")
+
+        self.assertLess(
+            duration, 5,
+            "Interactive command should exit immediately via DEVNULL"
+        )
         self.assertIn("STDOUT:", result)
 
     def test_stderr_capture(self):
@@ -39,7 +42,10 @@ class TestExecuteCommand(unittest.TestCase):
         result = execute_command("echo 'starting'; sleep 100; echo 'finished'")
         duration = time.time() - start_time
 
-        self.assertTrue(60 <= duration <= 70, f"Command should timeout around 60s, took {duration}s")
+        self.assertTrue(
+            60 <= duration <= 70,
+            f"Command should timeout around 60s, took {duration}s"
+        )
         self.assertIn("Error: Command timed out (60s).", result)
         self.assertIn("Partial STDOUT:", result)
         self.assertIn("starting", result)
@@ -47,8 +53,15 @@ class TestExecuteCommand(unittest.TestCase):
 
         # プロセスが残っていないか確認 (POSIXのみ)
         if os.name != 'nt':
-            ps_check = subprocess.run("ps aux | grep 'sleep 100' | grep -v grep", shell=True, capture_output=True)
-            self.assertEqual(ps_check.stdout, b"", "Child process 'sleep 100' should have been killed")
+            ps_check = subprocess.run(
+                "ps aux | grep 'sleep 100' | grep -v grep",
+                shell=True, capture_output=True
+            )
+            self.assertEqual(
+                ps_check.stdout, b"",
+                "Child process 'sleep 100' should have been killed"
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

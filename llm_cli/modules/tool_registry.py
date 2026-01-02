@@ -34,7 +34,8 @@ class ToolRegistry:
 
             self.register(
                 name=tool["name"],
-                func=make_tool_func(tool["server_name"], tool["original_name"]),
+                func=make_tool_func(tool["server_name"],
+                                    tool["original_name"]),
                 description=tool["description"],
                 parameters=tool["parameters"]
             )

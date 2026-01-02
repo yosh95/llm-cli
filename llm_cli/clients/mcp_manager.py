@@ -31,6 +31,14 @@ class MCPManager:
         """Helper to run async coroutines in the manager's event loop."""
         return self.loop.run_until_complete(coro)
 
+    def list_tools(self) -> List[Dict[str, Any]]:
+        """
+        Get the list of available tools from all MCP servers.
+        If not initialized, initializes servers first.
+        Returns a list of tools with namespaced names.
+        """
+        return self.initialize_servers()
+
     def initialize_servers(self) -> List[Dict[str, Any]]:
         """
         Connect to all configured MCP servers and retrieve their tools.

@@ -26,15 +26,19 @@ class ToolRegistry:
     def register_remote_tools(self, mcp_manager) -> List[str]:
         remote_names = []
         for tool in mcp_manager.list_tools():
+            # Create a closure to capture the current values
+            def make_tool_func(server_name, original_name):
+                return lambda **kwargs: mcp_manager.call_tool(
+                    server_name, original_name, kwargs
+                )
+
             self.register(
-                name=tool.name,
-                func=lambda **kwargs: mcp_manager.call_tool(
-                    tool.name, kwargs
-                ),
-                description=tool.description,
-                parameters=tool.input_schema
+                name=tool["name"],
+                func=make_tool_func(tool["server_name"], tool["original_name"]),
+                description=tool["description"],
+                parameters=tool["parameters"]
             )
-            remote_names.append(tool.name)
+            remote_names.append(tool["name"])
         return remote_names
 
     def discover_local_tools(self):

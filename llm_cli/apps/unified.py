@@ -114,7 +114,10 @@ class UnifiedClient(BaseLlmClient):
         return self.active_client._process_single_source(source)
 
     def _handle_command(
-        self, user_input: str, sources: Optional[List[str]]
+        self,
+        user_input: str,
+        sources: Optional[List[str]],
+        pending_data: Optional[List[DataSource]] = None
     ) -> bool:
         if (
             user_input.startswith('/') and
@@ -125,7 +128,7 @@ class UnifiedClient(BaseLlmClient):
                 console.print(f"[cyan]Switched to provider: {cmd}[/cyan]")
                 return True
 
-        return super()._handle_command(user_input, sources)
+        return super()._handle_command(user_input, sources, pending_data)
 
     def _send(
         self, data: List[DataSource]

@@ -22,16 +22,18 @@ The AI can use tools like `google_search` to find real-time information or `exec
 
 -   **Unified Interface**: Access Gemini, OpenAI, Claude, and Grok through a single `llm` command.
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
--   **Agent Mode (Always On)**: Autonomous task execution. The AI can read/write files, execute shell commands, and **search the web**.
+-   **Agent Mode (Always On)**: Autonomous task execution. The AI can read/write files, execute shell commands, search the web, and **dynamically attach media files**.
+-   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
 -   **User-Driven Context Management (Checkpointing)**: Manually trigger `/checkpoint` to summarize the conversation and clear history. This keeps the context window efficient while maintaining vital progress info.
+-   **Multimodal Input & Support**:
+    -   **Manual Attachment**: Use the `/attach <path>` command mid-session to inject images, PDFs, videos, or audio.
+    -   **Autonomous Attachment**: Agents can use the `attach_file` tool to bring media files into the context when needed.
+    -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**. (Automatically uses Gemini File API for large files and media).
+    -   **OpenAI / Claude / Grok**: Text and local images (PDFs are processed as text for Grok, and as Base64 for OpenAI/Claude where supported).
+-   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
 -   **Safe Execution**: Includes a **Diff Preview** for file changes (via `write_file`) and asks for user confirmation before executing any tool or shell command (Human-in-the-Loop).
 -   **One-Shot Execution**: Pipe input from other commands or pass prompts as arguments.
--   **Multimodal Input**:
-    -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**. (Automatically uses Gemini File API for large files and media).
-    -   **OpenAI / Claude / Grok**: Text and local images.
--   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
--   **Shell Integration**: Execute shell commands with `!command` and optionally feed the output back to the LLM.
 -   **Smart Log Management**: Automatically rotates and trims chat logs and command history to save space.
 -   **Simple Configuration**: Interactive setup via `llm-cli-config`.
 
@@ -112,6 +114,7 @@ While in the interactive chat, you can use the following slash commands:
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
 -   `/tools`: Show currently active tools (including remote MCP tools).
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history to save tokens.
+-   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video) to the conversation context.
 -   `/dump`: Dump conversation history as a JSON object.
 -   `/raw`: Show the raw conversation text (useful for copy-pasting).
 -   `/clear` (or `/c`): Clear conversation history (without summary).
@@ -119,6 +122,34 @@ While in the interactive chat, you can use the following slash commands:
 -   `!command`: Execute a local shell command.
 -   `/help` (or `/h`): Show full command list.
 -   `/quit` (or `/q`): Exit.
+
+## Plugin Architecture: Adding New Tools
+
+`llm-cli` uses a decorator-based plugin system. To add a new tool:
+
+1. Create a new `.py` file in `llm_cli/modules/tools/`.
+2. Define your function and decorate it with `@tool`.
+
+Example (`llm_cli/modules/tools/weather.py`):
+```python
+from llm_cli.modules.tool_registry import tool
+
+@tool(
+    name="get_weather",
+    description="Get current weather for a city.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "city": {"type": "string", "description": "The city name."}
+        },
+        "required": ["city"]
+    }
+)
+def get_weather(city: str) -> dict:
+    # Implementation here...
+    return {"weather": "sunny", "temperature": "25C"}
+```
+The tool will be automatically registered and available for the LLM to use.
 
 ## Model Context Protocol (MCP) Support
 
@@ -165,13 +196,16 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 ## 主な機能
 
 -   **統合インターフェース**: `llm` コマンド一つで全プロバイダ（Gemini, OpenAI, Claude, Grok）を切り替え可能。
--   **エージェントモード（常時有効）**: AIが自律的にファイル操作、コマンド実行、**Web検索**を行います。
+-   **エージェントモード（常時有効）**: AIが自律的にファイル操作、コマンド実行、**Web検索**、**メディアファイルの添付**を行います。
+-   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **MCPによる分散エージェント**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートサーバー上の `llm-cli` に接続し、遠隔地のファイルを操作したりテストを実行したりといった操作を、ローカルのツールと同じ感覚でAIに行わせることができます。
 -   **ユーザー主導の履歴管理（チェックポイント機能）**: `/checkpoint` コマンドで会話の要約を作成し、履歴をリセット。トークン消費を抑えつつ重要な進捗を維持します。
 -   **安全な実行**: 全てのツール実行前にユーザーの確認を求める Human-in-the-Loop 方式。ファイル書き換え時には差分（Diff）を表示します。
--   **マルチモーダル対応**:
+-   **マルチモーダル対応の強化**:
+    -   **手動添付**: `/attach <path>` コマンドを使用して、チャットの途中で画像、PDF、動画、音声をコンテキストに注入できます。
+    -   **自律添付**: エージェントが必要に応じて `attach_file` ツールを使い、ファイルを読み込みます。
     -   **Gemini**: テキスト、画像、PDFに加え、**音声**および**動画**に対応（Gemini File APIを自動利用）。
-    -   **OpenAI / Claude / Grok**: テキストおよびローカル画像に対応。
+    -   **OpenAI / Claude / Grok**: テキストおよびローカル画像に対応（PDFはGrokではテキスト抽出、OpenAI/ClaudeではBase64として処理）。
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的にスクレイピングして解析可能。
 
 ## インストールと設定
@@ -206,16 +240,40 @@ llm
 **主なチャット内コマンド:**
 -   `/<provider>`: プロバイダの切り替え (`/google`, `/openai`, `/claude`, `/grok`)
 -   `/checkpoint` (or `/cp`): これまでの会話を要約し、履歴をクリアします。
+-   `/attach <path>`: ファイル（画像、PDF、音声、動画）をコンテキストに追加します。
 -   `/info` (or `/i`): 現在のセッション状態や、接続されているリモートツールを確認できます。
 -   `/models` (or `/m`): 利用可能なモデルとエイリアスの一覧を表示します。
 -   `/debug` (or `/d`): APIのリクエスト/レスポンスをリアルタイムで表示します。
 -   `/raw`: 会話履歴をプレーンテキストで表示します（コピペ用）。
 -   `/help` (or `/h`): 全コマンドを表示します。
 
-### ワンショット実行
-```bash
-cat code.py | llm "このコードをレビューして"
+## プラグインアーキテクチャ：ツールの追加
+
+`llm-cli` はデコレータベースのプラグインシステムを採用しています。
+
+1. `llm_cli/modules/tools/` に新しい `.py` ファイルを作成します。
+2. 関数を定義し、`@tool` デコレータを付与します。
+
+例 (`llm_cli/modules/tools/weather.py`):
+```python
+from llm_cli.modules.tool_registry import tool
+
+@tool(
+    name="get_weather",
+    description="指定した都市の天気を取得します。",
+    parameters={
+        "type": "object",
+        "properties": {
+            "city": {"type": "string", "description": "都市名"}
+        },
+        "required": ["city"]
+    }
+)
+def get_weather(city: str) -> dict:
+    # 実装...
+    return {"weather": "sunny", "temperature": "25C"}
 ```
+登録されたツールは、AIエージェントが自動的に認識して利用できるようになります。
 
 ## MCP (Model Context Protocol) 対応
 

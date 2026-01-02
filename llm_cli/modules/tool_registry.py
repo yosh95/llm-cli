@@ -1,7 +1,25 @@
 # llm_cli/modules/tool_registry.py
 
+import importlib
+import pkgutil
 from typing import Any, Dict, List, Callable
-from llm_cli.modules.agent_tools import TOOL_FUNCTIONS
+
+# Global list to hold tool definitions collected via decorators
+_DECORATED_TOOLS: List[Dict[str, Any]] = []
+
+def tool(name: str, description: str, parameters: Dict[str, Any]):
+    """
+    Decorator to register a function as an LLM tool.
+    """
+    def decorator(func: Callable):
+        _DECORATED_TOOLS.append({
+            "name": name,
+            "description": description,
+            "parameters": parameters,
+            "func": func
+        })
+        return func
+    return decorator
 
 
 class ToolRegistry:
@@ -9,79 +27,21 @@ class ToolRegistry:
 
     def __init__(self):
         self.tools: Dict[str, Dict[str, Any]] = {}
-        self._load_default_tools()
+        self._load_plugins()
 
-    def _load_default_tools(self):
-        defs = [
-            ("list_files", "List files and directories.", {
-                "type": "object", "properties": {
-                    "directory": {
-                        "type": "string",
-                        "description": "Root directory to start listing."
-                    },
-                    "depth": {
-                        "type": "integer",
-                        "description": "How deep to traverse (default 1).",
-                        "default": 1
-                    }
-                }
-            }),
-            ("read_file", "Read the content of a file.", {
-                "type": "object", "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Relative path to the file."
-                    },
-                    "start_line": {
-                        "type": "integer",
-                        "description": "First line (1-indexed).",
-                        "default": 1
-                    },
-                    "end_line": {
-                        "type": "integer",
-                        "description": "Last line (inclusive)."
-                    }
-                }, "required": ["path"]
-            }),
-            ("write_file", "Create or update a file.", {
-                "type": "object", "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Save path."
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "Full content to write."
-                    }
-                }, "required": ["path", "content"]
-            }),
-            ("execute_command", "Run shell commands.", {
-                "type": "object", "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "Command to execute."
-                    }
-                }, "required": ["command"]
-            }),
-            ("google_search", "Search Google.", {
-                "type": "object", "properties": {
-                    "queries": {
-                        "type": "array", "items": {"type": "string"},
-                        "description": "Search queries."
-                    }
-                }, "required": ["queries"]
-            }),
-            ("fetch_url", "Fetch URL content.", {
-                "type": "object", "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "URL to fetch."
-                    }
-                }, "required": ["url"]
-            }),
-        ]
-        for name, desc, params in defs:
-            self.register(name, desc, params, TOOL_FUNCTIONS[name])
+    def _load_plugins(self):
+        """
+        Dynamically load all modules in the 'tools' sub-package 
+        to trigger tool registrations.
+        """
+        import llm_cli.modules.tools as tools_pkg
+        for _, name, _ in pkgutil.iter_modules(tools_pkg.__path__):
+            full_module_name = f"llm_cli.modules.tools.{name}"
+            importlib.import_with_cache(full_module_name) if hasattr(importlib, 'import_with_cache') else importlib.import_module(full_module_name)
+        
+        # After importing all modules, populate the tools dictionary
+        for t in _DECORATED_TOOLS:
+            self.register(t["name"], t["description"], t["parameters"], t["func"])
 
     def register(
         self, name: str, description: str,
@@ -93,6 +53,7 @@ class ToolRegistry:
         }
 
     def register_remote_tools(self, mcp_manager):
+        """Register tools from MCP servers."""
         remote_tools = mcp_manager.initialize_servers()
         for t in remote_tools:
             srv, orig = t["server_name"], t["original_name"]
@@ -129,4 +90,5 @@ class ToolRegistry:
         ]
 
 
+# Singleton instance
 registry = ToolRegistry()

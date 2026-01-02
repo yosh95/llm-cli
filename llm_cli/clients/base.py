@@ -213,7 +213,10 @@ class BaseLlmClient(ABC):
         """Handle in-chat slash commands."""
         if not user_input.startswith('/'):
             return False
-        cmd = user_input[1:]
+        
+        parts = user_input[1:].split(None, 1)
+        cmd = parts[0]
+        args = parts[1] if len(parts) > 1 else ""
 
         if cmd in self.available_models:
             self.set_model(cmd)
@@ -236,6 +239,33 @@ class BaseLlmClient(ABC):
 
         if cmd in ('checkpoint', 'cp'):
             raise CheckpointRequest()
+
+        if cmd == 'attach':
+            path_str = args.strip()
+            if not path_str:
+                console.print("[red]Usage: /attach <path>[/red]")
+                return True
+            
+            res = self._process_single_source(path_str)
+            if res and res.get("is_file_or_url"):
+                if res.get("content_type") == "text/plain":
+                    console.print(
+                        f"[yellow]Notice: {path_str} is text. "
+                        "Added as text context.[/yellow]"
+                    )
+                else:
+                    console.print(
+                        f"[green]Attached {res['content_type']}: "
+                        f"{path_str}[/green]"
+                    )
+                if pending_data is not None:
+                    pending_data.append(res)
+            else:
+                console.print(
+                    f"[red]Failed to attach: {path_str} (File not found or "
+                    "invalid source)[/red]"
+                )
+            return True
 
         if cmd == 'dump':
             # 1. Display conversation history first
@@ -318,6 +348,7 @@ class BaseLlmClient(ABC):
         models_str = ', '.join(self.available_models.keys())
         console.print(
             "[bold]Available Commands:[/bold]\n"
+            "  /attach <path> Attach media/file to context\n"
             "  /clear (c)     Clear conversation history\n"
             "  /checkpoint(cp)Summarize and clear history\n"
             "  /dump          Dump conversation history as JSON\n"

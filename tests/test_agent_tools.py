@@ -1,21 +1,23 @@
+# tests/test_agent_tools.py
+
 import unittest
 import subprocess
 import time
 import os
-from llm_cli.modules.agent_tools import execute_command
+from llm_cli.modules.tools.system import execute_command
 
 
 class TestExecuteCommand(unittest.TestCase):
     def test_basic_execution(self):
-        """正常なコマンドが実行され、出力を取得できるか確認"""
+        """Verify that a normal command executes and returns output."""
         result = execute_command("echo 'hello world'")
         self.assertIn("STDOUT:", result)
         self.assertIn("hello world", result)
         self.assertIn("Exit Code: 0", result)
 
     def test_interactive_command_no_hang(self):
-        """catのような入力を待つコマンドがハングせずに終了するか確認"""
-        # stdin=DEVNULLにより、catは即座に終了するはず
+        """Verify that commands waiting for input (like cat) exit without hanging."""
+        # Now that we set stdin=DEVNULL, cat should exit immediately.
         start_time = time.time()
         result = execute_command("cat")
         duration = time.time() - start_time
@@ -24,43 +26,47 @@ class TestExecuteCommand(unittest.TestCase):
             duration, 5,
             "Interactive command should exit immediately via DEVNULL"
         )
+        # result might contain "STDOUT:\n" and "Exit Code: 0"
         self.assertIn("STDOUT:", result)
 
     def test_stderr_capture(self):
-        """標準エラー出力が正しくキャプチャされるか確認"""
+        """Verify that standard error is correctly captured."""
         result = execute_command("ls non_existent_file_reallly_not_there")
         self.assertIn("STDERR:", result)
         self.assertNotEqual("Exit Code: 0", result)
 
     def test_timeout_and_cleanup(self):
-        """タイムアウト時にプロセスが終了し、部分出力を取得できるか確認"""
-        # 60秒待つのは長いため、テスト用に一時的に短いタイムアウトで検証したいが、
-        # 現在のコードは60固定なので、実際にタイムアウトを発生させる。
-        # 注意: このテストは1分かかります。
-        print("\n(Testing timeout - waiting 60s...)")
-        start_time = time.time()
-        result = execute_command("echo 'starting'; sleep 100; echo 'finished'")
-        duration = time.time() - start_time
+        """Verify that processes are terminated on timeout and partial output is captured."""
+        # Use a short timeout for testing to avoid wasting time and hitting CI limits.
+        os.environ["LLM_CLI_COMMAND_TIMEOUT"] = "2"
+        try:
+            start_time = time.time()
+            result = execute_command("echo 'starting'; sleep 10; echo 'finished'")
+            duration = time.time() - start_time
 
-        self.assertTrue(
-            60 <= duration <= 70,
-            f"Command should timeout around 60s, took {duration}s"
-        )
-        self.assertIn("Error: Command timed out (60s).", result)
-        self.assertIn("Partial STDOUT:", result)
-        self.assertIn("starting", result)
-        self.assertNotIn("finished", result)
+            self.assertTrue(
+                2 <= duration <= 5,
+                f"Command should timeout around 2s, took {duration}s"
+            )
+            self.assertIn("Error: Command timed out (2s).", result)
+            self.assertIn("Partial STDOUT:", result)
+            self.assertIn("starting", result)
+            self.assertNotIn("finished", result)
 
-        # プロセスが残っていないか確認 (POSIXのみ)
-        if os.name != 'nt':
-            ps_check = subprocess.run(
-                "ps aux | grep 'sleep 100' | grep -v grep",
-                shell=True, capture_output=True
-            )
-            self.assertEqual(
-                ps_check.stdout, b"",
-                "Child process 'sleep 100' should have been killed"
-            )
+            # Verify that the child process is not lingering (POSIX only)
+            if os.name != 'nt':
+                # We use ps to check for the 'sleep 10' process
+                ps_check = subprocess.run(
+                    "ps aux | grep 'sleep 10' | grep -v grep",
+                    shell=True, capture_output=True, text=True
+                )
+                self.assertEqual(
+                    ps_check.stdout.strip(), "",
+                    f"Child process 'sleep 10' should have been killed. Found:\n{ps_check.stdout}"
+                )
+        finally:
+            if "LLM_CLI_COMMAND_TIMEOUT" in os.environ:
+                del os.environ["LLM_CLI_COMMAND_TIMEOUT"]
 
 
 if __name__ == "__main__":

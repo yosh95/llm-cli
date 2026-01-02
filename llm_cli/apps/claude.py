@@ -146,6 +146,16 @@ class ClaudeClient(BaseLlmClient):
                         "data": d["content"]
                     }
                 })
+            elif d["content_type"] == "application/pdf":
+                user_content.append({
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": d["content_type"],
+                        "data": d["content"]
+                    }
+                })
+
         if user_content:
             msgs.append({"role": "user", "content": user_content})
         return msgs

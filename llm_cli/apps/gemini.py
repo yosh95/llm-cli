@@ -88,7 +88,7 @@ class GeminiClient(BaseLlmClient):
                 })
             elif any(
                 item["content_type"].startswith(t)
-                for t in ["image/", "application/pdf"]
+                for t in ["image/", "audio/", "video/", "application/pdf"]
             ):
                 new_parts.append({
                     "inlineData": {

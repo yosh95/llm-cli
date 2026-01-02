@@ -7,7 +7,8 @@ from llm_cli.modules.tool_registry import tool
 
 @tool(
     name="search_arxiv",
-    description="Search for academic papers on arXiv. Returns titles, summaries, and PDF links.",
+    description="Search for academic papers on arXiv. Returns titles, "
+                "summaries, and PDF links.",
     parameters={
         "type": "object",
         "properties": {
@@ -47,11 +48,14 @@ def search_arxiv(query: str, max_results: int = 5) -> str:
 
         results = []
         for entry in entries:
-            title = entry.find('atom:title', ns).text.strip().replace('\n', ' ')
-            summary = entry.find('atom:summary', ns).text.strip().replace('\n', ' ')
+            title = entry.find('atom:title', ns).text.strip().replace('\n',
+                                                                      ' ')
+            summary = entry.find('atom:summary',
+                                 ns).text.strip().replace('\n', ' ')
             pdf_link = ""
             for link in entry.findall('atom:link', ns):
-                if link.get('title') == 'pdf' or link.get('type') == 'application/pdf':
+                if (link.get('title') == 'pdf' or
+                        link.get('type') == 'application/pdf'):
                     pdf_link = link.get('href')
 
             published = entry.find('atom:published', ns).text[:10]
@@ -60,7 +64,7 @@ def search_arxiv(query: str, max_results: int = 5) -> str:
                 f"### {title}\n"
                 f"- **Published:** {published}\n"
                 f"- **PDF Link:** {pdf_link}\n"
-                f"- **Summary:** {summary[:500]}..."  # Truncated for efficiency
+                f"- **Summary:** {summary[:500]}..."
             )
             results.append(result_str)
 

@@ -59,6 +59,36 @@ class ToolRegistry:
                 })
         return schemas
 
+    def _get_active(self, names: List[str]) -> List[Dict[str, Any]]:
+        """Get tool definitions for the specified tool names."""
+        return [self.tools[n] for n in names if n in self.tools]
+
+    def get_gemini_spec(self, names: List[str]) -> List[Dict[str, Any]]:
+        """Get tool spec in Gemini format."""
+        tools = [
+            {"name": t["name"], "description": t["description"],
+             "parameters": t["parameters"]}
+            for t in self._get_active(names)
+        ]
+        return [{"function_declarations": tools}] if tools else []
+
+    def get_openai_spec(self, names: List[str]) -> List[Dict[str, Any]]:
+        """Get tool spec in OpenAI/Grok format."""
+        return [
+            {"type": "function",
+             "function": {"name": t["name"], "description": t["description"],
+                          "parameters": t["parameters"]}}
+            for t in self._get_active(names)
+        ]
+
+    def get_anthropic_spec(self, names: List[str]) -> List[Dict[str, Any]]:
+        """Get tool spec in Anthropic (Claude) format."""
+        return [
+            {"name": t["name"], "description": t["description"],
+             "input_schema": t["parameters"]}
+            for t in self._get_active(names)
+        ]
+
 
 registry = ToolRegistry()
 

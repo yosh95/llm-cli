@@ -3,7 +3,7 @@
 import sys
 import logging
 from mcp.server.fastmcp import FastMCP
-from llm_cli.modules.agent_tools import TOOL_FUNCTIONS
+from llm_cli.modules.tool_registry import registry
 
 # Configure logging to stderr because stdout is used for MCP JSON-RPC
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
@@ -14,13 +14,13 @@ def create_mcp_server():
     """Create and configure the FastMCP server instance."""
     mcp = FastMCP("llm-cli-remote")
 
-    # Register all tools from the existing TOOL_FUNCTIONS
-    for name, func in TOOL_FUNCTIONS.items():
+    # Register all tools from the tool registry
+    for name, tool_def in registry.tools.items():
         # FastMCP.tool() uses the function's name, docstring, and type hints.
         # Since our tools are already designed for LLM consumption,
         # they should map well.
         logger.info(f"Registering MCP tool: {name}")
-        mcp.tool(name=name)(func)
+        mcp.tool(name=name)(tool_def["func"])
 
     return mcp
 

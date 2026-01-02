@@ -26,9 +26,22 @@ from llm_cli.modules.tool_registry import tool
     }
 )
 def search_arxiv(query: str, max_results: int = 5) -> str:
-    base_url = "http://export.arxiv.org/api/query"
+    base_url = "https://export.arxiv.org/api/query"
+
+    # Check if the query already contains a prefix or boolean operators.
+    # If it does, we assume it's a structured query and don't prepend 'all:'.
+    prefixes = [
+        'ti:', 'au:', 'abs:', 'all:', 'cat:', 'rn:', 'id:', 'jr:',
+        'submittedDate:', 'lastUpdatedDate:'
+    ]
+    is_structured = any(p in query for p in prefixes) or any(
+        op in query for op in [' AND ', ' OR ', ' ANDNOT ']
+    )
+
+    search_query = query if is_structured else f"all:{query}"
+
     params = {
-        "search_query": f"all:{query}",
+        "search_query": search_query,
         "max_results": max_results,
         "sortBy": "relevance",
         "sortOrder": "descending"

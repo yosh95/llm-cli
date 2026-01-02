@@ -10,7 +10,8 @@ from llm_cli.modules.tool_registry import tool
     params={
         "type": "object",
         "properties": {
-            "directory": {"type": "string", "description": "Target directory."},
+            "directory": {"type": "string",
+                          "description": "Target directory."},
             "depth": {
                 "type": "integer",
                 "description": "Search depth.",

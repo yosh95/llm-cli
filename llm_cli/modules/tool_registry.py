@@ -42,7 +42,8 @@ class ToolRegistry:
         for _, name, _ in pkgutil.iter_modules(tools_pkg.__path__):
             importlib.import_module(f"llm_cli.modules.tools.{name}")
 
-    def get_tool_schemas(self, active_tools: List[str]) -> List[Dict[str, Any]]:
+    def get_tool_schemas(self,
+                         active_tools: List[str]) -> List[Dict[str, Any]]:
         schemas = []
         for name in active_tools:
             if name in self.tools:

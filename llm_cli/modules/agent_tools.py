@@ -4,6 +4,9 @@ import requests
 import base64
 import cloudscraper
 import filetype
+import os
+import signal
+import platform
 from pathlib import Path
 from llm_cli.clients.config import get_setting
 
@@ -98,24 +101,54 @@ def write_file(path: str, content: str) -> str:
 
 def execute_command(command: str) -> str:
     """Execute shell command and return output."""
-    try:
-        res = subprocess.run(
-            command, shell=True, capture_output=True, text=True, timeout=60
+    def truncate(s, limit=10000):
+        if not s:
+            return ""
+        if len(s) <= limit:
+            return s
+        return (
+            s[:limit // 2] + "\n... (Omitted) ...\n" + s[-limit // 2:]
         )
 
-        def truncate(s, limit=10000):
-            if len(s) <= limit:
-                return s
-            return (
-                s[:limit // 2] + "\n... (Omitted) ...\n" + s[-limit // 2:]
-            )
+    timeout = 60
+    kwargs = {
+        "shell": True,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "stdin": subprocess.DEVNULL,
+        "text": True,
+    }
 
-        output = f"STDOUT:\n{truncate(res.stdout)}"
-        if res.stderr:
-            output += f"\nSTDERR:\n{truncate(res.stderr)}"
-        return f"{output}\nExit Code: {res.returncode}"
-    except subprocess.TimeoutExpired:
-        return "Error: Command timed out (60s)."
+    # Use process groups on POSIX to ensure all child processes are killed
+    if platform.system() != "Windows":
+        kwargs["start_new_session"] = True
+
+    try:
+        with subprocess.Popen(command, **kwargs) as proc:
+            try:
+                stdout, stderr = proc.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                if platform.system() != "Windows":
+                    try:
+                        pgid = os.getpgid(proc.pid)
+                        os.killpg(pgid, signal.SIGKILL)
+                    except Exception:
+                        proc.kill()
+                else:
+                    proc.kill()
+
+                stdout, stderr = proc.communicate()
+                output = f"Error: Command timed out ({timeout}s)."
+                if stdout:
+                    output += f"\nPartial STDOUT:\n{truncate(stdout)}"
+                if stderr:
+                    output += f"\nPartial STDERR:\n{truncate(stderr)}"
+                return output
+
+        output = f"STDOUT:\n{truncate(stdout)}"
+        if stderr:
+            output += f"\nSTDERR:\n{truncate(stderr)}"
+        return f"{output}\nExit Code: {proc.returncode}"
     except Exception as e:
         return f"Error executing command: {e}"
 

@@ -90,6 +90,8 @@ class UnifiedClient(BaseLlmClient):
         self.config_section = self.active_client.config_section
         self.available_models = self.active_client.available_models
         self.pdf_as_base64 = self.active_client.pdf_as_base64
+        self.model = self.active_client.model
+        self.current_alias = self.active_client.current_alias
 
         # Sync state
         self.active_client.conversation = self.conversation

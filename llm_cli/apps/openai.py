@@ -5,13 +5,13 @@ import json
 from typing import Dict, List, Optional, Tuple
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
+from llm_cli.clients.config import get_setting
 
 FALLBACK_MODEL = "gpt-5-nano"
+DEFAULT_API_URL = "https://api.openai.com/v1/chat/completions"
 
 
 class OpenAIClient(BaseLlmClient):
-    API_URL = "https://api.openai.com/v1/chat/completions"
-
     def __init__(self, initial_model_alias="default", **kwargs):
         super().__init__(
             initial_model_alias=initial_model_alias,
@@ -20,6 +20,9 @@ class OpenAIClient(BaseLlmClient):
             pdf_as_base64=False,
             **kwargs
         )
+        # Load custom API URL if provided, otherwise use default
+        config_url = get_setting("api_url", "openai")
+        self.api_url = config_url if config_url else DEFAULT_API_URL
 
     def _load_model_aliases(self):
         from llm_cli.clients.config import get_model_aliases
@@ -45,7 +48,7 @@ class OpenAIClient(BaseLlmClient):
 
         try:
             response = requests.post(
-                self.API_URL, headers=headers, json=payload, timeout=60
+                self.api_url, headers=headers, json=payload, timeout=60
             )
             self._log_debug(response_obj=response)
             response.raise_for_status()

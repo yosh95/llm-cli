@@ -12,6 +12,7 @@ image = "gemini-3-pro-image-preview"
 
 [openai]
 api_key = "<Your API Key>"
+# api_url = "https://api.openai.com/v1/chat/completions" # Optional: Custom endpoint for Local LLM/Ollama
 system_prompt = "For mathematical expressions, use Unicode instead of TeX whenever possible, except when instructed to write TeX code."
 
 [openai.models]
@@ -32,6 +33,7 @@ opus = "claude-opus-4-5-20251101"
 
 [xai]
 api_key = "<Your API Key>"
+# api_url = "https://api.x.ai/v1/chat/completions" # Optional: Custom endpoint
 system_prompt = "For mathematical expressions, use Unicode instead of TeX whenever possible, except when instructed to write TeX code."
 
 [xai.models]

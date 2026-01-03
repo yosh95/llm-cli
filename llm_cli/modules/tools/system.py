@@ -14,16 +14,12 @@ from llm_cli.security import validate_command, CommandValidationError
     parameters={
         "type": "object",
         "properties": {
-            "thought": {
-                "type": "string",
-                "description": "The reasoning behind executing this command."
-            },
             "command": {"type": "string", "description": "Command to run."}
         },
-        "required": ["command", "thought"]
+        "required": ["command"]
     }
 )
-def execute_command(command: str, thought: str) -> str:
+def execute_command(command: str) -> str:
     # Validate command against security whitelist
     try:
         validate_command(command)

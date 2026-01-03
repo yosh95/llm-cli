@@ -4,6 +4,7 @@ import requests
 import base64
 import cloudscraper
 import filetype
+from bs4 import BeautifulSoup
 from llm_cli.modules.tool_registry import tool
 from llm_cli.clients.config import get_setting
 
@@ -14,16 +15,12 @@ from llm_cli.clients.config import get_setting
     parameters={
         "type": "object",
         "properties": {
-            "thought": {
-                "type": "string",
-                "description": "The reasoning behind performing this search."
-            },
             "queries": {"type": "array", "items": {"type": "string"}}
         },
-        "required": ["queries", "thought"]
+        "required": ["queries"]
     }
 )
-def google_search(queries: list[str], thought: str) -> str:
+def google_search(queries: list[str]) -> str:
     api_key = get_setting("api_key", "google")
     cse_id = get_setting("cse_id", "google")
     if not api_key or not cse_id:
@@ -55,20 +52,16 @@ def google_search(queries: list[str], thought: str) -> str:
 
 @tool(
     name="fetch_url",
-    description="Fetch content from a URL.",
+    description="Fetch content from a URL. Returns raw HTML for web pages. Use this only when you need the exact HTML structure or tags.",
     parameters={
         "type": "object",
         "properties": {
-            "thought": {
-                "type": "string",
-                "description": "The reasoning behind fetching this URL."
-            },
             "url": {"type": "string", "description": "Target URL."}
         },
-        "required": ["url", "thought"]
+        "required": ["url"]
     }
 )
-def fetch_url(url: str, thought: str) -> dict | str:
+def fetch_url(url: str) -> dict | str:
     try:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get('Content-Type', '')
@@ -87,3 +80,42 @@ def fetch_url(url: str, thought: str) -> dict | str:
         return resp.text[:20000]
     except Exception as e:
         return f"Error fetching {url}: {e}"
+
+
+@tool(
+    name="fetch_web_text",
+    description="Fetch a URL and extract only the main text content, excluding HTML tags, scripts, and styles. This is the preferred tool for general information gathering to save tokens.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "Target URL."}
+        },
+        "required": ["url"]
+    }
+)
+def fetch_web_text(url: str) -> str:
+    try:
+        resp = cloudscraper.create_scraper().get(url, timeout=30)
+        ctype = resp.headers.get('Content-Type', '').lower()
+
+        if 'text/html' not in ctype:
+            # Fallback for non-HTML text content (plain text, etc.)
+            return resp.text[:20000]
+
+        soup = BeautifulSoup(resp.text, 'html.parser')
+
+        # Remove script and style elements which don't contain visible text
+        for script_or_style in soup(["script", "style"]):
+            script_or_style.decompose()
+
+        # Get text with a separator to prevent words from sticking together
+        text = soup.get_text(separator='\n')
+
+        # Clean up whitespace: strip lines and remove empty ones
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+
+        return text[:20000]
+    except Exception as e:
+        return f"Error fetching or parsing {url}: {e}"

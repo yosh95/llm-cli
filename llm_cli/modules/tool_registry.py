@@ -2,6 +2,8 @@
 
 import importlib
 import pkgutil
+import functools
+import inspect
 from typing import Any, Callable, Dict, List, Optional
 
 
@@ -16,17 +18,47 @@ class ToolRegistry:
         description: str,
         parameters: Optional[Dict[str, Any]] = None
     ):
+        # 1. Initialize parameters
+        if parameters is None:
+            parameters = {"type": "object", "properties": {}, "required": []}
+        
+        if "properties" not in parameters:
+            parameters["properties"] = {}
+        
+        # 2. Force inject 'thought' parameter
+        # Ensures every tool call includes a reasoning field for visibility.
+        parameters["properties"]["thought"] = {
+            "type": "string",
+            "description": "The reasoning behind calling this tool. Why is this necessary now?"
+        }
+        
+        if "required" not in parameters:
+            parameters["required"] = []
+        if "thought" not in parameters["required"]:
+            parameters["required"].append("thought")
+
+        # 3. Wrap the function
+        # Filters out 'thought' if the original function does not accept it.
+        # This keeps tool implementations clean while maintaining metadata support.
+        @functools.wraps(func)
+        def wrapper(**kwargs):
+            sig = inspect.signature(func)
+            filtered_kwargs = {
+                k: v for k, v in kwargs.items()
+                if k in sig.parameters or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+            }
+            return func(**filtered_kwargs)
+
         self.tools[name] = {
             "name": name,
-            "func": func,
+            "func": wrapper,
             "description": description,
-            "parameters": parameters or {"type": "object", "properties": {}}
+            "parameters": parameters
         }
 
     def register_remote_tools(self, mcp_manager) -> List[str]:
         remote_names = []
         for tool in mcp_manager.list_tools():
-            # Create a closure to capture the current values
             def make_tool_func(server_name, original_name):
                 return lambda **kwargs: mcp_manager.call_tool(
                     server_name, original_name, kwargs
@@ -61,11 +93,9 @@ class ToolRegistry:
         return schemas
 
     def _get_active(self, names: List[str]) -> List[Dict[str, Any]]:
-        """Get tool definitions for the specified tool names."""
         return [self.tools[n] for n in names if n in self.tools]
 
     def get_gemini_spec(self, names: List[str]) -> List[Dict[str, Any]]:
-        """Get tool spec in Gemini format."""
         tools = [
             {"name": t["name"], "description": t["description"],
              "parameters": t["parameters"]}
@@ -74,7 +104,6 @@ class ToolRegistry:
         return [{"function_declarations": tools}] if tools else []
 
     def get_openai_spec(self, names: List[str]) -> List[Dict[str, Any]]:
-        """Get tool spec in OpenAI/Grok format."""
         return [
             {"type": "function",
              "function": {"name": t["name"], "description": t["description"],
@@ -83,7 +112,6 @@ class ToolRegistry:
         ]
 
     def get_anthropic_spec(self, names: List[str]) -> List[Dict[str, Any]]:
-        """Get tool spec in Anthropic (Claude) format."""
         return [
             {"name": t["name"], "description": t["description"],
              "input_schema": t["parameters"]}
@@ -103,7 +131,6 @@ def tool(name: str,
     Decorator to register a function as a tool.
     Supports both old (description, parameters) and new (desc, params) names.
     """
-    # Support both old and new parameter names
     final_desc = description or desc
     final_params = parameters or params
 

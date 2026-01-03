@@ -165,6 +165,30 @@ args = ["user@remote-host", "python3", "-m", "llm_cli.apps.mcp_server"]
 llm --mcp-server
 ```
 
+### 3. GitHub MCP Server Integration (via Docker)
+You can connect the official GitHub MCP server to give your AI agent powers to read repositories, manage issues, and analyze code.
+
+Add the following to your `~/.config/llm_cli/config.toml`:
+
+```toml
+[[mcp_servers]]
+name = "github"
+command = "docker"
+args = [
+  "run",
+  "-i",
+  "--rm",
+  "-e", "GITHUB_PERSONAL_ACCESS_TOKEN=YOUR_GITHUB_TOKEN",
+  "-e", "GITHUB_LOCKDOWN_MODE=1",
+  "ghcr.io/github/github-mcp-server"
+]
+```
+
+Then run `llm-cli` with the `--mcp` flag:
+```bash
+llm --mcp
+```
+
 ## Utility Scripts
 
 -   `llm-cli-config`: Interactive configuration tool.
@@ -338,12 +362,36 @@ args = ["user@remote-host", "python3", "-m", "llm_cli.apps.mcp_server"]
 llm --mcp-server
 ```
 
+### 3. GitHub MCP Server との連携 (Docker利用)
+GitHub公式のMCPサーバーを連携させることで、AIエージェントにリポジトリの読み書き、Issueの管理、コード解析などの権限を与えることができます。
+
+`~/.config/llm_cli/config.toml` に以下のエントリを追加します：
+
+```toml
+[[mcp_servers]]
+name = "github"
+command = "docker"
+args = [
+  "run",
+  "-i",
+  "--rm",
+  "-e", "GITHUB_PERSONAL_ACCESS_TOKEN=あなたのGitHubトークン",
+  "-e", "GITHUB_LOCKDOWN_MODE=1",
+  "ghcr.io/github/github-mcp-server"
+]
+```
+
+その後、`--mcp` フラグを付けて `llm-cli` を起動します：
+```bash
+llm --mcp
+```
+
 ## ユーティリティ・スクリプト
 
--   `llm-cli-config`: 対話型設定ツール。
--   `*-models`: 各プロバイダの利用可能なモデルリスト。
--   `translate-json`: JSONファイル内の特定のキーを翻訳するユーティリティ。
+-   `llm-cli-config`: 対話型設定ツール.
+-   `*-models`: 各プロバイダの利用可能なモデルリスト.
+-   `translate-json`: JSONファイル内の特定のキーを翻訳するユーティリティ.
 
-## ライセンス
+## License
 
 [Apache License 2.0](LICENSE) で提供されています。

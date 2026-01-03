@@ -43,7 +43,7 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
             '-p', '--provider',
             choices=[
                 'google', 'gemini', 'openai', 'anthropic',
-                'claude', 'xai', 'grok'
+                'claude', 'xai', 'grok', 'ollama'
             ],
             help="Provider to use"
         )

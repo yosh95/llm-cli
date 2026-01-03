@@ -3,13 +3,17 @@
 """Shared model listing functionality for all LLM providers."""
 
 import argparse
-import json
 import requests
 import sys
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, List
 
+from rich.console import Console
+from rich.table import Table
 from llm_cli.clients.config import get_setting
+
+
+console = Console()
 
 
 @dataclass
@@ -31,8 +35,11 @@ class ModelListingConfig:
     # Optional: Function to extract model name from model object
     extract_model_name: Optional[Callable[[Dict[str, Any]], str]] = None
 
-    # Optional: Function to format non-verbose output line
+    # Optional: Function to format non-verbose output line (deprecated)
     format_model_line: Optional[Callable[[Dict[str, Any]], str]] = None
+
+    # Optional: Define columns for the table [(Header, Key/Callable)]
+    columns: Optional[List[tuple[str, Any]]] = None
 
     # Optional: Function to get sort key from model object
     sort_key: Optional[Callable[[Dict[str, Any]], Any]] = None
@@ -62,9 +69,12 @@ def list_models(config: ModelListingConfig) -> None:
     # Get API key
     api_key = get_setting(config.api_key_setting, config.config_section)
     if api_key is None:
-        print(f"{config.provider_name} API Key not found in config.",
-              file=sys.stderr)
-        print("Please run 'llm-cli-config' to set it up.", file=sys.stderr)
+        console.print(
+            f"[red]{config.provider_name} API Key not found in config.[/red]"
+        )
+        console.print(
+            "[yellow]Please run 'llm-cli-config' to set it up.[/yellow]"
+        )
         sys.exit(1)
 
     # Parse arguments
@@ -91,7 +101,7 @@ def list_models(config: ModelListingConfig) -> None:
                                 timeout=config.timeout)
         response.raise_for_status()
     except Exception as e:
-        print(f"Error fetching models: {e}", file=sys.stderr)
+        console.print(f"[bold red]Error fetching models: {e}[/bold red]")
         sys.exit(1)
 
     # Parse response
@@ -99,7 +109,7 @@ def list_models(config: ModelListingConfig) -> None:
 
     # Check for data in response
     if config.response_data_key not in result:
-        print(json.dumps(result, indent=2))
+        console.print_json(data=result)
         return
 
     models = result[config.response_data_key]
@@ -114,27 +124,41 @@ def list_models(config: ModelListingConfig) -> None:
                 model_name = model.get('id', model.get('name', ''))
 
             if model_name in args.models:
-                print(json.dumps(model, ensure_ascii=False, indent=2))
+                console.print_json(data=model)
         return
 
     # Display all models
     if verbose:
-        # Verbose mode: print full JSON
-        json_str = json.dumps(result, ensure_ascii=False, indent=2)
-        print(json_str)
+        console.print_json(data=result)
     else:
-        # Non-verbose mode: sort if needed, then display
+        # Sort if needed
         if config.sort_key:
             models = sorted(models, key=config.sort_key)
 
-        if config.format_model_line:
-            # Provider has custom formatting
-            for model in models:
-                print(config.format_model_line(model))
-        else:
-            # Default: just print model names
-            for model in models:
-                if config.extract_model_name:
-                    print(config.extract_model_name(model))
+        table = Table(title=f"{config.provider_name} Models")
+
+        # Determine columns
+        display_columns = config.columns or [("Model Name", "id")]
+
+        for header, _ in display_columns:
+            # Using overflow="fold" to wrap long IDs without truncation
+            table.add_column(
+                header,
+                style="cyan" if "Name" in header or "ID" in header
+                else "magenta",
+                overflow="fold"
+            )
+
+        for model in models:
+            row_data = []
+            for header, key_or_func in display_columns:
+                if callable(key_or_func):
+                    val = key_or_func(model)
+                elif isinstance(key_or_func, str):
+                    val = model.get(key_or_func, "N/A")
                 else:
-                    print(model.get('id', model.get('name', 'Unknown')))
+                    val = str(key_or_func)
+                row_data.append(str(val))
+            table.add_row(*row_data)
+
+        console.print(table)

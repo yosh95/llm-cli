@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
 import datetime
-
 from llm_cli.apps.model_listing import ModelListingConfig, list_models
 
 
 def main():
     """List available OpenAI models."""
 
-    def format_openai_model(model):
-        """Format OpenAI model with name and creation timestamp."""
-        created_datetime = datetime.datetime.fromtimestamp(model['created'])
-        formatted_created = created_datetime.strftime('%Y/%m/%d %H:%M:%S')
-        return f"{model['id']}: {formatted_created}"
+    def format_epoch(model):
+        created = model.get('created')
+        if created:
+            return datetime.datetime.fromtimestamp(created).strftime(
+                '%Y-%m-%d %H:%M:%S'
+            )
+        return "N/A"
 
     config = ModelListingConfig(
         provider_name="OpenAI",
@@ -20,14 +21,14 @@ def main():
         api_key_setting="api_key",
         api_url="https://api.openai.com/v1/models",
         response_data_key="data",
-        # OpenAI uses Bearer token authentication
-        build_headers=lambda api_key: {"Authorization": f"Bearer {api_key}"},
-        # Model name is 'id' field
+        build_headers=lambda api_key: {'Authorization': f'Bearer {api_key}'},
         extract_model_name=lambda model: model['id'],
-        # Non-verbose: print name and creation timestamp
-        format_model_line=format_openai_model,
-        # Sort by creation timestamp
-        sort_key=lambda model: model['created'],
+        columns=[
+            ("Model ID", "id"),
+            ("Owned By", "owned_by"),
+            ("Created", format_epoch),
+        ],
+        sort_key=lambda model: model['id'],
         timeout=10
     )
 

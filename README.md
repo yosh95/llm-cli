@@ -1,6 +1,6 @@
 # llm-cli: A Unified Command-Line Interface for Multiple LLMs
 
-`llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), and xAI (Grok), allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
+`llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
 
 ![llm-cli banner](images/banner.jpeg)
 
@@ -20,7 +20,8 @@ The AI can use tools like `google_search` or `search_arxiv` to find real-time in
 
 ## Features
 
--   **Unified Interface**: Access Gemini, OpenAI, Claude, and Grok through a single `llm` command.
+-   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, and **Ollama** through a single `llm` command.
+-   **Local LLM Support (Ollama)**: Use models locally without cloud API costs or privacy concerns. (Note: Using tools like `google_search` may still incur costs depending on your search engine's free tier).
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can read/write files, execute shell commands, search the web, and **dynamically attach media files**.
 -   **Academic Research Support**: Built-in `search_arxiv` tool to search for papers, read abstracts, and automatically fetch PDFs for analysis.
@@ -93,8 +94,8 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 
 ## Command-Line Options
 
--   `-p, --provider <provider>`: Specify the provider (`google`, `openai`, `anthropic`, `xai`).
--   `-m, --model <alias>`: Specify the model alias (e.g., `pro`, `flash`, `gpt4o`, `opus`).
+-   `-p, --provider <provider>`: Specify the provider (`google`, `openai`, `anthropic`, `xai`, `ollama`).
+-   `-m, --model <alias>`: Specify the model alias (e.g., `pro`, `flash`, `gpt4o`, `opus`, `gemma`).
 -   `-t, --tools <tool_name>`: Enable specific tools.
 -   `-s, --stdout`: Print the response directly to stdout and exit.
 -   `--raw`: Disable Markdown rendering in the terminal.
@@ -105,11 +106,11 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 
 ## In-Chat Commands
 
--   `/<provider>`: Switch provider instantly (`/google`, `/openai`, `/anthropic`, `/xai`).
--   `/<alias>`: Switch model within the current provider (e.g., `/pro`, `/gpt4o`, `/opus`).
+-   `/<provider>`: Switch provider instantly (`/google`, `/openai`, `/anthropic`, `/xai`, `/ollama`).
+-   `/<alias>`: Switch model within the current provider (e.g., `/pro`, `/gpt4o`, `/opus`, `/gemma`).
 -   `/models` (or `/m`): List available models and their aliases.
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
--   `/tools`: Show currently active tools (including remote MCP tools).
+-   `/tools [on|off]`: Show or toggle tool status.
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
 -   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video).
 -   `/dump`: Dump conversation history as a JSON object.
@@ -192,7 +193,7 @@ llm --mcp
 ## Utility Scripts
 
 -   `llm-cli-config`: Interactive configuration tool.
--   `*-models`: List available models for each provider.
+-   `*-models`: List available models for each provider (e.g., `ollama-models`).
 -   `translate-json`: A utility to translate specific keys in a JSON file.
 
 ## License
@@ -203,7 +204,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 # llm-cli: 複数LLM対応 統合コマンドラインインターフェース
 
-`llm-cli` は、多様な大規模言語モデル（LLM）と対話するための、強力で汎用性の高いコマンドラインツールです。Google (Gemini)、OpenAI、Anthropic (Claude)、xAI (Grok) をサポートしており、単一の `llm` コマンドだけでプロバイダをシームレスに切り替えながら、各モデルの機能をターミナルから直接活用できます。
+`llm-cli` は、多様な大規模言語モデル（LLM）と対話するための、強力で汎用性の高いコマンドラインツールです。Google (Gemini)、OpenAI、Anthropic (Claude)、xAI (Grok) に加え、**Ollama を介したローカルLLM** をサポートしており、単一の `llm` コマンドだけでプロバイダをシームレスに切り替えながら、各モデルの機能をターミナルから直接活用できます。
 
 ## スクリーンショット
 
@@ -217,12 +218,13 @@ AIは `google_search` や `search_arxiv` を使ってリアルタイム情報を
 
 ## 主な機能
 
--   **統合インターフェース**: `llm` コマンド一つで Gemini, OpenAI, Claude, Grok にアクセス可能。
+-   **統合インターフェース**: `llm` コマンド一つで Gemini, OpenAI, Claude, Grok, **Ollama** にアクセス可能。
+-   **ローカルLLM対応 (Ollama)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。（※Google検索ツールなどの外部APIを使用する場合は、そのサービスの無料枠を超えると課金が発生する可能性があります）
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの読み書き、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
 -   **先行研究調査の自動化**: `search_arxiv` ツールを搭載。特定のトピックに関する最新論文の検索から、アブストラクトの確認、PDFの自動取得と解析までをシームレスに行えます。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
--   **MCPによる分散エージェント**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
+-   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
 -   **OpenAI互換カスタムエンドポイント**: `api_url` を設定することで、ローカルLLM（Ollama, vLLM 等）やその他のOpenAI互換サービスを利用可能。
 -   **ユーザー主導の履歴管理（チェックポイント機能）**: `/checkpoint` コマンドで会話の要約を作成し、履歴をリセットしてコンテキストを整理。
 -   **マルチモーダル対応**:
@@ -290,8 +292,8 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ## コマンドライン・オプション
 
--   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`)。
--   `-m, --model <alias>`: モデルのエイリアスを指定 (例: `pro`, `flash`, `gpt4o`, `opus`)。
+-   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`)。
+-   `-m, --model <alias>`: モデルのエイリアスを指定 (例: `pro`, `flash`, `gpt4o`, `opus`, `gemma`)。
 -   `-t, --tools <tool_name>`: 特定のツールを有効化。
 -   `-s, --stdout`: 応答を直接標準出力に表示して終了。
 -   `--raw`: Markdownレンダリングを無効化。
@@ -302,11 +304,11 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ## チャット内コマンド
 
--   `/<provider>`: プロバイダを即座に切り替え (`/google`, `/openai`, `/anthropic`, `/xai`)。
--   `/<alias>`: 現在のプロバイダ内でモデルを切り替え (例: `/pro`, `/gpt4o`, `/opus`)。
+-   `/<provider>`: プロバイダを即座に切り替え (`/google`, `/openai`, `/anthropic`, `/xai`, `/ollama`)。
+-   `/<alias>`: 現在のプロバイダ内でモデルを切り替え (例: `/pro`, `/gpt4o`, `/opus`, `/gemma`)。
 -   `/models` (または `/m`): 利用可能なモデルとエイリアスを表示。
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツール等）を表示。
--   `/tools`: 現在有効なツールを表示（リモートのMCPツール含む）。
+-   `/tools [on|off]`: ツールの有効・無効を切り替え。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動で添付。
 -   `/dump`: 会話履歴をJSON形式でダンプ。
@@ -388,9 +390,9 @@ llm --mcp
 
 ## ユーティリティ・スクリプト
 
--   `llm-cli-config`: 対話型設定ツール.
--   `*-models`: 各プロバイダの利用可能なモデルリスト.
--   `translate-json`: JSONファイル内の特定のキーを翻訳するユーティリティ.
+-   `llm-cli-config`: 対話型設定ツール。
+-   `*-models`: 各プロバイダの利用可能なモデルリスト (例: `ollama-models`)。
+-   `translate-json`: JSONファイル内の特定のキーを翻訳するユーティリティ。
 
 ## License
 

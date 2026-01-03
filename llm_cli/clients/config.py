@@ -31,10 +31,22 @@ def _load_config_from_file() -> Dict[str, Any]:
     return _config_cache
 
 
-def get_setting(key: str, section: str) -> Optional[str]:
+def get_setting(key: str, section: str) -> Optional[Any]:
     """Gets a specific setting value from a section in the config file."""
     config = _load_config_from_file()
     return config.get(section, {}).get(key)
+
+
+def get_bool_setting(key: str, section: str, default: bool = False) -> bool:
+    """Gets a boolean setting value from a section in the config file."""
+    val = get_setting(key, section)
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() in ("true", "1", "yes", "on")
+    return bool(val)
 
 
 def get_model_aliases(section: str) -> Dict[str, str]:
@@ -50,7 +62,7 @@ def get_all_model_aliases() -> Dict[str, Dict[str, str]]:
     """
     config = _load_config_from_file()
     all_aliases = {}
-    providers = ['google', 'openai', 'anthropic', 'xai']
+    providers = ['google', 'openai', 'anthropic', 'xai', 'ollama']
     for provider in providers:
         all_aliases[provider] = config.get(provider, {}).get("models", {})
     return all_aliases

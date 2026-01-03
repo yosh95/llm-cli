@@ -6,6 +6,7 @@ from llm_cli.apps.gemini import GeminiClient
 from llm_cli.apps.openai import OpenAIClient
 from llm_cli.apps.claude import ClaudeClient
 from llm_cli.apps.grok import GrokClient
+from llm_cli.apps.ollama import OllamaClient
 from llm_cli.clients.base import (
     BaseLlmClient, DataSource, console, Conversation
 )
@@ -29,6 +30,7 @@ class UnifiedClient(BaseLlmClient):
         'claude': (ClaudeClient, 'anthropic'),
         'xai': (GrokClient, 'xai'),
         'grok': (GrokClient, 'xai'),
+        'ollama': (OllamaClient, 'ollama'),
     }
 
     def __init__(self, initial_provider: Optional[str] = None, **kwargs):
@@ -76,6 +78,16 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, 'active_client'):
             self.active_client.live_debug = value
 
+    @property
+    def tools_enabled(self) -> bool:
+        return getattr(self, "_tools_enabled", True)
+
+    @tools_enabled.setter
+    def tools_enabled(self, value: bool):
+        self._tools_enabled = value
+        if hasattr(self, 'active_client'):
+            self.active_client.tools_enabled = value
+
     def _activate_provider(self, provider_alias: str) -> bool:
         if provider_alias not in self.PROVIDER_CONFIG:
             return False
@@ -86,6 +98,7 @@ class UnifiedClient(BaseLlmClient):
 
         self.active_client = self.clients[config_section]
         self.active_client.live_debug = self.live_debug
+        self.active_client.tools_enabled = self.tools_enabled
         self.current_provider_name = config_section
         self.config_section = self.active_client.config_section
         self.available_models = self.active_client.available_models
@@ -138,6 +151,7 @@ class UnifiedClient(BaseLlmClient):
         self.active_client.active_tools = self.active_tools
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
+        self.active_client.tools_enabled = self.tools_enabled
         return self.active_client._send(data)
 
     def _has_pending_tool_calls(self) -> bool:

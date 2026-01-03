@@ -54,6 +54,9 @@ class BaseLlmClient(ABC):
         self.render_markdown = render_markdown
         self.live_debug = live_debug
 
+        # Tools are enabled by default. Can be toggled via /tools on/off
+        self.tools_enabled = True
+
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S (%A)')
         self.system_prompt = f"Current date and time: {now}"
@@ -216,7 +219,7 @@ class BaseLlmClient(ABC):
 
         parts = user_input[1:].split(None, 1)
         cmd = parts[0]
-        args = parts[1] if len(parts) > 1 else ""
+        args = parts[1].strip() if len(parts) > 1 else ""
 
         if cmd in self.available_models:
             self.set_model(cmd)
@@ -234,14 +237,14 @@ class BaseLlmClient(ABC):
                 )
             return True
 
-        if cmd in ('google', 'openai', 'anthropic', 'xai'):
+        if cmd in ('google', 'openai', 'anthropic', 'xai', 'ollama'):
             raise ProviderSwitchRequest(cmd)
 
         if cmd in ('checkpoint', 'cp'):
             raise CheckpointRequest()
 
         if cmd == 'attach':
-            path_str = args.strip()
+            path_str = args
             if not path_str:
                 console.print("[red]Usage: /attach <path>[/red]")
                 return True
@@ -314,8 +317,22 @@ class BaseLlmClient(ABC):
             raise EOFError
 
         if cmd == 'tools':
-            tools_str = ', '.join(self.active_tools) or 'None'
-            console.print(f"[bold]Active Tools:[/bold] {tools_str}")
+            if args == 'on':
+                self.tools_enabled = True
+                console.print("[green]Tools enabled.[/green]")
+            elif args == 'off':
+                self.tools_enabled = False
+                console.print("[yellow]Tools disabled.[/yellow]")
+            else:
+                status = (
+                    "[green]ENABLED[/green]" if self.tools_enabled
+                    else "[red]DISABLED[/red]"
+                )
+                tools_str = ', '.join(self.active_tools) or 'None'
+                console.print(f"[bold]Tools Status:[/bold] {status}")
+                if self.tools_enabled:
+                    console.print(f"[bold]Active Tools:[/bold] {tools_str}")
+                console.print("[dim]Usage: /tools [on|off][/dim]")
             return True
 
         if cmd in ('debug', 'd'):
@@ -326,7 +343,10 @@ class BaseLlmClient(ABC):
 
         if cmd in ('info', 'i'):
             debug_status = "ON" if self.live_debug else "OFF"
-            tools_str = ', '.join(self.active_tools) or 'None'
+            if not self.tools_enabled:
+                tools_str = "[red]Disabled[/red]"
+            else:
+                tools_str = ', '.join(self.active_tools) or 'None'
             console.print(
                 "[bold]Session Info:[/bold]\n"
                 f"  Provider: [cyan]{self.config_section}[/cyan]\n"
@@ -357,8 +377,8 @@ class BaseLlmClient(ABC):
             "  /info (i)      Show session info\n"
             "  /debug (d)     Toggle live debug mode\n"
             "  /models (m)    List available models\n"
-            "  /tools         Show active tools\n"
-            "  /google, /openai, /anthropic, /xai  Switch provider\n"
+            "  /tools [on|off]Show or toggle tool status\n"
+            "  /google, /openai, /anthropic, /xai, /ollama  Switch provider\n"
             f"  <model_alias>  Switch to specific model ({models_str})"
         )
 

@@ -42,6 +42,7 @@ gemini-models= "llm_cli.apps.gemini_models:main"
 openai-models = "llm_cli.apps.openai_models:main"
 claude-models = "llm_cli.apps.claude_models:main"
 grok-models = "llm_cli.apps.grok_models:main"
+ollama-models = "llm_cli.apps.ollama_models:main"
 translate-json = "llm_cli.apps.translate_json_data:main"
 
 [build-system]

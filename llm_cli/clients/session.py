@@ -243,15 +243,25 @@ class ChatSession:
             call.get("id", "unknown"), call["name"], call.get("args", {})
         )
 
+        # Extract thought/reasoning for visibility
+        thought = args.get("thought") or args.get("reasoning")
+        if thought:
+            console.print(Panel(
+                thought,
+                title="[bold cyan]🤔 Thought[/bold cyan]",
+                border_style="cyan"
+            ))
+
         title_prefix = "[bold yellow]🤖 Agent Request:[/bold yellow]"
         if name in ("write_file", "execute_command"):
             # Detailed preview panel will be shown, so skip inline args
             console.print(f"{title_prefix} [cyan]{escape(name)}[/cyan]")
         else:
+            # Exclude thought from display args for cleaner output
             display_args = {
                 k: (v[:200] + "...")
                 if isinstance(v, str) and len(v) > 200 else v
-                for k, v in args.items()
+                for k, v in args.items() if k not in ("thought", "reasoning")
             }
             console.print(
                 f"{title_prefix} [cyan]{escape(name)}[/cyan]"

@@ -11,6 +11,10 @@ from llm_cli.modules.tool_registry import tool
     params={
         "type": "object",
         "properties": {
+            "thought": {
+                "type": "string",
+                "description": "The reasoning behind performing this file listing."
+            },
             "directory": {
                 "type": "string",
                 "description": "Target directory (default: current directory)."
@@ -26,10 +30,12 @@ from llm_cli.modules.tool_registry import tool
                 "context overflow.",
                 "default": 500
             }
-        }
+        },
+        "required": ["thought"]
     }
 )
 def list_files(
+    thought: str,
     directory: str = ".",
     depth: int = 1,
     max_files: int = 500
@@ -94,6 +100,10 @@ def list_files(
     params={
         "type": "object",
         "properties": {
+            "thought": {
+                "type": "string",
+                "description": "The reasoning behind reading this file."
+            },
             "path": {"type": "string", "description": "File path."},
             "start_line": {
                 "type": "integer",
@@ -105,10 +115,10 @@ def list_files(
                 "description": "Last line to read."
             }
         },
-        "required": ["path"]
+        "required": ["path", "thought"]
     }
 )
-def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
+def read_file(path: str, thought: str, start_line: int = 1, end_line: int = None) -> str:
     try:
         p = Path(path)
         if not p.is_file():
@@ -133,6 +143,10 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
     params={
         "type": "object",
         "properties": {
+            "thought": {
+                "type": "string",
+                "description": "The reasoning behind creating or modifying this file."
+            },
             "path": {
                 "type": "string",
                 "description": "Path to save the file."
@@ -142,10 +156,10 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
                 "description": "The exact string content to write."
             }
         },
-        "required": ["path", "content"]
+        "required": ["path", "content", "thought"]
     }
 )
-def write_file(path: str, content: str) -> str:
+def write_file(path: str, content: str, thought: str) -> str:
     try:
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)

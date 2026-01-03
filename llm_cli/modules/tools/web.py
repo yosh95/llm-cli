@@ -14,12 +14,16 @@ from llm_cli.clients.config import get_setting
     parameters={
         "type": "object",
         "properties": {
+            "thought": {
+                "type": "string",
+                "description": "The reasoning behind performing this search."
+            },
             "queries": {"type": "array", "items": {"type": "string"}}
         },
-        "required": ["queries"]
+        "required": ["queries", "thought"]
     }
 )
-def google_search(queries: list[str]) -> str:
+def google_search(queries: list[str], thought: str) -> str:
     api_key = get_setting("api_key", "google")
     cse_id = get_setting("cse_id", "google")
     if not api_key or not cse_id:
@@ -55,12 +59,16 @@ def google_search(queries: list[str]) -> str:
     parameters={
         "type": "object",
         "properties": {
+            "thought": {
+                "type": "string",
+                "description": "The reasoning behind fetching this URL."
+            },
             "url": {"type": "string", "description": "Target URL."}
         },
-        "required": ["url"]
+        "required": ["url", "thought"]
     }
 )
-def fetch_url(url: str) -> dict | str:
+def fetch_url(url: str, thought: str) -> dict | str:
     try:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get('Content-Type', '')

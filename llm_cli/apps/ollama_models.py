@@ -32,7 +32,9 @@ def main():
             )
         console.print(table)
     except Exception as e:
-        console.print(f"[bold red]Error fetching Ollama models: {e}[/bold red]")
+        console.print(
+            f"[bold red]Error fetching Ollama models: {e}[/bold red]"
+        )
         sys.exit(1)
 
 

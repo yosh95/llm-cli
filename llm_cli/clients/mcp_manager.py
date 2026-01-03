@@ -68,11 +68,13 @@ class MCPManager:
                 validate_mcp_command(command)
             except CommandValidationError as e:
                 console.print(
-                    f"[bold red]Security Error for MCP server '{name}':[/bold red] {e}"
+                    f"[bold red]Security Error for MCP server '{name}':"
+                    f"[/bold red] {e}"
                 )
                 console.print(
-                    "[yellow]Skipping this MCP server. Check the allowed MCP commands "
-                    "in your config file (~/.config/llm_cli/config.toml)[/yellow]"
+                    "[yellow]Skipping this MCP server. Check the allowed "
+                    "MCP commands in your config file "
+                    "(~/.config/llm_cli/config.toml)[/yellow]"
                 )
                 continue
 

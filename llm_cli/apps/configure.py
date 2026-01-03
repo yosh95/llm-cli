@@ -37,7 +37,8 @@ def save_config(config):
 def prompt_for_setting(prompt_text, current_value=None):
     """Displays a prompt with the current value and asks for a new one."""
     if current_value:
-        # Show only the last 4 characters of the key for security if it looks like an API key
+        # Show only the last 4 characters of the key for security
+        # if it looks like an API key
         if len(current_value) > 10:
             display_val = f"...{current_value[-4:]}"
         else:
@@ -112,7 +113,8 @@ def main():
     print("\n--- Ollama Configuration ---")
     config['ollama']['api_url'] = prompt_for_general_setting(
         "Ollama API URL",
-        config['ollama'].get('api_url', 'http://localhost:11434/v1/chat/completions')
+        config['ollama'].get('api_url',
+                             'http://localhost:11434/v1/chat/completions')
     )
 
     # --- General Settings ---

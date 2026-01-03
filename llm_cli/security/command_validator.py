@@ -2,7 +2,7 @@
 
 import shlex
 import re
-from typing import List, Set, Optional, Dict, Any
+from typing import List, Set, Optional
 from llm_cli.clients.config import _load_config_from_file
 
 
@@ -44,7 +44,8 @@ class CommandValidator:
         # Development tools (mostly read-only)
         'git', 'diff', 'patch', 'make', 'cmake',
 
-        # Package managers (info commands only - install/remove require explicit permission)
+        # Package managers (info commands only -
+        # install/remove require explicit permission)
         'pip', 'npm', 'cargo', 'go',
 
         # Python
@@ -87,9 +88,11 @@ class CommandValidator:
         Initialize the command validator.
 
         Args:
-            custom_whitelist: Additional commands to allow (merged with defaults)
+            custom_whitelist: Additional commands to allow
+                (merged with defaults)
             allow_dangerous_patterns: If True, skip dangerous pattern checks
-            mcp_mode: If True, use MCP server whitelist instead of default
+            mcp_mode: If True, use MCP server whitelist instead of
+                default
         """
         if mcp_mode:
             self.whitelist = self.MCP_SERVER_WHITELIST.copy()
@@ -139,9 +142,10 @@ class CommandValidator:
 
         # Check against whitelist
         if base_command not in self.whitelist:
+            allowed_list = ', '.join(sorted(self.whitelist))
             raise CommandValidationError(
                 f"Command '{base_command}' is not in the allowed whitelist. "
-                f"Allowed commands: {', '.join(sorted(self.whitelist))}"
+                f"Allowed commands: {allowed_list}"
             )
 
         # Additional checks for specific dangerous command arguments
@@ -154,7 +158,8 @@ class CommandValidator:
                 raise CommandValidationError(
                     f"Command contains dangerous pattern '{pattern}'. "
                     f"Complex shell operations with pipes, redirects, and "
-                    f"command substitution are not allowed for security reasons."
+                    f"command substitution are not allowed for "
+                    f"security reasons."
                 )
 
     def _check_dangerous_arguments(self, base_command: str,
@@ -186,7 +191,8 @@ class CommandValidator:
             if operation in dangerous_operations:
                 raise CommandValidationError(
                     f"Package manager operation '{operation}' is not allowed. "
-                    f"Only info/list commands are permitted for {base_command}."
+                    f"Only info/list commands are permitted for "
+                    f"{base_command}."
                 )
 
         # Check for dangerous tar operations (file extraction)
@@ -211,9 +217,10 @@ class CommandValidator:
 
 
 def validate_command(command: str,
-                    custom_whitelist: Optional[Set[str]] = None) -> None:
+                     custom_whitelist: Optional[Set[str]] = None) -> None:
     """
-    Convenience function to validate a command with custom whitelist from config.
+    Convenience function to validate a command with custom whitelist
+    from config.
 
     Args:
         command: The command string to validate
@@ -259,7 +266,8 @@ def validate_mcp_command(command: str) -> None:
 
     validator = CommandValidator(
         custom_whitelist=mcp_whitelist if mcp_whitelist else None,
-        allow_dangerous_patterns=False,  # Never allow dangerous patterns for MCP
+        # Never allow dangerous patterns for MCP
+        allow_dangerous_patterns=False,
         mcp_mode=True
     )
     validator.validate(command)

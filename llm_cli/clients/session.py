@@ -376,10 +376,11 @@ class ChatSession:
         except CommandValidationError as e:
             console.print(f"[bold red]Security Error:[/bold red] {e}")
             console.print(
-                "[yellow]For security reasons, only whitelisted commands are allowed.[/yellow]\n"
+                "[yellow]For security reasons, only whitelisted commands "
+                "are allowed.[/yellow]\n"
                 "[dim]Check the allowed commands list in your config file "
-                "(~/.config/llm_cli/config.toml) or see the default whitelist "
-                "in llm_cli/security/command_validator.py[/dim]"
+                "(~/.config/llm_cli/config.toml) or see the default "
+                "whitelist in llm_cli/security/command_validator.py[/dim]"
             )
             return True
 

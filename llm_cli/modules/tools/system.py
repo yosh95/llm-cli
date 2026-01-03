@@ -24,7 +24,13 @@ def execute_command(command: str) -> str:
     try:
         validate_command(command)
     except CommandValidationError as e:
-        return f"Security Error: {e}\n\nFor security reasons, only whitelisted commands are allowed. Check the allowed commands list in your config file (~/.config/llm_cli/config.toml) or see the default whitelist in llm_cli/security/command_validator.py"
+        return (
+            f"Security Error: {e}\n\n"
+            "For security reasons, only whitelisted commands are allowed. "
+            "Check the allowed commands list in your config file "
+            "(~/.config/llm_cli/config.toml) or see the default whitelist "
+            "in llm_cli/security/command_validator.py"
+        )
 
     # Use a default timeout of 60 seconds.
     # We allow internal overriding for testing purposes.

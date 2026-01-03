@@ -1,12 +1,15 @@
 # llm_cli/apps/ollama.py
 
 import requests
+import json
 from typing import Dict, List, Optional, Tuple
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
+from llm_cli.clients.config import get_setting
 
-FALLBACK_MODEL = "llama3"
+FALLBACK_MODEL = "gemma3:1b"
+DEFAULT_API_URL = "http://localhost:11434/v1/chat/completions"
 
 
 class OllamaClient(BaseLlmClient):
@@ -20,7 +23,8 @@ class OllamaClient(BaseLlmClient):
             pdf_as_base64=False,
             **kwargs
         )
-        self.host = self.api_key or "http://localhost:11434"
+        config_url = get_setting("api_url", "ollama")
+        self.api_url = config_url if config_url else DEFAULT_API_URL
 
     def _load_model_aliases(self):
         from llm_cli.clients.config import get_model_aliases
@@ -56,14 +60,12 @@ class OllamaClient(BaseLlmClient):
             "stream": False,
         }
 
-        if not self.tools_enabled and self.active_tools:
+        if self.tools_enabled and self.active_tools:
             payload["tools"] = registry.get_openai_spec(self.active_tools)
-
-        api_url = f"{self.host}/api/chat"
 
         try:
             response = requests.post(
-                api_url,
+                self.api_url,
                 json=payload,
                 timeout=120
             )
@@ -71,9 +73,15 @@ class OllamaClient(BaseLlmClient):
             response.raise_for_status()
             res_json = response.json()
 
-            message = res_json.get("message", {})
-            content = message.get("content", "")
-            tool_calls = message.get("tool_calls", [])
+            # Handle both OpenAI-compatible and native Ollama formats
+            if "choices" in res_json:
+                choice = res_json["choices"][0].get("message", {})
+                content = choice.get("content", "")
+                tool_calls = choice.get("tool_calls", [])
+            else:
+                message = res_json.get("message", {})
+                content = message.get("content", "")
+                tool_calls = message.get("tool_calls", [])
 
             model_parts = []
             if content:
@@ -84,8 +92,13 @@ class OllamaClient(BaseLlmClient):
                     fn = tc.get("function", {})
                     model_parts.append({
                         "functionCall": {
+                            "id": tc.get("id"),
                             "name": fn.get("name"),
-                            "args": fn.get("arguments")
+                            "args": (
+                                json.loads(fn["arguments"])
+                                if isinstance(fn.get("arguments"), str)
+                                else fn.get("arguments")
+                            )
                         }
                     })
 
@@ -98,7 +111,7 @@ class OllamaClient(BaseLlmClient):
             model_msg = {"role": "model", "parts": model_parts}
             self.conversation.append(model_msg)
 
-            return content, {}
+            return content, res_json.get("usage", {})
         except Exception as e:
             self._report_error("Ollama", e)
             return None, None

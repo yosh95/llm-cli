@@ -147,31 +147,22 @@ class BaseLlmClient(ABC):
         ChatSession(self).run(initial_data, sources)
 
     def process_sources(self, sources: List[str]):
-        """Process input sources and either output result or start chat."""
+        """Input source processing logic."""
         data = [
             processed for s in sources
             if (processed := self._process_single_source(s))
         ]
-        # Check if there is any explicit prompt (text not from a file or URL)
         has_prompt = any(not d.get("is_file_or_url") for d in data)
 
         from llm_cli.clients.session import ChatSession
         session = ChatSession(self)
 
         if data:
-            # If prompt or stdout is requested, process immediately.
-            # This handles cases like:
-            # - llm "hi"
-            # - llm "Summarize this" https://...
-            # - llm -s README.md
             if self.stdout or has_prompt:
                 session.process_and_print(data)
-                # If not stdout, enter interactive mode for follow-up.
                 if not self.stdout:
                     session.run(sources=sources)
             else:
-                # No prompt, only external resources (files/URLs).
-                # Start interactive session and wait for instructions.
                 session.run(initial_data=data, sources=sources)
         else:
             session.run(sources=sources)
@@ -271,7 +262,6 @@ class BaseLlmClient(ABC):
             return True
 
         if cmd == 'dump':
-            # 1. Display conversation history first
             json_str = json.dumps(
                 self.conversation, indent=2, ensure_ascii=False
             )
@@ -283,7 +273,6 @@ class BaseLlmClient(ABC):
                 syn, title="Conversation History", border_style="blue"
             ))
 
-            # 2. Display pending context if it exists (at the end)
             if pending_data:
                 json_pending = json.dumps(
                     pending_data, indent=2, ensure_ascii=False
@@ -323,7 +312,7 @@ class BaseLlmClient(ABC):
             elif args == 'off':
                 self.tools_enabled = False
                 console.print("[yellow]Tools disabled.[/yellow]")
-            else:
+            elif not args:
                 status = (
                     "[green]ENABLED[/green]" if self.tools_enabled
                     else "[red]DISABLED[/red]"
@@ -332,7 +321,12 @@ class BaseLlmClient(ABC):
                 console.print(f"[bold]Tools Status:[/bold] {status}")
                 if self.tools_enabled:
                     console.print(f"[bold]Active Tools:[/bold] {tools_str}")
-                console.print("[dim]Usage: /tools [on|off][/dim]")
+                console.print("[dim]Usage: /tools on|off[/dim]")
+            else:
+                console.print(
+                    f"[red]Error: Invalid argument '{args}'. "
+                    "Usage: /tools on|off[/red]"
+                )
             return True
 
         if cmd in ('debug', 'd'):
@@ -377,7 +371,7 @@ class BaseLlmClient(ABC):
             "  /info (i)      Show session info\n"
             "  /debug (d)     Toggle live debug mode\n"
             "  /models (m)    List available models\n"
-            "  /tools [on|off]Show or toggle tool status\n"
+            "  /tools on|off  Show or toggle tool status\n"
             "  /google, /openai, /anthropic, /xai, /ollama  Switch provider\n"
             f"  <model_alias>  Switch to specific model ({models_str})"
         )

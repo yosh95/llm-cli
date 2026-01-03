@@ -11,37 +11,41 @@ max_chat_log_lines = 10000
 api_key = "YOUR_GEMINI_API_KEY"
 system_prompt = "You are a helpful assistant."
 [google.models]
-default = "gemini-1.5-flash-latest"
-pro = "gemini-1.5-pro-latest"
-flash = "gemini-1.5-flash-latest"
+default = "gemini-flash-latest"
+lite = "gemini-flash-lite-late"
+flash = "gemini-flash-latest"
+pro = "gemini-pro-latest"
 
 [openai]
 api_key = "YOUR_OPENAI_API_KEY"
 [openai.models]
-default = "gpt-4o"
-gpt4o = "gpt-4o"
-mini = "gpt-4o-mini"
+default = "gpt-5.2"
+nano = "gpt-5-nano"
+mini = "gpt-5-mini"
 
 [anthropic]
 api_key = "YOUR_CLAUDE_API_KEY"
 [anthropic.models]
-default = "claude-3-5-sonnet-20240620"
-opus = "claude-3-opus-20240229"
-sonnet = "claude-3-5-sonnet-20240620"
-haiku = "claude-3-haiku-20240307"
+default = "claude-sonnet-4-5-20250929"
+haiku = "claude-haiku-4-5-20250929"
+sonnet = "claude-sonnet-4-5-20250929"
+opus = "claude-opus-4-5-20250929"
 
 [xai]
 api_key = "YOUR_GROK_API_KEY"
 [xai.models]
-default = "grok-beta"
+default = "grok-4-1-fast-non-reasoning"
+reasoning = "grok-4-1-fast-reasoning"
 
 [ollama]
 # By default, Ollama client connects to http://localhost:11434
+# api_url = "http://localhost:11434/v1/chat/completion
 # You can override this by setting api_key as the host URL
-# api_key = "http://localhost:11434"
+# api_key = "ollama"
 [ollama.models]
-default = "gemma3:12b"
+default = "gemma3:128m"
 gemma = "gemma3:12b"
+gemma-nano = "gemma3:128m"
 gemma-tiny = "gemma3:1b"
 gemma-small = "gemma3:4b"
 phi4 = "phi4-mini:3.8b"

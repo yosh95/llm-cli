@@ -38,12 +38,11 @@ default = "grok-4-1-fast-non-reasoning"
 reasoning = "grok-4-1-fast-reasoning"
 
 [ollama]
-# By default, Ollama client connects to http://localhost:11434
-# api_url = "http://localhost:11434/v1/chat/completion
-# You can override this by setting api_key as the host URL
-# api_key = "ollama"
+api_url = "http://localhost:11434/v1/chat/completions"
+# By default, Ollama client connects to http://localhost:11434/v1/chat/completions
+# You can override this by setting api_url to your local endpoint.
 [ollama.models]
-default = "gemma3:128m"
+default = "gemma3:270m"
 gemma = "gemma3:12b"
 gemma-nano = "gemma3:128m"
 gemma-tiny = "gemma3:1b"

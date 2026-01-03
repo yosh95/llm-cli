@@ -13,6 +13,7 @@ GEMINI_MODEL_DEFAULT = "gemini-3-flash-preview"
 OPENAI_MODEL_DEFAULT = "gpt-5.2"
 CLAUDE_MODEL_DEFAULT = "claude-opus-4-5-20251101"
 GROK_MODEL_DEFAULT = "grok-4-1-fast-reasoning"
+OLLAMA_MODEL_DEFAULT = "gemma3:270m"
 
 
 def load_config():
@@ -36,8 +37,12 @@ def save_config(config):
 def prompt_for_setting(prompt_text, current_value=None):
     """Displays a prompt with the current value and asks for a new one."""
     if current_value:
-        # Show only the last 4 characters of the key for security
-        prompt = f"{prompt_text} [current: ...{current_value[-4:]}]: "
+        # Show only the last 4 characters of the key for security if it looks like an API key
+        if len(current_value) > 10:
+            display_val = f"...{current_value[-4:]}"
+        else:
+            display_val = current_value
+        prompt = f"{prompt_text} [current: {display_val}]: "
     else:
         prompt = f"{prompt_text} [current: None]: "
 
@@ -70,11 +75,13 @@ def main():
     config.setdefault('openai', {})
     config.setdefault('anthropic', {})
     config.setdefault('xai', {})
+    config.setdefault('ollama', {})
     config.setdefault('general', {})
     config['google'].setdefault('models', {})
     config['openai'].setdefault('models', {})
     config['anthropic'].setdefault('models', {})
     config['xai'].setdefault('models', {})
+    config['ollama'].setdefault('models', {})
 
     # --- Google Services Configuration ---
     config['google']['api_key'] = prompt_for_setting(
@@ -99,6 +106,13 @@ def main():
     print("\n--- xAI (Grok) Configuration ---")
     config['xai']['api_key'] = prompt_for_setting(
         "xAI API Key", config['xai'].get('api_key', '')
+    )
+
+    # --- Ollama Configuration ---
+    print("\n--- Ollama Configuration ---")
+    config['ollama']['api_url'] = prompt_for_general_setting(
+        "Ollama API URL",
+        config['ollama'].get('api_url', 'http://localhost:11434/v1/chat/completions')
     )
 
     # --- General Settings ---
@@ -148,7 +162,7 @@ def main():
     current_provider = config['general'].get('unified_default_provider',
                                              'google')
     provider_prompt = ("Default provider for unified client "
-                       "(google, openai, anthropic, xai) "
+                       "(google, openai, anthropic, xai, ollama) "
                        f"[current: {current_provider}]: ")
     provider = input(provider_prompt).strip().lower()
     config['general']['unified_default_provider'] = \
@@ -194,6 +208,15 @@ def main():
     grok_default = input(grok_default_prompt)
     config['xai']['models']['default'] = grok_default \
         if grok_default else current_grok_default
+
+    # ollama
+    current_ollama_default = config['ollama']['models'].get(
+        'default', OLLAMA_MODEL_DEFAULT)
+    ollama_default_prompt = "Default Ollama Model [current: " + \
+        f"{current_ollama_default}]: "
+    ollama_default = input(ollama_default_prompt)
+    config['ollama']['models']['default'] = ollama_default \
+        if ollama_default else current_ollama_default
 
     save_config(config)
 

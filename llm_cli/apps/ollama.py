@@ -8,7 +8,7 @@ from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
 from llm_cli.clients.config import get_setting
 
-FALLBACK_MODEL = "gemma3:1b"
+FALLBACK_MODEL = "gemma3:270m"
 DEFAULT_API_URL = "http://localhost:11434/v1/chat/completions"
 
 

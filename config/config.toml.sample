@@ -48,3 +48,24 @@ gemma-nano = "gemma3:128m"
 gemma-tiny = "gemma3:1b"
 gemma-small = "gemma3:4b"
 phi4 = "phi4-mini:3.8b"
+
+# Security settings for command execution guardrails
+[security]
+# Additional commands to allow beyond the default whitelist
+# Default whitelist includes: ls, cat, grep, git, python, etc.
+# See llm_cli/security/command_validator.py for the full default list
+allowed_commands = [
+    # Add any custom commands you want to allow here
+    # Example: "custom_script", "special_tool"
+]
+
+# Additional commands allowed for MCP server spawning
+# Default MCP whitelist: node, python, python3, deno, npx, docker, ssh, uvx
+allowed_mcp_commands = [
+    # Add any custom MCP server commands here
+    # Example: "custom_mcp_server"
+]
+
+# WARNING: Setting this to true disables protection against shell injection
+# Only enable if you fully understand the security implications
+allow_dangerous_patterns = false

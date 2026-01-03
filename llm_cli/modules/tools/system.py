@@ -5,6 +5,7 @@ import os
 import signal
 import platform
 from llm_cli.modules.tool_registry import tool
+from llm_cli.security import validate_command, CommandValidationError
 
 
 @tool(
@@ -19,6 +20,12 @@ from llm_cli.modules.tool_registry import tool
     }
 )
 def execute_command(command: str) -> str:
+    # Validate command against security whitelist
+    try:
+        validate_command(command)
+    except CommandValidationError as e:
+        return f"Security Error: {e}\n\nFor security reasons, only whitelisted commands are allowed. Check the allowed commands list in your config file (~/.config/llm_cli/config.toml) or see the default whitelist in llm_cli/security/command_validator.py"
+
     # Use a default timeout of 60 seconds.
     # We allow internal overriding for testing purposes.
     timeout = int(os.environ.get("LLM_CLI_COMMAND_TIMEOUT", 60))

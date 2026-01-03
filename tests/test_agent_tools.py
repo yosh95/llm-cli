@@ -41,7 +41,8 @@ class TestExecuteCommand(unittest.TestCase):
         os.environ["LLM_CLI_COMMAND_TIMEOUT"] = "2"
         try:
             start_time = time.time()
-            result = execute_command("echo 'starting'; sleep 10; echo 'finished'")
+            # Use sleep command directly (safe command in whitelist)
+            result = execute_command("sleep 10")
             duration = time.time() - start_time
 
             self.assertTrue(
@@ -49,9 +50,6 @@ class TestExecuteCommand(unittest.TestCase):
                 f"Command should timeout around 2s, took {duration}s"
             )
             self.assertIn("Error: Command timed out (2s).", result)
-            self.assertIn("Partial STDOUT:", result)
-            self.assertIn("starting", result)
-            self.assertNotIn("finished", result)
 
             # Verify that the child process is not lingering (POSIX only)
             if os.name != 'nt':

@@ -36,9 +36,53 @@ The AI can use tools like `google_search` or `search_arxiv` to find real-time in
     -   **OpenAI / Claude / Grok**: Text and local images (PDFs are processed as text/Base64).
 -   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
 -   **Safe Execution**: Includes a **Diff Preview** for file changes and asks for user confirmation before executing any tool (Human-in-the-Loop).
+-   **Security Guardrails**: Whitelist-based command validation protects against command injection and dangerous operations.
 -   **One-Shot Execution**: Pipe input from other commands or pass prompts as arguments.
 -   **Smart Log Management**: Automatically rotates and trims chat logs.
 -   **Simple Configuration**: Interactive setup via `llm-cli-config`.
+
+## Security
+
+`llm-cli` implements strict security guardrails to protect against command injection and dangerous operations:
+
+### Command Execution Guardrails
+
+All shell commands executed through the AI agent (`execute_command` tool) and user-initiated commands (`!command`) are validated against a **whitelist** of safe commands before execution.
+
+**Default Allowed Commands**: `ls`, `cat`, `grep`, `find`, `git`, `python`, `npm`, `pip`, `curl`, and many other read-only or low-risk commands. See `llm_cli/security/command_validator.py` for the complete list.
+
+**Blocked Patterns**:
+- Command chaining (`&&`, `||`, `;`)
+- Pipes and redirects (`|`, `>`, `<`)
+- Command substitution (`` ` ``, `$()`)
+- Dangerous operations (e.g., `rm -rf`, `mkfs`, `dd`)
+- Risky subcommands (e.g., `git push`, `pip install`, `tar -x`)
+
+**MCP Server Protection**: MCP server commands loaded from config files are also validated against a separate whitelist.
+
+### Configuration
+
+You can customize the allowed commands in `~/.config/llm_cli/config.toml`:
+
+```toml
+[security]
+# Additional commands to allow beyond the default whitelist
+allowed_commands = [
+    "custom_script",
+    "special_tool"
+]
+
+# Additional commands allowed for MCP server spawning
+allowed_mcp_commands = [
+    "custom_mcp_server"
+]
+
+# WARNING: Setting this to true disables protection against shell injection
+# Only enable if you fully understand the security implications
+allow_dangerous_patterns = false
+```
+
+**Important**: These guardrails provide defense-in-depth but do not replace user vigilance. Always review commands before approving execution.
 
 ## Installation
 
@@ -234,9 +278,53 @@ AIは `google_search` や `search_arxiv` を使ってリアルタイム情報を
     -   **OpenAI / Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。
 -   **安全な実行**: ファイル変更時の **Diffプレビュー** 表示と、ツール実行前のユーザー確認（Human-in-the-Loop）。
+-   **セキュリティガードレール**: ホワイトリストベースのコマンド検証により、コマンドインジェクションや危険な操作を防止。
 -   **ワンショット実行**: 他のコマンドからのパイプ入力や、引数としてのプロンプト実行に対応。
 -   **ログ管理**: チャットログの自動ローテーションとトリミング機能を搭載。
 -   **簡単設定**: `llm-cli-config` による対話形式のセットアップ。
+
+## セキュリティ
+
+`llm-cli` はコマンドインジェクションや危険な操作を防止するため、厳格なセキュリティガードレールを実装しています：
+
+### コマンド実行ガードレール
+
+AIエージェント (`execute_command` ツール) およびユーザーが直接実行するコマンド (`!command`) は、実行前に安全なコマンドの**ホワイトリスト**に対して検証されます。
+
+**デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find`, `git`, `python`, `npm`, `pip`, `curl` など、読み取り専用または低リスクのコマンド。完全なリストは `llm_cli/security/command_validator.py` を参照してください。
+
+**ブロックされるパターン**:
+- コマンドチェーン (`&&`, `||`, `;`)
+- パイプとリダイレクト (`|`, `>`, `<`)
+- コマンド置換 (`` ` ``, `$()`)
+- 危険な操作 (例: `rm -rf`, `mkfs`, `dd`)
+- 危険なサブコマンド (例: `git push`, `pip install`, `tar -x`)
+
+**MCP サーバー保護**: 設定ファイルから読み込まれる MCP サーバーコマンドも、別のホワイトリストに対して検証されます。
+
+### 設定
+
+`~/.config/llm_cli/config.toml` で許可するコマンドをカスタマイズできます：
+
+```toml
+[security]
+# デフォルトのホワイトリストに追加で許可するコマンド
+allowed_commands = [
+    "custom_script",
+    "special_tool"
+]
+
+# MCP サーバー起動で許可する追加のコマンド
+allowed_mcp_commands = [
+    "custom_mcp_server"
+]
+
+# 警告: これを true に設定すると、シェルインジェクションに対する保護が無効になります
+# セキュリティへの影響を十分に理解した上でのみ有効にしてください
+allow_dangerous_patterns = false
+```
+
+**重要**: これらのガードレールは多層防御を提供しますが、ユーザーの注意を置き換えるものではありません。実行を承認する前に常にコマンドを確認してください。
 
 ## インストール
 

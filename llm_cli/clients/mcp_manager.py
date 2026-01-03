@@ -9,6 +9,7 @@ from mcp.client.stdio import stdio_client
 from rich.console import Console
 
 from llm_cli.clients.config import get_mcp_servers
+from llm_cli.security import validate_mcp_command, CommandValidationError
 
 # Set up logging for MCP client
 logging.basicConfig(level=logging.WARN, stream=sys.stderr)
@@ -60,6 +61,19 @@ class MCPManager:
             env = config.get("env")
 
             if not name or not command or name in self.sessions:
+                continue
+
+            # Validate MCP server command against security whitelist
+            try:
+                validate_mcp_command(command)
+            except CommandValidationError as e:
+                console.print(
+                    f"[bold red]Security Error for MCP server '{name}':[/bold red] {e}"
+                )
+                console.print(
+                    "[yellow]Skipping this MCP server. Check the allowed MCP commands "
+                    "in your config file (~/.config/llm_cli/config.toml)[/yellow]"
+                )
                 continue
 
             with console.status(

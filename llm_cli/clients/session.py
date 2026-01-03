@@ -20,6 +20,7 @@ from rich.panel import Panel
 from llm_cli.clients.base import BaseLlmClient, DataSource, CheckpointRequest
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.tool_registry import registry
+from llm_cli.security import validate_command, CommandValidationError
 
 kb = KeyBindings()
 console = Console()
@@ -368,6 +369,20 @@ class ChatSession:
         self, user_input: str, data: List[DataSource]
     ) -> bool:
         cmd = user_input[1:].strip()
+
+        # Validate command against security whitelist
+        try:
+            validate_command(cmd)
+        except CommandValidationError as e:
+            console.print(f"[bold red]Security Error:[/bold red] {e}")
+            console.print(
+                "[yellow]For security reasons, only whitelisted commands are allowed.[/yellow]\n"
+                "[dim]Check the allowed commands list in your config file "
+                "(~/.config/llm_cli/config.toml) or see the default whitelist "
+                "in llm_cli/security/command_validator.py[/dim]"
+            )
+            return True
+
         console.print(f"[dim]Executing: {cmd}[/dim]")
         try:
             result = subprocess.run(

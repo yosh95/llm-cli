@@ -1,5 +1,6 @@
 """Test conversation history handling with initial_data."""
-from llm_cli.apps.gemini import GeminiClient
+
+from llm_cli.clients.gemini import GeminiClient
 
 
 def test_initial_data_not_duplicated_in_conversation(mock_config):
@@ -7,11 +8,13 @@ def test_initial_data_not_duplicated_in_conversation(mock_config):
     client = GeminiClient(stdout=True)
 
     # Simulate initial_data with a file_uri
-    initial_data = [{
-        "file_uri": "https://gemini.api/files/test123",
-        "content_type": "video/mp4",
-        "is_file_or_url": True
-    }]
+    initial_data = [
+        {
+            "file_uri": "https://gemini.api/files/test123",
+            "content_type": "video/mp4",
+            "is_file_or_url": True,
+        }
+    ]
 
     # Mock _send to capture what gets added to conversation
     send_calls = []
@@ -22,20 +25,20 @@ def test_initial_data_not_duplicated_in_conversation(mock_config):
         new_parts = []
         for item in data:
             if item.get("file_uri"):
-                new_parts.append({
-                    "file_data": {
-                        "mime_type": item["content_type"],
-                        "file_uri": item["file_uri"]
+                new_parts.append(
+                    {
+                        "file_data": {
+                            "mime_type": item["content_type"],
+                            "file_uri": item["file_uri"],
+                        }
                     }
-                })
+                )
             else:
                 new_parts.append({"text": item["content"]})
 
         if new_parts:
             client.conversation.append({"role": "user", "parts": new_parts})
-        client.conversation.append(
-            {"role": "model", "parts": [{"text": "Response"}]}
-        )
+        client.conversation.append({"role": "model", "parts": [{"text": "Response"}]})
         return "Response", None
 
     client._send = mock_send
@@ -63,8 +66,8 @@ def test_initial_data_not_duplicated_in_conversation(mock_config):
     assert len(client.conversation[0]["parts"]) == 2
     assert "file_data" in client.conversation[0]["parts"][0]
     assert (
-        client.conversation[0]["parts"][0]["file_data"]["file_uri"] ==
-        "https://gemini.api/files/test123"
+        client.conversation[0]["parts"][0]["file_data"]["file_uri"]
+        == "https://gemini.api/files/test123"
     )
     assert "text" in client.conversation[0]["parts"][1]
 
@@ -88,7 +91,7 @@ def test_conversation_cleared_after_clear_command(mock_config):
         {"role": "user", "parts": [{"text": "Question 1"}]},
         {"role": "model", "parts": [{"text": "Answer 1"}]},
         {"role": "user", "parts": [{"text": "Question 2"}]},
-        {"role": "model", "parts": [{"text": "Answer 2"}]}
+        {"role": "model", "parts": [{"text": "Answer 2"}]},
     ]
 
     # Simulate /clear command

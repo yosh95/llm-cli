@@ -1,7 +1,8 @@
 # llm_cli/apps/ollama_models.py
 
-import requests
 import sys
+
+import requests
 from rich.console import Console
 from rich.table import Table
 
@@ -26,15 +27,11 @@ def main():
 
         for m in models:
             table.add_row(
-                m.get("name"),
-                f"{m.get('size', 0) / 1e9:.2f} GB",
-                m.get("modified_at")
+                m.get("name"), f"{m.get('size', 0) / 1e9:.2f} GB", m.get("modified_at")
             )
         console.print(table)
     except Exception as e:
-        console.print(
-            f"[bold red]Error fetching Ollama models: {e}[/bold red]"
-        )
+        console.print(f"[bold red]Error fetching Ollama models: {e}[/bold red]")
         sys.exit(1)
 
 

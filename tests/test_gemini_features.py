@@ -1,8 +1,10 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from llm_cli.apps.gemini import GeminiClient
-import os
 import glob
+import os
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from llm_cli.clients.gemini import GeminiClient
 
 
 @pytest.fixture
@@ -14,27 +16,21 @@ def mock_gemini_response_image():
             {
                 "content": {
                     "parts": [
-                        {
-                            "inlineData": {
-                                "mimeType": "image/jpeg",
-                                "data": img_data
-                            }
-                        },
-                        {
-                            "thought": "This is a thought."
-                        }
+                        {"inlineData": {"mimeType": "image/jpeg", "data": img_data}},
+                        {"thought": "This is a thought."},
                     ]
                 }
             }
         ],
-        "usageMetadata": {"totalTokenCount": 10}
+        "usageMetadata": {"totalTokenCount": 10},
     }
 
 
 def test_gemini_saves_image_and_displays_thought(
-        mock_config, mock_gemini_response_image, tmp_path):
+    mock_config, mock_gemini_response_image, tmp_path
+):
     # Mock requests.post
-    with patch('requests.post') as mock_post:
+    with patch("requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_gemini_response_image
@@ -46,8 +42,9 @@ def test_gemini_saves_image_and_displays_thought(
         orig_cwd = os.getcwd()
         os.chdir(tmp_path)
         try:
-            full_text, _ = client._send([{"content": "Generate an image",
-                                          "content_type": "text/plain"}])
+            full_text, _ = client._send(
+                [{"content": "Generate an image", "content_type": "text/plain"}]
+            )
 
             # Check if image file exists
             # In base.py: ext_parts = mime_type.split('/'); extension = "bin"
@@ -55,8 +52,7 @@ def test_gemini_saves_image_and_displays_thought(
             # mimeType is "image/jpeg", so extension should be "jpeg".
             files_jpeg = glob.glob("output_image_*.jpeg")
 
-            assert len(files_jpeg) == 1, \
-                f"Expected 1 jpeg file, found: {files_jpeg}"
+            assert len(files_jpeg) == 1, f"Expected 1 jpeg file, found: {files_jpeg}"
 
             # Check if text contains thought and image path
             assert "**output image:" in full_text

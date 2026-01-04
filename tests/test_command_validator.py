@@ -1,9 +1,10 @@
 # tests/test_command_validator.py
 
 import pytest
+
 from llm_cli.security import (
-    CommandValidator,
     CommandValidationError,
+    CommandValidator,
     validate_command,
     validate_mcp_command,
 )
@@ -36,13 +37,19 @@ class TestCommandValidator:
         """Test that non-whitelisted commands are blocked."""
         validator = CommandValidator()
 
-        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+        with pytest.raises(
+            CommandValidationError, match="not in the allowed whitelist"
+        ):
             validator.validate("rm -rf /")
 
-        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+        with pytest.raises(
+            CommandValidationError, match="not in the allowed whitelist"
+        ):
             validator.validate("mkfs.ext4 /dev/sda")
 
-        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+        with pytest.raises(
+            CommandValidationError, match="not in the allowed whitelist"
+        ):
             validator.validate("dd if=/dev/zero of=/dev/sda")
 
     def test_dangerous_patterns_pipes(self):
@@ -188,7 +195,9 @@ class TestCommandValidator:
         validator.validate("echo hello > file.txt")
 
         # But non-whitelisted commands should still be blocked
-        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+        with pytest.raises(
+            CommandValidationError, match="not in the allowed whitelist"
+        ):
             validator.validate("rm -rf /")
 
     def test_mcp_mode(self):
@@ -201,7 +210,9 @@ class TestCommandValidator:
         validator.validate("docker run mcp-container")
 
         # Regular commands should be blocked
-        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+        with pytest.raises(
+            CommandValidationError, match="not in the allowed whitelist"
+        ):
             validator.validate("ls -la")
 
     def test_validate_command_function(self):

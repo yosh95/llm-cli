@@ -1,9 +1,9 @@
 # llm_cli/clients/base.py
 
-import datetime
-import uuid
 import base64
+import datetime
 import json
+import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -11,8 +11,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.syntax import Syntax
+
 from llm_cli.clients.config import get_setting
-from llm_cli.modules.media_utils import process_file, fetch_url_content
+from llm_cli.modules.media_utils import fetch_url_content, process_file
 from llm_cli.modules.tool_registry import registry
 
 console = Console()
@@ -35,17 +36,19 @@ class CheckpointRequest(Exception):
 class BaseLlmClient(ABC):
     """Abstract Base Class for LLM API clients."""
 
-    def __init__(self,
-                 initial_model_alias: str,
-                 api_key_name: str,
-                 config_section: str,
-                 pdf_as_base64: bool,
-                 stdout: bool,
-                 render_markdown: bool = True,
-                 initial_tools: Optional[List[str]] = None,
-                 disable_system_prompt: bool = False,
-                 enable_mcp: bool = False,
-                 live_debug: bool = False):
+    def __init__(
+        self,
+        initial_model_alias: str,
+        api_key_name: str,
+        config_section: str,
+        pdf_as_base64: bool,
+        stdout: bool,
+        render_markdown: bool = True,
+        initial_tools: Optional[List[str]] = None,
+        disable_system_prompt: bool = False,
+        enable_mcp: bool = False,
+        live_debug: bool = False,
+    ):
 
         self.config_section = config_section
         self.api_key = get_setting(api_key_name, config_section)
@@ -58,7 +61,7 @@ class BaseLlmClient(ABC):
         self.tools_enabled = True
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
-        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S (%A)')
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S (%A)")
         self.system_prompt = f"Current date and time: {now}"
         if raw_prompt:
             self.system_prompt += f"\n{raw_prompt}"
@@ -69,25 +72,20 @@ class BaseLlmClient(ABC):
         self.current_alias = ""
         self.model = ""
         self._load_model_aliases()
-        self.set_model(initial_model_alias) or self.set_model('default')
+        self.set_model(initial_model_alias) or self.set_model("default")
 
         self.conversation: Conversation = []
         self.last_usage: Optional[Dict[str, int]] = None
         self.last_request_duration: Optional[float] = None
 
-        self.history_path = self._expand(
-            get_setting("LLM_PROMPT_HISTORY", "general")
-        )
-        self.chat_log_path = self._expand(
-            get_setting("LLM_CHAT_LOG", "general")
-        )
+        self.history_path = self._expand(get_setting("LLM_PROMPT_HISTORY", "general"))
+        self.chat_log_path = self._expand(get_setting("LLM_CHAT_LOG", "general"))
         self.max_chat_log_lines = int(
             get_setting("max_chat_log_lines", "general") or 10000
         )
 
         self.active_tools: List[str] = (
-            initial_tools if initial_tools is not None
-            else list(registry.tools.keys())
+            initial_tools if initial_tools is not None else list(registry.tools.keys())
         )
 
         if enable_mcp:
@@ -96,6 +94,7 @@ class BaseLlmClient(ABC):
     def _init_mcp(self, update_active_tools: bool):
         try:
             from llm_cli.clients.mcp_manager import mcp_manager
+
             already_initialized = mcp_manager._initialized
             remote_tool_names = registry.register_remote_tools(mcp_manager)
             if remote_tool_names:
@@ -111,9 +110,7 @@ class BaseLlmClient(ABC):
         except ImportError:
             pass
         except Exception as e:
-            console.print(
-                f"[yellow]Note: MCP initialization failed: {e}[/yellow]"
-            )
+            console.print(f"[yellow]Note: MCP initialization failed: {e}[/yellow]")
 
     def _expand(self, p: Optional[str]) -> Optional[str]:
         return str(Path(p).expanduser()) if p else None
@@ -124,9 +121,7 @@ class BaseLlmClient(ABC):
         pass
 
     @abstractmethod
-    def _send(self, data: List[DataSource]) -> Tuple[
-        Optional[str], Optional[Dict]
-    ]:
+    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         """Send the request to the specific provider API."""
         pass
 
@@ -140,21 +135,22 @@ class BaseLlmClient(ABC):
     def talk(
         self,
         initial_data: Optional[List[DataSource]] = None,
-        sources: Optional[List[str]] = None
+        sources: Optional[List[str]] = None,
     ):
         """Start an interactive chat session."""
         from llm_cli.clients.session import ChatSession
+
         ChatSession(self).run(initial_data, sources)
 
     def process_sources(self, sources: List[str]):
         """Input source processing logic."""
         data = [
-            processed for s in sources
-            if (processed := self._process_single_source(s))
+            processed for s in sources if (processed := self._process_single_source(s))
         ]
         has_prompt = any(not d.get("is_file_or_url") for d in data)
 
         from llm_cli.clients.session import ChatSession
+
         session = ChatSession(self)
 
         if data:
@@ -174,7 +170,7 @@ class BaseLlmClient(ABC):
                 return {
                     "content": content,
                     "content_type": ctype,
-                    "is_file_or_url": True
+                    "is_file_or_url": True,
                 }
             return None
 
@@ -188,24 +184,18 @@ class BaseLlmClient(ABC):
         return {"content": source, "content_type": "text/plain"}
 
     def _has_pending_tool_calls(self) -> bool:
-        if (
-            not self.conversation or
-            self.conversation[-1].get("role") != "model"
-        ):
+        if not self.conversation or self.conversation[-1].get("role") != "model":
             return False
-        return any(
-            "functionCall" in p
-            for p in self.conversation[-1].get("parts", [])
-        )
+        return any("functionCall" in p for p in self.conversation[-1].get("parts", []))
 
     def _handle_command(
         self,
         user_input: str,
         sources: Optional[List[str]],
-        pending_data: Optional[List[DataSource]] = None
+        pending_data: Optional[List[DataSource]] = None,
     ) -> bool:
         """Handle in-chat slash commands."""
-        if not user_input.startswith('/'):
+        if not user_input.startswith("/"):
             return False
 
         parts = user_input[1:].split(None, 1)
@@ -214,27 +204,23 @@ class BaseLlmClient(ABC):
 
         if cmd in self.available_models:
             self.set_model(cmd)
-            console.print(
-                f"[cyan]Model switched to: {self.current_alias}[/cyan]"
-            )
+            console.print(f"[cyan]Model switched to: {self.current_alias}[/cyan]")
             return True
 
-        if cmd in ('m', 'models'):
+        if cmd in ("m", "models"):
             console.print("[bold]Available Models:[/bold]")
             for alias, name in self.available_models.items():
                 active = "*" if alias == self.current_alias else " "
-                console.print(
-                    f" {active} [cyan]{alias:15}[/cyan] -> [dim]{name}[/dim]"
-                )
+                console.print(f" {active} [cyan]{alias:15}[/cyan] -> [dim]{name}[/dim]")
             return True
 
-        if cmd in ('google', 'openai', 'anthropic', 'xai', 'ollama'):
+        if cmd in ("google", "openai", "anthropic", "xai", "ollama"):
             raise ProviderSwitchRequest(cmd)
 
-        if cmd in ('checkpoint', 'cp'):
+        if cmd in ("checkpoint", "cp"):
             raise CheckpointRequest()
 
-        if cmd == 'attach':
+        if cmd == "attach":
             path_str = args
             if not path_str:
                 console.print("[red]Usage: /attach <path>[/red]")
@@ -249,8 +235,7 @@ class BaseLlmClient(ABC):
                     )
                 else:
                     console.print(
-                        f"[green]Attached {res['content_type']}: "
-                        f"{path_str}[/green]"
+                        f"[green]Attached {res['content_type']}: " f"{path_str}[/green]"
                     )
                 if pending_data is not None:
                     pending_data.append(res)
@@ -261,33 +246,36 @@ class BaseLlmClient(ABC):
                 )
             return True
 
-        if cmd == 'dump':
-            json_str = json.dumps(
-                self.conversation, indent=2, ensure_ascii=False
-            )
+        if cmd == "dump":
+            json_str = json.dumps(self.conversation, indent=2, ensure_ascii=False)
             syn = Syntax(
-                json_str, "json", theme="monokai",
-                background_color="default", word_wrap=True
+                json_str,
+                "json",
+                theme="monokai",
+                background_color="default",
+                word_wrap=True,
             )
-            console.print(Panel(
-                syn, title="Conversation History", border_style="blue"
-            ))
+            console.print(Panel(syn, title="Conversation History", border_style="blue"))
 
             if pending_data:
-                json_pending = json.dumps(
-                    pending_data, indent=2, ensure_ascii=False
-                )
+                json_pending = json.dumps(pending_data, indent=2, ensure_ascii=False)
                 syn_pending = Syntax(
-                    json_pending, "json", theme="monokai",
-                    background_color="default", word_wrap=True
+                    json_pending,
+                    "json",
+                    theme="monokai",
+                    background_color="default",
+                    word_wrap=True,
                 )
-                console.print(Panel(
-                    syn_pending, title="Pending Context (Next Request)",
-                    border_style="yellow"
-                ))
+                console.print(
+                    Panel(
+                        syn_pending,
+                        title="Pending Context (Next Request)",
+                        border_style="yellow",
+                    )
+                )
             return True
 
-        if cmd == 'raw':
+        if cmd == "raw":
             for msg in self.conversation:
                 role = msg.get("role", "unknown")
                 for p in msg.get("parts", []):
@@ -297,27 +285,28 @@ class BaseLlmClient(ABC):
                         print(f"[{role.upper()}{role_suffix}]\n{text}\n")
             return True
 
-        if cmd in ('c', 'clear'):
+        if cmd in ("c", "clear"):
             self.conversation.clear()
             console.print("[yellow]Conversation history cleared.[/yellow]")
             return True
 
-        if cmd in ('q', 'quit'):
+        if cmd in ("q", "quit"):
             raise EOFError
 
-        if cmd == 'tools':
-            if args == 'on':
+        if cmd == "tools":
+            if args == "on":
                 self.tools_enabled = True
                 console.print("[green]Tools enabled.[/green]")
-            elif args == 'off':
+            elif args == "off":
                 self.tools_enabled = False
                 console.print("[yellow]Tools disabled.[/yellow]")
             elif not args:
                 status = (
-                    "[green]ENABLED[/green]" if self.tools_enabled
+                    "[green]ENABLED[/green]"
+                    if self.tools_enabled
                     else "[red]DISABLED[/red]"
                 )
-                tools_str = ', '.join(self.active_tools) or 'None'
+                tools_str = ", ".join(self.active_tools) or "None"
                 console.print(f"[bold]Tools Status:[/bold] {status}")
                 if self.tools_enabled:
                     console.print(f"[bold]Active Tools:[/bold] {tools_str}")
@@ -329,18 +318,18 @@ class BaseLlmClient(ABC):
                 )
             return True
 
-        if cmd in ('debug', 'd'):
+        if cmd in ("debug", "d"):
             self.live_debug = not self.live_debug
             status = "ENABLED" if self.live_debug else "DISABLED"
             console.print(f"[magenta]Live debug mode {status}.[/magenta]")
             return True
 
-        if cmd in ('info', 'i'):
+        if cmd in ("info", "i"):
             debug_status = "ON" if self.live_debug else "OFF"
             if not self.tools_enabled:
                 tools_str = "[red]Disabled[/red]"
             else:
-                tools_str = ', '.join(self.active_tools) or 'None'
+                tools_str = ", ".join(self.active_tools) or "None"
             console.print(
                 "[bold]Session Info:[/bold]\n"
                 f"  Provider: [cyan]{self.config_section}[/cyan]\n"
@@ -352,14 +341,14 @@ class BaseLlmClient(ABC):
             )
             return True
 
-        if cmd in ('help', 'h'):
+        if cmd in ("help", "h"):
             self._print_help()
             return True
 
         return False
 
     def _print_help(self):
-        models_str = ', '.join(self.available_models.keys())
+        models_str = ", ".join(self.available_models.keys())
         console.print(
             "[bold]Available Commands:[/bold]\n"
             "  /attach <path> Attach media/file to context\n"
@@ -389,12 +378,12 @@ class BaseLlmClient(ABC):
     def _save_inline_image_and_get_log_entry(
         self, inline_data: Dict[str, Any]
     ) -> Optional[str]:
-        if inline_data.get('mimeType', '').startswith('image/'):
-            ext = inline_data['mimeType'].split('/')[-1]
-            now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        if inline_data.get("mimeType", "").startswith("image/"):
+            ext = inline_data["mimeType"].split("/")[-1]
+            now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             fname = f"output_image_{now_str}_{uuid.uuid4().hex[:4]}.{ext}"
             try:
-                Path(fname).write_bytes(base64.b64decode(inline_data['data']))
+                Path(fname).write_bytes(base64.b64decode(inline_data["data"]))
                 return f"\n**output image: {fname}**"
             except Exception as e:
                 console.print(f"[red]Failed to save image: {e}[/red]")
@@ -404,12 +393,12 @@ class BaseLlmClient(ABC):
         self,
         response_obj: Any = None,
         request_payload: Any = None,
-        response_content: Any = None
+        response_content: Any = None,
     ):
         if not self.live_debug:
             return
 
-        timestamp = datetime.datetime.now().strftime('%H:%M:%S')
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
 
         try:
             self._print_live_debug(
@@ -423,26 +412,28 @@ class BaseLlmClient(ABC):
         timestamp: str,
         response_obj: Any = None,
         request_payload: Any = None,
-        response_content: Any = None
+        response_content: Any = None,
     ):
         def _format_json(data):
             if isinstance(data, (dict, list)):
                 return Syntax(
                     json.dumps(data, indent=2, ensure_ascii=False),
-                    "json", theme="monokai",
-                    background_color="default", word_wrap=True
+                    "json",
+                    theme="monokai",
+                    background_color="default",
+                    word_wrap=True,
                 )
             return str(data)
 
         if response_obj:
             req_info = []
-            if hasattr(response_obj, 'request'):
+            if hasattr(response_obj, "request"):
                 req = response_obj.request
                 req_info.append(f"[bold]URL:[/bold] {req.url}")
                 if req.body:
                     try:
                         b_str = (
-                            req.body.decode('utf-8')
+                            req.body.decode("utf-8")
                             if isinstance(req.body, bytes)
                             else str(req.body)
                         )
@@ -452,10 +443,11 @@ class BaseLlmClient(ABC):
 
             if req_info:
                 title = f"[bold cyan]API Request ({timestamp})[/bold cyan]"
-                console.print(Panel(
-                    Group(*req_info), title=title,
-                    border_style="cyan", expand=False
-                ))
+                console.print(
+                    Panel(
+                        Group(*req_info), title=title, border_style="cyan", expand=False
+                    )
+                )
 
             res_info = [f"[bold]Status:[/bold] {response_obj.status_code}"]
             try:
@@ -464,46 +456,44 @@ class BaseLlmClient(ABC):
                 res_info.append(response_obj.text)
 
             title = f"[bold green]API Response ({timestamp})[/bold green]"
-            console.print(Panel(
-                Group(*res_info), title=title,
-                border_style="green", expand=False
-            ))
+            console.print(
+                Panel(Group(*res_info), title=title, border_style="green", expand=False)
+            )
         else:
             if request_payload:
                 title = f"[bold cyan]Payload Request ({timestamp})[/bold cyan]"
-                console.print(Panel(
-                    _format_json(request_payload), title=title,
-                    border_style="cyan", expand=False
-                ))
-            if response_content:
-                title = (
-                    f"[bold green]Payload Response ({timestamp})"
-                    "[/bold green]"
+                console.print(
+                    Panel(
+                        _format_json(request_payload),
+                        title=title,
+                        border_style="cyan",
+                        expand=False,
+                    )
                 )
-                console.print(Panel(
-                    _format_json(response_content), title=title,
-                    border_style="green", expand=False
-                ))
+            if response_content:
+                title = f"[bold green]Payload Response ({timestamp})" "[/bold green]"
+                console.print(
+                    Panel(
+                        _format_json(response_content),
+                        title=title,
+                        border_style="green",
+                        expand=False,
+                    )
+                )
 
     def _report_error(self, provider_name: str, e: Exception):
         import requests
+
         error_msg = str(e)
-        if (
-            isinstance(e, requests.exceptions.HTTPError) and
-            e.response is not None
-        ):
+        if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
             try:
-                body_str = json.dumps(
-                    e.response.json(), indent=2, ensure_ascii=False
-                )
+                body_str = json.dumps(e.response.json(), indent=2, ensure_ascii=False)
                 error_msg += f"\nResponse Body: {body_str}"
             except Exception:
                 if e.response.text:
                     error_msg += f"\nResponse Body: {e.response.text}"
 
-        console.print(
-            f"[bold red]{provider_name} Error: {error_msg}[/bold red]"
-        )
+        console.print(f"[bold red]{provider_name} Error: {error_msg}[/bold red]")
 
     def _format_response_text(self, text: Optional[str]) -> Optional[str]:
         if text is None:

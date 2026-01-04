@@ -1,6 +1,8 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from llm_cli.apps.gemini import GeminiClient
+
+from llm_cli.clients.gemini import GeminiClient
 
 
 @pytest.fixture
@@ -14,8 +16,9 @@ def test_gemini_audio_upload_called(mock_config_audio, tmp_path):
     audio_file.write_bytes(b"dummy audio data")
 
     # In refactored version, Gemini uses media_utils and its own _upload_file logic
-    with patch('llm_cli.modules.media_utils.filetype.guess') as mock_guess, \
-         patch('llm_cli.apps.gemini.GeminiClient._upload_file') as mock_upload:
+    with patch("llm_cli.modules.media_utils.filetype.guess") as mock_guess, patch(
+        "llm_cli.apps.gemini.GeminiClient._upload_file"
+    ) as mock_upload:
 
         # Mock filetype to return audio/wav
         mock_kind = MagicMock()
@@ -31,25 +34,27 @@ def test_gemini_audio_upload_called(mock_config_audio, tmp_path):
         assert result == {
             "file_uri": "https://gemini.api/files/abc",
             "content_type": "audio/wav",
-            "is_file_or_url": True
+            "is_file_or_url": True,
         }
         mock_upload.assert_called_once_with(audio_file, mime_type="audio/wav")
 
 
 def test_gemini_send_with_audio_file_uri(mock_config_audio):
     client = GeminiClient(initial_model_alias="default", stdout=True)
-    data = [{
-        "file_uri": "https://gemini.api/files/abc",
-        "content_type": "audio/wav",
-        "is_file_or_url": True
-    }]
+    data = [
+        {
+            "file_uri": "https://gemini.api/files/abc",
+            "content_type": "audio/wav",
+            "is_file_or_url": True,
+        }
+    ]
 
-    with patch('requests.post') as mock_post:
+    with patch("requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "candidates": [{"content": {"parts": [{"text": "Heard audio"}]}}],
-            "usageMetadata": {"totalTokenCount": 5}
+            "usageMetadata": {"totalTokenCount": 5},
         }
         mock_post.return_value = mock_response
 
@@ -57,15 +62,15 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
 
         # Check payload
         args, kwargs = mock_post.call_args
-        payload = kwargs['json']
-        user_parts = payload['contents'][-1]['parts']
+        payload = kwargs["json"]
+        user_parts = payload["contents"][-1]["parts"]
 
         assert any(
-            part.get('file_data', {}).get('file_uri') == "https://gemini.api/files/abc"
+            part.get("file_data", {}).get("file_uri") == "https://gemini.api/files/abc"
             for part in user_parts
         )
         assert any(
-            part.get('file_data', {}).get('mime_type') == "audio/wav"
+            part.get("file_data", {}).get("mime_type") == "audio/wav"
             for part in user_parts
         )
 
@@ -84,9 +89,10 @@ def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
             self.current_alias = "default"
             self.model = "test-model"
 
-        def _send(self, data): return "res", {}
+        def _send(self, data):
+            return "res", {}
 
-    with patch('llm_cli.modules.media_utils.filetype.guess') as mock_guess:
+    with patch("llm_cli.modules.media_utils.filetype.guess") as mock_guess:
         mock_kind = MagicMock()
         mock_kind.mime = "audio/mpeg"
         mock_guess.return_value = mock_kind
@@ -98,4 +104,5 @@ def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
         assert result["is_file_or_url"] is True
         # Should be base64
         import base64
-        assert result["content"] == base64.b64encode(b"binary mp3 data").decode('utf-8')
+
+        assert result["content"] == base64.b64encode(b"binary mp3 data").decode("utf-8")

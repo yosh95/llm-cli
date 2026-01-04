@@ -1,8 +1,9 @@
 """Shared test fixtures and configuration for pytest."""
 
 import base64
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 
 @pytest.fixture
@@ -77,7 +78,7 @@ startxref
 @pytest.fixture
 def sample_pdf_base64(sample_pdf_content):
     """Provide base64-encoded PDF content."""
-    return base64.b64encode(sample_pdf_content).decode('utf-8')
+    return base64.b64encode(sample_pdf_content).decode("utf-8")
 
 
 @pytest.fixture
@@ -85,11 +86,11 @@ def sample_image_base64():
     """Provide a minimal base64-encoded image (1x1 PNG)."""
     # 1x1 transparent PNG
     png_b64 = (
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlE'
-        'QVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlE"
+        "QVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
     )
     png_bytes = base64.b64decode(png_b64)
-    return base64.b64encode(png_bytes).decode('utf-8')
+    return base64.b64encode(png_bytes).decode("utf-8")
 
 
 @pytest.fixture
@@ -104,7 +105,7 @@ def temp_pdf_file(tmp_path, sample_pdf_content):
 def temp_text_file(tmp_path, sample_text_content):
     """Create a temporary text file for testing."""
     text_file = tmp_path / "test.txt"
-    text_file.write_text(sample_text_content, encoding='utf-8')
+    text_file.write_text(sample_text_content, encoding="utf-8")
     return text_file
 
 
@@ -119,55 +120,49 @@ def temp_empty_file(tmp_path):
 @pytest.fixture
 def mock_config(monkeypatch, mock_api_key):
     """Mock the config module to return test values."""
+
     def mock_get_setting(key, section):
         config = {
-            'google': {
-                'api_key': mock_api_key,
-                'cse_id': 'test_cse_id',
-                'system_prompt': 'You are a helpful AI assistant.',
+            "google": {
+                "api_key": mock_api_key,
+                "cse_id": "test_cse_id",
+                "system_prompt": "You are a helpful AI assistant.",
             },
-            'openai': {
-                'api_key': mock_api_key,
-                'system_prompt': 'You are a helpful AI assistant.',
+            "openai": {
+                "api_key": mock_api_key,
+                "system_prompt": "You are a helpful AI assistant.",
             },
-            'anthropic': {
-                'api_key': mock_api_key,
-                'system_prompt': 'You are a helpful AI assistant.',
+            "anthropic": {
+                "api_key": mock_api_key,
+                "system_prompt": "You are a helpful AI assistant.",
             },
-            'xai': {
-                'api_key': mock_api_key,
-                'system_prompt': 'You are a helpful AI assistant.',
+            "xai": {
+                "api_key": mock_api_key,
+                "system_prompt": "You are a helpful AI assistant.",
             },
-            'general': {
-                'LLM_PROMPT_HISTORY': None,
-                'LLM_CHAT_LOG': None,
-                'LLM_REQUEST_DEBUG_LOG': None,
-            }
+            "general": {
+                "LLM_PROMPT_HISTORY": None,
+                "LLM_CHAT_LOG": None,
+                "LLM_REQUEST_DEBUG_LOG": None,
+            },
         }
         return config.get(section, {}).get(key)
 
     def mock_get_model_aliases(section):
         return {
-            'default': 'test-model',
-            'pro': 'test-model-pro',
+            "default": "test-model",
+            "pro": "test-model-pro",
         }
 
     def mock_get_provider_tools(section):
-        return {
-            "search": '{"type": "google_search_retrieval_tool"}'
-        }
+        return {"search": '{"type": "google_search_retrieval_tool"}'}
 
+    monkeypatch.setattr("llm_cli.clients.config.get_setting", mock_get_setting)
     monkeypatch.setattr(
-        'llm_cli.clients.config.get_setting',
-        mock_get_setting
+        "llm_cli.clients.config.get_model_aliases", mock_get_model_aliases
     )
     monkeypatch.setattr(
-        'llm_cli.clients.config.get_model_aliases',
-        mock_get_model_aliases
-    )
-    monkeypatch.setattr(
-        'llm_cli.clients.config.get_provider_tools',
-        mock_get_provider_tools
+        "llm_cli.clients.config.get_provider_tools", mock_get_provider_tools
     )
 
 
@@ -176,10 +171,10 @@ def mock_requests_success(monkeypatch):
     """Mock successful HTTP requests."""
     mock_response = Mock()
     mock_response.status_code = 200
-    mock_response.headers = {'Content-Type': 'text/html'}
-    mock_response.text = '<html><body>Test content</body></html>'
-    mock_response.content = b'Test content'
-    mock_response.json.return_value = {'result': 'success'}
+    mock_response.headers = {"Content-Type": "text/html"}
+    mock_response.text = "<html><body>Test content</body></html>"
+    mock_response.content = b"Test content"
+    mock_response.json.return_value = {"result": "success"}
     mock_response.raise_for_status = Mock()
 
     def mock_get(*args, **kwargs):
@@ -188,8 +183,8 @@ def mock_requests_success(monkeypatch):
     def mock_post(*args, **kwargs):
         return mock_response
 
-    monkeypatch.setattr('requests.get', mock_get)
-    monkeypatch.setattr('requests.post', mock_post)
+    monkeypatch.setattr("requests.get", mock_get)
+    monkeypatch.setattr("requests.post", mock_post)
     return mock_response
 
 
@@ -202,5 +197,5 @@ def mock_cloudscraper(monkeypatch, mock_requests_success):
     def mock_create_scraper():
         return mock_scraper
 
-    monkeypatch.setattr('cloudscraper.create_scraper', mock_create_scraper)
+    monkeypatch.setattr("cloudscraper.create_scraper", mock_create_scraper)
     return mock_scraper

@@ -1,4 +1,4 @@
-from llm_cli.apps.gemini import GeminiClient
+from llm_cli.clients.gemini import GeminiClient
 
 
 def test_trim_log_file(tmp_path, mock_config):

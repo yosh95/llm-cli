@@ -3,13 +3,14 @@
 import asyncio
 import logging
 import sys
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from rich.console import Console
 
 from llm_cli.clients.config import get_mcp_servers
-from llm_cli.security import validate_mcp_command, CommandValidationError
+from llm_cli.security import CommandValidationError, validate_mcp_command
 
 # Set up logging for MCP client
 logging.basicConfig(level=logging.WARN, stream=sys.stderr)
@@ -78,16 +79,10 @@ class MCPManager:
                 )
                 continue
 
-            with console.status(
-                f"[bold green]Connecting to MCP server '{name}'..."
-            ):
+            with console.status(f"[bold green]Connecting to MCP server '{name}'..."):
                 try:
-                    params = StdioServerParameters(
-                        command=command, args=args, env=env
-                    )
-                    tools = self._run_async(
-                        self._connect_and_list_tools(name, params)
-                    )
+                    params = StdioServerParameters(command=command, args=args, env=env)
+                    tools = self._run_async(self._connect_and_list_tools(name, params))
                     all_remote_tools.extend(tools)
                     console.print(
                         f"[green]✓ Connected to MCP server '{name}' "
@@ -124,13 +119,15 @@ class MCPManager:
             namespaced_tools = []
             for tool in response.tools:
                 namespaced_name = f"{server_name}__{tool.name}"
-                namespaced_tools.append({
-                    "name": namespaced_name,
-                    "original_name": tool.name,
-                    "server_name": server_name,
-                    "description": tool.description,
-                    "parameters": tool.inputSchema
-                })
+                namespaced_tools.append(
+                    {
+                        "name": namespaced_name,
+                        "original_name": tool.name,
+                        "server_name": server_name,
+                        "description": tool.description,
+                        "parameters": tool.inputSchema,
+                    }
+                )
 
             return namespaced_tools
         except asyncio.TimeoutError:

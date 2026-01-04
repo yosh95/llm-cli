@@ -1,9 +1,10 @@
 # tests/test_agent_tools.py
 
-import unittest
+import os
 import subprocess
 import time
-import os
+import unittest
+
 from llm_cli.modules.tools.system import execute_command
 
 
@@ -23,8 +24,7 @@ class TestExecuteCommand(unittest.TestCase):
         duration = time.time() - start_time
 
         self.assertLess(
-            duration, 5,
-            "Interactive command should exit immediately via DEVNULL"
+            duration, 5, "Interactive command should exit immediately via DEVNULL"
         )
         # result might contain "STDOUT:\n" and "Exit Code: 0"
         self.assertIn("STDOUT:", result)
@@ -47,20 +47,23 @@ class TestExecuteCommand(unittest.TestCase):
 
             self.assertTrue(
                 2 <= duration <= 5,
-                f"Command should timeout around 2s, took {duration}s"
+                f"Command should timeout around 2s, took {duration}s",
             )
             self.assertIn("Error: Command timed out (2s).", result)
 
             # Verify that the child process is not lingering (POSIX only)
-            if os.name != 'nt':
+            if os.name != "nt":
                 # We use ps to check for the 'sleep 10' process
                 ps_check = subprocess.run(
                     "ps aux | grep 'sleep 10' | grep -v grep",
-                    shell=True, capture_output=True, text=True
+                    shell=True,
+                    capture_output=True,
+                    text=True,
                 )
                 self.assertEqual(
-                    ps_check.stdout.strip(), "",
-                    f"Child process 'sleep 10' should have been killed. Found:\n{ps_check.stdout}"
+                    ps_check.stdout.strip(),
+                    "",
+                    f"Child process 'sleep 10' should have been killed. Found:\n{ps_check.stdout}",
                 )
         finally:
             if "LLM_CLI_COMMAND_TIMEOUT" in os.environ:

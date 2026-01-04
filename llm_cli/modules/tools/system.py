@@ -1,11 +1,44 @@
 # llm_cli/modules/tools/system.py
 
-import subprocess
+import logging
 import os
-import signal
 import platform
+import signal
+import subprocess
+
+try:
+    import resource
+except ImportError:
+    resource = None
+
 from llm_cli.modules.tool_registry import tool
-from llm_cli.security import validate_command, CommandValidationError
+from llm_cli.security import CommandValidationError, validate_command
+
+logger = logging.getLogger(__name__)
+
+
+def set_resource_limits():
+    """Sets resource limits for the child process. (Linux/Unix only)"""
+    if resource is None:
+        return
+
+    try:
+        # Limit CPU time (seconds)
+        resource.setrlimit(resource.RLIMIT_CPU, (30, 35))
+
+        # Limit address space (Memory)
+        mem_limit = 512 * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
+
+        # Limit number of processes
+        # resource.setrlimit(resource.RLIMIT_NPROC, (20, 20))
+
+        # Limit file size
+        file_limit = 50 * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_FSIZE, (file_limit, file_limit))
+
+    except Exception as e:
+        logger.warning(f"Failed to set resource limits: {e}")
 
 
 @tool(
@@ -16,55 +49,62 @@ from llm_cli.security import validate_command, CommandValidationError
         "properties": {
             "command": {"type": "string", "description": "Command to run."}
         },
-        "required": ["command"]
-    }
+        "required": ["command"],
+    },
 )
 def execute_command(command: str) -> str:
     # Validate command against security whitelist
+    # Note: validation errors are now handled by the registry wrapper auditing
     try:
         validate_command(command)
     except CommandValidationError as e:
-        return (
-            f"Security Error: {e}\n\n"
-            "For security reasons, only whitelisted commands are allowed. "
-            "Check the allowed commands list in your config file "
-            "(~/.config/llm_cli/config.toml) or see the default whitelist "
-            "in llm_cli/security/command_validator.py"
-        )
+        # We raise the error here so the tool registry's wrapper catches it
+        # and logs it as FAILED
+        raise RuntimeError(f"Security Error: {e}")
 
     # Use a default timeout of 60 seconds.
-    # We allow internal overriding for testing purposes.
     timeout = int(os.environ.get("LLM_CLI_COMMAND_TIMEOUT", 60))
+
+    # Clean environment: only pass safe variables
+    safe_env_keys = {"PATH", "LANG", "LC_ALL", "TERM", "HOME", "USER", "PWD"}
+    env = {k: v for k, v in os.environ.items() if k in safe_env_keys}
 
     kwargs = {
         "shell": True,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
-        "stdin": subprocess.DEVNULL,  # Prevent hanging on interactive prompts
+        "stdin": subprocess.DEVNULL,
         "text": True,
+        "env": env,
     }
+
     if platform.system() != "Windows":
         kwargs["start_new_session"] = True
+        kwargs["preexec_fn"] = set_resource_limits
 
     try:
         with subprocess.Popen(command, **kwargs) as proc:
             try:
                 stdout, stderr = proc.communicate(timeout=timeout)
+                exit_code = proc.returncode
+
+                result = f"STDOUT:\n{stdout}"
+                if stderr:
+                    result += f"\nSTDERR:\n{stderr}"
+                return f"{result}\nExit Code: {exit_code}"
+
             except subprocess.TimeoutExpired:
                 if platform.system() != "Windows":
-                    # Kill the whole process group
                     os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                 else:
                     proc.kill()
                 stdout, stderr = proc.communicate()
-                return (
-                    f"Error: Command timed out ({timeout}s). "
-                    f"Partial STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+
+                # Raising error so registry wrapper logs it
+                raise RuntimeError(
+                    f"Command timed out ({timeout}s). Partial STDOUT:\n{stdout}"
                 )
 
-        output = f"STDOUT:\n{stdout}"
-        if stderr:
-            output += f"\nSTDERR:\n{stderr}"
-        return f"{output}\nExit Code: {proc.returncode}"
     except Exception as e:
-        return f"Error: {e}"
+        # Re-raise to let the tool_registry wrapper handle logging
+        raise e

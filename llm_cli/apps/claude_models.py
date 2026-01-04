@@ -14,20 +14,20 @@ def main():
         response_data_key="data",
         build_headers=lambda api_key: {
             "x-api-key": api_key,
-            "anthropic-version": "2023-06-01"
+            "anthropic-version": "2023-06-01",
         },
-        extract_model_name=lambda model: model['id'],
+        extract_model_name=lambda model: model["id"],
         columns=[
             ("Model ID", "id"),
             ("Display Name", "display_name"),
             ("Created At", "created_at"),
         ],
-        sort_key=lambda model: model.get('created_at', ''),
-        timeout=10
+        sort_key=lambda model: model.get("created_at", ""),
+        timeout=10,
     )
 
     list_models(config)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

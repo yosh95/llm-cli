@@ -2,16 +2,14 @@
 
 from typing import Dict, List, Optional, Tuple
 
-from llm_cli.apps.gemini import GeminiClient
-from llm_cli.apps.openai import OpenAIClient
-from llm_cli.apps.claude import ClaudeClient
-from llm_cli.apps.grok import GrokClient
-from llm_cli.apps.ollama import OllamaClient
-from llm_cli.clients.base import (
-    BaseLlmClient, DataSource, console, Conversation
-)
-from llm_cli.clients.config import get_setting
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
+from llm_cli.clients.base import BaseLlmClient, Conversation, DataSource, console
+from llm_cli.clients.claude import ClaudeClient
+from llm_cli.clients.config import get_setting
+from llm_cli.clients.gemini import GeminiClient
+from llm_cli.clients.grok import GrokClient
+from llm_cli.clients.ollama import OllamaClient
+from llm_cli.clients.openai import OpenAIClient
 
 
 class UnifiedClient(BaseLlmClient):
@@ -22,15 +20,15 @@ class UnifiedClient(BaseLlmClient):
 
     # Maps aliases to (ClientClass, config_section)
     PROVIDER_CONFIG = {
-        'google': (GeminiClient, 'google'),
-        'gemini': (GeminiClient, 'google'),
-        'openai': (OpenAIClient, 'openai'),
-        'gpt': (OpenAIClient, 'openai'),
-        'anthropic': (ClaudeClient, 'anthropic'),
-        'claude': (ClaudeClient, 'anthropic'),
-        'xai': (GrokClient, 'xai'),
-        'grok': (GrokClient, 'xai'),
-        'ollama': (OllamaClient, 'ollama'),
+        "google": (GeminiClient, "google"),
+        "gemini": (GeminiClient, "google"),
+        "openai": (OpenAIClient, "openai"),
+        "gpt": (OpenAIClient, "openai"),
+        "anthropic": (ClaudeClient, "anthropic"),
+        "claude": (ClaudeClient, "anthropic"),
+        "xai": (GrokClient, "xai"),
+        "grok": (GrokClient, "xai"),
+        "ollama": (OllamaClient, "ollama"),
     }
 
     def __init__(self, initial_provider: Optional[str] = None, **kwargs):
@@ -38,22 +36,23 @@ class UnifiedClient(BaseLlmClient):
         self.client_kwargs = kwargs
 
         self.current_provider_name = (
-            initial_provider or
-            get_setting("unified_default_provider", "general") or "google"
+            initial_provider
+            or get_setting("unified_default_provider", "general")
+            or "google"
         )
         self._activate_provider(self.current_provider_name)
 
         super().__init__(
-            initial_model_alias=kwargs.get('initial_model_alias', 'default'),
+            initial_model_alias=kwargs.get("initial_model_alias", "default"),
             api_key_name="api_key",
             config_section=self.active_client.config_section,
             pdf_as_base64=self.active_client.pdf_as_base64,
-            stdout=kwargs.get('stdout', False),
-            render_markdown=kwargs.get('render_markdown', True),
-            initial_tools=kwargs.get('initial_tools'),
-            disable_system_prompt=kwargs.get('disable_system_prompt', False),
-            enable_mcp=kwargs.get('enable_mcp', False),
-            live_debug=kwargs.get('live_debug', False)
+            stdout=kwargs.get("stdout", False),
+            render_markdown=kwargs.get("render_markdown", True),
+            initial_tools=kwargs.get("initial_tools"),
+            disable_system_prompt=kwargs.get("disable_system_prompt", False),
+            enable_mcp=kwargs.get("enable_mcp", False),
+            live_debug=kwargs.get("live_debug", False),
         )
         self.available_models = self.active_client.available_models
         self.active_client.conversation = self.conversation
@@ -65,7 +64,7 @@ class UnifiedClient(BaseLlmClient):
     @conversation.setter
     def conversation(self, value: Conversation):
         self._conversation = value
-        if hasattr(self, 'active_client'):
+        if hasattr(self, "active_client"):
             self.active_client.conversation = value
 
     @property
@@ -75,7 +74,7 @@ class UnifiedClient(BaseLlmClient):
     @live_debug.setter
     def live_debug(self, value: bool):
         self._live_debug = value
-        if hasattr(self, 'active_client'):
+        if hasattr(self, "active_client"):
             self.active_client.live_debug = value
 
     @property
@@ -85,7 +84,7 @@ class UnifiedClient(BaseLlmClient):
     @tools_enabled.setter
     def tools_enabled(self, value: bool):
         self._tools_enabled = value
-        if hasattr(self, 'active_client'):
+        if hasattr(self, "active_client"):
             self.active_client.tools_enabled = value
 
     def _activate_provider(self, provider_alias: str) -> bool:
@@ -108,7 +107,7 @@ class UnifiedClient(BaseLlmClient):
 
         # Sync state
         self.active_client.conversation = self.conversation
-        if hasattr(self, 'active_tools'):
+        if hasattr(self, "active_tools"):
             self.active_client.active_tools = self.active_tools
 
         return True
@@ -132,12 +131,9 @@ class UnifiedClient(BaseLlmClient):
         self,
         user_input: str,
         sources: Optional[List[str]],
-        pending_data: Optional[List[DataSource]] = None
+        pending_data: Optional[List[DataSource]] = None,
     ) -> bool:
-        if (
-            user_input.startswith('/') and
-            user_input[1:] in self.PROVIDER_CONFIG
-        ):
+        if user_input.startswith("/") and user_input[1:] in self.PROVIDER_CONFIG:
             cmd = user_input[1:]
             if self._activate_provider(cmd):
                 console.print(f"[cyan]Switched to provider: {cmd}[/cyan]")
@@ -145,9 +141,7 @@ class UnifiedClient(BaseLlmClient):
 
         return super()._handle_command(user_input, sources, pending_data)
 
-    def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         self.active_client.active_tools = self.active_tools
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
@@ -162,7 +156,7 @@ def main():
     config = ClientConfig(
         client_class=UnifiedClient,
         description="Unified LLM CLI with multi-provider support",
-        supports_provider_selection=True
+        supports_provider_selection=True,
     )
     run_client_cli(config)
 

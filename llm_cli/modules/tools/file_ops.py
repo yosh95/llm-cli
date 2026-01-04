@@ -1,40 +1,37 @@
 # llm_cli/modules/tools/file_ops.py
 
 from pathlib import Path
+
 from llm_cli.modules.tool_registry import tool
 
 
 @tool(
     name="list_files",
     desc="List files in a directory with safety limits. "
-         "Use this to explore the project structure.",
+    "Use this to explore the project structure.",
     params={
         "type": "object",
         "properties": {
             "directory": {
                 "type": "string",
-                "description": "Target directory (default: current directory)."
+                "description": "Target directory (default: current directory).",
             },
             "depth": {
                 "type": "integer",
                 "description": "Maximum depth for recursive listing.",
-                "default": 1
+                "default": 1,
             },
             "max_files": {
                 "type": "integer",
                 "description": "Maximum number of files to list to prevent "
                 "context overflow.",
-                "default": 500
-            }
+                "default": 500,
+            },
         },
-        "required": []
-    }
+        "required": [],
+    },
 )
-def list_files(
-    directory: str = ".",
-    depth: int = 1,
-    max_files: int = 500
-) -> str:
+def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> str:
     """
     Lists files in a directory tree, excluding common noise directories
     and limiting the output size for safety.
@@ -45,8 +42,14 @@ def list_files(
             return f"Error: Directory '{directory}' does not exist."
 
         exclude = {
-            ".git", "__pycache__", "node_modules", ".venv",
-            ".pytest_cache", ".vscode", ".idea", ".mypy_cache"
+            ".git",
+            "__pycache__",
+            "node_modules",
+            ".venv",
+            ".pytest_cache",
+            ".vscode",
+            ".idea",
+            ".mypy_cache",
         }
         results, file_count = [], 0
 
@@ -56,12 +59,13 @@ def list_files(
                 return
             try:
                 entries = sorted(
-                    list(current_path.iterdir()),
-                    key=lambda x: (not x.is_dir(), x.name)
+                    list(current_path.iterdir()), key=lambda x: (not x.is_dir(), x.name)
                 )
             except PermissionError:
-                results.append(f"{'  ' * (current_depth - 1)}⚠️ "
-                               f"Permission Denied: {current_path.name}")
+                results.append(
+                    f"{'  ' * (current_depth - 1)}⚠️ "
+                    f"Permission Denied: {current_path.name}"
+                )
                 return
 
             for entry in entries:
@@ -69,8 +73,7 @@ def list_files(
                     continue
                 if file_count >= max_files:
                     if file_count == max_files:
-                        results.append(
-                                "... (Too many files, listing truncated)")
+                        results.append("... (Too many files, listing truncated)")
                         file_count += 1
                     break
 
@@ -99,15 +102,12 @@ def list_files(
             "start_line": {
                 "type": "integer",
                 "description": "First line to read (1-indexed).",
-                "default": 1
+                "default": 1,
             },
-            "end_line": {
-                "type": "integer",
-                "description": "Last line to read."
-            }
+            "end_line": {"type": "integer", "description": "Last line to read."},
         },
-        "required": ["path"]
-    }
+        "required": ["path"],
+    },
 )
 def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
     try:
@@ -128,22 +128,18 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
 
 @tool(
     name="write_file",
-    desc="Write content to a file. "
-         "Automatically creates directories if needed.",
+    desc="Write content to a file. " "Automatically creates directories if needed.",
     params={
         "type": "object",
         "properties": {
-            "path": {
-                "type": "string",
-                "description": "Path to save the file."
-            },
+            "path": {"type": "string", "description": "Path to save the file."},
             "content": {
                 "type": "string",
-                "description": "The exact string content to write."
-            }
+                "description": "The exact string content to write.",
+            },
         },
-        "required": ["path", "content"]
-    }
+        "required": ["path", "content"],
+    },
 )
 def write_file(path: str, content: str) -> str:
     try:

@@ -1,6 +1,6 @@
+from rich import box
 from rich.markdown import Markdown, TableElement
 from rich.table import Table
-from rich import box
 
 
 class CustomTableElement(TableElement):
@@ -19,7 +19,8 @@ class CustomTableElement(TableElement):
                     if isinstance(content, str):
                         row_content.append(Markdown(content))
                     elif hasattr(content, "plain") and any(
-                            m in content.plain for m in ("*", "_", "[", "`")):
+                        m in content.plain for m in ("*", "_", "[", "`")
+                    ):
                         # If Text object still contains markdown markers,
                         # re-parse it
                         row_content.append(Markdown(content.plain))

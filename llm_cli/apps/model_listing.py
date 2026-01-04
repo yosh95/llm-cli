@@ -3,15 +3,15 @@
 """Shared model listing functionality for all LLM providers."""
 
 import argparse
-import requests
 import sys
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, List
+from typing import Any, Callable, Dict, List, Optional
 
+import requests
 from rich.console import Console
 from rich.table import Table
-from llm_cli.clients.config import get_setting
 
+from llm_cli.clients.config import get_setting
 
 console = Console()
 
@@ -69,12 +69,8 @@ def list_models(config: ModelListingConfig) -> None:
     # Get API key
     api_key = get_setting(config.api_key_setting, config.config_section)
     if api_key is None:
-        console.print(
-            f"[red]{config.provider_name} API Key not found in config.[/red]"
-        )
-        console.print(
-            "[yellow]Please run 'llm-cli-config' to set it up.[/yellow]"
-        )
+        console.print(f"[red]{config.provider_name} API Key not found in config.[/red]")
+        console.print("[yellow]Please run 'llm-cli-config' to set it up.[/yellow]")
         sys.exit(1)
 
     # Parse arguments
@@ -96,9 +92,7 @@ def list_models(config: ModelListingConfig) -> None:
 
     # Make API request
     try:
-        response = requests.get(api_url,
-                                headers=headers,
-                                timeout=config.timeout)
+        response = requests.get(api_url, headers=headers, timeout=config.timeout)
         response.raise_for_status()
     except Exception as e:
         console.print(f"[bold red]Error fetching models: {e}[/bold red]")
@@ -121,7 +115,7 @@ def list_models(config: ModelListingConfig) -> None:
             if config.extract_model_name:
                 model_name = config.extract_model_name(model)
             else:
-                model_name = model.get('id', model.get('name', ''))
+                model_name = model.get("id", model.get("name", ""))
 
             if model_name in args.models:
                 console.print_json(data=model)
@@ -144,9 +138,8 @@ def list_models(config: ModelListingConfig) -> None:
             # Using overflow="fold" to wrap long IDs without truncation
             table.add_column(
                 header,
-                style="cyan" if "Name" in header or "ID" in header
-                else "magenta",
-                overflow="fold"
+                style="cyan" if "Name" in header or "ID" in header else "magenta",
+                overflow="fold",
             )
 
         for model in models:

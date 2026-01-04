@@ -1,8 +1,7 @@
 import sys
 import tomllib
-
 from pathlib import Path
-from typing import Dict, Optional, Any, List
+from typing import Any, Dict, List, Optional
 
 CONFIG_FILE_PATH = Path.home() / ".config" / "llm_cli" / "config.toml"
 _config_cache: Optional[Dict[str, Any]] = None
@@ -20,9 +19,11 @@ def _load_config_from_file() -> Dict[str, Any]:
                 _config_cache = tomllib.load(f)
                 return _config_cache
             except tomllib.TOMLDecodeError as e:
-                print(f"Error: Could not parse config file at "
-                      f"{CONFIG_FILE_PATH}. Please check its format.",
-                      file=sys.stderr)
+                print(
+                    f"Error: Could not parse config file at "
+                    f"{CONFIG_FILE_PATH}. Please check its format.",
+                    file=sys.stderr,
+                )
                 print(f"Details: {e}", file=sys.stderr)
                 sys.exit(1)
 
@@ -62,7 +63,7 @@ def get_all_model_aliases() -> Dict[str, Dict[str, str]]:
     """
     config = _load_config_from_file()
     all_aliases = {}
-    providers = ['google', 'openai', 'anthropic', 'xai', 'ollama']
+    providers = ["google", "openai", "anthropic", "xai", "ollama"]
     for provider in providers:
         all_aliases[provider] = config.get(provider, {}).get("models", {})
     return all_aliases

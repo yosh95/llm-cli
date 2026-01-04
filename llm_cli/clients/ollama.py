@@ -1,12 +1,13 @@
 # llm_cli/apps/ollama.py
 
-import requests
 import json
 from typing import Dict, List, Optional, Tuple
 
+import requests
+
 from llm_cli.clients.base import BaseLlmClient, DataSource
-from llm_cli.modules.tool_registry import registry
 from llm_cli.clients.config import get_setting
+from llm_cli.modules.tool_registry import registry
 
 FALLBACK_MODEL = "gemma3:270m"
 DEFAULT_API_URL = "http://localhost:11434/v1/chat/completions"
@@ -28,13 +29,12 @@ class OllamaClient(BaseLlmClient):
 
     def _load_model_aliases(self):
         from llm_cli.clients.config import get_model_aliases
-        self.available_models = get_model_aliases("ollama")
-        if 'default' not in self.available_models:
-            self.available_models['default'] = FALLBACK_MODEL
 
-    def _send(self, data: List[DataSource]) -> Tuple[
-        Optional[str], Optional[Dict]
-    ]:
+        self.available_models = get_model_aliases("ollama")
+        if "default" not in self.available_models:
+            self.available_models["default"] = FALLBACK_MODEL
+
+    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         messages = []
         if self.system_prompt and self.system_prompt_enabled:
             messages.append({"role": "system", "content": self.system_prompt})
@@ -64,11 +64,7 @@ class OllamaClient(BaseLlmClient):
             payload["tools"] = registry.get_openai_spec(self.active_tools)
 
         try:
-            response = requests.post(
-                self.api_url,
-                json=payload,
-                timeout=120
-            )
+            response = requests.post(self.api_url, json=payload, timeout=120)
             self._log_debug(response_obj=response)
             response.raise_for_status()
             res_json = response.json()
@@ -90,23 +86,24 @@ class OllamaClient(BaseLlmClient):
             if tool_calls:
                 for tc in tool_calls:
                     fn = tc.get("function", {})
-                    model_parts.append({
-                        "functionCall": {
-                            "id": tc.get("id"),
-                            "name": fn.get("name"),
-                            "args": (
-                                json.loads(fn["arguments"])
-                                if isinstance(fn.get("arguments"), str)
-                                else fn.get("arguments")
-                            )
+                    model_parts.append(
+                        {
+                            "functionCall": {
+                                "id": tc.get("id"),
+                                "name": fn.get("name"),
+                                "args": (
+                                    json.loads(fn["arguments"])
+                                    if isinstance(fn.get("arguments"), str)
+                                    else fn.get("arguments")
+                                ),
+                            }
                         }
-                    })
+                    )
 
             if user_content:
-                self.conversation.append({
-                    "role": "user",
-                    "parts": [{"text": user_content}]
-                })
+                self.conversation.append(
+                    {"role": "user", "parts": [{"text": user_content}]}
+                )
 
             model_msg = {"role": "model", "parts": model_parts}
             self.conversation.append(model_msg)

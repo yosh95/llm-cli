@@ -1,6 +1,7 @@
 # llm_cli/modules/tools/media.py
 
 from pathlib import Path
+
 from llm_cli.modules.media_utils import process_file
 from llm_cli.modules.tool_registry import tool
 
@@ -10,11 +11,9 @@ from llm_cli.modules.tool_registry import tool
     description="Attach a file (image, PDF, audio, video, text) to context.",
     parameters={
         "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Path to the file."}
-        },
-        "required": ["path"]
-    }
+        "properties": {"path": {"type": "string", "description": "Path to the file."}},
+        "required": ["path"],
+    },
 )
 def attach_file(path: str) -> dict:
     try:
@@ -28,13 +27,12 @@ def attach_file(path: str) -> dict:
             return {"result": f"Error: Failed to process file: {path}"}
 
         return {
-            "result": f"Successfully attached {path} "
-                      f"({res.get('content_type')})",
+            "result": f"Successfully attached {path} " f"({res.get('content_type')})",
             "__llm_cli_data__": {
                 "content": res["content"],
                 "content_type": res["content_type"],
-                "is_file_or_url": True
-            }
+                "is_file_or_url": True,
+            },
         }
     except Exception as e:
         return {"result": f"Error: {e}"}

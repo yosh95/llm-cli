@@ -7,6 +7,10 @@ LLM_PROMPT_HISTORY = "~/.config/llm_cli/history.log"
 LLM_CHAT_LOG = "~/.config/llm_cli/chat.log"
 max_chat_log_lines = 10000
 
+# Audit log for tool execution (especially execute_command)
+LLM_AUDIT_LOG = "~/.local/state/llm_cli/audit.log"
+max_audit_log_lines = 5000
+
 [google]
 api_key = "YOUR_GEMINI_API_KEY"
 system_prompt = "You are a helpful assistant."

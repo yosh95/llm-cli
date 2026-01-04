@@ -1,8 +1,10 @@
 # llm_cli/apps/mcp_server.py
 
-import sys
 import logging
+import sys
+
 from mcp.server.fastmcp import FastMCP
+
 from llm_cli.modules.tool_registry import registry
 
 # Configure logging to stderr because stdout is used for MCP JSON-RPC

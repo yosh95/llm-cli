@@ -1,7 +1,9 @@
 # llm_cli/apps/claude.py
 
-import requests
 from typing import Dict, List, Optional, Tuple
+
+import requests
+
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
 
@@ -10,6 +12,7 @@ FALLBACK_MODEL = "claude-haiku-4-5-20251001"
 
 class ClaudeClient(BaseLlmClient):
     """A client for interacting with the Anthropic Claude API."""
+
     API_URL = "https://api.anthropic.com/v1/messages"
 
     def __init__(self, initial_model_alias="default", **kwargs):
@@ -23,13 +26,12 @@ class ClaudeClient(BaseLlmClient):
 
     def _load_model_aliases(self):
         from llm_cli.clients.config import get_model_aliases
-        self.available_models = get_model_aliases("anthropic")
-        if 'default' not in self.available_models:
-            self.available_models['default'] = FALLBACK_MODEL
 
-    def _send(self, data: List[DataSource]) -> Tuple[
-        Optional[str], Optional[Dict]
-    ]:
+        self.available_models = get_model_aliases("anthropic")
+        if "default" not in self.available_models:
+            self.available_models["default"] = FALLBACK_MODEL
+
+    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         messages = self._build_messages(data)
         payload = {
             "model": self.model,
@@ -45,7 +47,7 @@ class ClaudeClient(BaseLlmClient):
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
+            "content-type": "application/json",
         }
 
         try:
@@ -59,18 +61,20 @@ class ClaudeClient(BaseLlmClient):
 
             model_parts = []
             full_text = ""
-            for block in res.get('content', []):
-                if block['type'] == 'text':
-                    full_text += block['text']
-                    model_parts.append({"text": block['text']})
-                elif block['type'] == 'tool_use':
-                    model_parts.append({
-                        "functionCall": {
-                            "id": block['id'],
-                            "name": block['name'],
-                            "args": block['input']
+            for block in res.get("content", []):
+                if block["type"] == "text":
+                    full_text += block["text"]
+                    model_parts.append({"text": block["text"]})
+                elif block["type"] == "tool_use":
+                    model_parts.append(
+                        {
+                            "functionCall": {
+                                "id": block["id"],
+                                "name": block["name"],
+                                "args": block["input"],
+                            }
                         }
-                    })
+                    )
 
             model_msg = {"role": "model", "parts": model_parts}
 
@@ -80,18 +84,20 @@ class ClaudeClient(BaseLlmClient):
                 if d["content_type"] == "text/plain":
                     user_parts.append({"text": d["content"]})
                 else:
-                    user_parts.append({
-                        "inlineData": {
-                            "mimeType": d["content_type"],
-                            "data": d["content"]
+                    user_parts.append(
+                        {
+                            "inlineData": {
+                                "mimeType": d["content_type"],
+                                "data": d["content"],
+                            }
                         }
-                    })
+                    )
 
             if user_parts:
                 self.conversation.append({"role": "user", "parts": user_parts})
             self.conversation.append(model_msg)
 
-            return full_text, res.get('usage')
+            return full_text, res.get("usage")
         except Exception as e:
             self._report_error("Claude", e)
             return None, None
@@ -105,14 +111,14 @@ class ClaudeClient(BaseLlmClient):
                 for p in m["parts"]:
                     if "functionResponse" in p:
                         func_resp = p["functionResponse"]
-                        result = func_resp.get(
-                            "response", {}
-                        ).get("result", "")
-                        content.append({
-                            "type": "tool_result",
-                            "tool_use_id": func_resp.get("id", "unknown"),
-                            "content": str(result)
-                        })
+                        result = func_resp.get("response", {}).get("result", "")
+                        content.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": func_resp.get("id", "unknown"),
+                                "content": str(result),
+                            }
+                        )
                 if content:
                     msgs.append({"role": "user", "content": content})
             else:
@@ -124,12 +130,14 @@ class ClaudeClient(BaseLlmClient):
                     elif "functionCall" in p:
                         # Convert functionCall to tool_use block
                         func_call = p["functionCall"]
-                        content.append({
-                            "type": "tool_use",
-                            "id": func_call.get("id", "unknown"),
-                            "name": func_call.get("name", "unknown"),
-                            "input": func_call.get("args", {})
-                        })
+                        content.append(
+                            {
+                                "type": "tool_use",
+                                "id": func_call.get("id", "unknown"),
+                                "name": func_call.get("name", "unknown"),
+                                "input": func_call.get("args", {}),
+                            }
+                        )
                 if content:
                     msgs.append({"role": role, "content": content})
 
@@ -138,23 +146,27 @@ class ClaudeClient(BaseLlmClient):
             if d["content_type"] == "text/plain":
                 user_content.append({"type": "text", "text": d["content"]})
             elif d["content_type"].startswith("image/"):
-                user_content.append({
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": d["content_type"],
-                        "data": d["content"]
+                user_content.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": d["content_type"],
+                            "data": d["content"],
+                        },
                     }
-                })
+                )
             elif d["content_type"] == "application/pdf":
-                user_content.append({
-                    "type": "document",
-                    "source": {
-                        "type": "base64",
-                        "media_type": d["content_type"],
-                        "data": d["content"]
+                user_content.append(
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": d["content_type"],
+                            "data": d["content"],
+                        },
                     }
-                })
+                )
 
         if user_content:
             msgs.append({"role": "user", "content": user_content})

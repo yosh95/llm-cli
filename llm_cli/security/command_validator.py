@@ -1,13 +1,15 @@
 # llm_cli/security/command_validator.py
 
-import shlex
 import re
-from typing import List, Set, Optional
+import shlex
+from typing import List, Optional, Set
+
 from llm_cli.clients.config import _load_config_from_file
 
 
 class CommandValidationError(Exception):
     """Raised when a command fails security validation."""
+
     pass
 
 
@@ -20,80 +22,136 @@ class CommandValidator:
     # Default whitelist of safe, read-only or low-risk commands
     DEFAULT_WHITELIST = {
         # File viewing and navigation
-        'ls', 'cat', 'head', 'tail', 'less', 'more', 'file', 'stat',
-        'pwd', 'tree', 'du', 'df',
-
+        "ls",
+        "cat",
+        "head",
+        "tail",
+        "less",
+        "more",
+        "file",
+        "stat",
+        "pwd",
+        "tree",
+        "du",
+        "df",
         # Text processing
-        'grep', 'egrep', 'fgrep', 'sed', 'awk', 'cut', 'sort', 'uniq',
-        'wc', 'tr', 'fold', 'column',
-
+        "grep",
+        "egrep",
+        "fgrep",
+        "sed",
+        "awk",
+        "cut",
+        "sort",
+        "uniq",
+        "wc",
+        "tr",
+        "fold",
+        "column",
         # File search
-        'find', 'locate', 'which', 'whereis', 'type',
-
+        "find",
+        "locate",
+        "which",
+        "whereis",
+        "type",
         # System info (read-only)
-        'echo', 'date', 'cal', 'uptime', 'whoami', 'id', 'groups',
-        'hostname', 'uname', 'arch', 'sleep',
-
+        "echo",
+        "date",
+        "cal",
+        "uptime",
+        "whoami",
+        "id",
+        "groups",
+        "hostname",
+        "uname",
+        "arch",
+        "sleep",
         # Process viewing (no control)
-        'ps', 'top', 'htop', 'pgrep',
-
+        "ps",
+        "top",
+        "htop",
+        "pgrep",
         # Network info (read-only)
-        'ping', 'traceroute', 'dig', 'nslookup', 'host', 'whois',
-        'netstat', 'ifconfig', 'ip',
-
-        # Development tools (mostly read-only)
-        'git', 'diff', 'patch', 'make', 'cmake',
-
+        "ping",
+        "traceroute",
+        "dig",
+        "nslookup",
+        "host",
+        "whois",
+        "netstat",
+        "ifconfig",
+        "ip",
+        # Development tools
+        "git",
+        "diff",
+        "patch",
+        "make",
+        "cmake",
+        "flake8",
+        "black",
+        "isort",
         # Package managers (info commands only -
         # install/remove require explicit permission)
-        'pip', 'npm', 'cargo', 'go',
-
+        "pip",
+        "npm",
+        "cargo",
+        "go",
         # Python
-        'python', 'python3', 'pytest',
-
+        "python",
+        "python3",
+        "pytest",
         # Compression (viewing)
-        'tar', 'gzip', 'gunzip', 'bzip2', 'bunzip2', 'zip', 'unzip',
-        'zcat', 'zless',
-
+        "tar",
+        "gzip",
+        "gunzip",
+        "bzip2",
+        "bunzip2",
+        "zip",
+        "unzip",
+        "zcat",
+        "zless",
         # Misc utilities
-        'jq', 'yq', 'base64', 'xxd', 'md5sum', 'sha256sum',
-        'curl', 'wget', 'env', 'printenv',
+        "jq",
+        "yq",
+        "base64",
+        "xxd",
+        "md5sum",
+        "sha256sum",
+        "env",
+        "printenv",
     }
 
     # Dangerous patterns that suggest command injection or dangerous operations
     DANGEROUS_PATTERNS = [
-        r'&&',          # Command chaining
-        r'\|\|',        # OR chaining
-        r';',           # Command separator
-        r'\|',          # Pipe
-        r'>',           # Output redirection
-        r'<',           # Input redirection
-        r'`',           # Command substitution (backticks)
-        r'\$\(',        # Command substitution $(...)
-        r'\$\{',        # Variable substitution ${...}
-        r'~/',          # Home directory expansion (can be dangerous)
-        r'\.\.',        # Parent directory traversal
+        r"&&",  # Command chaining
+        r"\|\|",  # OR chaining
+        r";",  # Command separator
+        r"\|",  # Pipe
+        r">",  # Output redirection
+        r"<",  # Input redirection
+        r"`",  # Command substitution (backticks)
+        r"\$\(",  # Command substitution $(...)
+        r"\$\{",  # Variable substitution ${...}
+        r"~/",  # Home directory expansion
     ]
 
-    # MCP server whitelist - commands commonly used for MCP servers
+    # MCP server whitelist
     MCP_SERVER_WHITELIST = {
-        'node', 'python', 'python3', 'deno', 'npx',
-        'docker', 'ssh', 'uvx',
+        "node",
+        "python",
+        "python3",
+        "deno",
+        "npx",
+        "docker",
+        "ssh",
+        "uvx",
     }
 
-    def __init__(self, custom_whitelist: Optional[Set[str]] = None,
-                 allow_dangerous_patterns: bool = False,
-                 mcp_mode: bool = False):
-        """
-        Initialize the command validator.
-
-        Args:
-            custom_whitelist: Additional commands to allow
-                (merged with defaults)
-            allow_dangerous_patterns: If True, skip dangerous pattern checks
-            mcp_mode: If True, use MCP server whitelist instead of
-                default
-        """
+    def __init__(
+        self,
+        custom_whitelist: Optional[Set[str]] = None,
+        allow_dangerous_patterns: bool = False,
+        mcp_mode: bool = False,
+    ):
         if mcp_mode:
             self.whitelist = self.MCP_SERVER_WHITELIST.copy()
         else:
@@ -106,23 +164,12 @@ class CommandValidator:
         self.mcp_mode = mcp_mode
 
     def validate(self, command: str) -> None:
-        """
-        Validate a command string.
-
-        Args:
-            command: The command string to validate
-
-        Raises:
-            CommandValidationError: If the command fails validation
-        """
         if not command or not command.strip():
             raise CommandValidationError("Empty command not allowed")
 
-        # Check for dangerous patterns first (unless explicitly allowed)
         if not self.allow_dangerous_patterns:
             self._check_dangerous_patterns(command)
 
-        # Parse the command to extract the base command
         try:
             parts = shlex.split(command)
         except ValueError as e:
@@ -133,141 +180,113 @@ class CommandValidator:
         if not parts:
             raise CommandValidationError("No command found after parsing")
 
+        self._check_paths(parts)
+
         base_command = parts[0]
+        if "/" in base_command:
+            base_command = base_command.split("/")[-1]
 
-        # Handle commands with path
-        if '/' in base_command:
-            # Extract just the command name from path
-            base_command = base_command.split('/')[-1]
-
-        # Check against whitelist
         if base_command not in self.whitelist:
-            allowed_list = ', '.join(sorted(self.whitelist))
+            allowed_list = ", ".join(sorted(self.whitelist))
             raise CommandValidationError(
                 f"Command '{base_command}' is not in the allowed whitelist. "
                 f"Allowed commands: {allowed_list}"
             )
 
-        # Additional checks for specific dangerous command arguments
         self._check_dangerous_arguments(base_command, parts)
 
     def _check_dangerous_patterns(self, command: str) -> None:
-        """Check for dangerous shell patterns in the command."""
         for pattern in self.DANGEROUS_PATTERNS:
             if re.search(pattern, command):
                 raise CommandValidationError(
-                    f"Command contains dangerous pattern '{pattern}'. "
-                    f"Complex shell operations with pipes, redirects, and "
-                    f"command substitution are not allowed for "
-                    f"security reasons."
+                    f"Command contains dangerous pattern '{pattern}'."
                 )
 
-    def _check_dangerous_arguments(self, base_command: str,
-                                   parts: List[str]) -> None:
-        """Check for dangerous arguments to specific commands."""
-
-        # Check for dangerous git operations
-        if base_command == 'git' and len(parts) > 1:
-            git_subcommand = parts[1]
-            dangerous_git_commands = {
-                'push', 'clone', 'fetch', 'pull',  # Network operations
-                'submodule',  # Can execute arbitrary code
-                'config',  # Can modify git config
-            }
-            if git_subcommand in dangerous_git_commands:
+    def _check_paths(self, parts: List[str]) -> None:
+        for part in parts:
+            if ".." in part:
                 raise CommandValidationError(
-                    f"Git subcommand '{git_subcommand}' is not allowed. "
-                    f"Only read-only git operations are permitted."
+                    f"Directory traversal '..' is forbidden in argument: {part}"
                 )
-
-        # Check for dangerous package manager operations
-        package_managers = {'pip', 'npm', 'cargo', 'go'}
-        if base_command in package_managers and len(parts) > 1:
-            operation = parts[1]
-            dangerous_operations = {
-                'install', 'uninstall', 'remove', 'add',
-                'publish', 'update', 'upgrade',
-            }
-            if operation in dangerous_operations:
+            if part.startswith("/"):
                 raise CommandValidationError(
-                    f"Package manager operation '{operation}' is not allowed. "
-                    f"Only info/list commands are permitted for "
-                    f"{base_command}."
+                    f"Absolute paths are forbidden in argument: {part}."
                 )
 
-        # Check for dangerous tar operations (file extraction)
-        if base_command == 'tar' and len(parts) > 1:
-            # Check if any argument contains 'x' (extract)
+    def _check_dangerous_arguments(
+        self, base_command: str, parts: List[str]
+    ) -> None:
+        if base_command == "git":
+            dangerous_git = {
+                "push",
+                "clone",
+                "fetch",
+                "pull",
+                "submodule",
+                "config",
+            }
+            for p in parts[1:]:
+                if p in dangerous_git:
+                    raise CommandValidationError(
+                        f"Git subcommand '{p}' is not allowed."
+                    )
+
+        package_managers = {"pip", "npm", "cargo", "go"}
+        if base_command in package_managers:
+            dangerous_ops = {
+                "install",
+                "uninstall",
+                "remove",
+                "add",
+                "publish",
+                "update",
+                "upgrade",
+            }
+            for p in parts[1:]:
+                if p in dangerous_ops:
+                    raise CommandValidationError(
+                        f"Operation '{p}' is not allowed for {base_command}."
+                    )
+
+        if base_command in {"python", "python3"}:
+            forbidden_python_flags = {"-c", "-m", "--code", "--module"}
+            for p in parts[1:]:
+                if p in forbidden_python_flags:
+                    raise CommandValidationError(
+                        f"Python flag '{p}' is forbidden."
+                    )
+
+        if base_command == "tar":
             for arg in parts[1:]:
-                if arg.startswith('-') and 'x' in arg:
+                if arg.startswith("-") and "x" in arg:
                     raise CommandValidationError(
-                        "Tar extraction is not allowed. "
-                        "Only viewing tar contents (t flag) is permitted."
-                    )
-
-        # Check for dangerous curl/wget operations
-        if base_command in {'curl', 'wget'}:
-            for i, arg in enumerate(parts):
-                # Check for output redirection or file writing
-                if arg in {'-o', '--output', '-O', '--remote-name'}:
-                    raise CommandValidationError(
-                        f"{base_command} file writing is not allowed. "
-                        f"Only viewing content is permitted."
+                        "Tar extraction (x flag) is not allowed."
                     )
 
 
-def validate_command(command: str,
-                     custom_whitelist: Optional[Set[str]] = None) -> None:
-    """
-    Convenience function to validate a command with custom whitelist
-    from config.
-
-    Args:
-        command: The command string to validate
-        custom_whitelist: Optional additional commands to allow
-
-    Raises:
-        CommandValidationError: If the command fails validation
-    """
-    # Load custom whitelist from config if available
+def validate_command(
+    command: str, custom_whitelist: Optional[Set[str]] = None
+) -> None:
     config = _load_config_from_file()
-    security_config = config.get('security', {})
-
-    # Merge config whitelist with provided whitelist
-    config_whitelist = set(security_config.get('allowed_commands', []))
+    security_config = config.get("security", {})
+    config_whitelist = set(security_config.get("allowed_commands", []))
     if custom_whitelist:
         config_whitelist.update(custom_whitelist)
-
-    # Check if dangerous patterns are allowed in config
-    allow_dangerous = security_config.get('allow_dangerous_patterns', False)
-
+    allow_dangerous = security_config.get("allow_dangerous_patterns", False)
     validator = CommandValidator(
         custom_whitelist=config_whitelist if config_whitelist else None,
-        allow_dangerous_patterns=allow_dangerous
+        allow_dangerous_patterns=allow_dangerous,
     )
     validator.validate(command)
 
 
 def validate_mcp_command(command: str) -> None:
-    """
-    Validate a command intended for MCP server spawning.
-
-    Args:
-        command: The command string to validate
-
-    Raises:
-        CommandValidationError: If the command fails validation
-    """
-    # Load MCP whitelist from config if available
     config = _load_config_from_file()
-    security_config = config.get('security', {})
-
-    mcp_whitelist = set(security_config.get('allowed_mcp_commands', []))
-
+    security_config = config.get("security", {})
+    mcp_whitelist = set(security_config.get("allowed_mcp_commands", []))
     validator = CommandValidator(
         custom_whitelist=mcp_whitelist if mcp_whitelist else None,
-        # Never allow dangerous patterns for MCP
         allow_dangerous_patterns=False,
-        mcp_mode=True
+        mcp_mode=True,
     )
     validator.validate(command)

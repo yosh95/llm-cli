@@ -1,9 +1,9 @@
 # llm_cli/apps/configure.py
 
-import tomli_w
 import tomllib
-
 from pathlib import Path
+
+import tomli_w
 
 # Define the path for the configuration directory and file
 CONFIG_DIR = Path.home() / ".config" / "llm_cli"
@@ -72,158 +72,169 @@ def main():
     config = load_config()
 
     # Ensure top-level sections exist
-    config.setdefault('google', {})
-    config.setdefault('openai', {})
-    config.setdefault('anthropic', {})
-    config.setdefault('xai', {})
-    config.setdefault('ollama', {})
-    config.setdefault('general', {})
-    config['google'].setdefault('models', {})
-    config['openai'].setdefault('models', {})
-    config['anthropic'].setdefault('models', {})
-    config['xai'].setdefault('models', {})
-    config['ollama'].setdefault('models', {})
+    config.setdefault("google", {})
+    config.setdefault("openai", {})
+    config.setdefault("anthropic", {})
+    config.setdefault("xai", {})
+    config.setdefault("ollama", {})
+    config.setdefault("general", {})
+    config["google"].setdefault("models", {})
+    config["openai"].setdefault("models", {})
+    config["anthropic"].setdefault("models", {})
+    config["xai"].setdefault("models", {})
+    config["ollama"].setdefault("models", {})
 
     # --- Google Services Configuration ---
-    config['google']['api_key'] = prompt_for_setting(
-        "Google API Key", config['google'].get('api_key', '')
+    config["google"]["api_key"] = prompt_for_setting(
+        "Google API Key", config["google"].get("api_key", "")
     )
-    config['google']['cse_id'] = prompt_for_setting(
-        "Google Custom Search Engine ID", config['google'].get('cse_id')
+    config["google"]["cse_id"] = prompt_for_setting(
+        "Google Custom Search Engine ID", config["google"].get("cse_id")
     )
 
     # --- OpenAI Services Configuration ---
-    config['openai']['api_key'] = prompt_for_setting(
-        "OpenAI API Key", config['openai'].get('api_key', '')
+    config["openai"]["api_key"] = prompt_for_setting(
+        "OpenAI API Key", config["openai"].get("api_key", "")
     )
 
     # --- Anthropic Services Configuration ---
     print("\n--- Anthropic (Claude) Configuration ---")
-    config['anthropic']['api_key'] = prompt_for_setting(
-        "Anthropic API Key", config['anthropic'].get('api_key', '')
+    config["anthropic"]["api_key"] = prompt_for_setting(
+        "Anthropic API Key", config["anthropic"].get("api_key", "")
     )
 
     # --- xAI (Grok) Configuration ---
     print("\n--- xAI (Grok) Configuration ---")
-    config['xai']['api_key'] = prompt_for_setting(
-        "xAI API Key", config['xai'].get('api_key', '')
+    config["xai"]["api_key"] = prompt_for_setting(
+        "xAI API Key", config["xai"].get("api_key", "")
     )
 
     # --- Ollama Configuration ---
     print("\n--- Ollama Configuration ---")
-    config['ollama']['api_url'] = prompt_for_general_setting(
+    config["ollama"]["api_url"] = prompt_for_general_setting(
         "Ollama API URL",
-        config['ollama'].get('api_url',
-                             'http://localhost:11434/v1/chat/completions')
+        config["ollama"].get("api_url", "http://localhost:11434/v1/chat/completions"),
     )
 
     # --- General Settings ---
     print("\n--- Optional: General Settings ---")
-    print("Specify paths for history and log files. "
-          "Press Enter to keep the current value.")
+    print(
+        "Specify paths for history and log files. "
+        "Press Enter to keep the current value."
+    )
 
     # Define default paths using XDG Base Directory specification
     home_dir = Path.home()
     default_history_path = str(
-        home_dir / '.local' / 'state' / 'llm_cli' / 'history.txt')
-    default_chat_log_path = str(
-        home_dir / '.local' / 'share' / 'llm_cli' / 'chat.log')
-
-    config['general']['LLM_PROMPT_HISTORY'] = prompt_for_general_setting(
-        "Prompt history file path",
-        config['general'].get('LLM_PROMPT_HISTORY',
-                              default_history_path)
+        home_dir / ".local" / "state" / "llm_cli" / "history.txt"
     )
-    config['general']['LLM_CHAT_LOG'] = prompt_for_general_setting(
+    default_chat_log_path = str(home_dir / ".local" / "share" / "llm_cli" / "chat.log")
+
+    config["general"]["LLM_PROMPT_HISTORY"] = prompt_for_general_setting(
+        "Prompt history file path",
+        config["general"].get("LLM_PROMPT_HISTORY", default_history_path),
+    )
+    config["general"]["LLM_CHAT_LOG"] = prompt_for_general_setting(
         "Chat log file path",
-        config['general'].get('LLM_CHAT_LOG',
-                              default_chat_log_path)
+        config["general"].get("LLM_CHAT_LOG", default_chat_log_path),
     )
 
     print("\n--- Log Retention Settings ---")
     max_prompt_history = prompt_for_general_setting(
         "Max prompt history lines to keep (0 for unlimited)",
-        str(config['general'].get('max_prompt_history_lines', 1000))
+        str(config["general"].get("max_prompt_history_lines", 1000)),
     )
     try:
-        config['general']['max_prompt_history_lines'] = int(max_prompt_history)
+        config["general"]["max_prompt_history_lines"] = int(max_prompt_history)
     except (ValueError, TypeError):
-        config['general']['max_prompt_history_lines'] = 1000
+        config["general"]["max_prompt_history_lines"] = 1000
 
     max_chat_log = prompt_for_general_setting(
         "Max chat log lines to keep (0 for unlimited)",
-        str(config['general'].get('max_chat_log_lines', 10000))
+        str(config["general"].get("max_chat_log_lines", 10000)),
     )
     try:
-        config['general']['max_chat_log_lines'] = int(max_chat_log)
+        config["general"]["max_chat_log_lines"] = int(max_chat_log)
     except (ValueError, TypeError):
-        config['general']['max_chat_log_lines'] = 10000
+        config["general"]["max_chat_log_lines"] = 10000
 
     # --- Unified Provider Settings ---
     print("\n--- Unified Client Settings ---")
-    current_provider = config['general'].get('unified_default_provider',
-                                             'google')
-    provider_prompt = ("Default provider for unified client "
-                       "(google, openai, anthropic, xai, ollama) "
-                       f"[current: {current_provider}]: ")
+    current_provider = config["general"].get("unified_default_provider", "google")
+    provider_prompt = (
+        "Default provider for unified client "
+        "(google, openai, anthropic, xai, ollama) "
+        f"[current: {current_provider}]: "
+    )
     provider = input(provider_prompt).strip().lower()
-    config['general']['unified_default_provider'] = \
+    config["general"]["unified_default_provider"] = (
         provider if provider else current_provider
+    )
 
     # --- Model Alias Configuration ---
     print("\n--- Optional: Default Model Aliases ---")
-    print("You can set default models here. Press Enter to keep "
-          "the current value.")
+    print("You can set default models here. Press Enter to keep " "the current value.")
 
     # gemini
-    current_gemini_default = config['google']['models'].get(
-            'default', GEMINI_MODEL_DEFAULT)
-    gemini_default_prompt = "Default Gemini Model [current: " + \
-        f"{current_gemini_default}]: "
+    current_gemini_default = config["google"]["models"].get(
+        "default", GEMINI_MODEL_DEFAULT
+    )
+    gemini_default_prompt = (
+        "Default Gemini Model [current: " + f"{current_gemini_default}]: "
+    )
     gemini_default = input(gemini_default_prompt)
-    config['google']['models']['default'] = gemini_default \
-        if gemini_default else current_gemini_default
+    config["google"]["models"]["default"] = (
+        gemini_default if gemini_default else current_gemini_default
+    )
 
     # openai
-    current_openai_default = config['openai']['models'].get(
-        'default', OPENAI_MODEL_DEFAULT)
-    openai_default_prompt = "Default OpenAI Model [current: " + \
-        f"{current_openai_default}]: "
+    current_openai_default = config["openai"]["models"].get(
+        "default", OPENAI_MODEL_DEFAULT
+    )
+    openai_default_prompt = (
+        "Default OpenAI Model [current: " + f"{current_openai_default}]: "
+    )
     openai_default = input(openai_default_prompt)
-    config['openai']['models']['default'] = openai_default \
-        if openai_default else current_openai_default
+    config["openai"]["models"]["default"] = (
+        openai_default if openai_default else current_openai_default
+    )
 
     # anthropic (claude)
-    current_claude_default = config['anthropic']['models'].get(
-        'default', CLAUDE_MODEL_DEFAULT)
-    claude_default_prompt = "Default Claude Model [current: " + \
-        f"{current_claude_default}]: "
+    current_claude_default = config["anthropic"]["models"].get(
+        "default", CLAUDE_MODEL_DEFAULT
+    )
+    claude_default_prompt = (
+        "Default Claude Model [current: " + f"{current_claude_default}]: "
+    )
     claude_default = input(claude_default_prompt)
-    config['anthropic']['models']['default'] = claude_default \
-        if claude_default else current_claude_default
+    config["anthropic"]["models"]["default"] = (
+        claude_default if claude_default else current_claude_default
+    )
 
     # xai (grok)
-    current_grok_default = config['xai']['models'].get(
-        'default', GROK_MODEL_DEFAULT)
-    grok_default_prompt = "Default Grok Model [current: " + \
-        f"{current_grok_default}]: "
+    current_grok_default = config["xai"]["models"].get("default", GROK_MODEL_DEFAULT)
+    grok_default_prompt = "Default Grok Model [current: " + f"{current_grok_default}]: "
     grok_default = input(grok_default_prompt)
-    config['xai']['models']['default'] = grok_default \
-        if grok_default else current_grok_default
+    config["xai"]["models"]["default"] = (
+        grok_default if grok_default else current_grok_default
+    )
 
     # ollama
-    current_ollama_default = config['ollama']['models'].get(
-        'default', OLLAMA_MODEL_DEFAULT)
-    ollama_default_prompt = "Default Ollama Model [current: " + \
-        f"{current_ollama_default}]: "
+    current_ollama_default = config["ollama"]["models"].get(
+        "default", OLLAMA_MODEL_DEFAULT
+    )
+    ollama_default_prompt = (
+        "Default Ollama Model [current: " + f"{current_ollama_default}]: "
+    )
     ollama_default = input(ollama_default_prompt)
-    config['ollama']['models']['default'] = ollama_default \
-        if ollama_default else current_ollama_default
+    config["ollama"]["models"]["default"] = (
+        ollama_default if ollama_default else current_ollama_default
+    )
 
     save_config(config)
 
     print(f"\nConfiguration saved successfully to {CONFIG_FILE}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

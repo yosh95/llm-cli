@@ -1,5 +1,6 @@
 from unittest.mock import patch
-from llm_cli.apps.gemini import GeminiClient
+
+from llm_cli.clients.gemini import GeminiClient
 
 
 def test_process_single_source_with_gemini_uri_fetches_url(mock_config):
@@ -8,9 +9,7 @@ def test_process_single_source_with_gemini_uri_fetches_url(mock_config):
     and passed to fetch_url_content (base implementation).
     """
     client = GeminiClient(stdout=True)
-    gemini_uri = (
-        "https://generativelanguage.googleapis.com/v1beta/files/abcdef12345"
-    )
+    gemini_uri = "https://generativelanguage.googleapis.com/v1beta/files/abcdef12345"
 
     with patch(
         "llm_cli.apps.gemini.BaseLlmClient._process_single_source"

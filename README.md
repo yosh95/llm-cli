@@ -1,5 +1,10 @@
 # llm-cli: A Unified Command-Line Interface for Multiple LLMs
 
+[English] | [日本語](#japanese-description)
+
+> **Note**: Japanese documentation is available at the bottom of this page.  
+> **注**: 日本語での説明は、このページの後半に記載されています。
+
 `llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
 
 ![llm-cli banner](images/banner.jpeg)
@@ -260,6 +265,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 --------
 
+<a name="japanese-description"></a>
 # llm-cli: 複数LLM対応 統合コマンドラインインターフェース
 
 `llm-cli` は、多様な大規模言語モデル（LLM）と対話するための、強力で汎用性の高いコマンドラインツールです。Google (Gemini)、OpenAI、Anthropic (Claude)、xAI (Grok) に加え、**Ollama を介したローカルLLM** をサポートしており、単一の `llm` コマンドだけでプロバイダをシームレスに切り替えながら、各モデルの機能をターミナルから直接活用できます。

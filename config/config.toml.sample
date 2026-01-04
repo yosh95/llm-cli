@@ -15,31 +15,32 @@ max_audit_log_lines = 5000
 api_key = "YOUR_GEMINI_API_KEY"
 system_prompt = "You are a helpful assistant."
 [google.models]
-default = "gemini-flash-latest"
-lite = "gemini-flash-lite-late"
-flash = "gemini-flash-latest"
-pro = "gemini-pro-latest"
+default = "gemini-3-flash-preview"
+lite = "gemini-2.5-flash-lite"
+flash = "gemini-3-flash-preview"
+pro = "gemini-3-pro-preview"
 
 [openai]
 api_key = "YOUR_OPENAI_API_KEY"
 [openai.models]
-default = "gpt-5.2"
+default = "gpt-5.1"
 nano = "gpt-5-nano"
 mini = "gpt-5-mini"
 
 [anthropic]
 api_key = "YOUR_CLAUDE_API_KEY"
 [anthropic.models]
-default = "claude-sonnet-4-5-20250929"
-haiku = "claude-haiku-4-5-20250929"
+default = "claude-opus-4-5-20251101"
+haiku = "claude-haiku-4-5-20251101"
 sonnet = "claude-sonnet-4-5-20250929"
-opus = "claude-opus-4-5-20250929"
+opus = "claude-opus-4-5-20251101"
 
 [xai]
 api_key = "YOUR_GROK_API_KEY"
 [xai.models]
-default = "grok-4-1-fast-non-reasoning"
-reasoning = "grok-4-1-fast-reasoning"
+default = "grok-4-1-fast-reasoning
+reasoning = "grok-4-1-fast-reasoning
+non-reasoning = "grok-4-1-fast-non-reasoning
 
 [ollama]
 api_url = "http://localhost:11434/v1/chat/completions"
@@ -47,11 +48,6 @@ api_url = "http://localhost:11434/v1/chat/completions"
 # You can override this by setting api_url to your local endpoint.
 [ollama.models]
 default = "gemma3:270m"
-gemma = "gemma3:12b"
-gemma-nano = "gemma3:128m"
-gemma-tiny = "gemma3:1b"
-gemma-small = "gemma3:4b"
-phi4 = "phi4-mini:3.8b"
 
 # Security settings for command execution guardrails
 [security]
@@ -73,3 +69,9 @@ allowed_mcp_commands = [
 # WARNING: Setting this to true disables protection against shell injection
 # Only enable if you fully understand the security implications
 allow_dangerous_patterns = false
+
+# Example MCP Server configuration
+# [[mcp_servers]]
+# name = "github"
+# command = "docker"
+# args = ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN=...", "ghcr.io/github/github-mcp-server"]

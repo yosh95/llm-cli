@@ -66,7 +66,7 @@ The AI agent comes equipped with the following tools:
 
 All shell commands executed through the AI agent (`execute_command` tool) and user-initiated commands (`!command`) are validated against a **whitelist** of safe commands before execution.
 
-**Default Allowed Commands**: `ls`, `cat`, `grep`, `find`, `git`, `python`, `npm`, `pip`, `curl`, and many other read-only or low-risk commands. See `llm_cli/security/command_validator.py` for the complete list.
+**Default Allowed Commands**: `ls`, `cat`, `grep`, `find` and many other read-only or low-risk commands. See `llm_cli/security/command_validator.py` for the complete list.
 
 **Blocked Patterns**:
 - Command chaining (`&&`, `||`, `;`)
@@ -322,7 +322,7 @@ AIエージェントは以下のツールを標準で備えています：
 
 AIエージェント (`execute_command` ツール) およびユーザーが直接実行するコマンド (`!command`) は、実行前に安全なコマンドの**ホワイトリスト**に対して検証されます。
 
-**デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find`, `git`, `python`, `npm`, `pip`, `curl` など、読み取り専用または低リスクのコマンド。完全なリストは `llm_cli/security/command_validator.py` を参照してください。
+**デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find` など、読み取り専用または低リスクのコマンド。完全なリストは `llm_cli/security/command_validator.py` を参照してください。
 
 **ブロックされるパターン**:
 - コマンドチェーン (`&&`, `||`, `;`)

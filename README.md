@@ -21,9 +21,10 @@ The AI can use tools like `google_search` or `search_arxiv` to find real-time in
 ## Features
 
 -   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, and **Ollama** through a single `llm` command.
--   **Local LLM Support (Ollama)**: Use models locally without cloud API costs or privacy concerns. (Note: Using tools like `google_search` may still incur costs depending on your search engine's free tier).
+-   **Local LLM Support (Ollama)**: Use models locally without cloud API costs or privacy concerns.
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
--   **Agent Mode (Always On)**: Autonomous task execution. The AI can read/write files, execute shell commands, search the web, and **dynamically attach media files**.
+-   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
+-   **Mandatory Reasoning (Chain-of-Thought)**: All tools require the AI to provide a `thought` parameter, explaining *why* it is calling a specific tool. This improves transparency and agent reliability.
 -   **Academic Research Support**: Built-in `search_arxiv` tool to search for papers, read abstracts, and automatically fetch PDFs for analysis.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
@@ -40,6 +41,22 @@ The AI can use tools like `google_search` or `search_arxiv` to find real-time in
 -   **One-Shot Execution**: Pipe input from other commands or pass prompts as arguments.
 -   **Smart Log Management**: Automatically rotates and trims chat logs.
 -   **Simple Configuration**: Interactive setup via `llm-cli-config`.
+
+## Built-in Tools
+
+The AI agent comes equipped with the following tools:
+
+| Tool | Description |
+| :--- | :--- |
+| `execute_command` | Execute shell commands (validated against a security whitelist). |
+| `list_files` | List files in a directory to explore the project structure. |
+| `read_file` | Read content from a text file (with optional line range). |
+| `write_file` | Create or update a file. |
+| `google_search` | Search the web for real-time information. |
+| `fetch_url` | Fetch raw HTML or media files (images/PDFs) from a URL. |
+| `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
+| `search_arxiv` | Search for academic papers on arXiv. |
+| `attach_file` | Manually/Autonomously inject a file into the conversation context. |
 
 ## Security
 
@@ -167,10 +184,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 
 ## Plugin Architecture: Adding New Tools
 
-`llm-cli` uses a decorator-based plugin system. To add a new tool:
-
-1. Create a new `.py` file in `llm_cli/modules/tools/`.
-2. Define your function and decorate it with `@tool`.
+`llm-cli` uses a decorator-based plugin system. All tools automatically require a `thought` parameter to ensure the AI explains its reasoning.
 
 Example (`llm_cli/modules/tools/weather.py`):
 ```python
@@ -263,9 +277,10 @@ AIは `google_search` や `search_arxiv` を使ってリアルタイム情報を
 ## 主な機能
 
 -   **統合インターフェース**: `llm` コマンド一つで Gemini, OpenAI, Claude, Grok, **Ollama** にアクセス可能。
--   **ローカルLLM対応 (Ollama)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。（※Google検索ツールなどの外部APIを使用する場合は、そのサービスの無料枠を超えると課金が発生する可能性があります）
+-   **ローカルLLM対応 (Ollama)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
--   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの読み書き、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
+-   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
+-   **思考プロセスの義務化 (Chain-of-Thought)**: すべてのツール実行において、AIに `thought` パラメータ（なぜそのツールを使うのかという理由）の提供を強制します。これにより、エージェントの推論の透明性と信頼性が向上します。
 -   **先行研究調査の自動化**: `search_arxiv` ツールを搭載。特定のトピックに関する最新論文の検索から、アブストラクトの確認、PDFの自動取得と解析までをシームレスに行えます。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
@@ -282,6 +297,22 @@ AIは `google_search` や `search_arxiv` を使ってリアルタイム情報を
 -   **ワンショット実行**: 他のコマンドからのパイプ入力や、引数としてのプロンプト実行に対応。
 -   **ログ管理**: チャットログの自動ローテーションとトリミング機能を搭載。
 -   **簡単設定**: `llm-cli-config` による対話形式のセットアップ。
+
+## 組み込みツール一覧
+
+AIエージェントは以下のツールを標準で備えています：
+
+| ツール名 | 説明 |
+| :--- | :--- |
+| `execute_command` | シェルコマンドを実行（ホワイトリストによる安全検証付き）。 |
+| `list_files` | ディレクトリ内のファイル一覧を表示し、プロジェクト構造を把握。 |
+| `read_file` | テキストファイルの内容を読み取り（行指定可能）。 |
+| `write_file` | ファイルを新規作成または更新。 |
+| `google_search` | Google検索を使用してリアルタイムの情報を取得。 |
+| `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
+| `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
+| `search_arxiv` | arXivから学術論文を検索。 |
+| `attach_file` | ファイルを会話のコンテキストに注入。 |
 
 ## セキュリティ
 
@@ -409,10 +440,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ## プラグイン・アーキテクチャ: ツールの追加
 
-`llm-cli` はデコレータベースのプラグインシステムを採用しています。新しいツールを追加するには：
-
-1. `llm_cli/modules/tools/` に新しい `.py` ファイルを作成。
-2. 関数を定義し、`@tool` デコレータを付与。
+`llm-cli` はデコレータベースのプラグインシステムを採用しています。登録されたすべてのツールには、AIによる推論を明示するための `thought` パラメータが自動的に付与されます。
 
 例 (`llm_cli/modules/tools/weather.py`):
 ```python

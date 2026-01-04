@@ -49,7 +49,6 @@ class BaseLlmClient(ABC):
         enable_mcp: bool = False,
         live_debug: bool = False,
     ):
-
         self.config_section = config_section
         self.api_key = get_setting(api_key_name, config_section)
         self.pdf_as_base64 = pdf_as_base64
@@ -235,7 +234,7 @@ class BaseLlmClient(ABC):
                     )
                 else:
                     console.print(
-                        f"[green]Attached {res['content_type']}: " f"{path_str}[/green]"
+                        f"[green]Attached {res['content_type']}: {path_str}[/green]"
                     )
                 if pending_data is not None:
                     pending_data.append(res)
@@ -313,8 +312,7 @@ class BaseLlmClient(ABC):
                 console.print("[dim]Usage: /tools on|off[/dim]")
             else:
                 console.print(
-                    f"[red]Error: Invalid argument '{args}'. "
-                    "Usage: /tools on|off[/red]"
+                    f"[red]Error: Invalid argument '{args}'. Usage: /tools on|off[/red]"
                 )
             return True
 
@@ -471,7 +469,7 @@ class BaseLlmClient(ABC):
                     )
                 )
             if response_content:
-                title = f"[bold green]Payload Response ({timestamp})" "[/bold green]"
+                title = f"[bold green]Payload Response ({timestamp})[/bold green]"
                 console.print(
                     Panel(
                         _format_json(response_content),

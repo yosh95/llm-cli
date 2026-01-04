@@ -420,7 +420,7 @@ class ChatSession:
             if self._confirm("Add to context? (y/N): "):
                 data.append(
                     {
-                        "content": f"Command: `{cmd}`\nOutput:\n" f"```\n{output}\n```",
+                        "content": f"Command: `{cmd}`\nOutput:\n```\n{output}\n```",
                         "content_type": "text/plain",
                     }
                 )

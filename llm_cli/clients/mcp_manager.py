@@ -69,8 +69,7 @@ class MCPManager:
                 validate_mcp_command(command)
             except CommandValidationError as e:
                 console.print(
-                    f"[bold red]Security Error for MCP server '{name}':"
-                    f"[/bold red] {e}"
+                    f"[bold red]Security Error for MCP server '{name}':[/bold red] {e}"
                 )
                 console.print(
                     "[yellow]Skipping this MCP server. Check the allowed "
@@ -90,8 +89,7 @@ class MCPManager:
                     )
                 except Exception as e:
                     console.print(
-                        f"[red]✗ Failed to connect to MCP server "
-                        f"'{name}': {e}[/red]"
+                        f"[red]✗ Failed to connect to MCP server '{name}': {e}[/red]"
                     )
 
         self._cached_tools = all_remote_tools

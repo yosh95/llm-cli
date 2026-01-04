@@ -31,8 +31,7 @@ class ToolRegistry:
         parameters["properties"]["thought"] = {
             "type": "string",
             "description": (
-                "The reasoning behind calling this tool. "
-                "Why is this necessary now?"
+                "The reasoning behind calling this tool. Why is this necessary now?"
             ),
         }
 

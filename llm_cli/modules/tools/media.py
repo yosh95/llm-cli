@@ -27,7 +27,7 @@ def attach_file(path: str) -> dict:
             return {"result": f"Error: Failed to process file: {path}"}
 
         return {
-            "result": f"Successfully attached {path} " f"({res.get('content_type')})",
+            "result": f"Successfully attached {path} ({res.get('content_type')})",
             "__llm_cli_data__": {
                 "content": res["content"],
                 "content_type": res["content_type"],

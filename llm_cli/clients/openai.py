@@ -153,9 +153,7 @@ class OpenAIClient(BaseLlmClient):
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": (
-                                f"data:{d['content_type']};" f"base64,{d['content']}"
-                            )
+                            "url": (f"data:{d['content_type']};base64,{d['content']}")
                         },
                     }
                 )

@@ -120,7 +120,7 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
         end = min(len(lines), end_line) if end_line else len(lines)
         content = "\n".join(lines[start:end])
 
-        header = f"--- {path} (Lines {start+1} to {end}) ---"
+        header = f"--- {path} (Lines {start + 1} to {end}) ---"
         return f"{header}\n{content[:50000]}"
     except Exception as e:
         return f"Error: {e}"
@@ -128,7 +128,7 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
 
 @tool(
     name="write_file",
-    desc="Write content to a file. " "Automatically creates directories if needed.",
+    desc="Write content to a file. Automatically creates directories if needed.",
     params={
         "type": "object",
         "properties": {

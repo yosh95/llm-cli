@@ -86,9 +86,7 @@ class CommandValidator:
         "patch",
         "make",
         "cmake",
-        "flake8",
-        "black",
-        "isort",
+        "ruff",
         # Package managers (info commands only -
         # install/remove require explicit permission)
         "pip",
@@ -213,9 +211,7 @@ class CommandValidator:
                     f"Absolute paths are forbidden in argument: {part}."
                 )
 
-    def _check_dangerous_arguments(
-        self, base_command: str, parts: List[str]
-    ) -> None:
+    def _check_dangerous_arguments(self, base_command: str, parts: List[str]) -> None:
         if base_command == "git":
             dangerous_git = {
                 "push",
@@ -252,9 +248,7 @@ class CommandValidator:
             forbidden_python_flags = {"-c", "-m", "--code", "--module"}
             for p in parts[1:]:
                 if p in forbidden_python_flags:
-                    raise CommandValidationError(
-                        f"Python flag '{p}' is forbidden."
-                    )
+                    raise CommandValidationError(f"Python flag '{p}' is forbidden.")
 
         if base_command == "tar":
             for arg in parts[1:]:
@@ -264,9 +258,7 @@ class CommandValidator:
                     )
 
 
-def validate_command(
-    command: str, custom_whitelist: Optional[Set[str]] = None
-) -> None:
+def validate_command(command: str, custom_whitelist: Optional[Set[str]] = None) -> None:
     config = _load_config_from_file()
     security_config = config.get("security", {})
     config_whitelist = set(security_config.get("allowed_commands", []))

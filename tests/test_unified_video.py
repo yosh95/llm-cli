@@ -17,10 +17,10 @@ def test_unified_client_handles_video_via_gemini(
     mock_config, mock_gemini_video_response, tmp_path
 ):
     # Mocking Gemini's file upload and API response
-    with patch("llm_cli.apps.gemini.GeminiClient._upload_file") as mock_upload, patch(
-        "requests.post"
-    ) as mock_post:
-
+    with (
+        patch("llm_cli.apps.gemini.GeminiClient._upload_file") as mock_upload,
+        patch("requests.post") as mock_post,
+    ):
         # 1. Mock file upload result
         mock_upload.return_value = ("https://file-uri.com/video.mp4", "video/mp4")
 

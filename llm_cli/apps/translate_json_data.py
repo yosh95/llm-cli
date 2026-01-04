@@ -22,7 +22,7 @@ def get_llm_client(provider: str, model_alias: str) -> Optional[BaseLlmClient]:
     ClientClass = provider_map.get(provider)
     if not ClientClass:
         console.print(
-            f"[bold red]Error: Invalid provider " f"'{escape(provider)}'.[/bold red]"
+            f"[bold red]Error: Invalid provider '{escape(provider)}'.[/bold red]"
         )
         return None
     # stdout=True ensures the client returns the response directly
@@ -98,7 +98,7 @@ def translate_data(
             data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(
-            f"[bold red]Error reading input file: {escape(str(e))}" "[/bold red]"
+            f"[bold red]Error reading input file: {escape(str(e))}[/bold red]"
         )
         sys.exit(1)
 
@@ -142,7 +142,7 @@ def translate_data(
                 else:
                     console.print(
                         f"\n[yellow]Warning: LLM returned an empty response "
-                        f"(attempt {attempt+1}/{retries}). Retrying..."
+                        f"(attempt {attempt + 1}/{retries}). Retrying..."
                         "[/yellow]"
                     )
                     if attempt < retries - 1:
@@ -172,14 +172,13 @@ def translate_data(
         console.print("[green]Successfully saved the translated file.[/green]")
     except IOError as e:
         console.print(
-            f"[bold red]Error writing to output file: " f"{escape(str(e))}[/bold red]"
+            f"[bold red]Error writing to output file: {escape(str(e))}[/bold red]"
         )
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Translate specific key values in a large JSON file "
-        "using an LLM.",
+        description="Translate specific key values in a large JSON file using an LLM.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument("input_file", type=Path, help="Path to the input JSON file.")

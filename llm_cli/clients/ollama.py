@@ -22,7 +22,7 @@ class OllamaClient(BaseLlmClient):
             api_key_name="api_key",
             config_section="ollama",
             pdf_as_base64=False,
-            **kwargs
+            **kwargs,
         )
         config_url = get_setting("api_url", "ollama")
         self.api_url = config_url if config_url else DEFAULT_API_URL

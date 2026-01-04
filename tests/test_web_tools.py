@@ -8,9 +8,7 @@ from llm_cli.modules.tools.web import fetch_url, fetch_web_text
 def test_fetch_url_html(mock_cloudscraper):
     """Test fetch_url returns raw HTML."""
     mock_cloudscraper.get.return_value.headers = {"Content-Type": "text/html"}
-    mock_cloudscraper.get.return_value.text = (
-        "<html><body><h1>Hello</h1></body></html>"
-    )
+    mock_cloudscraper.get.return_value.text = "<html><body><h1>Hello</h1></body></html>"
 
     result = fetch_url("https://example.com")
     assert "<html><body><h1>Hello</h1></body></html>" in result

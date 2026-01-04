@@ -43,7 +43,6 @@ def test_unified_client_switches_provider_via_alias(mock_config):
 
     # Patch the PROVIDER_CONFIG on the UnifiedClient class
     with patch.dict(UnifiedClient.PROVIDER_CONFIG, new_provider_config):
-
         # Initialize UnifiedClient with google/gemini initially
         client = UnifiedClient(initial_provider="google", stdout=True)
 

@@ -173,7 +173,7 @@ def main():
 
     # --- Model Alias Configuration ---
     print("\n--- Optional: Default Model Aliases ---")
-    print("You can set default models here. Press Enter to keep " "the current value.")
+    print("You can set default models here. Press Enter to keep the current value.")
 
     # gemini
     current_gemini_default = config["google"]["models"].get(

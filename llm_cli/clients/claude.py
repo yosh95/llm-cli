@@ -21,7 +21,7 @@ class ClaudeClient(BaseLlmClient):
             api_key_name="api_key",
             config_section="anthropic",
             pdf_as_base64=True,
-            **kwargs
+            **kwargs,
         )
 
     def _load_model_aliases(self):

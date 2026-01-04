@@ -247,7 +247,7 @@ class GeminiClient(BaseLlmClient):
                 elif state == "FAILED":
                     error_msg = info.get("error", {}).get("message", "Unknown error")
                     console.print(
-                        f"[red]Remote file processing failed: " f"{error_msg}[/red]"
+                        f"[red]Remote file processing failed: {error_msg}[/red]"
                     )
                     return False
 

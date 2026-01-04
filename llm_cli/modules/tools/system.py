@@ -46,9 +46,7 @@ def set_resource_limits():
     description="Execute a shell command.",
     parameters={
         "type": "object",
-        "properties": {
-            "command": {"type": "string", "description": "Command to run."}
-        },
+        "properties": {"command": {"type": "string", "description": "Command to run."}},
         "required": ["command"],
     },
 )

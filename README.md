@@ -19,7 +19,7 @@ Demonstrating how the system loads the "Attention is All You Need" paper PDF and
 
 ### 🤖 Agent Mode & Tool Use
 
-The AI can use tools like `google_search` or `search_arxiv` to find real-time information or `execute_command` to run various commands. **Agent Mode is enabled by default**, allowing the AI to autonomously help with your tasks.
+The AI can use tools like `google_search` to find real-time information or `execute_command` to run various commands. **Agent Mode is enabled by default**, allowing the AI to autonomously help with your tasks.
 
 ![AI agent supports your coding](images/agent.png)
 
@@ -30,7 +30,6 @@ The AI can use tools like `google_search` or `search_arxiv` to find real-time in
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
 -   **Mandatory Reasoning (Chain-of-Thought)**: All tools require the AI to provide a `thought` parameter, explaining *why* it is calling a specific tool. This improves transparency and agent reliability.
--   **Academic Research Support**: Built-in `search_arxiv` tool to search for papers, read abstracts, and automatically fetch PDFs for analysis.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
 -   **OpenAI-Compatible Custom Endpoints**: Use local LLMs (via Ollama, vLLM, etc.) or other OpenAI-compatible services by specifying a custom `api_url` in the configuration.
@@ -60,7 +59,6 @@ The AI agent comes equipped with the following tools:
 | `google_search` | Search the web for real-time information. |
 | `fetch_url` | Fetch raw HTML or media files (images/PDFs) from a URL. |
 | `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
-| `search_arxiv` | Search for academic papers on arXiv. |
 | `attach_file` | Manually/Autonomously inject a file into the conversation context. |
 
 ## Security
@@ -135,9 +133,9 @@ llm-cli-config
 ## Usage
 
 ### 1. Research Automation (Example)
-Search for papers, find the best one, and summarize its contributions in one command:
+Search for papers using Google, find the best one, and summarize its contributions in one command:
 ```bash
-llm "Search arXiv for 'Direct Preference Optimization', pick the most relevant paper, and summarize its key contributions."
+llm "Search for the 'Direct Preference Optimization' paper on Google, fetch its abstract, and summarize its key contributions."
 ```
 
 ### 2. Interactive Chat
@@ -277,7 +275,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 ![PDF Analysis](images/chat.png)
 
 ### 🤖 エージェントモード & ツール利用
-AIは `google_search` や `search_arxiv` を使ってリアルタイム情報を検索したり、`execute_command` で任意のコマンドを実行したりできます。**エージェントモードはデフォルトで有効**になっており、AIが自律的にタスクをサポートします。
+AIは `google_search` を使ってリアルタイム情報を検索したり、`execute_command` で任意のコマンドを実行したりできます。**エージェントモードはデフォルトで有効**になっており、AIが自律的にタスクをサポートします。
 ![AI agent supports your coding](images/agent.png)
 
 ## 主な機能
@@ -287,7 +285,6 @@ AIは `google_search` や `search_arxiv` を使ってリアルタイム情報を
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
 -   **思考プロセスの義務化 (Chain-of-Thought)**: すべてのツール実行において、AIに `thought` パラメータ（なぜそのツールを使うのかという理由）の提供を強制します。これにより、エージェントの推論の透明性と信頼性が向上します。
--   **先行研究調査の自動化**: `search_arxiv` ツールを搭載。特定のトピックに関する最新論文の検索から、アブストラクトの確認、PDFの自動取得と解析までをシームレスに行えます。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
 -   **OpenAI互換カスタムエンドポイント**: `api_url` を設定することで、ローカルLLM（Ollama, vLLM 等）やその他のOpenAI互換サービスを利用可能。
@@ -317,7 +314,6 @@ AIエージェントは以下のツールを標準で備えています：
 | `google_search` | Google検索を使用してリアルタイムの情報を取得。 |
 | `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
-| `search_arxiv` | arXivから学術論文を検索。 |
 | `attach_file` | ファイルを会話のコンテキストに注入。 |
 
 ## セキュリティ
@@ -392,9 +388,9 @@ llm-cli-config
 ## 使い方
 
 ### 1. 研究調査の自動化（例）
-特定のトピックに関する論文を探し、最適なものを選んで日本語でまとめさせることができます。
+Google検索を用いて特定のトピックに関する論文を探し、内容を要約させることができます。
 ```bash
-llm "arXivで 'Direct Preference Optimization' に関する論文を探して、最も関連性の高いものを選び、その主要な貢献をまとめて。"
+llm "Googleで 'Direct Preference Optimization' に関する論文を探して、内容を読み、その主要な貢献をまとめて。"
 ```
 
 ### 2. インタラクティブ・チャット

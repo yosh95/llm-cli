@@ -127,7 +127,7 @@ class CommandValidator:
     ]
 
     # Operators that we now support by splitting and validating each part
-    CHAINING_OPERATORS = [r"&&", r"\|\|", r"\|"]
+    CHAINING_OPERATORS = {"&&", "||", "|"}
 
     # MCP server whitelist
     MCP_SERVER_WHITELIST = {
@@ -165,27 +165,31 @@ class CommandValidator:
         if not self.allow_dangerous_patterns:
             self._check_dangerous_patterns(command)
 
-        # Handle command chaining and pipes by splitting
-        # This is a simplified split that doesn't account for operators inside quotes,
-        # but since we validate each part, it should be safe.
-        # We use a regex that splits by &&, ||, or | while keeping the operators if needed,
-        # but here we just want the command segments.
-        segments = re.split(r"&&|\|\||\|", command)
-        for segment in segments:
-            self._validate_single_command(segment.strip())
-
-    def _validate_single_command(self, command: str) -> None:
-        if not command:
-            return
-
         try:
-            # shlex handles quotes and escapes correctly
-            parts = shlex.split(command)
+            # Tokenize the command respecting quotes
+            tokens = shlex.split(command)
         except ValueError as e:
             raise CommandValidationError(
                 f"Failed to parse command (possible shell injection): {e}"
             )
 
+        if not tokens:
+            raise CommandValidationError("No command found after parsing")
+
+        # Split tokens by chaining operators and validate each segment
+        current_segment = []
+        for token in tokens:
+            if token in self.CHAINING_OPERATORS:
+                if current_segment:
+                    self._validate_parts(current_segment)
+                    current_segment = []
+            else:
+                current_segment.append(token)
+
+        if current_segment:
+            self._validate_parts(current_segment)
+
+    def _validate_parts(self, parts: List[str]) -> None:
         if not parts:
             return
 
@@ -206,17 +210,15 @@ class CommandValidator:
         self._check_dangerous_arguments(base_command, parts)
 
     def _check_dangerous_patterns(self, command: str) -> None:
+        # Before splitting, check for patterns that shlex might swallow or are globally forbidden
         for pattern in self.DANGEROUS_PATTERNS:
             if re.search(pattern, command):
                 raise CommandValidationError(
                     f"Command contains dangerous pattern '{pattern}'."
                 )
 
-        # Check for redirection
+        # Check for redirection - this is still blocked globally as it's hard to split safely
         if re.search(r"[<>]", command):
-            # Exception: allow > and < if they are part of a quoted string?
-            # shlex.split doesn't help here because we are checking the raw command string.
-            # For now, keep it blocked as it's very dangerous.
             raise CommandValidationError(
                 "I/O redirection (> or <) is forbidden for security."
             )

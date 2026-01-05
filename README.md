@@ -72,12 +72,17 @@ All shell commands executed through the AI agent (`execute_command` tool) and us
 
 **Default Allowed Commands**: `ls`, `cat`, `grep`, `find` and many other read-only or low-risk commands. See `llm_cli/security/command_validator.py` for the complete list.
 
+**Supported Operations (Validated)**:
+- Command chaining and pipes (`&&`, `||`, `|`) are allowed, provided that **every command** in the chain is on the whitelist.
+- Absolute paths are allowed if they point to non-existent files (useful for regex/strings) or are within the current project directory.
+
 **Blocked Patterns**:
-- Command chaining (`&&`, `||`, `;`)
-- Pipes and redirects (`|`, `>`, `<`)
+- Command separator (`;`)
+- I/O Redirection (`>`, `<`)
 - Command substitution (`` ` ``, `$()`)
 - Dangerous operations (e.g., `rm -rf`, `mkfs`, `dd`)
 - Risky subcommands (e.g., `git push`, `pip install`, `tar -x`)
+- Access to sensitive system paths (e.g., `/etc`, `/var`, `/root`)
 
 **MCP Server Protection**: MCP server commands loaded from config files are also validated against a separate whitelist.
 
@@ -328,12 +333,17 @@ AIエージェント (`execute_command` ツール) およびユーザーが直�
 
 **デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find` など、読み取り専用または低リスクのコマンド。完全なリストは `llm_cli/security/command_validator.py` を参照してください。
 
+**サポートされる操作（検証付き）**:
+- コマンドチェーンおよびパイプ (`&&`, `||`, `|`) は、チェーン内の**すべてのコマンド**がホワイトリストに含まれている場合に限り許可されます。
+- 絶対パスは、実在しないパス（検索パターンなど）であるか、現在のプロジェクトディレクトリ内を指している場合に許可されます。
+
 **ブロックされるパターン**:
-- コマンドチェーン (`&&`, `||`, `;`)
-- パイプとリダイレクト (`|`, `>`, `<`)
+- コマンドセパレータ (`;`)
+- I/O リダイレクト (`>`, `<`)
 - コマンド置換 (`` ` ``, `$()`)
 - 危険な操作 (例: `rm -rf`, `mkfs`, `dd`)
 - 危険なサブコマンド (例: `git push`, `pip install`, `tar -x`)
+- 重要なシステムパスへのアクセス (例: `/etc`, `/var`, `/root`)
 
 **MCP サーバー保護**: 設定ファイルから読み込まれる MCP サーバーコマンドも、別のホワイトリストに対して検証されます。
 
@@ -510,7 +520,7 @@ llm --mcp
 
 ## ユーティリティ・スクリプト
 
--   `llm-cli-config`: 対話型設定ツール。
+-   `llm-cli-config`: 対話型設定ツール.
 -   `*-models`: 各プロバイダの利用可能なモデルリスト (例: `ollama-models`)。
 -   `translate-json`: JSONファイル内の特定のキーを翻訳するユーティリティ。
 

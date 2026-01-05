@@ -28,6 +28,7 @@ The AI can use tools like `google_search` to find real-time information or `exec
 -   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, and **Ollama** through a single `llm` command.
 -   **Local LLM Support (Ollama)**: Use models locally without cloud API costs or privacy concerns.
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
+-   **Exit anytime**: Use **Escape**, **Ctrl+C**, or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
 -   **Mandatory Reasoning (Chain-of-Thought)**: All tools require the AI to provide a `thought` parameter, explaining *why* it is calling a specific tool. This improves transparency and agent reliability.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
@@ -283,6 +284,7 @@ AIは `google_search` を使ってリアルタイム情報を検索したり、`
 -   **統合インターフェース**: `llm` コマンド一つで Gemini, OpenAI, Claude, Grok, **Ollama** にアクセス可能。
 -   **ローカルLLM対応 (Ollama)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
+-   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Escape**、**Ctrl+C**、または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
 -   **思考プロセスの義務化 (Chain-of-Thought)**: すべてのツール実行において、AIに `thought` パラメータ（なぜそのツールを使うのかという理由）の提供を強制します。これにより、エージェントの推論の透明性と信頼性が向上します。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
@@ -297,7 +299,7 @@ AIは `google_search` を使ってリアルタイム情報を検索したり、`
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。
 -   **安全な実行**: ファイル変更時の **Diffプレビュー** 表示と、ツール実行前のユーザー確認（Human-in-the-Loop）。
 -   **セキュリティガードレール**: ホワイトリストベースのコマンド検証により、コマンドインジェクションや危険な操作を防止。
--   **ワンショット実行**: 他のコマンドからのパイプ入力や、引数としてのプロンプト実行に対応。
+-   **ワンショット実行**: 他のコマンドからのパイプ入力や、引数としてのプロンプト実行に対応.
 -   **ログ管理**: チャットログの自動ローテーションとトリミング機能を搭載。
 -   **簡単設定**: `llm-cli-config` による対話形式のセットアップ。
 
@@ -311,7 +313,7 @@ AIエージェントは以下のツールを標準で備えています：
 | `list_files` | ディレクトリ内のファイル一覧を表示し、プロジェクト構造を把握。 |
 | `read_file` | テキストファイルの内容を読み取り（行指定可能）。 |
 | `write_file` | ファイルを新規作成または更新。 |
-| `google_search` | Google検索を使用してリアルタイムの情報を取得。 |
+| `google_search` | Google検索を使用してリアルタイムの情報を取得. |
 | `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
 | `attach_file` | ファイルを会話のコンテキストに注入。 |
@@ -434,7 +436,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動で添付。
 -   `/dump`: 会話履歴をJSON形式でダンプ。
 -   `/raw`: 生の会話テキストを表示。
--   `/clear` (または `/c`): 会話履歴をクリア。
+-   `/clear` (または `/c`): 会話履歴をクリア.
 -   `/debug` (または `/d`): ライブデバッグモードのON/OFF切り替え。
 -   `!command`: ローカルのシェルコマンドを実行。
 -   `/help` (または `/h`): 全コマンドリストを表示。

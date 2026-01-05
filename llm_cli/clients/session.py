@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory, InMemoryHistory
-from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
@@ -23,6 +23,7 @@ from llm_cli.modules.tool_registry import registry
 from llm_cli.security import CommandValidationError, validate_command
 
 kb = KeyBindings()
+kb_exit = KeyBindings()
 console = Console()
 md_separator = Rule()
 
@@ -35,6 +36,11 @@ def _(event):
 @kb.add("c-j")
 def _(event):
     event.current_buffer.insert_text("\n")
+
+
+@kb_exit.add("escape")
+def _(event):
+    event.app.exit(exception=KeyboardInterrupt)
 
 
 class ChatSession:
@@ -69,10 +75,12 @@ class ChatSession:
                     self._checkpoint_hint_shown = True
 
                 console.print(md_separator)
+                # Apply both standard key bindings and exit-on-escape bindings
+                combined_kb = merge_key_bindings([kb, kb_exit])
                 user_input = prompt(
                     "> ",
                     history=self.prompt_history,
-                    key_bindings=kb,
+                    key_bindings=combined_kb,
                     enable_system_prompt=True,
                     enable_open_in_editor=True,
                 ).strip()
@@ -103,6 +111,9 @@ class ChatSession:
     def process_and_print(self, data: List[DataSource]):
         self._log_chat(data, role="User")
         response_text, _ = self.client._send(data)
+        if response_text is None:
+            # Error already reported or request failed
+            return
         response_text = self.client._format_response_text(response_text)
 
         while True:
@@ -137,6 +148,8 @@ class ChatSession:
                 if injected_datas:
                     self._log_chat(injected_datas, role="Tool Output")
                 response_text, _ = self.client._send(injected_datas)
+                if response_text is None:
+                    break
                 response_text = self.client._format_response_text(response_text)
             else:
                 break
@@ -213,18 +226,16 @@ class ChatSession:
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
-    def _get_input(self, message: str, **kwargs) -> str:
+    def _get_input(self, message: str, exit_on_escape: bool = False, **kwargs) -> str:
         """Helper for console input, supporting both TTY and prompt_toolkit."""
         if sys.stdin.isatty():
-            try:
-                # Use provided kwargs, but set defaults for key_bindings and editor
-                # to match the main prompt's behavior.
-                kwargs.setdefault("key_bindings", kb)
-                kwargs.setdefault("enable_open_in_editor", True)
-                kwargs.setdefault("enable_system_prompt", True)
-                return prompt(message, **kwargs).strip()
-            except (EOFError, KeyboardInterrupt):
-                return ""
+            # Use provided kwargs, but set defaults for key_bindings and editor
+            # to match the main prompt's behavior.
+            current_kb = merge_key_bindings([kb, kb_exit]) if exit_on_escape else kb
+            kwargs.setdefault("key_bindings", current_kb)
+            kwargs.setdefault("enable_open_in_editor", True)
+            kwargs.setdefault("enable_system_prompt", True)
+            return prompt(message, **kwargs).strip()
 
         try:
             tty_path = "/dev/tty" if sys.platform != "win32" else "CON"
@@ -232,16 +243,20 @@ class ChatSession:
                 sys.stderr.write(message)
                 sys.stderr.flush()
                 line = tty.readline()
-                return line.strip() if line else ""
-        except Exception:
+                if not line:
+                    raise EOFError
+                return line.strip()
+        except Exception as e:
+            if isinstance(e, EOFError):
+                raise e
             console.print(
-                "[yellow]Warning: Could not access TTY for input. "
+                f"[yellow]Warning: Could not access TTY for input ({e}). "
                 "Returning empty.[/yellow]"
             )
             return ""
 
     def _confirm(self, message: str) -> bool:
-        return self._get_input(message).lower() == "y"
+        return self._get_input(message, exit_on_escape=True).lower() == "y"
 
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
         tool_id, name, args = (
@@ -284,6 +299,7 @@ class ChatSession:
 
         user_input = self._get_input(
             "Allow execution? (y/N or feedback): ",
+            exit_on_escape=True,
             history=self.prompt_history,
         )
         if user_input.lower() != "y":

@@ -410,7 +410,10 @@ class BaseLlmClient(ABC):
             "  /models (m)    List available models\n"
             "  /tools on|off  Show or toggle tool status\n"
             "  /google, /openai, /anthropic, /xai, /ollama  Switch provider\n"
-            f"  <model_alias>  Switch to specific model ({models_str})"
+            f"  <model_alias>  Switch to specific model ({models_str})\n\n"
+            "[bold]Exit Application:[/bold]\n"
+            "  Use [cyan]escape[/cyan], [cyan]Ctrl+C[/cyan], "
+            "or [cyan]Ctrl+D[/cyan] at any prompt to exit."
         )
 
     def _trim_log_file(self, path: Path, max_lines: int):

@@ -281,10 +281,12 @@ class ChatSession:
         if user_input.lower() != "y":
             feedback = user_input if user_input.lower() != "n" else ""
             console.print("[red]Operation denied.[/red]")
-            result_msg = "Error: Operation denied."
             if feedback:
-                result_msg += f" User feedback: {feedback}"
-            result_msg += " DO NOT retry. Ask for instructions."
+                result_msg = f"Rejected by user. Feedback: {feedback}"
+            else:
+                result_msg = (
+                    "Error: Operation denied. DO NOT retry. Ask for instructions."
+                )
 
             return {
                 "functionResponse": {

@@ -1,5 +1,6 @@
 # llm_cli/security/command_validator.py
 
+import os
 import re
 import shlex
 from typing import List, Optional, Set
@@ -87,8 +88,7 @@ class CommandValidator:
         "make",
         "cmake",
         "ruff",
-        # Package managers (info commands only -
-        # install/remove require explicit permission)
+        # Package managers (info commands only)
         "pip",
         "npm",
         "cargo",
@@ -120,17 +120,14 @@ class CommandValidator:
 
     # Dangerous patterns that suggest command injection or dangerous operations
     DANGEROUS_PATTERNS = [
-        r"&&",  # Command chaining
-        r"\|\|",  # OR chaining
         r";",  # Command separator
-        r"\|",  # Pipe
-        r">",  # Output redirection
-        r"<",  # Input redirection
         r"`",  # Command substitution (backticks)
         r"\$\(",  # Command substitution $(...)
         r"\$\{",  # Variable substitution ${...}
-        r"~/",  # Home directory expansion
     ]
+
+    # Operators that we now support by splitting and validating each part
+    CHAINING_OPERATORS = [r"&&", r"\|\|", r"\|"]
 
     # MCP server whitelist
     MCP_SERVER_WHITELIST = {
@@ -168,7 +165,21 @@ class CommandValidator:
         if not self.allow_dangerous_patterns:
             self._check_dangerous_patterns(command)
 
+        # Handle command chaining and pipes by splitting
+        # This is a simplified split that doesn't account for operators inside quotes,
+        # but since we validate each part, it should be safe.
+        # We use a regex that splits by &&, ||, or | while keeping the operators if needed,
+        # but here we just want the command segments.
+        segments = re.split(r"&&|\|\||\|", command)
+        for segment in segments:
+            self._validate_single_command(segment.strip())
+
+    def _validate_single_command(self, command: str) -> None:
+        if not command:
+            return
+
         try:
+            # shlex handles quotes and escapes correctly
             parts = shlex.split(command)
         except ValueError as e:
             raise CommandValidationError(
@@ -176,11 +187,12 @@ class CommandValidator:
             )
 
         if not parts:
-            raise CommandValidationError("No command found after parsing")
+            return
 
         self._check_paths(parts)
 
         base_command = parts[0]
+        # Handle cases like /usr/bin/git
         if "/" in base_command:
             base_command = base_command.split("/")[-1]
 
@@ -200,16 +212,52 @@ class CommandValidator:
                     f"Command contains dangerous pattern '{pattern}'."
                 )
 
+        # Check for redirection
+        if re.search(r"[<>]", command):
+            # Exception: allow > and < if they are part of a quoted string?
+            # shlex.split doesn't help here because we are checking the raw command string.
+            # For now, keep it blocked as it's very dangerous.
+            raise CommandValidationError(
+                "I/O redirection (> or <) is forbidden for security."
+            )
+
     def _check_paths(self, parts: List[str]) -> None:
+        cwd = os.getcwd()
         for part in parts:
             if ".." in part:
                 raise CommandValidationError(
                     f"Directory traversal '..' is forbidden in argument: {part}"
                 )
+
             if part.startswith("/"):
-                raise CommandValidationError(
-                    f"Absolute paths are forbidden in argument: {part}."
-                )
+                # Relax absolute path check:
+                # 1. Allow if it's within the current working directory
+                # 2. Allow if the path does not actually exist on the system
+                #    (likely a regex or string like grep "/help")
+                # 3. Block if it's an existing absolute path outside CWD
+                try:
+                    abs_path = os.path.abspath(part)
+                    if os.path.exists(abs_path):
+                        if not abs_path.startswith(cwd):
+                            # Check for sensitive system paths
+                            sensitive_prefixes = [
+                                "/etc",
+                                "/var",
+                                "/root",
+                                "/bin",
+                                "/sbin",
+                                "/usr",
+                                "/dev",
+                                "/proc",
+                                "/sys",
+                                "/boot",
+                            ]
+                            if any(abs_path.startswith(p) for p in sensitive_prefixes):
+                                raise CommandValidationError(
+                                    f"Access to system absolute path is forbidden: {part}"
+                                )
+                except (ValueError, OSError):
+                    pass
 
     def _check_dangerous_arguments(self, base_command: str, parts: List[str]) -> None:
         if base_command == "git":

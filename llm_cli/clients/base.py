@@ -3,11 +3,13 @@
 import base64
 import datetime
 import json
+import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import requests
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -123,6 +125,45 @@ class BaseLlmClient(ABC):
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         """Send the request to the specific provider API."""
         pass
+
+    def _post_with_retry(
+        self, url: str, headers: Dict, json_data: Dict, timeout: int = 60, max_retries: int = 3
+    ) -> requests.Response:
+        """Perform a POST request with automatic retry and exponential backoff."""
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    url, headers=headers, json=json_data, timeout=timeout
+                )
+                
+                # Retry on 429 (Rate Limit) and 5xx (Server errors)
+                if response.status_code == 429 or 500 <= response.status_code < 600:
+                    response.raise_for_status()
+                
+                return response
+            except (requests.exceptions.RequestException, requests.exceptions.HTTPError) as e:
+                last_exception = e
+                
+                # If it's an HTTPError, check the status code
+                if isinstance(e, requests.exceptions.HTTPError):
+                    status_code = e.response.status_code
+                    # Don't retry on client errors except 429
+                    if status_code != 429 and status_code < 500:
+                        raise e
+                
+                if attempt < max_retries - 1:
+                    wait_time = (2**attempt) + 1  # 2, 3, 5 seconds...
+                    console.print(
+                        f"[yellow]Request failed: {e}. "
+                        f"Retrying in {wait_time}s... ({attempt + 1}/{max_retries})[/yellow]"
+                    )
+                    time.sleep(wait_time)
+                else:
+                    raise last_exception
+        
+        # Should not be reached if max_retries > 0
+        raise last_exception if last_exception else Exception("Request failed")
 
     def set_model(self, alias: str) -> bool:
         if alias in self.available_models:
@@ -480,8 +521,6 @@ class BaseLlmClient(ABC):
                 )
 
     def _report_error(self, provider_name: str, e: Exception):
-        import requests
-
         error_msg = str(e)
         if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
             try:

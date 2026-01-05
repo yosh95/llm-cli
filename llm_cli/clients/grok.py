@@ -3,8 +3,6 @@
 import json
 from typing import Dict, List, Optional, Tuple
 
-import requests
-
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import registry
@@ -50,8 +48,9 @@ class GrokClient(BaseLlmClient):
         }
 
         try:
-            response = requests.post(
-                self.api_url, headers=headers, json=payload, timeout=120
+            # Use the retry-enabled post method from BaseLlmClient
+            response = self._post_with_retry(
+                self.api_url, headers=headers, json_data=payload, timeout=60
             )
             self._log_debug(response_obj=response)
             response.raise_for_status()

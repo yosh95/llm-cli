@@ -18,9 +18,9 @@ class GeminiClient(BaseLlmClient):
 
     BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta"
     UPLOAD_API_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files"
-    REQUEST_TIMEOUT = 120
+    REQUEST_TIMEOUT = 60
     # Increase upload timeout to 1 hour to support large files
-    UPLOAD_TIMEOUT = 360
+    UPLOAD_TIMEOUT = 3600
     UPLOAD_START_TIMEOUT = 20
     # PDF size threshold for using File API instead of inline base64
     PDF_FILE_API_THRESHOLD = 10 * 1024 * 1024  # 10MB
@@ -109,13 +109,14 @@ class GeminiClient(BaseLlmClient):
         api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
 
         try:
-            response = requests.post(
+            # Use the retry-enabled post method from BaseLlmClient
+            response = self._post_with_retry(
                 api_url,
                 headers={
                     "x-goog-api-key": self.api_key,
                     "Content-Type": "application/json",
                 },
-                json=payload,
+                json_data=payload,
                 timeout=self.REQUEST_TIMEOUT,
             )
             self._log_debug(response_obj=response)

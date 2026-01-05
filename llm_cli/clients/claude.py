@@ -2,8 +2,6 @@
 
 from typing import Dict, List, Optional, Tuple
 
-import requests
-
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
 
@@ -51,8 +49,9 @@ class ClaudeClient(BaseLlmClient):
         }
 
         try:
-            response = requests.post(
-                self.API_URL, headers=headers, json=payload, timeout=120
+            # Use the retry-enabled post method from BaseLlmClient
+            response = self._post_with_retry(
+                self.API_URL, headers=headers, json_data=payload, timeout=60
             )
             # Log debug info regardless of success/failure
             self._log_debug(response_obj=response)

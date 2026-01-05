@@ -210,14 +210,16 @@ class CommandValidator:
         self._check_dangerous_arguments(base_command, parts)
 
     def _check_dangerous_patterns(self, command: str) -> None:
-        # Before splitting, check for patterns that shlex might swallow or are globally forbidden
+        # Before splitting, check for patterns that shlex might
+        # swallow or are globally forbidden
         for pattern in self.DANGEROUS_PATTERNS:
             if re.search(pattern, command):
                 raise CommandValidationError(
                     f"Command contains dangerous pattern '{pattern}'."
                 )
 
-        # Check for redirection - this is still blocked globally as it's hard to split safely
+        # Check for redirection - this is still blocked globally
+        # as it's hard to split safely
         if re.search(r"[<>]", command):
             raise CommandValidationError(
                 "I/O redirection (> or <) is forbidden for security."
@@ -255,9 +257,8 @@ class CommandValidator:
                                 "/boot",
                             ]
                             if any(abs_path.startswith(p) for p in sensitive_prefixes):
-                                raise CommandValidationError(
-                                    f"Access to system absolute path is forbidden: {part}"
-                                )
+                                msg = f"System path access forbidden: {part}"
+                                raise CommandValidationError(msg)
                 except (ValueError, OSError):
                     pass
 

@@ -213,11 +213,16 @@ class ChatSession:
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
-    def _get_input(self, message: str) -> str:
+    def _get_input(self, message: str, **kwargs) -> str:
         """Helper for console input, supporting both TTY and prompt_toolkit."""
         if sys.stdin.isatty():
             try:
-                return prompt(message).strip()
+                # Use provided kwargs, but set defaults for key_bindings and editor
+                # to match the main prompt's behavior.
+                kwargs.setdefault("key_bindings", kb)
+                kwargs.setdefault("enable_open_in_editor", True)
+                kwargs.setdefault("enable_system_prompt", True)
+                return prompt(message, **kwargs).strip()
             except (EOFError, KeyboardInterrupt):
                 return ""
 
@@ -277,7 +282,10 @@ class ChatSession:
         elif name == "execute_command":
             self._preview_command(args)
 
-        user_input = self._get_input("Allow execution? (y/N or feedback): ")
+        user_input = self._get_input(
+            "Allow execution? (y/N or feedback): ",
+            history=self.prompt_history,
+        )
         if user_input.lower() != "y":
             feedback = user_input if user_input.lower() != "n" else ""
             console.print("[red]Operation denied.[/red]")

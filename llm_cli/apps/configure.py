@@ -157,8 +157,7 @@ def configure_general(config: Dict[str, Any]):
         g_config.get("LLM_PROMPT_HISTORY", "~/.config/llm_cli/history.log"),
     )
     g_config["LLM_CHAT_LOG"] = prompt_input(
-        "Chat Log Path",
-        g_config.get("LLM_CHAT_LOG", "~/.config/llm_cli/chat.log")
+        "Chat Log Path", g_config.get("LLM_CHAT_LOG", "~/.config/llm_cli/chat.log")
     )
     g_config["LLM_AUDIT_LOG"] = prompt_input(
         "Audit Log Path (for tools)",

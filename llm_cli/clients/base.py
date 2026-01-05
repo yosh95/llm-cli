@@ -127,7 +127,12 @@ class BaseLlmClient(ABC):
         pass
 
     def _post_with_retry(
-        self, url: str, headers: Dict, json_data: Dict, timeout: int = 60, max_retries: int = 3
+        self,
+        url: str,
+        headers: Dict,
+        json_data: Dict,
+        timeout: int = 60,
+        max_retries: int = 3,
     ) -> requests.Response:
         """Perform a POST request with automatic retry and exponential backoff."""
         last_exception = None
@@ -136,32 +141,36 @@ class BaseLlmClient(ABC):
                 response = requests.post(
                     url, headers=headers, json=json_data, timeout=timeout
                 )
-                
+
                 # Retry on 429 (Rate Limit) and 5xx (Server errors)
                 if response.status_code == 429 or 500 <= response.status_code < 600:
                     response.raise_for_status()
-                
+
                 return response
-            except (requests.exceptions.RequestException, requests.exceptions.HTTPError) as e:
+            except (
+                requests.exceptions.RequestException,
+                requests.exceptions.HTTPError,
+            ) as e:
                 last_exception = e
-                
+
                 # If it's an HTTPError, check the status code
                 if isinstance(e, requests.exceptions.HTTPError):
                     status_code = e.response.status_code
                     # Don't retry on client errors except 429
                     if status_code != 429 and status_code < 500:
                         raise e
-                
+
                 if attempt < max_retries - 1:
                     wait_time = (2**attempt) + 1  # 2, 3, 5 seconds...
                     console.print(
                         f"[yellow]Request failed: {e}. "
-                        f"Retrying in {wait_time}s... ({attempt + 1}/{max_retries})[/yellow]"
+                        f"Retrying in {wait_time}s... "
+                        f"({attempt + 1}/{max_retries})[/yellow]"
                     )
                     time.sleep(wait_time)
                 else:
                     raise last_exception
-        
+
         # Should not be reached if max_retries > 0
         raise last_exception if last_exception else Exception("Request failed")
 

@@ -59,7 +59,9 @@ class OllamaClient(BaseLlmClient):
         }
 
         if self.tools_enabled and self.active_tools:
-            payload["tools"] = registry.get_openai_spec(self.active_tools)
+            payload["tools"] = registry.get_openai_spec(
+                self.active_tools, provider=self.config_section
+            )
 
         try:
             # Use the retry-enabled post method from BaseLlmClient

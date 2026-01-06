@@ -156,7 +156,9 @@ class GeminiClient(BaseLlmClient):
             payload["system_instruction"] = {"parts": [{"text": self.system_prompt}]}
 
         if self.active_tools:
-            payload["tools"] = registry.get_gemini_spec(self.active_tools)
+            payload["tools"] = registry.get_gemini_spec(
+                self.active_tools, provider=self.config_section
+            )
 
         return payload
 

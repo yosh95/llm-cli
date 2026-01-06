@@ -40,7 +40,9 @@ class ClaudeClient(BaseLlmClient):
             payload["system"] = self.system_prompt
 
         if self.active_tools:
-            payload["tools"] = registry.get_anthropic_spec(self.active_tools)
+            payload["tools"] = registry.get_anthropic_spec(
+                self.active_tools, provider=self.config_section
+            )
 
         headers = {
             "x-api-key": self.api_key,

@@ -19,6 +19,7 @@ class ToolRegistry:
         func: Callable,
         description: str,
         parameters: Optional[Dict[str, Any]] = None,
+        supported_providers: Optional[List[str]] = None,
     ):
         # 1. Initialize parameters
         if parameters is None:
@@ -89,6 +90,7 @@ class ToolRegistry:
             "func": wrapper,
             "description": description,
             "parameters": parameters,
+            "supported_providers": supported_providers,
         }
 
     def register_remote_tools(self, mcp_manager) -> List[str]:
@@ -115,35 +117,49 @@ class ToolRegistry:
         for _, name, _ in pkgutil.iter_modules(tools_pkg.__path__):
             importlib.import_module(f"llm_cli.modules.tools.{name}")
 
-    def get_tool_schemas(self, active_tools: List[str]) -> List[Dict[str, Any]]:
+    def get_tool_schemas(
+        self, active_tools: List[str], provider: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         schemas = []
-        for name in active_tools:
-            if name in self.tools:
-                t = self.tools[name]
-                schemas.append(
-                    {
-                        "name": t["name"],
-                        "description": t["description"],
-                        "parameters": t["parameters"],
-                    }
-                )
+        for t in self._get_active(active_tools, provider=provider):
+            schemas.append(
+                {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t["parameters"],
+                }
+            )
         return schemas
 
-    def _get_active(self, names: List[str]) -> List[Dict[str, Any]]:
-        return [self.tools[n] for n in names if n in self.tools]
+    def _get_active(
+        self, names: List[str], provider: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        active = []
+        for n in names:
+            if n in self.tools:
+                t = self.tools[n]
+                if provider and t.get("supported_providers"):
+                    if provider not in t["supported_providers"]:
+                        continue
+                active.append(t)
+        return active
 
-    def get_gemini_spec(self, names: List[str]) -> List[Dict[str, Any]]:
+    def get_gemini_spec(
+        self, names: List[str], provider: str = "google"
+    ) -> List[Dict[str, Any]]:
         tools = [
             {
                 "name": t["name"],
                 "description": t["description"],
                 "parameters": t["parameters"],
             }
-            for t in self._get_active(names)
+            for t in self._get_active(names, provider=provider)
         ]
         return [{"function_declarations": tools}] if tools else []
 
-    def get_openai_spec(self, names: List[str]) -> List[Dict[str, Any]]:
+    def get_openai_spec(
+        self, names: List[str], provider: str = "openai"
+    ) -> List[Dict[str, Any]]:
         return [
             {
                 "type": "function",
@@ -153,17 +169,19 @@ class ToolRegistry:
                     "parameters": t["parameters"],
                 },
             }
-            for t in self._get_active(names)
+            for t in self._get_active(names, provider=provider)
         ]
 
-    def get_anthropic_spec(self, names: List[str]) -> List[Dict[str, Any]]:
+    def get_anthropic_spec(
+        self, names: List[str], provider: str = "anthropic"
+    ) -> List[Dict[str, Any]]:
         return [
             {
                 "name": t["name"],
                 "description": t["description"],
                 "input_schema": t["parameters"],
             }
-            for t in self._get_active(names)
+            for t in self._get_active(names, provider=provider)
         ]
 
 
@@ -174,6 +192,7 @@ def tool(
     name: str,
     description: Optional[str] = None,
     parameters: Optional[Dict] = None,
+    supported_providers: Optional[List[str]] = None,
     desc: Optional[str] = None,
     params: Optional[Dict] = None,
 ):
@@ -188,7 +207,7 @@ def tool(
         raise ValueError("Either 'description' or 'desc' must be provided")
 
     def decorator(f: Callable):
-        registry.register(name, f, final_desc, final_params)
+        registry.register(name, f, final_desc, final_params, supported_providers)
         return f
 
     return decorator

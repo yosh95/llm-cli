@@ -38,7 +38,9 @@ class OpenAIClient(BaseLlmClient):
             "messages": messages,
         }
         if self.active_tools:
-            payload["tools"] = registry.get_openai_spec(self.active_tools)
+            payload["tools"] = registry.get_openai_spec(
+                self.active_tools, provider=self.config_section
+            )
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",

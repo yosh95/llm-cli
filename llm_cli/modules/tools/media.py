@@ -74,6 +74,7 @@ def attach_file(path: str) -> dict:
         },
         "required": ["prompt"],
     },
+    supported_providers=["google"],
 )
 def generate_image(prompt: str, output_path: Optional[str] = None) -> dict:
     """

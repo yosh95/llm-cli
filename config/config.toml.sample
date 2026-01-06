@@ -14,6 +14,9 @@ max_audit_log_lines = 5000
 [google]
 api_key = "YOUR_GEMINI_API_KEY"
 system_prompt = "You are a helpful assistant."
+# Default model used by the generate_image tool
+image_model = "gemini-3-pro-image-preview"
+
 [google.models]
 default = "gemini-3-flash-preview"
 lite = "gemini-2.5-flash-lite"
@@ -38,9 +41,9 @@ opus = "claude-opus-4-5-20251101"
 [xai]
 api_key = "YOUR_GROK_API_KEY"
 [xai.models]
-default = "grok-4-1-fast-reasoning
-reasoning = "grok-4-1-fast-reasoning
-non-reasoning = "grok-4-1-fast-non-reasoning
+default = "grok-4-1-fast-reasoning"
+reasoning = "grok-4-1-fast-reasoning"
+non-reasoning = "grok-4-1-fast-non-reasoning"
 
 [ollama]
 api_url = "http://localhost:11434/v1/chat/completions"

@@ -277,7 +277,7 @@ class ChatSession:
             )
 
         title_prefix = "[bold yellow]🤖 Agent Request:[/bold yellow]"
-        if name in ("write_file", "execute_command"):
+        if name in ("write_file", "execute_command", "generate_image"):
             # Detailed preview panel will be shown, so skip inline args
             console.print(f"{title_prefix} [cyan]{escape(name)}[/cyan]")
         else:
@@ -296,6 +296,8 @@ class ChatSession:
             self._preview_diff(args)
         elif name == "execute_command":
             self._preview_command(args)
+        elif name == "generate_image":
+            self._preview_image_prompt(args)
 
         user_input = self._get_input(
             "Allow execution? (y/N or feedback): ",
@@ -413,6 +415,24 @@ class ChatSession:
                     syn,
                     title="[bold]Execute Command[/bold]",
                     border_style="magenta",
+                    expand=False,
+                )
+            )
+        except Exception:
+            pass
+
+    def _preview_image_prompt(self, args: Dict[str, Any]):
+        try:
+            prompt_text = args.get("prompt", "")
+            output_path = args.get("output_path", "default")
+            if not prompt_text:
+                return
+
+            console.print(
+                Panel(
+                    prompt_text,
+                    title=f"[bold]Image Prompt (Output: {output_path})[/bold]",
+                    border_style="green",
                     expand=False,
                 )
             )

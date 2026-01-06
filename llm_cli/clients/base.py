@@ -269,6 +269,43 @@ class BaseLlmClient(ABC):
         if cmd in ("checkpoint", "cp"):
             raise CheckpointRequest()
 
+        if cmd == "save":
+            path_str = args
+            if not path_str:
+                now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                path_str = f"session_{now_str}.json"
+
+            try:
+                save_path = Path(path_str)
+                with save_path.open("w", encoding="utf-8") as f:
+                    json.dump(self.conversation, f, indent=2, ensure_ascii=False)
+                console.print(f"[green]Session saved to {save_path}[/green]")
+            except Exception as e:
+                console.print(f"[red]Failed to save session: {e}[/red]")
+            return True
+
+        if cmd == "load":
+            path_str = args
+            if not path_str:
+                console.print("[red]Usage: /load <path>[/red]")
+                return True
+
+            try:
+                load_path = Path(path_str)
+                if not load_path.exists():
+                    console.print(f"[red]File not found: {load_path}[/red]")
+                    return True
+
+                with load_path.open("r", encoding="utf-8") as f:
+                    self.conversation = json.load(f)
+                console.print(
+                    f"[green]Session loaded from {load_path} "
+                    f"({len(self.conversation)} messages)[/green]"
+                )
+            except Exception as e:
+                console.print(f"[red]Failed to load session: {e}[/red]")
+            return True
+
         if cmd == "attach":
             path_str = args
             if not path_str:
@@ -406,6 +443,8 @@ class BaseLlmClient(ABC):
         console.print(
             "[bold]Available Commands:[/bold]\n"
             "  /attach <path> Attach media/file to context\n"
+            "  /save <path>   Save conversation history to a JSON file\n"
+            "  /load <path>   Load conversation history from a JSON file\n"
             "  /clear (c)     Clear conversation history\n"
             "  /checkpoint(cp)Summarize and clear history\n"
             "  /dump          Dump conversation history as JSON\n"

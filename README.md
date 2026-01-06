@@ -185,6 +185,8 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 -   `/tools [on|off]`: Show or toggle tool status.
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
 -   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video).
+-   `/save <path>`: Save conversation history to a JSON file.
+-   `/load <path>`: Load conversation history from a JSON file.
 -   `/dump`: Dump conversation history as a JSON object.
 -   `/raw`: Show the raw conversation text.
 -   `/clear` (or `/c`): Clear conversation history.
@@ -320,7 +322,7 @@ AIエージェントは以下のツールを標準で備えています：
 | `execute_command` | シェルコマンドを実行（ホワイトリストによる安全検証付き）。 |
 | `list_files` | ディレクトリ内のファイル一覧を表示し、プロジェクト構造を把握。 |
 | `read_file` | テキストファイルの内容を読み取り（行指定可能）。 |
-| `write_file` | ファイルを新規作成または更新。 |
+| `write_file` | ファイルを新規作成または更新. |
 | `google_search` | Google検索を使用してリアルタイムの情報を取得. |
 | `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
@@ -448,6 +450,8 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/tools [on|off]`: ツールの有効・無効を切り替え。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動で添付。
+-   `/save <path>`: 会話履歴をJSONファイルに保存。
+-   `/load <path>`: 会話履歴をJSONファイルから読み込み。
 -   `/dump`: 会話履歴をJSON形式でダンプ。
 -   `/raw`: 生の会話テキストを表示。
 -   `/clear` (または `/c`): 会話履歴をクリア.

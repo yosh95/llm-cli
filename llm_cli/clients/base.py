@@ -355,7 +355,10 @@ class BaseLlmClient(ABC):
                     if self.tools_enabled
                     else "[red]DISABLED[/red]"
                 )
-                tools_str = ", ".join(self.active_tools) or "None"
+                active_for_provider = registry.get_active_names(
+                    self.active_tools, provider=self.config_section
+                )
+                tools_str = ", ".join(active_for_provider) or "None"
                 console.print(f"[bold]Tools Status:[/bold] {status}")
                 if self.tools_enabled:
                     console.print(f"[bold]Active Tools:[/bold] {tools_str}")
@@ -377,7 +380,10 @@ class BaseLlmClient(ABC):
             if not self.tools_enabled:
                 tools_str = "[red]Disabled[/red]"
             else:
-                tools_str = ", ".join(self.active_tools) or "None"
+                active_for_provider = registry.get_active_names(
+                    self.active_tools, provider=self.config_section
+                )
+                tools_str = ", ".join(active_for_provider) or "None"
             console.print(
                 "[bold]Session Info:[/bold]\n"
                 f"  Provider: [cyan]{self.config_section}[/cyan]\n"

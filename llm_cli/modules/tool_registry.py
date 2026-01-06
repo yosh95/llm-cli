@@ -131,6 +131,15 @@ class ToolRegistry:
             )
         return schemas
 
+    def get_active_names(
+        self, names: List[str], provider: Optional[str] = None
+    ) -> List[str]:
+        """
+        Returns a list of tool names that are both in the 'names' list
+        and supported by the given provider.
+        """
+        return [t["name"] for t in self._get_active(names, provider=provider)]
+
     def _get_active(
         self, names: List[str], provider: Optional[str] = None
     ) -> List[Dict[str, Any]]:

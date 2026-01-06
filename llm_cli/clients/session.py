@@ -84,10 +84,13 @@ class ChatSession:
                     enable_system_prompt=True,
                     enable_open_in_editor=True,
                 ).strip()
+            except (KeyboardInterrupt, EOFError):
+                break
 
-                if not user_input:
-                    continue
+            if not user_input:
+                continue
 
+            try:
                 console.print(md_separator)
                 if user_input.startswith("!"):
                     if self._handle_shell_command(user_input, data):
@@ -104,9 +107,13 @@ class ChatSession:
                 self.process_and_print(data)
                 data = []
             except (KeyboardInterrupt, EOFError):
-                break
+                console.print(
+                    "\n[yellow]Interrupted. Returning to main prompt...[/yellow]"
+                )
+                data = []
             except Exception as e:
                 console.print(f"[bold red]Error: {e}[/bold red]")
+                data = []
 
     def process_and_print(self, data: List[DataSource]):
         self._log_chat(data, role="User")
@@ -197,6 +204,9 @@ class ChatSession:
             else:
                 console.print("[yellow]Checkpoint canceled.[/yellow]")
                 self.client.conversation = original_conversation
+        except (KeyboardInterrupt, EOFError):
+            self.client.conversation = original_conversation
+            raise
         except Exception as e:
             console.print(f"[bold red]Checkpoint failed: {e}[/bold red]")
             self.client.conversation = original_conversation

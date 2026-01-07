@@ -101,18 +101,37 @@ class ClaudeClient(BaseLlmClient):
                 timeout=60,
                 stream=True,
             )
+            self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
 
             full_text = ""
             model_parts = []
             tool_use_buffer = {}
+            event_count = 0
 
             for line in response.iter_lines():
                 if not line:
                     continue
                 line_str = line.decode("utf-8")
                 if line_str.startswith("data: "):
-                    event = json.loads(line_str[6:])
+                    data_content = line_str[6:].strip()
+
+                    # Skip [DONE] signal and other non-JSON content
+                    if data_content == "[DONE]" or not data_content:
+                        continue
+
+                    try:
+                        event = json.loads(data_content)
+                        event_count += 1
+
+                        # Log first few events in debug mode
+                        if self.live_debug and event_count <= 3:
+                            self._log_debug(response_content=event)
+                    except json.JSONDecodeError as e:
+                        if self.live_debug:
+                            yield f"\n[JSON Parse Error: {e} in line: {data_content[:100]}]\n"
+                        continue
+
                     event_type = event.get("type")
 
                     if event_type == "content_block_start":

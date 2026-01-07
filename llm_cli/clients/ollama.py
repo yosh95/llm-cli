@@ -90,10 +90,12 @@ class OllamaClient(BaseLlmClient):
             response = self._post_with_retry(
                 self.api_url, headers={}, json_data=payload, timeout=60, stream=True
             )
+            self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
 
             full_text = ""
             model_parts = []
+            event_count = 0
 
             # Ollama /v1/chat/completions uses SSE if stream=True
             for line in response.iter_lines():
@@ -102,12 +104,24 @@ class OllamaClient(BaseLlmClient):
                 line_str = line.decode("utf-8")
 
                 # Handle both SSE (data: ...) and raw JSON lines (Ollama native)
-                if line_str.startswith("data: "):
-                    if line_str == "data: [DONE]":
-                        break
-                    chunk = json.loads(line_str[6:])
-                else:
-                    chunk = json.loads(line_str)
+                try:
+                    if line_str.startswith("data: "):
+                        data_content = line_str[6:].strip()
+                        if data_content == "[DONE]" or not data_content:
+                            break
+                        chunk = json.loads(data_content)
+                    else:
+                        chunk = json.loads(line_str)
+
+                    event_count += 1
+
+                    # Log first few events in debug mode
+                    if self.live_debug and event_count <= 3:
+                        self._log_debug(response_content=chunk)
+                except json.JSONDecodeError as e:
+                    if self.live_debug:
+                        yield f"\n[JSON Parse Error: {e}]\n"
+                    continue
 
                 # Parse chunk
                 if "choices" in chunk:

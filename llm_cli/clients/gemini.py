@@ -180,10 +180,12 @@ class GeminiClient(BaseLlmClient):
                 timeout=self.REQUEST_TIMEOUT,
                 stream=True,
             )
+            self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
 
             full_text = ""
             model_parts = []
+            event_count = 0
 
             for line in response.iter_lines():
                 if not line:
@@ -191,7 +193,21 @@ class GeminiClient(BaseLlmClient):
 
                 line_str = line.decode("utf-8")
                 if line_str.startswith("data: "):
-                    chunk_json = json.loads(line_str[6:])
+                    data_content = line_str[6:].strip()
+                    if data_content == "[DONE]" or not data_content:
+                        continue
+
+                    try:
+                        chunk_json = json.loads(data_content)
+                        event_count += 1
+
+                        # Log first few events in debug mode
+                        if self.live_debug and event_count <= 3:
+                            self._log_debug(response_content=chunk_json)
+                    except json.JSONDecodeError as e:
+                        if self.live_debug:
+                            yield f"\n[JSON Parse Error: {e}]\n"
+                        continue
 
                     candidate = chunk_json.get("candidates", [{}])[0]
                     parts = candidate.get("content", {}).get("parts", [])

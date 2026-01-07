@@ -27,8 +27,12 @@ def test_unified_client_handles_video_via_gemini(mock_config, tmp_path):
         mock_send.return_value = ("Video processed", {"totalTokens": 100})
 
         client = UnifiedClient(initial_model_alias="gemini-flash", stdout=True)
-        client.talk("What is in this video?", sources=[str(video_file)])
+        # Use process_sources instead of talk to trigger the upload logic
+        # Combined video and text prompt
+        client.process_sources([str(video_file), "What is in this video?"])
 
+        # GeminiClient._upload_file should be called for the video
         mock_upload.assert_called_once()
-        # Verify it started the session
-        mock_run.assert_called_once()
+        
+        # UnifiedClient._send should be called via process_and_print
+        mock_send.assert_called_once()

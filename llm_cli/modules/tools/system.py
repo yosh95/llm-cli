@@ -27,8 +27,16 @@ def set_resource_limits():
         resource.setrlimit(resource.RLIMIT_CPU, (30, 35))
 
         # Limit address space (Memory)
-        mem_limit = 512 * 1024 * 1024
-        resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
+        # Android/Termux linker allocates large virtual address spaces, which causes
+        # SIGABRT (Exit Code -6) when RLIMIT_AS is set.
+        is_termux = "TERMUX_VERSION" in os.environ
+        is_android = "ANDROID_ROOT" in os.environ
+
+        if not (is_termux or is_android):
+            mem_limit = 512 * 1024 * 1024
+            resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
+        else:
+            logger.debug("Skipping RLIMIT_AS on Termux/Android to prevent SIGABRT.")
 
         # Limit number of processes
         # resource.setrlimit(resource.RLIMIT_NPROC, (20, 20))

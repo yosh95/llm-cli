@@ -126,7 +126,7 @@ class ChatSession:
 
             # Show thinking animation with full model name instead of alias
             with console.status(
-                f"[bold cyan]Thinking ({self.client.model})...[/bold cyan]",
+                f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan]",
                 spinner="dots",
             ):
                 # Use non-streaming response as requested to avoid JSON parsing issues.
@@ -194,7 +194,7 @@ class ChatSession:
 
         try:
             with console.status(
-                f"[bold cyan]Generating summary ({self.client.model})...[/bold cyan]", 
+                f"[bold cyan]🤔 Generating summary ({self.client.model})...[/bold cyan]", 
                 spinner="dots"
             ):
                 res = self.client._send([])
@@ -290,6 +290,21 @@ class ChatSession:
     def _confirm(self, message: str) -> bool:
         return self._get_input(message, exit_on_escape=True).lower() == "y"
 
+    def _get_model_icon(self) -> str:
+        """Get an appropriate icon for the current model provider."""
+        provider = self.client.config_section.lower()
+        if "google" in provider or "gemini" in provider:
+            return "✨"
+        if "openai" in provider:
+            return "🤖"
+        if "anthropic" in provider or "claude" in provider:
+            return "🌿"
+        if "xai" in provider or "grok" in provider:
+            return "🌌"
+        if "ollama" in provider:
+            return "🦙"
+        return "💡"
+
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
         tool_id, name, args = (
             call.get("id", "unknown"),
@@ -306,10 +321,12 @@ class ChatSession:
             args.get("explanation") or args.get("thought") or args.get("reasoning")
         )
         if explanation:
+            icon = self._get_model_icon()
+            title = f"[bold cyan]{icon} {self.client.model}[/bold cyan]"
             console.print(
                 Panel(
                     explanation,
-                    title="[bold cyan]💡 Explanation[/bold cyan]",
+                    title=title,
                     border_style="cyan",
                 )
             )

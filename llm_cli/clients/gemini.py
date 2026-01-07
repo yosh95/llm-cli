@@ -18,7 +18,7 @@ class GeminiClient(BaseLlmClient):
 
     BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta"
     UPLOAD_API_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files"
-    REQUEST_TIMEOUT = 60
+    REQUEST_TIMEOUT = 120
     # Increase upload timeout to 1 hour to support large files
     UPLOAD_TIMEOUT = 3600
     UPLOAD_START_TIMEOUT = 20

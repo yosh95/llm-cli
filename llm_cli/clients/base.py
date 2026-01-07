@@ -131,7 +131,7 @@ class BaseLlmClient(ABC):
         url: str,
         headers: Dict,
         json_data: Dict,
-        timeout: int = 60,
+        timeout: int = 120,
         max_retries: int = 3,
     ) -> requests.Response:
         """Perform a POST request with automatic retry and exponential backoff."""

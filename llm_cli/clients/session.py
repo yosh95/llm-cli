@@ -369,7 +369,7 @@ class ChatSession:
 
             # Show spinner for tool execution (especially useful for generate_image)
             with console.status(
-                f"[bold yellow]Executing {name}...[/bold yellow]", spinner="dots"
+                f"[bold yellow]🏃 Executing {name}...[/bold yellow]", spinner="dots"
             ):
                 result_data = registry.tools[name]["func"](**args)
 

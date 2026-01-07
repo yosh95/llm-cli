@@ -51,7 +51,7 @@ class GrokClient(BaseLlmClient):
 
         try:
             response = self._post_with_retry(
-                self.api_url, headers=headers, json_data=payload, timeout=60
+                self.api_url, headers=headers, json_data=payload, timeout=120
             )
             self._log_debug(response_obj=response)
             response.raise_for_status()

@@ -11,17 +11,11 @@
 
 ## Screenshots
 
-### 📄 PDF Analysis (Multimodal)
+### 🔍 Real-time Research & Tool Use
 
-Demonstrating how the system loads the "Attention is All You Need" paper PDF and explains its key points.
+The AI can use tools like `google_search` to find the latest information. In this example, it searches for the latest AI news and summarizes it. **Agent Mode is enabled by default**, allowing the AI to autonomously use various tools to help with your tasks.
 
-![PDF Analysis](images/chat.png)
-
-### 🤖 Agent Mode & Tool Use
-
-The AI can use tools like `google_search` to find real-time information or `execute_command` to run various commands. **Agent Mode is enabled by default**, allowing the AI to autonomously help with your tasks.
-
-![AI agent supports your coding](images/agent.png)
+![Real-time Research](images/google_search.png)
 
 ## Features
 
@@ -63,6 +57,8 @@ The AI agent comes equipped with the following tools:
 | `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
 | `attach_file` | Manually/Autonomously inject a file into the conversation context. |
 | `generate_image` | Generate an image/slide using AI (Gemini) and save it locally. |
+
+> **Note**: To use `google_search`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
 
 ## Security
 
@@ -137,6 +133,8 @@ Before using the tool, run the interactive setup script to configure your API ke
 ```bash
 llm-cli-config
 ```
+
+> **Note**: To use LLMs from Google, OpenAI, Anthropic, or xAI, you must obtain an API key from each respective provider. These keys can be configured using `llm-cli-config`.
 
 ## Usage
 
@@ -280,13 +278,10 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 ## スクリーンショット
 
-### 📄 PDF解析（マルチモーダル）
-"Attention is All You Need" 論文のPDFを読み込み、その要点を解説するデモ。
-![PDF Analysis](images/chat.png)
+### 🔍 リアルタイム調査とツール利用
+AIは `google_search` などのツールを活用して最新情報を取得できます。この例では、最新のAIニュースを検索して要約しています。**エージェントモードはデフォルトで有効**になっており、AIが自律的に様々なツールを使いこなしながらタスクをサポートします。
 
-### 🤖 エージェントモード & ツール利用
-AIは `google_search` を使ってリアルタイム情報を検索したり、`execute_command` で任意のコマンドを実行したりできます。**エージェントモードはデフォルトで有効**になっており、AIが自律的にタスクをサポートします。
-![AI agent supports your coding](images/agent.png)
+![Real-time Research](images/google_search.png)
 
 ## 主な機能
 
@@ -309,7 +304,7 @@ AIは `google_search` を使ってリアルタイム情報を検索したり、`
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。
 -   **安全な実行**: ファイル変更時の **Diffプレビュー** 表示と、ツール実行前のユーザー確認（Human-in-the-Loop）。
 -   **セキュリティガードレール**: ホワイトリストベースのコマンド検証により、コマンドインジェクションや危険な操作を防止。
--   **ワンショット実行**: 他のコマンドからのパイプ入力や、引数としてのプロンプト実行に対応.
+-   **ワンショット実行**: 他のコマンドからのパイプ入力や、引数としてのプロンプト実行に対応。
 -   **ログ管理**: チャットログの自動ローテーションとトリミング機能を搭載。
 -   **簡単設定**: `llm-cli-config` による対話形式のセットアップ。
 
@@ -322,12 +317,14 @@ AIエージェントは以下のツールを標準で備えています：
 | `execute_command` | シェルコマンドを実行（ホワイトリストによる安全検証付き）。 |
 | `list_files` | ディレクトリ内のファイル一覧を表示し、プロジェクト構造を把握。 |
 | `read_file` | テキストファイルの内容を読み取り（行指定可能）。 |
-| `write_file` | ファイルを新規作成または更新. |
-| `google_search` | Google検索を使用してリアルタイムの情報を取得. |
+| `write_file` | ファイルを新規作成または更新。 |
+| `google_search` | Google検索を使用してリアルタイムの情報を取得。 |
 | `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
 | `attach_file` | ファイルを会話のコンテキストに注入。 |
 | `generate_image` | AI (Gemini) を使用して画像やスライドを生成し、ローカルに保存。 |
+
+> **注**: `google_search` を利用するには、**Google Cloud Platform の API キー**と**カスタム検索エンジン ID (CX)** の取得が必要です。これらは `llm-cli-config` で設定できます。
 
 ## セキュリティ
 
@@ -403,6 +400,8 @@ pip install ".[mcp]"
 llm-cli-config
 ```
 
+> **注**: Google, OpenAI, Anthropic, xAI の LLM を利用するには、各プロバイダの API キーが必要です。これらのキーは `llm-cli-config` で設定できます。
+
 ## 使い方
 
 ### 1. 研究調査の自動化（例）
@@ -450,11 +449,11 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/tools [on|off]`: ツールの有効・無効を切り替え。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動で添付。
--   `/save <path>`: 会話履歴をJSONファイルに保存.
+-   `/save <path>`: 会話履歴をJSONファイルに保存。
 -   `/load <path>`: 会話履歴をJSONファイルから読み込み。
 -   `/dump`: 会話履歴をJSON形式でダンプ。
 -   `/raw`: 生の会話テキストを表示。
--   `/clear` (または `/c`): 会話履歴をクリア.
+-   `/clear` (または `/c`): 会話履歴をクリア。
 -   `/debug` (または `/d`): ライブデバッグモードのON/OFF切り替え。
 -   `!command`: ローカルのシェルコマンドを実行。
 -   `/help` (または `/h`): 全コマンドリストを表示。
@@ -521,14 +520,14 @@ args = [
 ]
 ```
 
-その後、`--mcp` フラグを付けて `llm-cli` を起動します：
+その後、`--mcp` フラグを付けて `llm-cli-config` で設定したプロバイダで `llm-cli` を起動します：
 ```bash
 llm --mcp
 ```
 
 ## ユーティリティ・スクリプト
 
--   `llm-cli-config`: 対話型設定ツール.
+-   `llm-cli-config`: 対話型設定ツール。
 -   `*-models`: 各プロバイダの利用可能なモデルリスト (例: `ollama-models`)。
 -   `translate-json`: JSONファイル内の特定のキーを翻訳するユーティリティ。
 

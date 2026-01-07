@@ -12,21 +12,18 @@ from prompt_toolkit import prompt
 from prompt_toolkit.completion import NestedCompleter, PathCompleter, WordCompleter
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
-from rich.console import Console
-from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.syntax import Syntax
 
-from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, DataSource
+from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, DataSource, console
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.tool_registry import registry
 from llm_cli.security import CommandValidationError, validate_command
 
 kb = KeyBindings()
 kb_exit = KeyBindings()
-console = Console()
 md_separator = Rule()
 
 
@@ -130,32 +127,25 @@ class ChatSession:
             display_prefix = f"**{prefix}:**  \n"
 
             response_text = ""
-            # Start streaming
+
+            # Use stream=True to prevent timeouts by keeping the connection active,
+            # but buffer the content to avoid rich.Live display issues.
             res = self.client._send(data, stream=True)
 
             if isinstance(res, tuple):
-                # Fallback for non-streaming response if client doesn't support it yet
+                # Fallback for non-streaming response
                 response_text, _ = res
             elif isinstance(res, Iterable):
+                # Collect all chunks without printing them to the console
+                for chunk in res:
+                    response_text += chunk
+
+            # Display the accumulated response at once
+            if response_text:
                 if self.client.stdout:
-                    # In stdout mode, we just print the chunks as they come
-                    for chunk in res:
-                        print(chunk, end="", flush=True)
-                        response_text += chunk
-                    print()
+                    print(response_text)
                 else:
-                    # Interactive mode with rich.Live rendering Markdown during streaming.
-                    # 'vertical_overflow="visible"' ensures smooth scrolling without truncation.
-                    md = CustomMarkdown(display_prefix)
-                    with Live(
-                        md, 
-                        console=console, 
-                        refresh_per_second=4, 
-                        vertical_overflow="visible"
-                    ) as live:
-                        for chunk in res:
-                            response_text += chunk
-                            live.update(CustomMarkdown(display_prefix + response_text))
+                    console.print(CustomMarkdown(display_prefix + response_text))
 
             if response_text is None and not self.client._has_pending_tool_calls():
                 return

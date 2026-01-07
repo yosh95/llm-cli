@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from prompt_toolkit import prompt
-from prompt_toolkit.completion import NestedCompleter, PathCompleter, WordCompleter
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from rich.markup import escape
@@ -80,7 +79,6 @@ class ChatSession:
                     "> ",
                     history=self.prompt_history,
                     key_bindings=combined_kb,
-                    completer=self._get_completer(),
                     enable_system_prompt=True,
                     enable_open_in_editor=True,
                 ).strip()
@@ -296,32 +294,6 @@ class ChatSession:
 
     def _confirm(self, message: str) -> bool:
         return self._get_input(message, exit_on_escape=True).lower() == "y"
-
-    def _get_completer(self):
-        """Build a nested completer for slash commands."""
-        commands = {
-            "/attach": PathCompleter(),
-            "/save": PathCompleter(),
-            "/load": PathCompleter(),
-            "/clear": None,
-            "/checkpoint": None,
-            "/dump": None,
-            "/raw": None,
-            "/quit": None,
-            "/tools": WordCompleter(["on", "off"]),
-            "/debug": None,
-            "/info": None,
-            "/help": None,
-            "/google": None,
-            "/openai": None,
-            "/anthropic": None,
-            "/xai": None,
-            "/ollama": None,
-            "/models": None,
-        }
-        for alias in self.client.available_models:
-            commands[f"/{alias}"] = None
-        return NestedCompleter.from_nested_dict(commands)
 
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
         tool_id, name, args = (

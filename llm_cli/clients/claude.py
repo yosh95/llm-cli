@@ -1,7 +1,7 @@
 # llm_cli/clients/claude.py
 
 import json
-from typing import Dict, List, Optional, Tuple, Union, Iterable
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
@@ -90,10 +90,16 @@ class ClaudeClient(BaseLlmClient):
             payload["stream"] = True
             return self._send_stream(headers, payload, data)
 
-    def _send_stream(self, headers: Dict, payload: Dict, data: List[DataSource]) -> Iterable[str]:
+    def _send_stream(
+        self, headers: Dict, payload: Dict, data: List[DataSource]
+    ) -> Iterable[str]:
         try:
             response = self._post_with_retry(
-                self.API_URL, headers=headers, json_data=payload, timeout=60, stream=True
+                self.API_URL,
+                headers=headers,
+                json_data=payload,
+                timeout=60,
+                stream=True,
             )
             response.raise_for_status()
 
@@ -118,9 +124,9 @@ class ClaudeClient(BaseLlmClient):
                             tool_use_buffer[idx] = {
                                 "id": block["id"],
                                 "name": block["name"],
-                                "input_str": ""
+                                "input_str": "",
                             }
-                    
+
                     elif event_type == "content_block_delta":
                         idx = event["index"]
                         delta = event["delta"]
@@ -129,15 +135,17 @@ class ClaudeClient(BaseLlmClient):
                             full_text += text
                             yield text
                             # Find the last text part or create one
-                            text_part = next((p for p in reversed(model_parts) if "text" in p), None)
+                            text_part = next(
+                                (p for p in reversed(model_parts) if "text" in p), None
+                            )
                             if text_part:
                                 text_part["text"] += text
                             else:
                                 model_parts.append({"text": text})
-                        
+
                         elif delta["type"] == "input_json_delta":
                             tool_use_buffer[idx]["input_str"] += delta["partial_json"]
-                    
+
                     elif event_type == "message_delta":
                         if "usage" in event:
                             self.last_usage = event["usage"]
@@ -145,13 +153,17 @@ class ClaudeClient(BaseLlmClient):
             # Process tool use from buffer
             for idx in sorted(tool_use_buffer.keys()):
                 tu = tool_use_buffer[idx]
-                model_parts.append({
-                    "functionCall": {
-                        "id": tu["id"],
-                        "name": tu["name"],
-                        "args": json.loads(tu["input_str"]) if tu["input_str"] else {}
+                model_parts.append(
+                    {
+                        "functionCall": {
+                            "id": tu["id"],
+                            "name": tu["name"],
+                            "args": json.loads(tu["input_str"])
+                            if tu["input_str"]
+                            else {},
+                        }
                     }
-                })
+                )
 
             model_msg = {"role": "model", "parts": model_parts}
             self._update_history(data, model_msg)
@@ -201,7 +213,11 @@ class ClaudeClient(BaseLlmClient):
                         func_resp = p["functionResponse"]
                         tool_id = func_resp.get("id")
                         # Only include tool results that have corresponding tool uses
-                        if tool_id and tool_id != "unknown" and tool_id in responded_tool_ids:
+                        if (
+                            tool_id
+                            and tool_id != "unknown"
+                            and tool_id in responded_tool_ids
+                        ):
                             result = func_resp.get("response", {}).get("result", "")
                             content.append(
                                 {
@@ -224,7 +240,11 @@ class ClaudeClient(BaseLlmClient):
                         func_call = p["functionCall"]
                         tool_id = func_call.get("id")
                         # Only include tool uses that have responses
-                        if tool_id and tool_id != "unknown" and tool_id in responded_tool_ids:
+                        if (
+                            tool_id
+                            and tool_id != "unknown"
+                            and tool_id in responded_tool_ids
+                        ):
                             content.append(
                                 {
                                     "type": "tool_use",

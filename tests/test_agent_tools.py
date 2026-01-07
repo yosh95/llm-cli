@@ -44,7 +44,7 @@ class TestExecuteCommand(unittest.TestCase):
             # Use sleep command directly (safe command in whitelist)
             with self.assertRaises(RuntimeError) as cm:
                 execute_command("sleep 10")
-            
+
             duration = time.time() - start_time
             self.assertTrue(
                 2 <= duration <= 5,

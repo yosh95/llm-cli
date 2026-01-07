@@ -7,7 +7,11 @@ def test_process_single_source_detects_gemini_uri():
     client = GeminiClient(initial_model_alias="default", stdout=True)
     uri = "https://generativelanguage.googleapis.com/v1beta/files/abc"
     result = client._process_single_source(uri)
-    assert result == {"file_uri": uri, "content_type": "image/jpeg", "is_file_or_url": True}
+    assert result == {
+        "file_uri": uri,
+        "content_type": "image/jpeg",
+        "is_file_or_url": True,
+    }
 
 
 def test_process_single_source_with_gemini_uri_fetches_url():

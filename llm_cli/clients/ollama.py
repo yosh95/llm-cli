@@ -1,7 +1,7 @@
 # llm_cli/clients/ollama.py
 
 import json
-from typing import Dict, List, Optional, Tuple, Union, Iterable
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.clients.config import get_setting
@@ -94,13 +94,13 @@ class OllamaClient(BaseLlmClient):
 
             full_text = ""
             model_parts = []
-            
+
             # Ollama /v1/chat/completions uses SSE if stream=True
             for line in response.iter_lines():
                 if not line:
                     continue
                 line_str = line.decode("utf-8")
-                
+
                 # Handle both SSE (data: ...) and raw JSON lines (Ollama native)
                 if line_str.startswith("data: "):
                     if line_str == "data: [DONE]":
@@ -108,7 +108,7 @@ class OllamaClient(BaseLlmClient):
                     chunk = json.loads(line_str[6:])
                 else:
                     chunk = json.loads(line_str)
-                
+
                 # Parse chunk
                 if "choices" in chunk:
                     delta = chunk["choices"][0].get("delta", {})
@@ -116,7 +116,7 @@ class OllamaClient(BaseLlmClient):
                 else:
                     message = chunk.get("message", {})
                     content = message.get("content", "")
-                
+
                 if content:
                     full_text += content
                     yield content
@@ -124,7 +124,7 @@ class OllamaClient(BaseLlmClient):
                         model_parts.append({"text": content})
                     else:
                         model_parts[-1]["text"] += content
-                
+
                 if "usage" in chunk:
                     self.last_usage = chunk["usage"]
 

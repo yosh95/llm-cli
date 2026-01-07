@@ -7,7 +7,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Iterable, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 from rich.console import Console, Group

@@ -19,16 +19,24 @@ class TestPathValidator:
 
     def test_blocks_traversal(self):
         """Should block any use of .."""
-        with pytest.raises(PathValidationError, match="Directory traversal '..' is forbidden"):
+        with pytest.raises(
+            PathValidationError, match="Directory traversal '..' is forbidden"
+        ):
             validate_path("../outside.txt")
-        with pytest.raises(PathValidationError, match="Directory traversal '..' is forbidden"):
+        with pytest.raises(
+            PathValidationError, match="Directory traversal '..' is forbidden"
+        ):
             validate_path("dir/../../etc/passwd")
 
     def test_blocks_absolute_system_paths(self):
         """Should block absolute paths to system directories."""
-        with pytest.raises(PathValidationError, match="Access outside project directory is forbidden"):
+        with pytest.raises(
+            PathValidationError, match="Access outside project directory is forbidden"
+        ):
             validate_path("/etc/passwd")
-        with pytest.raises(PathValidationError, match="Access outside project directory is forbidden"):
+        with pytest.raises(
+            PathValidationError, match="Access outside project directory is forbidden"
+        ):
             validate_path("/var/log/syslog")
 
     def test_file_ops_integrity(self, tmp_path, monkeypatch):

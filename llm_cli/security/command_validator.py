@@ -10,6 +10,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 
 class CommandValidationError(Exception):
     """Raised when a command fails security validation."""
+
     pass
 
 
@@ -20,27 +21,107 @@ class CommandValidator:
     """
 
     DEFAULT_WHITELIST = {
-        "ls", "cat", "head", "tail", "less", "more", "file", "stat", "pwd", "tree",
-        "du", "df", "grep", "egrep", "fgrep", "awk", "cut", "sort", "uniq", "wc",
-        "tr", "fold", "column", "find", "locate", "which", "whereis", "type",
-        "echo", "date", "cal", "uptime", "whoami", "id", "groups", "hostname",
-        "uname", "arch", "sleep", "ps", "top", "htop", "pgrep",
-        "ping", "traceroute", "dig", "nslookup", "host", "whois", "netstat",
-        "ifconfig", "ip", "git", "diff", "make", "cmake", "ruff",
-        "pip", "npm", "cargo", "go",
-        "python", "python3", "pytest",
-        "tar", "gzip", "gunzip", "bzip2", "bunzip2", "zip", "unzip", "zcat", "zless",
-        "jq", "yq", "base64", "xxd", "md5sum", "sha256sum", "env", "printenv",
+        "ls",
+        "cat",
+        "head",
+        "tail",
+        "less",
+        "more",
+        "file",
+        "stat",
+        "pwd",
+        "tree",
+        "du",
+        "df",
+        "grep",
+        "egrep",
+        "fgrep",
+        "awk",
+        "cut",
+        "sort",
+        "uniq",
+        "wc",
+        "tr",
+        "fold",
+        "column",
+        "find",
+        "locate",
+        "which",
+        "whereis",
+        "type",
+        "echo",
+        "date",
+        "cal",
+        "uptime",
+        "whoami",
+        "id",
+        "groups",
+        "hostname",
+        "uname",
+        "arch",
+        "sleep",
+        "ps",
+        "top",
+        "htop",
+        "pgrep",
+        "ping",
+        "traceroute",
+        "dig",
+        "nslookup",
+        "host",
+        "whois",
+        "netstat",
+        "ifconfig",
+        "ip",
+        "git",
+        "diff",
+        "make",
+        "cmake",
+        "ruff",
+        "pip",
+        "npm",
+        "cargo",
+        "go",
+        "python",
+        "python3",
+        "pytest",
+        "tar",
+        "gzip",
+        "gunzip",
+        "bzip2",
+        "bunzip2",
+        "zip",
+        "unzip",
+        "zcat",
+        "zless",
+        "jq",
+        "yq",
+        "base64",
+        "xxd",
+        "md5sum",
+        "sha256sum",
+        "env",
+        "printenv",
     }
 
     DANGEROUS_PATTERNS = [
-        r";", r"`", r"\$\(", r"\$\{",
+        r";",
+        r"`",
+        r"\$\(",
+        r"\$\{",
     ]
 
     CHAINING_OPERATORS = {"&&", "||", "|"}
 
     MCP_SERVER_WHITELIST = {
-        "node", "python", "python3", "deno", "npx", "docker", "ssh", "uvx",
+        "node",
+        "python",
+        "python3",
+        "deno",
+        "npx",
+        "docker",
+        "ssh",
+        "uvx",
     }
 
     def __init__(
@@ -118,7 +199,7 @@ class CommandValidator:
         for part in parts[1:]:
             # More careful path check: only validate if it really looks like a path
             if "/" in part or part.startswith(".") or part.startswith("~"):
-                if part == "...": # Common placeholder in tests/prompts
+                if part == "...":  # Common placeholder in tests/prompts
                     continue
                 try:
                     validate_path(part)
@@ -132,12 +213,27 @@ class CommandValidator:
 
         if base_command == "git":
             strictly_forbidden = {
-                "push", "remote", "alias", "apply", "credential", "config",
-                "clone", "fetch", "pull", "submodule"
+                "push",
+                "remote",
+                "alias",
+                "apply",
+                "credential",
+                "config",
+                "clone",
+                "fetch",
+                "pull",
+                "submodule",
             }
             default_allowed = {
-                "status", "diff", "log", "show", "add", "commit",
-                "branch", "tag", "rev-parse"
+                "status",
+                "diff",
+                "log",
+                "show",
+                "add",
+                "commit",
+                "branch",
+                "tag",
+                "rev-parse",
             }
             user_allowed = set(security_config.get("allowed_git_subcommands", []))
             allowed_subcommands = default_allowed.union(user_allowed)
@@ -180,6 +276,7 @@ def validate_command(command: str, custom_whitelist: Optional[Set[str]] = None) 
         allow_dangerous_patterns=allow_dangerous,
     )
     validator.validate(command)
+
 
 def validate_mcp_command(command: str) -> None:
     config = _load_config_from_file()

@@ -6,18 +6,18 @@ import difflib
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Iterable
+from typing import Any, Dict, Iterable, List, Optional
 
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import NestedCompleter, PathCompleter, WordCompleter
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from rich.console import Console
+from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.syntax import Syntax
-from rich.live import Live
 
 from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, DataSource
 from llm_cli.modules.custom_markdown import CustomMarkdown
@@ -123,13 +123,16 @@ class ChatSession:
 
         while True:
             # Prefix for the model response
-            prefix = f"({self.client.config_section}/{self.client.current_alias}/{self.client.model})"
+            prefix = (
+                f"({self.client.config_section}/"
+                f"{self.client.current_alias}/{self.client.model})"
+            )
             display_prefix = f"**{prefix}:**  \n"
 
             response_text = ""
             # Start streaming
             res = self.client._send(data, stream=True)
-            
+
             if isinstance(res, tuple):
                 # Fallback for non-streaming response if client doesn't support it yet
                 response_text, _ = res
@@ -139,7 +142,7 @@ class ChatSession:
                     for chunk in res:
                         print(chunk, end="", flush=True)
                         response_text += chunk
-                    print() # Newline at the end
+                    print()  # Newline at the end
                 else:
                     # Interactive mode with rich.Live
                     md = CustomMarkdown(display_prefix)
@@ -148,13 +151,13 @@ class ChatSession:
                             response_text += chunk
                             # Update display with the whole accumulated text
                             live.update(CustomMarkdown(display_prefix + response_text))
-            
+
             if response_text is None and not self.client._has_pending_tool_calls():
                 return
 
             if response_text:
                 self._log_chat(response_text, role="Model")
-            
+
             if not self.client._has_pending_tool_calls():
                 break
 
@@ -201,14 +204,15 @@ class ChatSession:
         self.client.conversation = temp_conversation
 
         try:
-            # Summarization doesn't necessarily need streaming, but we use the same method
+            # Summarization doesn't necessarily need streaming,
+            # but we use the same method
             res = self.client._send([], stream=False)
             if isinstance(res, tuple):
                 summary, _ = res
             else:
                 # If it's a generator, exhaust it
                 summary = "".join(list(res))
-            
+
             if not summary:
                 console.print("[red]Failed to generate summary.[/red]")
                 self.client.conversation = original_conversation

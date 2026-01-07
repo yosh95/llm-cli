@@ -11,11 +11,9 @@ def test_unified_client_handles_video_via_gemini(mock_config, tmp_path):
     # Mock filetype to return video/mp4
     with (
         patch("llm_cli.modules.media_utils.filetype.guess") as mock_guess,
-        patch(
-            "llm_cli.clients.gemini.GeminiClient._upload_file"
-        ) as mock_upload,
+        patch("llm_cli.clients.gemini.GeminiClient._upload_file") as mock_upload,
         patch("llm_cli.clients.gemini.GeminiClient._send") as mock_send,
-        patch("llm_cli.clients.session.ChatSession.run") as mock_run,
+        patch("llm_cli.clients.session.ChatSession.run"),
     ):
         mock_kind = MagicMock()
         mock_kind.mime = "video/mp4"
@@ -33,6 +31,6 @@ def test_unified_client_handles_video_via_gemini(mock_config, tmp_path):
 
         # GeminiClient._upload_file should be called for the video
         mock_upload.assert_called_once()
-        
+
         # UnifiedClient._send should be called via process_and_print
         mock_send.assert_called_once()

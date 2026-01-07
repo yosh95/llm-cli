@@ -46,8 +46,14 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
             return f"Error: Directory '{directory}' does not exist."
 
         exclude = {
-            ".git", "__pycache__", "node_modules", ".venv", ".pytest_cache",
-            ".vscode", ".idea", ".mypy_cache",
+            ".git",
+            "__pycache__",
+            "node_modules",
+            ".venv",
+            ".pytest_cache",
+            ".vscode",
+            ".idea",
+            ".mypy_cache",
         }
         results, file_count = [], 0
 

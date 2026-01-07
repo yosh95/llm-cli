@@ -20,11 +20,15 @@ class TestCommandValidator:
         """Test that sed and patch are now disallowed."""
         validator = CommandValidator()
         # sed is disallowed by whitelist
-        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+        with pytest.raises(
+            CommandValidationError, match="not in the allowed whitelist"
+        ):
             validator.validate("sed 's/a/b/g' file.txt")
 
         # patch is disallowed by whitelist (and also redirects if used)
-        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+        with pytest.raises(
+            CommandValidationError, match="not in the allowed whitelist"
+        ):
             validator.validate("patch file.txt")
 
     def test_git_strict_restrictions(self):
@@ -46,7 +50,9 @@ class TestCommandValidator:
     def test_path_traversal_blocking(self):
         """Test that any command with .. is blocked."""
         validator = CommandValidator()
-        with pytest.raises(CommandValidationError, match="Directory traversal '..' is forbidden"):
+        with pytest.raises(
+            CommandValidationError, match="Directory traversal '..' is forbidden"
+        ):
             validator.validate("ls ../secrets")
 
     def test_mcp_mode(self):
@@ -55,7 +61,9 @@ class TestCommandValidator:
         validator.validate("node server.js")
         validator.validate("docker run alpine")
 
-        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+        with pytest.raises(
+            CommandValidationError, match="not in the allowed whitelist"
+        ):
             validator.validate("ls -la")
 
     def test_validate_mcp_command_function(self):

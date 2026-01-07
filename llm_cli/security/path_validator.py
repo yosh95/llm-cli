@@ -8,7 +8,9 @@ from llm_cli.clients.config import _load_config_from_file
 
 class PathValidationError(Exception):
     """Raised when a path fails security validation."""
+
     pass
+
 
 def validate_path(path: str, allow_outside_cwd: Optional[bool] = None) -> Path:
     """
@@ -40,8 +42,17 @@ def validate_path(path: str, allow_outside_cwd: Optional[bool] = None) -> Path:
 
         # 3. Block sensitive system paths even if absolute paths are somewhat allowed
         sensitive_prefixes = [
-            "/etc", "/var", "/root", "/bin", "/sbin", "/usr", "/dev",
-            "/proc", "/sys", "/boot", "/home"
+            "/etc",
+            "/var",
+            "/root",
+            "/bin",
+            "/sbin",
+            "/usr",
+            "/dev",
+            "/proc",
+            "/sys",
+            "/boot",
+            "/home",
         ]
         # Only check these if the path is absolute and looks like a system path
         str_path = str(path_obj)

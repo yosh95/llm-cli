@@ -1,10 +1,10 @@
 # llm_cli/clients/gemini.py
 
+import json
 import mimetypes
 import time
-import json
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, Iterable
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 
@@ -52,7 +52,7 @@ class GeminiClient(BaseLlmClient):
         if source.startswith("https://generativelanguage.googleapis.com/"):
             return {
                 "file_uri": source,
-                "content_type": "image/jpeg", # Default, can be overridden by tests
+                "content_type": "image/jpeg",  # Default, can be overridden by tests
                 "is_file_or_url": True,
             }
 
@@ -122,7 +122,7 @@ class GeminiClient(BaseLlmClient):
                 new_parts.append({"text": item["content"]})
 
         payload = self._to_provider_request_format(self.conversation, {}, new_parts)
-        
+
         if not stream:
             api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
             try:
@@ -165,8 +165,10 @@ class GeminiClient(BaseLlmClient):
             return self._send_stream(payload, new_parts)
 
     def _send_stream(self, payload: Dict, new_parts: List[Dict]) -> Iterable[str]:
-        api_url = f"{self.BASE_API_URL}/models/{self.model}:streamGenerateContent?alt=sse"
-        
+        api_url = (
+            f"{self.BASE_API_URL}/models/{self.model}:streamGenerateContent?alt=sse"
+        )
+
         try:
             response = self._post_with_retry(
                 api_url,
@@ -176,24 +178,24 @@ class GeminiClient(BaseLlmClient):
                 },
                 json_data=payload,
                 timeout=self.REQUEST_TIMEOUT,
-                stream=True
+                stream=True,
             )
             response.raise_for_status()
-            
+
             full_text = ""
             model_parts = []
-            
+
             for line in response.iter_lines():
                 if not line:
                     continue
-                
+
                 line_str = line.decode("utf-8")
                 if line_str.startswith("data: "):
                     chunk_json = json.loads(line_str[6:])
-                    
+
                     candidate = chunk_json.get("candidates", [{}])[0]
                     parts = candidate.get("content", {}).get("parts", [])
-                    
+
                     for p in parts:
                         if "text" in p:
                             chunk_text = p["text"]
@@ -205,25 +207,25 @@ class GeminiClient(BaseLlmClient):
                             else:
                                 model_parts[-1]["text"] += chunk_text
                         elif "thought" in p:
-                            # Thought is usually not streamed chunk by chunk in the same way,
-                            # but if it is, we handle it.
+                            # Thought is usually not streamed chunk by chunk
+                            # in the same way, but if it is, we handle it.
                             thought_text = p["thought"]
                             yield f"\n> **Thought:** {thought_text}\n\n"
                             model_parts.append({"thought": thought_text})
                         elif "functionCall" in p:
                             # Preserve the entire part including thought_signature
                             model_parts.append(p)
-                    
+
                     if "usageMetadata" in chunk_json:
                         self.last_usage = chunk_json["usageMetadata"]
 
             # Update history after stream ends
             if new_parts:
                 self.conversation.append({"role": "user", "parts": new_parts})
-            
+
             if model_parts:
                 self.conversation.append({"role": "model", "parts": model_parts})
-                
+
         except Exception as e:
             self._report_error("Gemini Stream", e)
             yield f"\n[Error: {e}]"

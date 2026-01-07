@@ -1,7 +1,7 @@
 # llm_cli/clients/grok.py
 
 import json
-from typing import Dict, List, Optional, Tuple, Union, Iterable
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.clients.config import get_setting
@@ -90,10 +90,16 @@ class GrokClient(BaseLlmClient):
             payload["stream"] = True
             return self._send_stream(headers, payload, data)
 
-    def _send_stream(self, headers: Dict, payload: Dict, data: List[DataSource]) -> Iterable[str]:
+    def _send_stream(
+        self, headers: Dict, payload: Dict, data: List[DataSource]
+    ) -> Iterable[str]:
         try:
             response = self._post_with_retry(
-                self.api_url, headers=headers, json_data=payload, timeout=60, stream=True
+                self.api_url,
+                headers=headers,
+                json_data=payload,
+                timeout=60,
+                stream=True,
             )
             response.raise_for_status()
 
@@ -108,10 +114,10 @@ class GrokClient(BaseLlmClient):
                 if line_str.startswith("data: "):
                     if line_str == "data: [DONE]":
                         break
-                    
+
                     chunk = json.loads(line_str[6:])
                     delta = chunk["choices"][0].get("delta", {})
-                    
+
                     if "content" in delta and delta["content"]:
                         content = delta["content"]
                         full_text += content
@@ -120,7 +126,7 @@ class GrokClient(BaseLlmClient):
                             model_parts.append({"text": content})
                         else:
                             model_parts[-1]["text"] += content
-                    
+
                     if "tool_calls" in delta:
                         for tc_delta in delta["tool_calls"]:
                             idx = tc_delta["index"]
@@ -128,7 +134,7 @@ class GrokClient(BaseLlmClient):
                                 tool_calls_buffer[idx] = {
                                     "id": tc_delta.get("id"),
                                     "name": "",
-                                    "arguments": ""
+                                    "arguments": "",
                                 }
 
                             if "id" in tc_delta:
@@ -138,7 +144,9 @@ class GrokClient(BaseLlmClient):
                                 if "name" in fn_delta:
                                     tool_calls_buffer[idx]["name"] += fn_delta["name"]
                                 if "arguments" in fn_delta:
-                                    tool_calls_buffer[idx]["arguments"] += fn_delta["arguments"]
+                                    tool_calls_buffer[idx]["arguments"] += fn_delta[
+                                        "arguments"
+                                    ]
 
                     if "usage" in chunk:
                         self.last_usage = chunk["usage"]
@@ -146,13 +154,17 @@ class GrokClient(BaseLlmClient):
             # Process tool calls from buffer
             for idx in sorted(tool_calls_buffer.keys()):
                 tc = tool_calls_buffer[idx]
-                model_parts.append({
-                    "functionCall": {
-                        "id": tc["id"],
-                        "name": tc["name"],
-                        "args": json.loads(tc["arguments"]) if tc["arguments"] else {}
+                model_parts.append(
+                    {
+                        "functionCall": {
+                            "id": tc["id"],
+                            "name": tc["name"],
+                            "args": json.loads(tc["arguments"])
+                            if tc["arguments"]
+                            else {},
+                        }
                     }
-                })
+                )
 
             model_msg = {"role": "model", "parts": model_parts}
             self._update_history(data, model_msg)
@@ -198,13 +210,18 @@ class GrokClient(BaseLlmClient):
 
         for m in self.conversation:
             if m["role"] == "function":
-                # Only include function responses that correspond to responded tool calls
+                # Only include function responses that correspond to
+                # responded tool calls
                 for p in m["parts"]:
                     if "functionResponse" in p:
                         func_resp = p["functionResponse"]
                         tool_id = func_resp.get("id")
                         # Only add tool response if it's in the responded set
-                        if tool_id and tool_id != "unknown" and tool_id in responded_tool_ids:
+                        if (
+                            tool_id
+                            and tool_id != "unknown"
+                            and tool_id in responded_tool_ids
+                        ):
                             result = func_resp.get("response", {}).get("result", "")
                             msgs.append(
                                 {
@@ -225,14 +242,20 @@ class GrokClient(BaseLlmClient):
                         func_call = p["functionCall"]
                         tool_id = func_call.get("id")
                         # Only include tool calls that have responses
-                        if tool_id and tool_id != "unknown" and tool_id in responded_tool_ids:
+                        if (
+                            tool_id
+                            and tool_id != "unknown"
+                            and tool_id in responded_tool_ids
+                        ):
                             tool_calls.append(
                                 {
                                     "id": tool_id,
                                     "type": "function",
                                     "function": {
                                         "name": func_call.get("name", "unknown"),
-                                        "arguments": json.dumps(func_call.get("args", {})),
+                                        "arguments": json.dumps(
+                                            func_call.get("args", {})
+                                        ),
                                     },
                                 }
                             )

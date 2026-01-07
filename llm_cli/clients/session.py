@@ -6,7 +6,7 @@ import difflib
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory, InMemoryHistory
@@ -124,21 +124,13 @@ class ChatSession:
             )
             display_prefix = f"**{prefix}:**  \n"
 
-            response_text = ""
+            # Use non-streaming response as requested to avoid JSON parsing issues.
+            res = self.client._send(data)
 
-            # Use stream=True to prevent timeouts by keeping the connection active,
-            # but buffer the content to avoid rich.Live display issues.
-            res = self.client._send(data, stream=True)
+            # Response is now expected to be a tuple (response_text, usage)
+            response_text, _ = res if res else (None, None)
 
-            if isinstance(res, tuple):
-                # Fallback for non-streaming response
-                response_text, _ = res
-            elif isinstance(res, Iterable):
-                # Collect all chunks without printing them to the console
-                for chunk in res:
-                    response_text += chunk
-
-            # Display the accumulated response at once
+            # Display the response
             if response_text:
                 if self.client.stdout:
                     print(response_text)
@@ -197,14 +189,8 @@ class ChatSession:
         self.client.conversation = temp_conversation
 
         try:
-            # Summarization doesn't necessarily need streaming,
-            # but we use the same method
-            res = self.client._send([], stream=False)
-            if isinstance(res, tuple):
-                summary, _ = res
-            else:
-                # If it's a generator, exhaust it
-                summary = "".join(list(res))
+            res = self.client._send([])
+            summary, _ = res if res else (None, None)
 
             if not summary:
                 console.print("[red]Failed to generate summary.[/red]")

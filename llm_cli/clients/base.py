@@ -7,7 +7,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from rich.console import Console, Group
@@ -122,9 +122,7 @@ class BaseLlmClient(ABC):
         pass
 
     @abstractmethod
-    def _send(
-        self, data: List[DataSource], stream: bool = False
-    ) -> Union[Tuple[Optional[str], Optional[Dict]], Iterable[str]]:
+    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         """Send the request to the specific provider API."""
         pass
 

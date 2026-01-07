@@ -1,7 +1,7 @@
 # llm_cli/clients/ollama.py
 
 import json
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.clients.config import get_setting
@@ -32,9 +32,7 @@ class OllamaClient(BaseLlmClient):
         if "default" not in self.available_models:
             self.available_models["default"] = FALLBACK_MODEL
 
-    def _send(
-        self, data: List[DataSource], stream: bool = False
-    ) -> Union[Tuple[Optional[str], Optional[Dict]], Iterable[str]]:
+    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         messages = []
         if self.system_prompt and self.system_prompt_enabled:
             messages.append({"role": "system", "content": self.system_prompt})
@@ -57,7 +55,7 @@ class OllamaClient(BaseLlmClient):
         payload = {
             "model": self.model,
             "messages": messages,
-            "stream": stream,
+            "stream": False,
         }
 
         if self.tools_enabled and self.active_tools:
@@ -65,87 +63,22 @@ class OllamaClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
-        if not stream:
-            try:
-                response = self._post_with_retry(
-                    self.api_url, headers={}, json_data=payload, timeout=60
-                )
-                self._log_debug(response_obj=response)
-                response.raise_for_status()
-                res_json = response.json()
-
-                content, tool_calls = self._parse_response(res_json)
-                model_parts = self._build_model_parts(content, tool_calls)
-
-                self._update_history(user_content, model_parts)
-                return content, res_json.get("usage", {})
-            except Exception as e:
-                self._report_error("Ollama", e)
-                return None, None
-        else:
-            return self._send_stream(payload, user_content)
-
-    def _send_stream(self, payload: Dict, user_content: str) -> Iterable[str]:
         try:
             response = self._post_with_retry(
-                self.api_url, headers={}, json_data=payload, timeout=60, stream=True
+                self.api_url, headers={}, json_data=payload, timeout=60
             )
-            self._log_debug(response_obj=response, request_payload=payload)
+            self._log_debug(response_obj=response)
             response.raise_for_status()
+            res_json = response.json()
 
-            full_text = ""
-            model_parts = []
-            event_count = 0
-
-            # Ollama /v1/chat/completions uses SSE if stream=True
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                line_str = line.decode("utf-8")
-
-                # Handle both SSE (data: ...) and raw JSON lines (Ollama native)
-                try:
-                    if line_str.startswith("data: "):
-                        data_content = line_str[6:].strip()
-                        if data_content == "[DONE]" or not data_content:
-                            break
-                        chunk = json.loads(data_content)
-                    else:
-                        chunk = json.loads(line_str)
-
-                    event_count += 1
-
-                    # Log first few events in debug mode
-                    if self.live_debug and event_count <= 3:
-                        self._log_debug(response_content=chunk)
-                except json.JSONDecodeError as e:
-                    if self.live_debug:
-                        yield f"\n[JSON Parse Error: {e}]\n"
-                    continue
-
-                # Parse chunk
-                if "choices" in chunk:
-                    delta = chunk["choices"][0].get("delta", {})
-                    content = delta.get("content", "")
-                else:
-                    message = chunk.get("message", {})
-                    content = message.get("content", "")
-
-                if content:
-                    full_text += content
-                    yield content
-                    if not model_parts or "text" not in model_parts[-1]:
-                        model_parts.append({"text": content})
-                    else:
-                        model_parts[-1]["text"] += content
-
-                if "usage" in chunk:
-                    self.last_usage = chunk["usage"]
+            content, tool_calls = self._parse_response(res_json)
+            model_parts = self._build_model_parts(content, tool_calls)
 
             self._update_history(user_content, model_parts)
+            return content, res_json.get("usage", {})
         except Exception as e:
-            self._report_error("Ollama Stream", e)
-            yield f"\n[Error: {e}]"
+            self._report_error("Ollama", e)
+            return None, None
 
     def _parse_response(self, res_json):
         if "choices" in res_json:

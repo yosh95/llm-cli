@@ -1,7 +1,6 @@
 # llm_cli/clients/claude.py
 
-import json
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
@@ -30,9 +29,7 @@ class ClaudeClient(BaseLlmClient):
         if "default" not in self.available_models:
             self.available_models["default"] = FALLBACK_MODEL
 
-    def _send(
-        self, data: List[DataSource], stream: bool = False
-    ) -> Union[Tuple[Optional[str], Optional[Dict]], Iterable[str]]:
+    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         messages = self._build_messages(data)
         payload = {
             "model": self.model,
@@ -53,143 +50,38 @@ class ClaudeClient(BaseLlmClient):
             "content-type": "application/json",
         }
 
-        if not stream:
-            try:
-                response = self._post_with_retry(
-                    self.API_URL, headers=headers, json_data=payload, timeout=60
-                )
-                self._log_debug(response_obj=response)
-                response.raise_for_status()
-                res = response.json()
-
-                model_parts = []
-                full_text = ""
-                for block in res.get("content", []):
-                    if block["type"] == "text":
-                        full_text += block["text"]
-                        model_parts.append({"text": block["text"]})
-                    elif block["type"] == "tool_use":
-                        model_parts.append(
-                            {
-                                "functionCall": {
-                                    "id": block["id"],
-                                    "name": block["name"],
-                                    "args": block["input"],
-                                }
-                            }
-                        )
-
-                model_msg = {"role": "model", "parts": model_parts}
-                self._update_history(data, model_msg)
-
-                return full_text, res.get("usage")
-            except Exception as e:
-                self._report_error("Claude", e)
-                return None, None
-        else:
-            payload["stream"] = True
-            return self._send_stream(headers, payload, data)
-
-    def _send_stream(
-        self, headers: Dict, payload: Dict, data: List[DataSource]
-    ) -> Iterable[str]:
         try:
             response = self._post_with_retry(
-                self.API_URL,
-                headers=headers,
-                json_data=payload,
-                timeout=60,
-                stream=True,
+                self.API_URL, headers=headers, json_data=payload, timeout=60
             )
-            self._log_debug(response_obj=response, request_payload=payload)
+            self._log_debug(response_obj=response)
             response.raise_for_status()
+            res = response.json()
 
-            full_text = ""
             model_parts = []
-            tool_use_buffer = {}
-            event_count = 0
-
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                line_str = line.decode("utf-8")
-                if line_str.startswith("data: "):
-                    data_content = line_str[6:].strip()
-
-                    # Skip [DONE] signal and other non-JSON content
-                    if data_content == "[DONE]" or not data_content:
-                        continue
-
-                    try:
-                        event = json.loads(data_content)
-                        event_count += 1
-
-                        # Log first few events in debug mode
-                        if self.live_debug and event_count <= 3:
-                            self._log_debug(response_content=event)
-                    except json.JSONDecodeError as e:
-                        if self.live_debug:
-                            yield f"\n[JSON Parse Error: {e} in line: {data_content[:100]}]\n"
-                        continue
-
-                    event_type = event.get("type")
-
-                    if event_type == "content_block_start":
-                        idx = event["index"]
-                        block = event["content_block"]
-                        if block["type"] == "text":
-                            model_parts.append({"text": ""})
-                        elif block["type"] == "tool_use":
-                            tool_use_buffer[idx] = {
+            full_text = ""
+            for block in res.get("content", []):
+                if block["type"] == "text":
+                    full_text += block["text"]
+                    model_parts.append({"text": block["text"]})
+                elif block["type"] == "tool_use":
+                    model_parts.append(
+                        {
+                            "functionCall": {
                                 "id": block["id"],
                                 "name": block["name"],
-                                "input_str": "",
+                                "args": block["input"],
                             }
-
-                    elif event_type == "content_block_delta":
-                        idx = event["index"]
-                        delta = event["delta"]
-                        if delta["type"] == "text_delta":
-                            text = delta["text"]
-                            full_text += text
-                            yield text
-                            # Find the last text part or create one
-                            text_part = next(
-                                (p for p in reversed(model_parts) if "text" in p), None
-                            )
-                            if text_part:
-                                text_part["text"] += text
-                            else:
-                                model_parts.append({"text": text})
-
-                        elif delta["type"] == "input_json_delta":
-                            tool_use_buffer[idx]["input_str"] += delta["partial_json"]
-
-                    elif event_type == "message_delta":
-                        if "usage" in event:
-                            self.last_usage = event["usage"]
-
-            # Process tool use from buffer
-            for idx in sorted(tool_use_buffer.keys()):
-                tu = tool_use_buffer[idx]
-                model_parts.append(
-                    {
-                        "functionCall": {
-                            "id": tu["id"],
-                            "name": tu["name"],
-                            "args": json.loads(tu["input_str"])
-                            if tu["input_str"]
-                            else {},
                         }
-                    }
-                )
+                    )
 
             model_msg = {"role": "model", "parts": model_parts}
             self._update_history(data, model_msg)
 
+            return full_text, res.get("usage")
         except Exception as e:
-            self._report_error("Claude Stream", e)
-            yield f"\n[Error: {e}]"
+            self._report_error("Claude", e)
+            return None, None
 
     def _update_history(self, data: List[DataSource], model_msg: Dict):
         user_parts = []

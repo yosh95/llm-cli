@@ -1,7 +1,7 @@
-# llm_cli/apps/ollama.py
+# llm_cli/clients/ollama.py
 
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union, Iterable
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.clients.config import get_setting
@@ -32,7 +32,9 @@ class OllamaClient(BaseLlmClient):
         if "default" not in self.available_models:
             self.available_models["default"] = FALLBACK_MODEL
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource], stream: bool = False
+    ) -> Union[Tuple[Optional[str], Optional[Dict]], Iterable[str]]:
         messages = []
         if self.system_prompt and self.system_prompt_enabled:
             messages.append({"role": "system", "content": self.system_prompt})
@@ -55,7 +57,7 @@ class OllamaClient(BaseLlmClient):
         payload = {
             "model": self.model,
             "messages": messages,
-            "stream": False,
+            "stream": stream,
         }
 
         if self.tools_enabled and self.active_tools:
@@ -63,55 +65,112 @@ class OllamaClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
-        try:
-            # Use the retry-enabled post method from BaseLlmClient
-            response = self._post_with_retry(
-                self.api_url, headers={}, json_data=payload, timeout=60
-            )
-            self._log_debug(response_obj=response)
-            response.raise_for_status()
-            res_json = response.json()
-
-            # Handle both OpenAI-compatible and native Ollama formats
-            if "choices" in res_json:
-                choice = res_json["choices"][0].get("message", {})
-                content = choice.get("content", "")
-                tool_calls = choice.get("tool_calls", [])
-            else:
-                message = res_json.get("message", {})
-                content = message.get("content", "")
-                tool_calls = message.get("tool_calls", [])
-
-            model_parts = []
-            if content:
-                model_parts.append({"text": content})
-
-            if tool_calls:
-                for tc in tool_calls:
-                    fn = tc.get("function", {})
-                    model_parts.append(
-                        {
-                            "functionCall": {
-                                "id": tc.get("id"),
-                                "name": fn.get("name"),
-                                "args": (
-                                    json.loads(fn["arguments"])
-                                    if isinstance(fn.get("arguments"), str)
-                                    else fn.get("arguments")
-                                ),
-                            }
-                        }
-                    )
-
-            if user_content:
-                self.conversation.append(
-                    {"role": "user", "parts": [{"text": user_content}]}
+        if not stream:
+            try:
+                response = self._post_with_retry(
+                    self.api_url, headers={}, json_data=payload, timeout=60
                 )
+                self._log_debug(response_obj=response)
+                response.raise_for_status()
+                res_json = response.json()
 
-            model_msg = {"role": "model", "parts": model_parts}
-            self.conversation.append(model_msg)
+                content, tool_calls = self._parse_response(res_json)
+                model_parts = self._build_model_parts(content, tool_calls)
 
-            return content, res_json.get("usage", {})
+                self._update_history(user_content, model_parts)
+                return content, res_json.get("usage", {})
+            except Exception as e:
+                self._report_error("Ollama", e)
+                return None, None
+        else:
+            return self._send_stream(payload, user_content)
+
+    def _send_stream(self, payload: Dict, user_content: str) -> Iterable[str]:
+        try:
+            response = self._post_with_retry(
+                self.api_url, headers={}, json_data=payload, timeout=60, stream=True
+            )
+            response.raise_for_status()
+
+            full_text = ""
+            model_parts = []
+            
+            # Ollama /v1/chat/completions uses SSE if stream=True
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                line_str = line.decode("utf-8")
+                
+                # Handle both SSE (data: ...) and raw JSON lines (Ollama native)
+                if line_str.startswith("data: "):
+                    if line_str == "data: [DONE]":
+                        break
+                    chunk = json.loads(line_str[6:])
+                else:
+                    chunk = json.loads(line_str)
+                
+                # Parse chunk
+                if "choices" in chunk:
+                    delta = chunk["choices"][0].get("delta", {})
+                    content = delta.get("content", "")
+                else:
+                    message = chunk.get("message", {})
+                    content = message.get("content", "")
+                
+                if content:
+                    full_text += content
+                    yield content
+                    if not model_parts or "text" not in model_parts[-1]:
+                        model_parts.append({"text": content})
+                    else:
+                        model_parts[-1]["text"] += content
+                
+                if "usage" in chunk:
+                    self.last_usage = chunk["usage"]
+
+            self._update_history(user_content, model_parts)
         except Exception as e:
-            self._report_error("Ollama", e)
-            return None, None
+            self._report_error("Ollama Stream", e)
+            yield f"\n[Error: {e}]"
+
+    def _parse_response(self, res_json):
+        if "choices" in res_json:
+            choice = res_json["choices"][0].get("message", {})
+            content = choice.get("content", "")
+            tool_calls = choice.get("tool_calls", [])
+        else:
+            message = res_json.get("message", {})
+            content = message.get("content", "")
+            tool_calls = message.get("tool_calls", [])
+        return content, tool_calls
+
+    def _build_model_parts(self, content, tool_calls):
+        model_parts = []
+        if content:
+            model_parts.append({"text": content})
+
+        if tool_calls:
+            for tc in tool_calls:
+                fn = tc.get("function", {})
+                model_parts.append(
+                    {
+                        "functionCall": {
+                            "id": tc.get("id"),
+                            "name": fn.get("name"),
+                            "args": (
+                                json.loads(fn["arguments"])
+                                if isinstance(fn.get("arguments"), str)
+                                else fn.get("arguments")
+                            ),
+                        }
+                    }
+                )
+        return model_parts
+
+    def _update_history(self, user_content, model_parts):
+        if user_content:
+            self.conversation.append(
+                {"role": "user", "parts": [{"text": user_content}]}
+            )
+        if model_parts:
+            self.conversation.append({"role": "model", "parts": model_parts})

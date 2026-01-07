@@ -6,7 +6,7 @@ import difflib
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import NestedCompleter, PathCompleter, WordCompleter
@@ -17,6 +17,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.syntax import Syntax
+from rich.live import Live
 
 from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, DataSource
 from llm_cli.modules.custom_markdown import CustomMarkdown
@@ -119,33 +120,55 @@ class ChatSession:
 
     def process_and_print(self, data: List[DataSource]):
         self._log_chat(data, role="User")
-        response_text, _ = self.client._send(data)
-        if response_text is None:
-            # Error already reported or request failed
-            return
-        response_text = self.client._format_response_text(response_text)
 
         while True:
+            # Prefix for the model response
+            prefix = f"({self.client.config_section}/{self.client.current_alias}/{self.client.model})"
+            display_prefix = f"**{prefix}:**  \n"
+
+            response_text = ""
+            # Start streaming
+            res = self.client._send(data, stream=True)
+            
+            if isinstance(res, tuple):
+                # Fallback for non-streaming response if client doesn't support it yet
+                response_text, _ = res
+            elif isinstance(res, Iterable):
+                if self.client.stdout:
+                    # In stdout mode, we just print the chunks as they come
+                    for chunk in res:
+                        print(chunk, end="", flush=True)
+                        response_text += chunk
+                    print() # Newline at the end
+                else:
+                    # Interactive mode with rich.Live
+                    md = CustomMarkdown(display_prefix)
+                    with Live(md, console=console, refresh_per_second=10) as live:
+                        for chunk in res:
+                            response_text += chunk
+                            # Update display with the whole accumulated text
+                            live.update(CustomMarkdown(display_prefix + response_text))
+            
+            if response_text is None and not self.client._has_pending_tool_calls():
+                return
+
             if response_text:
                 self._log_chat(response_text, role="Model")
-                if self.client.stdout:
-                    print(response_text)
-                else:
-                    console.print(CustomMarkdown(response_text))
-
+            
             if not self.client._has_pending_tool_calls():
                 break
 
+            # If there are pending tool calls, process them and continue the loop
             last_msg = self.client.conversation[-1]
             tool_results_parts = []
             injected_datas = []
 
             for part in last_msg.get("parts", []):
                 if "functionCall" in part:
-                    res = self._execute_tool_call(part["functionCall"])
-                    if not res:
+                    res_tool = self._execute_tool_call(part["functionCall"])
+                    if not res_tool:
                         return
-                    tool_result, injected = res
+                    tool_result, injected = res_tool
                     tool_results_parts.append(tool_result)
                     if injected:
                         injected_datas.append(injected)
@@ -156,10 +179,8 @@ class ChatSession:
                 )
                 if injected_datas:
                     self._log_chat(injected_datas, role="Tool Output")
-                response_text, _ = self.client._send(injected_datas)
-                if response_text is None:
-                    break
-                response_text = self.client._format_response_text(response_text)
+                # Prepare for the next round of generation
+                data = injected_datas
             else:
                 break
 
@@ -180,7 +201,14 @@ class ChatSession:
         self.client.conversation = temp_conversation
 
         try:
-            summary, _ = self.client._send([])
+            # Summarization doesn't necessarily need streaming, but we use the same method
+            res = self.client._send([], stream=False)
+            if isinstance(res, tuple):
+                summary, _ = res
+            else:
+                # If it's a generator, exhaust it
+                summary = "".join(list(res))
+            
             if not summary:
                 console.print("[red]Failed to generate summary.[/red]")
                 self.client.conversation = original_conversation

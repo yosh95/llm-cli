@@ -1,7 +1,7 @@
 # llm_cli/clients/openai.py
 
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union, Iterable
 
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.clients.config import get_setting
@@ -31,7 +31,9 @@ class OpenAIClient(BaseLlmClient):
         if "default" not in self.available_models:
             self.available_models["default"] = FALLBACK_MODEL
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource], stream: bool = False
+    ) -> Union[Tuple[Optional[str], Optional[Dict]], Iterable[str]]:
         messages = self._build_messages(data)
         payload = {
             "model": self.model,
@@ -47,57 +49,132 @@ class OpenAIClient(BaseLlmClient):
             "Content-Type": "application/json",
         }
 
-        try:
-            # Use the retry-enabled post method from BaseLlmClient
-            response = self._post_with_retry(
-                self.api_url, headers=headers, json_data=payload, timeout=60
-            )
-            self._log_debug(response_obj=response)
-            response.raise_for_status()
-            res = response.json()
+        if not stream:
+            try:
+                response = self._post_with_retry(
+                    self.api_url, headers=headers, json_data=payload, timeout=60
+                )
+                self._log_debug(response_obj=response)
+                response.raise_for_status()
+                res = response.json()
 
-            choice = res["choices"][0]["message"]
-            model_parts = []
-            if choice.get("content"):
-                model_parts.append({"text": choice["content"]})
+                choice = res["choices"][0]["message"]
+                model_parts = []
+                if choice.get("content"):
+                    model_parts.append({"text": choice["content"]})
 
-            if choice.get("tool_calls"):
-                for tc in choice["tool_calls"]:
-                    model_parts.append(
-                        {
-                            "functionCall": {
-                                "id": tc["id"],
-                                "name": tc["function"]["name"],
-                                "args": json.loads(tc["function"]["arguments"]),
+                if choice.get("tool_calls"):
+                    for tc in choice["tool_calls"]:
+                        model_parts.append(
+                            {
+                                "functionCall": {
+                                    "id": tc["id"],
+                                    "name": tc["function"]["name"],
+                                    "args": json.loads(tc["function"]["arguments"]),
+                                }
                             }
-                        }
-                    )
+                        )
+
+                model_msg = {"role": "model", "parts": model_parts}
+
+                self._update_history(data, model_msg)
+                return choice.get("content", ""), res.get("usage")
+            except Exception as e:
+                self._report_error("OpenAI", e)
+                return None, None
+        else:
+            payload["stream"] = True
+            return self._send_stream(headers, payload, data)
+
+    def _send_stream(self, headers: Dict, payload: Dict, data: List[DataSource]) -> Iterable[str]:
+        try:
+            response = self._post_with_retry(
+                self.api_url, headers=headers, json_data=payload, timeout=60, stream=True
+            )
+            response.raise_for_status()
+
+            full_text = ""
+            model_parts = []
+            tool_calls_buffer = {}
+
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                line_str = line.decode("utf-8")
+                if line_str.startswith("data: "):
+                    if line_str == "data: [DONE]":
+                        break
+                    
+                    chunk = json.loads(line_str[6:])
+                    delta = chunk["choices"][0].get("delta", {})
+                    
+                    if "content" in delta and delta["content"]:
+                        content = delta["content"]
+                        full_text += content
+                        yield content
+                        if not model_parts or "text" not in model_parts[-1]:
+                            model_parts.append({"text": content})
+                        else:
+                            model_parts[-1]["text"] += content
+                    
+                    if "tool_calls" in delta:
+                        for tc_delta in delta["tool_calls"]:
+                            idx = tc_delta["index"]
+                            if idx not in tool_calls_buffer:
+                                tool_calls_buffer[idx] = {
+                                    "id": tc_delta.get("id"),
+                                    "name": tc_delta.get("function", {}).get("name", ""),
+                                    "arguments": ""
+                                }
+                            
+                            if "id" in tc_delta:
+                                tool_calls_buffer[idx]["id"] = tc_delta["id"]
+                            if "function" in tc_delta:
+                                fn_delta = tc_delta["function"]
+                                if "name" in fn_delta:
+                                    tool_calls_buffer[idx]["name"] += fn_delta["name"]
+                                if "arguments" in fn_delta:
+                                    tool_calls_buffer[idx]["arguments"] += fn_delta["arguments"]
+
+                    if "usage" in chunk:
+                        self.last_usage = chunk["usage"]
+
+            # Process tool calls from buffer
+            for idx in sorted(tool_calls_buffer.keys()):
+                tc = tool_calls_buffer[idx]
+                model_parts.append({
+                    "functionCall": {
+                        "id": tc["id"],
+                        "name": tc["name"],
+                        "args": json.loads(tc["arguments"]) if tc["arguments"] else {}
+                    }
+                })
 
             model_msg = {"role": "model", "parts": model_parts}
+            self._update_history(data, model_msg)
 
-            # Save user message to history
-            user_parts = []
-            for d in data:
-                if d["content_type"] == "text/plain":
-                    user_parts.append({"text": d["content"]})
-                else:
-                    user_parts.append(
-                        {
-                            "inlineData": {
-                                "mimeType": d["content_type"],
-                                "data": d["content"],
-                            }
-                        }
-                    )
-
-            if user_parts:
-                self.conversation.append({"role": "user", "parts": user_parts})
-            self.conversation.append(model_msg)
-
-            return choice.get("content", ""), res.get("usage")
         except Exception as e:
-            self._report_error("OpenAI", e)
-            return None, None
+            self._report_error("OpenAI Stream", e)
+            yield f"\n[Error: {e}]"
+
+    def _update_history(self, data: List[DataSource], model_msg: Dict):
+        user_parts = []
+        for d in data:
+            if d["content_type"] == "text/plain":
+                user_parts.append({"text": d["content"]})
+            else:
+                user_parts.append(
+                    {
+                        "inlineData": {
+                            "mimeType": d["content_type"],
+                            "data": d["content"],
+                        }
+                    }
+                )
+
+        if user_parts:
+            self.conversation.append({"role": "user", "parts": user_parts})
+        self.conversation.append(model_msg)
 
     def _build_messages(self, data):
         msgs = []
@@ -106,7 +183,6 @@ class OpenAIClient(BaseLlmClient):
 
         for m in self.conversation:
             if m["role"] == "function":
-                # Convert function results to tool messages
                 for p in m["parts"]:
                     if "functionResponse" in p:
                         func_resp = p["functionResponse"]

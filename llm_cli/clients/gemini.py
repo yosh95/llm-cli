@@ -1,9 +1,10 @@
-# llm_cli/apps/gemini.py
+# llm_cli/clients/gemini.py
 
 import mimetypes
 import time
+import json
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union, Iterable
 
 import requests
 
@@ -91,7 +92,9 @@ class GeminiClient(BaseLlmClient):
 
         return super()._process_single_source(source)
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource], stream: bool = False
+    ) -> Union[Tuple[Optional[str], Optional[Dict]], Iterable[str]]:
         new_parts = []
         for item in data:
             if item.get("file_uri"):
@@ -119,10 +122,52 @@ class GeminiClient(BaseLlmClient):
                 new_parts.append({"text": item["content"]})
 
         payload = self._to_provider_request_format(self.conversation, {}, new_parts)
-        api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
+        
+        if not stream:
+            api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
+            try:
+                response = self._post_with_retry(
+                    api_url,
+                    headers={
+                        "x-goog-api-key": self.api_key,
+                        "Content-Type": "application/json",
+                    },
+                    json_data=payload,
+                    timeout=self.REQUEST_TIMEOUT,
+                )
+                self._log_debug(response_obj=response)
+                response.raise_for_status()
+                res_json = response.json()
 
+                model_msg, _ = self._from_provider_response_format(res_json)
+                if new_parts:
+                    self.conversation.append({"role": "user", "parts": new_parts})
+                self.conversation.append(model_msg)
+
+                self.last_usage = res_json.get("usageMetadata")
+
+                text = ""
+                for p in model_msg["parts"]:
+                    if "text" in p:
+                        text += p["text"]
+                    elif "thought" in p:
+                        text += f"\n> **Thought:** {p['thought']}\n\n"
+                    elif "inlineData" in p:
+                        log = self._save_inline_image_and_get_log_entry(p["inlineData"])
+                        if log:
+                            text += log
+
+                return text, self.last_usage
+            except Exception as e:
+                self._report_error("Gemini", e)
+                return None, None
+        else:
+            return self._send_stream(payload, new_parts)
+
+    def _send_stream(self, payload: Dict, new_parts: List[Dict]) -> Iterable[str]:
+        api_url = f"{self.BASE_API_URL}/models/{self.model}:streamGenerateContent?alt=sse"
+        
         try:
-            # Use the retry-enabled post method from BaseLlmClient
             response = self._post_with_retry(
                 api_url,
                 headers={
@@ -131,33 +176,56 @@ class GeminiClient(BaseLlmClient):
                 },
                 json_data=payload,
                 timeout=self.REQUEST_TIMEOUT,
+                stream=True
             )
-            self._log_debug(response_obj=response)
             response.raise_for_status()
-            res_json = response.json()
+            
+            full_text = ""
+            model_parts = []
+            
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                
+                line_str = line.decode("utf-8")
+                if line_str.startswith("data: "):
+                    chunk_json = json.loads(line_str[6:])
+                    
+                    candidate = chunk_json.get("candidates", [{}])[0]
+                    parts = candidate.get("content", {}).get("parts", [])
+                    
+                    for p in parts:
+                        if "text" in p:
+                            chunk_text = p["text"]
+                            full_text += chunk_text
+                            yield chunk_text
+                            # Accumulate parts for history
+                            if not model_parts or "text" not in model_parts[-1]:
+                                model_parts.append({"text": chunk_text})
+                            else:
+                                model_parts[-1]["text"] += chunk_text
+                        elif "thought" in p:
+                            # Thought is usually not streamed chunk by chunk in the same way,
+                            # but if it is, we handle it.
+                            thought_text = p["thought"]
+                            yield f"\n> **Thought:** {thought_text}\n\n"
+                            model_parts.append({"thought": thought_text})
+                        elif "functionCall" in p:
+                            model_parts.append({"functionCall": p["functionCall"]})
+                    
+                    if "usageMetadata" in chunk_json:
+                        self.last_usage = chunk_json["usageMetadata"]
 
-            model_msg, _ = self._from_provider_response_format(res_json)
+            # Update history after stream ends
             if new_parts:
                 self.conversation.append({"role": "user", "parts": new_parts})
-            self.conversation.append(model_msg)
-
-            self.last_usage = res_json.get("usageMetadata")
-
-            text = ""
-            for p in model_msg["parts"]:
-                if "text" in p:
-                    text += p["text"]
-                elif "thought" in p:
-                    text += f"\n> **Thought:** {p['thought']}\n\n"
-                elif "inlineData" in p:
-                    log = self._save_inline_image_and_get_log_entry(p["inlineData"])
-                    if log:
-                        text += log
-
-            return text, self.last_usage
+            
+            if model_parts:
+                self.conversation.append({"role": "model", "parts": model_parts})
+                
         except Exception as e:
-            self._report_error("Gemini", e)
-            return None, None
+            self._report_error("Gemini Stream", e)
+            yield f"\n[Error: {e}]"
 
     def _to_provider_request_format(self, history, context, new_parts):
         contents = [{"role": m["role"], "parts": m["parts"]} for m in history]

@@ -7,7 +7,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Iterable, Union
 
 import requests
 from rich.console import Console, Group
@@ -122,7 +122,9 @@ class BaseLlmClient(ABC):
         pass
 
     @abstractmethod
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource], stream: bool = False
+    ) -> Union[Tuple[Optional[str], Optional[Dict]], Iterable[str]]:
         """Send the request to the specific provider API."""
         pass
 
@@ -133,13 +135,14 @@ class BaseLlmClient(ABC):
         json_data: Dict,
         timeout: int = 60,
         max_retries: int = 3,
+        stream: bool = False,
     ) -> requests.Response:
         """Perform a POST request with automatic retry and exponential backoff."""
         last_exception = None
         for attempt in range(max_retries):
             try:
                 response = requests.post(
-                    url, headers=headers, json=json_data, timeout=timeout
+                    url, headers=headers, json=json_data, timeout=timeout, stream=stream
                 )
 
                 # Retry on 429 (Rate Limit) and 5xx (Server errors)

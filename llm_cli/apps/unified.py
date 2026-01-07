@@ -1,6 +1,6 @@
 # llm_cli/apps/unified.py
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union, Iterable
 
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
 from llm_cli.clients.base import BaseLlmClient, Conversation, DataSource, console
@@ -141,12 +141,14 @@ class UnifiedClient(BaseLlmClient):
 
         return super()._handle_command(user_input, sources, pending_data)
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource], stream: bool = False
+    ) -> Union[Tuple[Optional[str], Optional[Dict]], Iterable[str]]:
         self.active_client.active_tools = self.active_tools
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
         self.active_client.tools_enabled = self.tools_enabled
-        return self.active_client._send(data)
+        return self.active_client._send(data, stream=stream)
 
     def _has_pending_tool_calls(self) -> bool:
         return self.active_client._has_pending_tool_calls()

@@ -303,13 +303,16 @@ class ChatSession:
             call.get("args", {}),
         )
 
-        # Extract thought/reasoning for visibility
-        thought = args.get("thought") or args.get("reasoning")
-        if thought:
+        # Extract explanation for visibility.
+        # Check 'explanation' first (new), then fall back to 'thought' or 'reasoning'.
+        explanation = (
+            args.get("explanation") or args.get("thought") or args.get("reasoning")
+        )
+        if explanation:
             console.print(
                 Panel(
-                    thought,
-                    title="[bold cyan]🤔 Thought[/bold cyan]",
+                    explanation,
+                    title="[bold cyan]💡 Explanation[/bold cyan]",
                     border_style="cyan",
                 )
             )
@@ -319,11 +322,11 @@ class ChatSession:
             # Detailed preview panel will be shown, so skip inline args
             console.print(f"{title_prefix} [cyan]{escape(name)}[/cyan]")
         else:
-            # Exclude thought from display args for cleaner output
+            # Exclude explanation/thought from display args for cleaner output
             display_args = {
                 k: (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
                 for k, v in args.items()
-                if k not in ("thought", "reasoning")
+                if k not in ("explanation", "thought", "reasoning")
             }
             console.print(
                 f"{title_prefix} [cyan]{escape(name)}[/cyan]"

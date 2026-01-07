@@ -31,7 +31,7 @@ The AI can use tools like `google_search` to find real-time information or `exec
 -   **Exit anytime**: Use **Escape**, **Ctrl+C**, or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
 -   **Integrated Image Generation (Gemini)**: The agent can generate images and slides mid-conversation using Gemini's integrated image generation capabilities.
--   **Mandatory Reasoning (Chain-of-Thought)**: All tools require the AI to provide a `thought` parameter, explaining *why* it is calling a specific tool. This improves transparency and agent reliability.
+-   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
 -   **OpenAI-Compatible Custom Endpoints**: Use local LLMs (via Ollama, vLLM, etc.) or other OpenAI-compatible services by specifying a custom `api_url` in the configuration.
@@ -197,7 +197,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 
 ## Plugin Architecture: Adding New Tools
 
-`llm-cli` uses a decorator-based plugin system. All tools automatically require a `thought` parameter to ensure the AI explains its reasoning.
+`llm-cli` uses a decorator-based plugin system. All tools automatically require an `explanation` parameter to ensure the AI explains what it is doing.
 
 Example (`llm_cli/modules/tools/weather.py`):
 ```python
@@ -296,7 +296,7 @@ AIは `google_search` を使ってリアルタイム情報を検索したり、`
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Escape**、**Ctrl+C**、または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
 -   **統合画像生成 (Gemini)**: 会話の途中でGeminiの画像生成機能を使い、図解やスライド画像を生成できます。
--   **思考プロセスの義務化 (Chain-of-Thought)**: すべてのツール実行において、AIに `thought` パラメータ（なぜそのツールを使うのかという理由）の提供を強制します。これにより、エージェントの推論の透明性と信頼性が向上します。
+-   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
 -   **OpenAI互換カスタムエンドポイント**: `api_url` を設定することで、ローカルLLM（Ollama, vLLM 等）やその他のOpenAI互換サービスを利用可能。
@@ -450,7 +450,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/tools [on|off]`: ツールの有効・無効を切り替え。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動で添付。
--   `/save <path>`: 会話履歴をJSONファイルに保存。
+-   `/save <path>`: 会話履歴をJSONファイルに保存.
 -   `/load <path>`: 会話履歴をJSONファイルから読み込み。
 -   `/dump`: 会話履歴をJSON形式でダンプ。
 -   `/raw`: 生の会話テキストを表示。
@@ -462,7 +462,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ## プラグイン・アーキテクチャ: ツールの追加
 
-`llm-cli` はデコレータベースのプラグインシステムを採用しています。登録されたすべてのツールには、AIによる推論を明示するための `thought` パラメータが自動的に付与されます。
+`llm-cli` はデコレータベースのプラグインシステムを採用しています。登録されたすべてのツールには、AIによる実行内容の説明を明示するための `explanation` パラメータが自動的に付与されます。
 
 例 (`llm_cli/modules/tools/weather.py`):
 ```python

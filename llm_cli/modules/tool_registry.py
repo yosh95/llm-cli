@@ -28,25 +28,26 @@ class ToolRegistry:
         if "properties" not in parameters:
             parameters["properties"] = {}
 
-        # 2. Force inject 'thought' parameter
-        parameters["properties"]["thought"] = {
+        # 2. Force inject 'explanation' parameter
+        # This replaces the old 'thought' parameter to avoid confusion with
+        # LLM's internal reasoning (which often comes in a separate 'thought' field).
+        parameters["properties"]["explanation"] = {
             "type": "string",
             "description": (
-                "The reasoning behind calling this tool. Why is this necessary now?"
+                "A brief explanation of what you are about to do with this tool."
             ),
         }
 
         if "required" not in parameters:
             parameters["required"] = []
-        if "thought" not in parameters["required"]:
-            parameters["required"].append("thought")
+        if "explanation" not in parameters["required"]:
+            parameters["required"].append("explanation")
 
         # 3. Wrap the function with Auditing and Parameter Filtering
         @functools.wraps(func)
         def wrapper(**kwargs):
-            # Extract thought for logging
-            # (kwargs will be logged in log_audit)
-            _ = kwargs.get("thought", "No reasoning provided.")
+            # Extract explanation for logging (internal audit)
+            _ = kwargs.get("explanation", "No explanation provided.")
 
             sig = inspect.signature(func)
             filtered_kwargs = {
@@ -75,7 +76,7 @@ class ToolRegistry:
 
                 log_audit(
                     tool_name=name,
-                    args=kwargs,  # Log original args including thought
+                    args=kwargs,  # Log original args including explanation
                     output=result,
                     exit_code=exit_code,
                     error=error_str,

@@ -26,6 +26,10 @@ class GeminiClient(BaseLlmClient):
     PDF_FILE_API_THRESHOLD = 10 * 1024 * 1024  # 10MB
 
     def __init__(self, initial_model_alias="default", **kwargs):
+        # Ensure stdout has a default if not provided in kwargs
+        if "stdout" not in kwargs:
+            kwargs["stdout"] = False
+
         super().__init__(
             initial_model_alias=initial_model_alias,
             api_key_name="api_key",
@@ -43,6 +47,15 @@ class GeminiClient(BaseLlmClient):
 
     def _process_single_source(self, source: str) -> Optional[DataSource]:
         """Override to handle Gemini-specific File API uploads for media."""
+        # 1. Handle Gemini File API URIs directly
+        if source.startswith("https://generativelanguage.googleapis.com/"):
+            return {
+                "file_uri": source,
+                "content_type": "image/jpeg", # Default, can be overridden by tests
+                "is_file_or_url": True,
+            }
+
+        # 2. Handle local files that need uploading
         path = Path(source)
         if len(source) < 256 and path.exists() and path.is_file():
             import filetype

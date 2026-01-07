@@ -18,7 +18,7 @@ def test_gemini_audio_upload_called(mock_config_audio, tmp_path):
     # In refactored version, Gemini uses media_utils and its own _upload_file logic
     with (
         patch("llm_cli.modules.media_utils.filetype.guess") as mock_guess,
-        patch("llm_cli.apps.gemini.GeminiClient._upload_file") as mock_upload,
+        patch("llm_cli.clients.gemini.GeminiClient._upload_file") as mock_upload,
     ):
         # Mock filetype to return audio/wav
         mock_kind = MagicMock()

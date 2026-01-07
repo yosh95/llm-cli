@@ -42,14 +42,15 @@ class TestExecuteCommand(unittest.TestCase):
         try:
             start_time = time.time()
             # Use sleep command directly (safe command in whitelist)
-            result = execute_command("sleep 10")
+            with self.assertRaises(RuntimeError) as cm:
+                execute_command("sleep 10")
+            
             duration = time.time() - start_time
-
             self.assertTrue(
                 2 <= duration <= 5,
                 f"Command should timeout around 2s, took {duration}s",
             )
-            self.assertIn("Error: Command timed out (2s).", result)
+            self.assertIn("Command timed out (2s).", str(cm.exception))
 
             # Verify that the child process is not lingering (POSIX only)
             if os.name != "nt":

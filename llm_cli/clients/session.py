@@ -142,14 +142,19 @@ class ChatSession:
                     for chunk in res:
                         print(chunk, end="", flush=True)
                         response_text += chunk
-                    print()  # Newline at the end
+                    print()
                 else:
-                    # Interactive mode with rich.Live
+                    # Interactive mode with rich.Live rendering Markdown during streaming.
+                    # 'vertical_overflow="visible"' ensures smooth scrolling without truncation.
                     md = CustomMarkdown(display_prefix)
-                    with Live(md, console=console, refresh_per_second=10) as live:
+                    with Live(
+                        md, 
+                        console=console, 
+                        refresh_per_second=4, 
+                        vertical_overflow="visible"
+                    ) as live:
                         for chunk in res:
                             response_text += chunk
-                            # Update display with the whole accumulated text
                             live.update(CustomMarkdown(display_prefix + response_text))
 
             if response_text is None and not self.client._has_pending_tool_calls():

@@ -331,6 +331,9 @@ class ChatSession:
             call.get("args", {}),
         )
 
+        # Extract thought_signature if present (required by Gemini API)
+        thought_signature = call.get("thought_signature")
+
         # Extract explanation for visibility.
         # Check 'explanation' first (new), then fall back to 'thought' or 'reasoning'.
         explanation = (
@@ -383,13 +386,17 @@ class ChatSession:
                     "Error: Operation denied. DO NOT retry. Ask for instructions."
                 )
 
-            return {
+            response = {
                 "functionResponse": {
                     "id": tool_id,
                     "name": name,
                     "response": {"result": result_msg},
                 }
-            }, None
+            }
+            # Include thought_signature if present (required by Gemini)
+            if thought_signature:
+                response["functionResponse"]["thought_signature"] = thought_signature
+            return response, None
 
         try:
             if name not in registry.tools:
@@ -409,22 +416,30 @@ class ChatSession:
                 preview = p_str[:300] + ("..." if len(p_str) > 300 else "")
                 console.print(f"[dim]Result: {escape(preview)}[/dim]")
 
-            return {
+            response = {
                 "functionResponse": {
                     "id": tool_id,
                     "name": name,
                     "response": {"result": result_data},
                 }
-            }, injected
+            }
+            # Include thought_signature if present (required by Gemini)
+            if thought_signature:
+                response["functionResponse"]["thought_signature"] = thought_signature
+            return response, injected
         except Exception as e:
             console.print(f"[bold red]Tool execution failed: {e}[/bold red]")
-            return {
+            response = {
                 "functionResponse": {
                     "id": tool_id,
                     "name": name,
                     "response": {"result": f"Error: {e}"},
                 }
-            }, None
+            }
+            # Include thought_signature if present (required by Gemini)
+            if thought_signature:
+                response["functionResponse"]["thought_signature"] = thought_signature
+            return response, None
 
     def _preview_diff(self, args: Dict[str, Any]):
         try:

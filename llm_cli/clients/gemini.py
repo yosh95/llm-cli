@@ -211,7 +211,8 @@ class GeminiClient(BaseLlmClient):
                             yield f"\n> **Thought:** {thought_text}\n\n"
                             model_parts.append({"thought": thought_text})
                         elif "functionCall" in p:
-                            model_parts.append({"functionCall": p["functionCall"]})
+                            # Preserve the entire part including thought_signature
+                            model_parts.append(p)
                     
                     if "usageMetadata" in chunk_json:
                         self.last_usage = chunk_json["usageMetadata"]

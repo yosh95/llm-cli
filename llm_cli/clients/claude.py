@@ -181,20 +181,35 @@ class ClaudeClient(BaseLlmClient):
 
     def _build_messages(self, data):
         msgs = []
+
+        # Track tool_use_ids that have responses
+        responded_tool_ids = set()
+        for m in self.conversation:
+            if m["role"] == "function":
+                for p in m["parts"]:
+                    if "functionResponse" in p:
+                        func_resp = p["functionResponse"]
+                        tool_id = func_resp.get("id")
+                        if tool_id and tool_id != "unknown":
+                            responded_tool_ids.add(tool_id)
+
         for m in self.conversation:
             if m["role"] == "function":
                 content = []
                 for p in m["parts"]:
                     if "functionResponse" in p:
                         func_resp = p["functionResponse"]
-                        result = func_resp.get("response", {}).get("result", "")
-                        content.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": func_resp.get("id", "unknown"),
-                                "content": str(result),
-                            }
-                        )
+                        tool_id = func_resp.get("id")
+                        # Only include tool results that have corresponding tool uses
+                        if tool_id and tool_id != "unknown" and tool_id in responded_tool_ids:
+                            result = func_resp.get("response", {}).get("result", "")
+                            content.append(
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": tool_id,
+                                    "content": str(result),
+                                }
+                            )
                 if content:
                     msgs.append({"role": "user", "content": content})
             else:
@@ -202,17 +217,22 @@ class ClaudeClient(BaseLlmClient):
                 content = []
                 for p in m["parts"]:
                     if "text" in p:
-                        content.append({"type": "text", "text": p["text"]})
+                        # Skip empty text blocks (Claude API requires non-empty text)
+                        if p["text"].strip():
+                            content.append({"type": "text", "text": p["text"]})
                     elif "functionCall" in p:
                         func_call = p["functionCall"]
-                        content.append(
-                            {
-                                "type": "tool_use",
-                                "id": func_call.get("id", "unknown"),
-                                "name": func_call.get("name", "unknown"),
-                                "input": func_call.get("args", {}),
-                            }
-                        )
+                        tool_id = func_call.get("id")
+                        # Only include tool uses that have responses
+                        if tool_id and tool_id != "unknown" and tool_id in responded_tool_ids:
+                            content.append(
+                                {
+                                    "type": "tool_use",
+                                    "id": tool_id,
+                                    "name": func_call.get("name", "unknown"),
+                                    "input": func_call.get("args", {}),
+                                }
+                            )
                 if content:
                     msgs.append({"role": role, "content": content})
 

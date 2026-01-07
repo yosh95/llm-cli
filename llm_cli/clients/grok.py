@@ -127,10 +127,10 @@ class GrokClient(BaseLlmClient):
                             if idx not in tool_calls_buffer:
                                 tool_calls_buffer[idx] = {
                                     "id": tc_delta.get("id"),
-                                    "name": tc_delta.get("function", {}).get("name", ""),
+                                    "name": "",
                                     "arguments": ""
                                 }
-                            
+
                             if "id" in tc_delta:
                                 tool_calls_buffer[idx]["id"] = tc_delta["id"]
                             if "function" in tc_delta:
@@ -185,19 +185,34 @@ class GrokClient(BaseLlmClient):
         if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
+        # Track tool_call_ids that have responses
+        responded_tool_ids = set()
         for m in self.conversation:
             if m["role"] == "function":
                 for p in m["parts"]:
                     if "functionResponse" in p:
                         func_resp = p["functionResponse"]
-                        result = func_resp.get("response", {}).get("result", "")
-                        msgs.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": func_resp.get("id", "unknown"),
-                                "content": str(result),
-                            }
-                        )
+                        tool_id = func_resp.get("id")
+                        if tool_id and tool_id != "unknown":
+                            responded_tool_ids.add(tool_id)
+
+        for m in self.conversation:
+            if m["role"] == "function":
+                # Only include function responses that correspond to responded tool calls
+                for p in m["parts"]:
+                    if "functionResponse" in p:
+                        func_resp = p["functionResponse"]
+                        tool_id = func_resp.get("id")
+                        # Only add tool response if it's in the responded set
+                        if tool_id and tool_id != "unknown" and tool_id in responded_tool_ids:
+                            result = func_resp.get("response", {}).get("result", "")
+                            msgs.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tool_id,
+                                    "content": str(result),
+                                }
+                            )
             else:
                 role = "assistant" if m["role"] == "model" else m["role"]
                 content = ""
@@ -208,16 +223,19 @@ class GrokClient(BaseLlmClient):
                         content += p["text"]
                     elif "functionCall" in p:
                         func_call = p["functionCall"]
-                        tool_calls.append(
-                            {
-                                "id": func_call.get("id", "unknown"),
-                                "type": "function",
-                                "function": {
-                                    "name": func_call.get("name", "unknown"),
-                                    "arguments": json.dumps(func_call.get("args", {})),
-                                },
-                            }
-                        )
+                        tool_id = func_call.get("id")
+                        # Only include tool calls that have responses
+                        if tool_id and tool_id != "unknown" and tool_id in responded_tool_ids:
+                            tool_calls.append(
+                                {
+                                    "id": tool_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": func_call.get("name", "unknown"),
+                                        "arguments": json.dumps(func_call.get("args", {})),
+                                    },
+                                }
+                            )
 
                 if content or tool_calls:
                     msg = {"role": role, "content": content}

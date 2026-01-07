@@ -136,7 +136,9 @@ class UnifiedClient(BaseLlmClient):
         if user_input.startswith("/") and user_input[1:] in self.PROVIDER_CONFIG:
             cmd = user_input[1:]
             if self._activate_provider(cmd):
-                console.print(f"[cyan]Switched to provider: {cmd}[/cyan]")
+                console.print(
+                    f"[cyan]Switched to provider: {cmd} (Model: {self.model})[/cyan]"
+                )
                 return True
 
         return super()._handle_command(user_input, sources, pending_data)

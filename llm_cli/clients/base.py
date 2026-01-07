@@ -133,14 +133,13 @@ class BaseLlmClient(ABC):
         json_data: Dict,
         timeout: int = 60,
         max_retries: int = 3,
-        stream: bool = False,
     ) -> requests.Response:
         """Perform a POST request with automatic retry and exponential backoff."""
         last_exception = None
         for attempt in range(max_retries):
             try:
                 response = requests.post(
-                    url, headers=headers, json=json_data, timeout=timeout, stream=stream
+                    url, headers=headers, json=json_data, timeout=timeout
                 )
 
                 # Retry on 429 (Rate Limit) and 5xx (Server errors)
@@ -254,7 +253,9 @@ class BaseLlmClient(ABC):
 
         if cmd in self.available_models:
             self.set_model(cmd)
-            console.print(f"[cyan]Model switched to: {self.current_alias}[/cyan]")
+            console.print(
+                f"[cyan]Model switched to: {self.current_alias} ({self.model})[/cyan]"
+            )
             return True
 
         if cmd in ("m", "models"):

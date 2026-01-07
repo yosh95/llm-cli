@@ -124,8 +124,13 @@ class ChatSession:
             )
             display_prefix = f"**{prefix}:**  \n"
 
-            # Use non-streaming response as requested to avoid JSON parsing issues.
-            res = self.client._send(data)
+            # Show thinking animation with full model name instead of alias
+            with console.status(
+                f"[bold cyan]Thinking ({self.client.model})...[/bold cyan]",
+                spinner="dots",
+            ):
+                # Use non-streaming response as requested to avoid JSON parsing issues.
+                res = self.client._send(data)
 
             # Response is now expected to be a tuple (response_text, usage)
             response_text, _ = res if res else (None, None)
@@ -173,7 +178,6 @@ class ChatSession:
                 break
 
     def _handle_checkpoint(self):
-        console.print("[yellow]Generating summary...[/yellow]")
         summarize_prompt = (
             "Summarize the conversation so far, preserving key context, "
             "decisions, code changes, and remaining tasks. "
@@ -189,7 +193,12 @@ class ChatSession:
         self.client.conversation = temp_conversation
 
         try:
-            res = self.client._send([])
+            with console.status(
+                f"[bold cyan]Generating summary ({self.client.model})...[/bold cyan]", 
+                spinner="dots"
+            ):
+                res = self.client._send([])
+
             summary, _ = res if res else (None, None)
 
             if not summary:
@@ -359,7 +368,12 @@ class ChatSession:
             if name not in registry.tools:
                 raise ValueError(f"Tool '{name}' not found.")
 
-            result_data = registry.tools[name]["func"](**args)
+            # Show spinner for tool execution (especially useful for generate_image)
+            with console.status(
+                f"[bold yellow]Executing {name}...[/bold yellow]", spinner="dots"
+            ):
+                result_data = registry.tools[name]["func"](**args)
+
             injected = (
                 result_data.pop("__llm_cli_data__", None)
                 if isinstance(result_data, dict)

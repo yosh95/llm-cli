@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from llm_cli.modules.tool_registry import tool
+from llm_cli.security.path_validator import PathValidationError, validate_path
 
 
 @tool(
@@ -37,19 +38,16 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
     and limiting the output size for safety.
     """
     try:
+        # Validate path for sandboxing
+        validate_path(directory or ".")
+
         base_path = Path(directory or ".")
         if not base_path.exists():
             return f"Error: Directory '{directory}' does not exist."
 
         exclude = {
-            ".git",
-            "__pycache__",
-            "node_modules",
-            ".venv",
-            ".pytest_cache",
-            ".vscode",
-            ".idea",
-            ".mypy_cache",
+            ".git", "__pycache__", "node_modules", ".venv", ".pytest_cache",
+            ".vscode", ".idea", ".mypy_cache",
         }
         results, file_count = [], 0
 
@@ -88,6 +86,8 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
 
         walk(base_path, 1)
         return "\n".join(results) or "No files found."
+    except PathValidationError as e:
+        return f"Security Error: {e}"
     except Exception as e:
         return f"Error: {e}"
 
@@ -111,6 +111,9 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
 )
 def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
     try:
+        # Validate path for sandboxing
+        validate_path(path)
+
         p = Path(path)
         if not p.is_file():
             return f"Error: '{path}' is not a file."
@@ -122,6 +125,8 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
 
         header = f"--- {path} (Lines {start + 1} to {end}) ---"
         return f"{header}\n{content[:50000]}"
+    except PathValidationError as e:
+        return f"Security Error: {e}"
     except Exception as e:
         return f"Error: {e}"
 
@@ -143,9 +148,14 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
 )
 def write_file(path: str, content: str) -> str:
     try:
+        # Validate path for sandboxing
+        validate_path(path)
+
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
         return f"Successfully wrote to {path}"
+    except PathValidationError as e:
+        return f"Security Error: {e}"
     except Exception as e:
         return f"Error: {e}"

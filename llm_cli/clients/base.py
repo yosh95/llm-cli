@@ -591,8 +591,28 @@ class BaseLlmClient(ABC):
 
         console.print(f"[bold red]{provider_name} Error: {error_msg}[/bold red]")
 
+    def get_model_icon(self) -> str:
+        """Get an appropriate icon for the current model provider."""
+        provider = self.config_section.lower()
+        if "google" in provider or "gemini" in provider:
+            return "✨"
+        if "openai" in provider:
+            return "🤖"
+        if "anthropic" in provider or "claude" in provider:
+            return "🌿"
+        if "xai" in provider or "grok" in provider:
+            return "🌌"
+        if "ollama" in provider:
+            return "🦙"
+        return "💡"
+
+    def get_display_name(self) -> str:
+        """Get the formatted display name including icon and model path."""
+        icon = self.get_model_icon()
+        return f"{icon} ({self.config_section}/{self.current_alias}/{self.model})"
+
     def _format_response_text(self, text: Optional[str]) -> Optional[str]:
         if text is None:
             return None
-        prefix = f"({self.config_section}/{self.current_alias}/{self.model})"
-        return f"**{prefix}:**  \n{text.strip()}"
+        display_name = self.get_display_name()
+        return f"**{display_name}:**  \n{text.strip()}"

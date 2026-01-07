@@ -118,11 +118,8 @@ class ChatSession:
 
         while True:
             # Prefix for the model response
-            prefix = (
-                f"({self.client.config_section}/"
-                f"{self.client.current_alias}/{self.client.model})"
-            )
-            display_prefix = f"**{prefix}:**  \n"
+            display_name = self.client.get_display_name()
+            display_prefix = f"**{display_name}:**  \n"
 
             # Show thinking animation with full model name instead of alias
             with console.status(
@@ -290,21 +287,6 @@ class ChatSession:
     def _confirm(self, message: str) -> bool:
         return self._get_input(message, exit_on_escape=True).lower() == "y"
 
-    def _get_model_icon(self) -> str:
-        """Get an appropriate icon for the current model provider."""
-        provider = self.client.config_section.lower()
-        if "google" in provider or "gemini" in provider:
-            return "✨"
-        if "openai" in provider:
-            return "🤖"
-        if "anthropic" in provider or "claude" in provider:
-            return "🌿"
-        if "xai" in provider or "grok" in provider:
-            return "🌌"
-        if "ollama" in provider:
-            return "🦙"
-        return "💡"
-
     def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
         tool_id, name, args = (
             call.get("id", "unknown"),
@@ -321,7 +303,7 @@ class ChatSession:
             args.get("explanation") or args.get("thought") or args.get("reasoning")
         )
         if explanation:
-            icon = self._get_model_icon()
+            icon = self.client.get_model_icon()
             title = f"[bold cyan]{icon} {self.client.model}[/bold cyan]"
             console.print(
                 Panel(

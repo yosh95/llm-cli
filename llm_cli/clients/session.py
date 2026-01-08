@@ -81,6 +81,7 @@ class ChatSession:
                     key_bindings=combined_kb,
                     enable_system_prompt=True,
                     enable_open_in_editor=True,
+                    enable_suspend=True,
                 ).strip()
             except (KeyboardInterrupt, EOFError):
                 break
@@ -264,6 +265,7 @@ class ChatSession:
             kwargs.setdefault("key_bindings", current_kb)
             kwargs.setdefault("enable_open_in_editor", True)
             kwargs.setdefault("enable_system_prompt", True)
+            kwargs.setdefault("enable_suspend", True)
             return prompt(message, **kwargs).strip()
 
         try:

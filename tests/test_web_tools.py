@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from llm_cli.modules.tools.web import fetch_url, fetch_web_text
+from llm_cli.modules.tools.web import fetch_url, fetch_web_text, google_search
 
 
 def test_fetch_url_html(mock_cloudscraper):
@@ -83,3 +83,57 @@ def test_fetch_web_text_error(mock_cloudscraper):
     result = fetch_web_text("https://example.com")
     assert "Error fetching or parsing" in result
     assert "Connection error" in result
+
+
+def test_google_search_success(mock_config):
+    """Test google_search success scenario."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "items": [
+            {"title": "Result 1", "link": "https://r1.com", "snippet": "Snippet 1"},
+            {"title": "Result 2", "link": "https://r2.com", "snippet": "Snippet 2"},
+        ]
+    }
+
+    with patch("requests.get", return_value=mock_response) as mock_get:
+        result = google_search(queries=["test query"], num=2)
+
+        # Check API call
+        args, kwargs = mock_get.call_args
+        assert kwargs["params"]["q"] == "test query"
+        assert kwargs["params"]["num"] == 2
+
+        # Check result formatting
+        assert "### Results for: test query" in result
+        assert "Title: Result 1" in result
+        assert "URL: https://r2.com" in result
+
+
+def test_google_search_multiple_queries(mock_config):
+    """Test google_search with multiple queries."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"items": [{"title": "Hit"}]}
+
+    with patch("requests.get", return_value=mock_response):
+        result = google_search(queries=["q1", "q2"])
+        assert "Results for: q1" in result
+        assert "Results for: q2" in result
+
+
+def test_google_search_no_results(mock_config):
+    """Test google_search when no items are returned."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = {}  # No "items"
+
+    with patch("requests.get", return_value=mock_response):
+        result = google_search(queries=["empty"])
+        assert "No results." in result
+
+
+def test_google_search_auth_error(monkeypatch):
+    """Test google_search when credentials are missing."""
+    # Force get_setting to return None for google
+    monkeypatch.setattr("llm_cli.modules.tools.web.get_setting", lambda k, s: None)
+
+    result = google_search(queries=["test"])
+    assert "Error: Google API credentials not configured." in result

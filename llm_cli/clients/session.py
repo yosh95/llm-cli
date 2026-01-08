@@ -191,10 +191,10 @@ class ChatSession:
         self.client.conversation = temp_conversation
 
         try:
-            with console.status(
-                f"[bold cyan]🤔 Generating summary ({self.client.model})...[/bold cyan]", 
-                spinner="dots"
-            ):
+            status_msg = (
+                f"[bold cyan]🤔 Summarizing ({self.client.model})...[/bold cyan]"
+            )
+            with console.status(status_msg, spinner="dots"):
                 res = self.client._send([])
 
             summary, _ = res if res else (None, None)

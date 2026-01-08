@@ -3,8 +3,11 @@
 import copy
 import datetime
 import difflib
+import os
+import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -38,6 +41,46 @@ def _(event):
 @kb_exit.add("escape")
 def _(event):
     event.app.exit(exception=KeyboardInterrupt)
+
+
+@kb.add("c-x", "c-e")
+def _(event):
+    """
+    Open the current buffer in an external editor safely.
+    Uses shlex to prevent command injection from EDITOR environment variable.
+    """
+    buffer = event.current_buffer
+    original_text = buffer.text
+    editor_raw = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vim"
+
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tf:
+        tf.write(original_text.encode("utf-8"))
+        tf_path = tf.name
+
+    try:
+        # Use shlex.split to safely parse the editor command and arguments.
+        # This prevents command injection like EDITOR="vim; rm -rf /"
+        cmd_args = shlex.split(editor_raw) + [tf_path]
+
+        # Execute without shell=True for security.
+        return_code = subprocess.call(cmd_args)
+
+        if return_code == 0:
+            with open(tf_path, "r", encoding="utf-8") as f:
+                new_text = f.read()
+                buffer.text = new_text
+        else:
+            # Editor exited with error/abort status (e.g. :cq in vim)
+            console.print(
+                "\n[yellow]Editor aborted. Restoring previous text...[/yellow]"
+            )
+            buffer.text = original_text
+    except Exception as e:
+        console.print(f"\n[red]Failed to open editor: {e}[/red]")
+        buffer.text = original_text
+    finally:
+        if os.path.exists(tf_path):
+            os.unlink(tf_path)
 
 
 class ChatSession:
@@ -91,7 +134,8 @@ class ChatSession:
             try:
                 console.print(md_separator)
                 # Note: Direct shell execution via '!' has been removed.
-                # Use Ctrl+Z to background the process or Ctrl+X,Ctrl+E to use an external editor.
+                # Use Ctrl+Z to background the process or Ctrl+X,Ctrl+E
+                # to use an external editor.
 
                 try:
                     if self.client._handle_command(user_input, sources, data):

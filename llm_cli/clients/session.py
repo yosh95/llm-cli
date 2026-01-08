@@ -25,7 +25,6 @@ from llm_cli.modules.tool_registry import registry
 
 kb = KeyBindings()
 kb_exit = KeyBindings()
-md_separator = Rule()
 
 
 @kb.add("c-delete")
@@ -114,7 +113,6 @@ class ChatSession:
                     )
                     self._checkpoint_hint_shown = True
 
-                console.print(md_separator)
                 # Apply both standard key bindings and exit-on-escape bindings
                 combined_kb = merge_key_bindings([kb, kb_exit])
                 user_input = prompt(
@@ -132,11 +130,6 @@ class ChatSession:
                 continue
 
             try:
-                console.print(md_separator)
-                # Note: Direct shell execution via '!' has been removed.
-                # Use Ctrl+Z to background the process or Ctrl+X,Ctrl+E
-                # to use an external editor.
-
                 try:
                     if self.client._handle_command(user_input, sources, data):
                         continue
@@ -162,7 +155,6 @@ class ChatSession:
         while True:
             # Prefix for the model response
             display_name = self.client.get_display_name()
-            display_prefix = f"**{display_name}:**  \n"
 
             # Show thinking animation with full model name instead of alias
             with console.status(
@@ -180,7 +172,14 @@ class ChatSession:
                 if self.client.stdout:
                     print(response_text)
                 else:
-                    console.print(CustomMarkdown(display_prefix + response_text))
+                    # Wrap the textual response in a Panel for clarity
+                    console.print(
+                        Panel(
+                            CustomMarkdown(response_text),
+                            title=f"[bold cyan]{display_name}[/bold cyan]",
+                            border_style="cyan",
+                        )
+                    )
 
             if response_text is None and not self.client._has_pending_tool_calls():
                 return
@@ -347,20 +346,20 @@ class ChatSession:
             args.get("explanation") or args.get("thought") or args.get("reasoning")
         )
         if explanation:
-            icon = self.client.get_model_icon()
-            title = f"[bold cyan]{icon} {self.client.model}[/bold cyan]"
+            # Use consistent display name for thoughts
+            display_name = self.client.get_display_name()
             console.print(
                 Panel(
                     explanation,
-                    title=title,
+                    title=f"[bold cyan]{display_name} (Thought)[/bold cyan]",
                     border_style="cyan",
                 )
             )
 
-        title_prefix = "[bold yellow]🤖 Agent Request:[/bold yellow]"
+        # Display Agent Request in a Panel
         if name in ("write_file", "execute_command", "generate_image"):
             # Detailed preview panel will be shown, so skip inline args
-            console.print(f"{title_prefix} [cyan]{escape(name)}[/cyan]")
+            request_content = f"[cyan]{escape(name)}[/cyan]"
         else:
             # Exclude explanation/thought from display args for cleaner output
             display_args = {
@@ -368,10 +367,18 @@ class ChatSession:
                 for k, v in args.items()
                 if k not in ("explanation", "thought", "reasoning")
             }
-            console.print(
-                f"{title_prefix} [cyan]{escape(name)}[/cyan]"
-                f"({escape(str(display_args))})"
+            request_content = (
+                f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
             )
+
+        console.print(
+            Panel(
+                request_content,
+                title="[bold yellow]🤖 Agent Request[/bold yellow]",
+                border_style="yellow",
+                expand=False,
+            )
+        )
 
         if name == "write_file":
             self._preview_diff(args)
@@ -424,11 +431,26 @@ class ChatSession:
             )
 
             p_str = str(result_data)
+            # Display Result in a Panel
             if "execute_command" in name:
-                console.print(f"[dim]Result:[/dim]\n{escape(p_str)}")
+                console.print(
+                    Panel(
+                        escape(p_str),
+                        title="[bold green]✅ Output[/bold green]",
+                        border_style="green",
+                        expand=False,
+                    )
+                )
             else:
                 preview = p_str[:300] + ("..." if len(p_str) > 300 else "")
-                console.print(f"[dim]Result: {escape(preview)}[/dim]")
+                console.print(
+                    Panel(
+                        escape(preview),
+                        title="[bold green]✅ Result[/bold green]",
+                        border_style="green",
+                        expand=False,
+                    )
+                )
 
             response = {
                 "functionResponse": {

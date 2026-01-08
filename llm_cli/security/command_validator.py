@@ -145,9 +145,14 @@ class CommandValidator:
         if not command or not command.strip():
             raise CommandValidationError("Empty command not allowed")
 
+        # 1. Pre-parsing checks for Python one-liners to provide better feedback
+        self._check_python_oneliner_pre_parse(command)
+
+        # 2. Dangerous pattern check
         if not self.allow_dangerous_patterns:
             self._check_dangerous_patterns(command)
 
+        # 3. Parsing
         try:
             tokens = shlex.split(command)
         except ValueError as e:
@@ -167,6 +172,18 @@ class CommandValidator:
 
         if current_segment:
             self._validate_parts(current_segment)
+
+    def _check_python_oneliner_pre_parse(self, command: str) -> None:
+        """Specifically check for python -c one-liners before other pattern checks."""
+        # This regex looks for 'python' or 'python3' followed by one-liner flags
+        # even if they are followed by other characters or semicolon.
+        pattern = r"\bpython3?\b.*?\s(-c|-m|--code|--module)\b"
+        if re.search(pattern, command):
+            raise CommandValidationError(
+                "Python one-liners (using -c or -m) are prohibited for security. "
+                "Please write the code to a temporary file using 'write_file' "
+                "and then execute it (e.g., 'python3 your_file.py')."
+            )
 
     def _validate_parts(self, parts: List[str]) -> None:
         if not parts:
@@ -255,7 +272,10 @@ class CommandValidator:
                 forbidden_python_flags = {"-c", "-m", "--code", "--module"}
                 for p in parts[1:]:
                     if p in forbidden_python_flags:
-                        raise CommandValidationError(f"Python flag '{p}' is forbidden.")
+                        raise CommandValidationError(
+                            f"Python flag '{p}' is prohibited. "
+                            "Please write the code to a file first and then execute it."
+                        )
 
         if base_command == "tar":
             for arg in parts[1:]:

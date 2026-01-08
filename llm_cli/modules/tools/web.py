@@ -16,22 +16,34 @@ from llm_cli.modules.tool_registry import tool
     description="Perform a Google Search.",
     parameters={
         "type": "object",
-        "properties": {"queries": {"type": "array", "items": {"type": "string"}}},
+        "properties": {
+            "queries": {"type": "array", "items": {"type": "string"}},
+            "num": {
+                "type": "integer",
+                "description": (
+                    "Number of results to return per query (1-10). Default is 10."
+                ),
+                "default": 10,
+            },
+        },
         "required": ["queries"],
     },
 )
-def google_search(queries: list[str]) -> str:
+def google_search(queries: list[str], num: int = 10) -> str:
     api_key = get_setting("api_key", "google")
     cse_id = get_setting("cse_id", "google")
     if not api_key or not cse_id:
         return "Error: Google API credentials not configured."
+
+    # Clamp num to the valid range for Google Custom Search API (1-10)
+    num = max(1, min(10, num))
 
     all_results = []
     for q in queries:
         try:
             resp = requests.get(
                 "https://www.googleapis.com/customsearch/v1",
-                params={"key": api_key, "cx": cse_id, "q": q},
+                params={"key": api_key, "cx": cse_id, "q": q, "num": num},
                 timeout=15,
             )
             items = resp.json().get("items", [])

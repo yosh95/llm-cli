@@ -19,7 +19,6 @@ from rich.syntax import Syntax
 from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, DataSource, console
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.tool_registry import registry
-from llm_cli.security import CommandValidationError, validate_command
 
 kb = KeyBindings()
 kb_exit = KeyBindings()
@@ -91,9 +90,8 @@ class ChatSession:
 
             try:
                 console.print(md_separator)
-                if user_input.startswith("!"):
-                    if self._handle_shell_command(user_input, data):
-                        continue
+                # Note: Direct shell execution via '!' has been removed.
+                # Use Ctrl+Z to background the process or Ctrl+X,Ctrl+E to use an external editor.
 
                 try:
                     if self.client._handle_command(user_input, sources, data):
@@ -494,42 +492,3 @@ class ChatSession:
             )
         except Exception:
             pass
-
-    def _handle_shell_command(self, user_input: str, data: List[DataSource]) -> bool:
-        cmd = user_input[1:].strip()
-
-        # Validate command against security whitelist
-        try:
-            validate_command(cmd)
-        except CommandValidationError as e:
-            console.print(f"[bold red]Security Error:[/bold red] {e}")
-            console.print(
-                "[yellow]For security reasons, only whitelisted commands "
-                "are allowed.[/yellow]\n"
-                "[dim]Check the allowed commands list in your config file "
-                "(~/.config/llm_cli/config.toml) or see the default "
-                "whitelist in llm_cli/security/command_validator.py[/dim]"
-            )
-            return True
-
-        console.print(f"[dim]Executing: {cmd}[/dim]")
-        try:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            output = result.stdout + (
-                f"\nSTDERR:\n{result.stderr}" if result.stderr else ""
-            )
-            print(output)
-            if self._confirm("Add to context? (y/N): "):
-                data.append(
-                    {
-                        "content": f"Command: `{cmd}`\nOutput:\n```\n{output}\n```",
-                        "content_type": "text/plain",
-                    }
-                )
-                console.print("[green]Output added to context.[/green]")
-            else:
-                console.print("[yellow]Canceled.[/yellow]")
-            return True
-        except Exception as e:
-            console.print(f"[bold red]Execution Error: {e}[/bold red]")
-            return True

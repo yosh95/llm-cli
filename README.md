@@ -37,7 +37,7 @@ The AI can use tools like `google_search` to find the latest information. In thi
     -   **OpenAI / Claude / Grok**: Text and local images (PDFs are processed as text/Base64).
 -   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
 -   **Safe Execution**: Includes a **Diff Preview** for file changes and asks for user confirmation before executing any tool (Human-in-the-Loop).
--   **Security Guardrails**: Whitelist-based command validation protects against command injection and dangerous operations.
+-   **Security Guardrails**: Whitelist-based command validation protects against command injection and dangerous operations performed by the AI.
 -   **One-Shot Execution**: Pipe input from other commands or pass prompts as arguments.
 -   **Smart Log Management**: Automatically rotates and trims chat logs.
 -   **Simple Configuration**: Interactive setup via `llm-cli-config`.
@@ -60,13 +60,20 @@ The AI agent comes equipped with the following tools:
 
 > **Note**: To use `google_search`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
 
+## Power User Tips
+
+For power users who need full control over their environment:
+
+-   **Backgrounding (`Ctrl+Z`)**: You can suspend `llm-cli` at any time using `Ctrl+Z` to return to your shell. Use `fg` to resume the session. This is the recommended way to perform complex shell operations that are restricted by the AI's guardrails.
+-   **External Editor (`Ctrl+X, Ctrl+E`)**: Press `Ctrl+X` followed by `Ctrl+E` at the prompt to open your current input in your default text editor (e.g., `vim`, `nano`). You can use your editor's power (like reading shell command outputs directly into the buffer) to prepare complex prompts or filter data before sending it to the LLM.
+
 ## Security
 
-`llm-cli` implements strict security guardrails to protect against command injection and dangerous operations:
+`llm-cli` implements strict security guardrails to protect against command injection and dangerous operations initiated by the AI agent:
 
 ### Command Execution Guardrails
 
-All shell commands executed through the AI agent (`execute_command` tool) and user-initiated commands (`!command`) are validated against a **whitelist** of safe commands before execution.
+All shell commands executed through the AI agent (`execute_command` tool) are validated against a **whitelist** of safe commands before execution.
 
 **Default Allowed Commands**: `ls`, `cat`, `grep`, `find` and many other read-only or low-risk commands. See `llm_cli/security/command_validator.py` for the complete list.
 
@@ -189,7 +196,6 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 -   `/raw`: Show the raw conversation text.
 -   `/clear` (or `/c`): Clear conversation history.
 -   `/debug` (or `/d`): Toggle live debug mode.
--   `!command`: Execute a local shell command.
 -   `/help` (or `/h`): Show full command list.
 -   `/quit` (or `/q`): Exit.
 
@@ -303,7 +309,7 @@ AIは `google_search` などのツールを活用して最新情報を取得で�
     -   **OpenAI / Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。
 -   **安全な実行**: ファイル変更時の **Diffプレビュー** 表示と、ツール実行前のユーザー確認（Human-in-the-Loop）。
--   **セキュリティガードレール**: ホワイトリストベースのコマンド検証により、コマンドインジェクションや危険な操作を防止。
+-   **セキュリティガードレール**: ホワイトリストベースのコマンド検証により、AIによるコマンドインジェクションや危険な操作を防止。
 -   **ワンショット実行**: 他のコマンドからのパイプ入力や、引数としてのプロンプト実行に対応。
 -   **ログ管理**: チャットログの自動ローテーションとトリミング機能を搭載。
 -   **簡単設定**: `llm-cli-config` による対話形式のセットアップ。
@@ -326,13 +332,20 @@ AIエージェントは以下のツールを標準で備えています：
 
 > **注**: `google_search` を利用するには、**Google Cloud Platform の API キー**と**カスタム検索エンジン ID (CX)** の取得が必要です。これらは `llm-cli-config` で設定できます。
 
+## パワーユーザー向けのTips
+
+環境を完全にコントロールしたいパワーユーザー向け：
+
+-   **バックグラウンド実行 (`Ctrl+Z`)**: プロンプトで `Ctrl+Z` を押すことで、いつでも `llm-cli` をサスペンドしてシェルに戻ることができます。`fg` コマンドでセッションに復帰可能です。AIのガードレールに制限されない複雑なシェル操作を行いたい場合に推奨される方法です。
+-   **外部エディタ連携 (`Ctrl+X, Ctrl+E`)**: プロンプトで `Ctrl+X` に続いて `Ctrl+E` を押すと、現在の入力内容をデフォルトのテキストエディタ（`vim`, `nano` 等）で開くことができます。エディタの機能（シェルコマンドの実行結果をバッファに読み込むなど）を使い、複雑なプロンプトの作成やデータのフィルタリングを行ってからLLMに送信できます。
+
 ## セキュリティ
 
-`llm-cli` はコマンドインジェクションや危険な操作を防止するため、厳格なセキュリティガードレールを実装しています：
+`llm-cli` は、AIエージェントによるコマンドインジェクションや危険な操作を防止するため、厳格なセキュリティガードレールを実装しています：
 
 ### コマンド実行ガードレール
 
-AIエージェント (`execute_command` ツール) およびユーザーが直接実行するコマンド (`!command`) は、実行前に安全なコマンドの**ホワイトリスト**に対して検証されます。
+AIエージェント (`execute_command` ツール) が実行するシェルコマンドは、実行前に安全なコマンドの**ホワイトリスト**に対して検証されます。
 
 **デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find` など、読み取り専用または低リスクのコマンド。完全なリストは `llm_cli/security/command_validator.py` を参照してください。
 
@@ -400,7 +413,7 @@ pip install ".[mcp]"
 llm-cli-config
 ```
 
-> **注**: Google, OpenAI, Anthropic, xAI の LLM を利用するには、各プロバイダの API キーが必要です。これらのキーは `llm-cli-config` で設定できます。
+> **注**: Google, OpenAI, Anthropic, xAI の LLM を利用するには、各プロバイダの API キーが必要です。これらは `llm-cli-config` で設定できます。
 
 ## 使い方
 
@@ -455,7 +468,6 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/raw`: 生の会話テキストを表示。
 -   `/clear` (または `/c`): 会話履歴をクリア。
 -   `/debug` (または `/d`): ライブデバッグモードのON/OFF切り替え。
--   `!command`: ローカルのシェルコマンドを実行。
 -   `/help` (または `/h`): 全コマンドリストを表示。
 -   `/quit` (または `/q`): 終了。
 

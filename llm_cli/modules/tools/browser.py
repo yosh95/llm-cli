@@ -33,27 +33,27 @@ _state: Dict[str, Any] = {
 }
 
 
-def _get_page() -> Page:
-    """
-    Initializes or returns the existing browser instance in 'headed' mode.
-    (headless=False)
-    This ensures the user can visually monitor the agent's actions.
-    """
-    if _state["page"] is None:
-        if _state["playwright"] is None:
-            _state["playwright"] = sync_playwright().start()
-        if _state["browser"] is None:
-            # We use headless=False to comply with the security policy of visibility.
-            _state["browser"] = _state["playwright"].chromium.launch(headless=False)
-        if _state["context"] is None:
-            _state["context"] = _state["browser"].new_context(
-                viewport={"width": 1280, "height": 720}
-            )
-        _state["page"] = _state["context"].new_page()
-    return _state["page"]
-
-
 if HAS_PLAYWRIGHT:
+
+    def _get_page() -> Page:
+        """
+        Initializes or returns the existing browser instance in 'headed' mode.
+        (headless=False)
+        This ensures the user can visually monitor the agent's actions.
+        """
+        if _state["page"] is None:
+            if _state["playwright"] is None:
+                _state["playwright"] = sync_playwright().start()
+            if _state["browser"] is None:
+                # We use headless=False to comply with the security policy of visibility.
+                _state["browser"] = _state["playwright"].chromium.launch(headless=False)
+            if _state["context"] is None:
+                _state["context"] = _state["browser"].new_context(
+                    viewport={"width": 1280, "height": 720}
+                )
+            _state["page"] = _state["context"].new_page()
+        return _state["page"]
+
 
     @tool(
         name="browser_navigate",

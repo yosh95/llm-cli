@@ -16,7 +16,6 @@ from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from rich.markup import escape
 from rich.panel import Panel
-from rich.rule import Rule
 from rich.syntax import Syntax
 
 from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, DataSource, console

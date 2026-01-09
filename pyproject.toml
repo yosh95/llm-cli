@@ -23,6 +23,10 @@ dependencies = [
 mcp = [
     "mcp>=1.0.0"
 ]
+browser = [
+    "playwright",
+    "nest_asyncio"
+]
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",

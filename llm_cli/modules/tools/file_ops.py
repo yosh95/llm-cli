@@ -45,16 +45,6 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
         if not base_path.exists():
             return f"Error: Directory '{directory}' does not exist."
 
-        exclude = {
-            ".git",
-            "__pycache__",
-            "node_modules",
-            ".venv",
-            ".pytest_cache",
-            ".vscode",
-            ".idea",
-            ".mypy_cache",
-        }
         results, file_count = [], 0
 
         def walk(current_path, current_depth):
@@ -73,8 +63,6 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
                 return
 
             for entry in entries:
-                if entry.name in exclude:
-                    continue
                 if file_count >= max_files:
                     if file_count == max_files:
                         results.append("... (Too many files, listing truncated)")

@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from rich.console import Console
 
-from llm_cli.modules.tool_registry import tool
+from llm_cli.modules.tool_registry import registry, tool
 
 # Conditional import to prevent errors on environments
 # like Termux where playwright is not installed.
@@ -225,3 +225,6 @@ if HAS_PLAYWRIGHT:
             return "Browser session closed successfully."
         except Exception as e:
             return f"Error while closing the browser: {e}"
+
+    # Register the browser_close function as a global shutdown hook
+    registry.register_shutdown_hook(browser_close)

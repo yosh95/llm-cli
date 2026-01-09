@@ -12,6 +12,20 @@ from llm_cli.security.audit import log_audit
 class ToolRegistry:
     def __init__(self):
         self.tools: Dict[str, Dict[str, Any]] = {}
+        self.shutdown_hooks: List[Callable] = []
+
+    def register_shutdown_hook(self, func: Callable):
+        """Register a function to be called when the application exits."""
+        if func not in self.shutdown_hooks:
+            self.shutdown_hooks.append(func)
+
+    def shutdown(self):
+        """Execute all registered shutdown hooks."""
+        for hook in self.shutdown_hooks:
+            try:
+                hook()
+            except Exception:
+                pass
 
     def register(
         self,
@@ -29,8 +43,6 @@ class ToolRegistry:
             parameters["properties"] = {}
 
         # 2. Force inject 'explanation' parameter
-        # This replaces the old 'thought' parameter to avoid confusion with
-        # LLM's internal reasoning (which often comes in a separate 'thought' field).
         parameters["properties"]["explanation"] = {
             "type": "string",
             "description": (
@@ -63,11 +75,7 @@ class ToolRegistry:
             try:
                 result = func(**filtered_kwargs)
 
-                # Automatically log ALL tool calls for auditing
-                # Special handling for tools that return more detailed status
                 exit_code = None
-                error_str = None
-
                 if isinstance(result, str) and "Exit Code:" in result:
                     try:
                         exit_code = int(result.split("Exit Code:")[-1].strip())
@@ -76,10 +84,10 @@ class ToolRegistry:
 
                 log_audit(
                     tool_name=name,
-                    args=kwargs,  # Log original args including explanation
+                    args=kwargs,
                     output=result,
                     exit_code=exit_code,
-                    error=error_str,
+                    error=None,
                 )
                 return result
             except Exception as e:
@@ -135,10 +143,6 @@ class ToolRegistry:
     def get_active_names(
         self, names: List[str], provider: Optional[str] = None
     ) -> List[str]:
-        """
-        Returns a list of tool names that are both in the 'names' list
-        and supported by the given provider.
-        """
         return [t["name"] for t in self._get_active(names, provider=provider)]
 
     def _get_active(
@@ -206,10 +210,6 @@ def tool(
     desc: Optional[str] = None,
     params: Optional[Dict] = None,
 ):
-    """
-    Decorator to register a function as a tool.
-    Supports both old (description, parameters) and new (desc, params) names.
-    """
     final_desc = description or desc
     final_params = parameters or params
 
@@ -223,5 +223,4 @@ def tool(
     return decorator
 
 
-# Automatically discover and register local tools when module is imported
 registry.discover_local_tools()

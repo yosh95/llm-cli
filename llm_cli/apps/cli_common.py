@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Tuple, Type
 from rich.markup import escape
 
 from llm_cli.clients.base import BaseLlmClient, ProviderSwitchRequest, console
+from llm_cli.modules.tool_registry import registry
 
 
 @dataclass
@@ -122,3 +123,6 @@ def run_client_cli(config: ClientConfig) -> None:
         )
         console.print("Use [bold cyan]llm-unified[/bold cyan] for switching.")
         sys.exit(0)
+    finally:
+        # Ensure all resources (like browser sessions) are cleaned up on exit.
+        registry.shutdown()

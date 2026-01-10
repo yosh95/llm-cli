@@ -1,3 +1,4 @@
+--- README.md (Lines 1 to 571) ---
 # llm-cli: A Unified Command-Line Interface for Multiple LLMs
 
 [English] | [日本語](#japanese-description)
@@ -58,7 +59,8 @@ The AI agent comes equipped with the following tools:
 | `execute_command` | Execute shell commands (validated against a security whitelist). |
 | `list_files` | List files in a directory to explore the project structure. |
 | `read_file` | Read content from a text file (with optional line range). |
-| `write_file` | Create or update a file. |
+| `write_file` | Create or update a file (full overwrite). |
+| `edit_file` | Precise search-and-replace to modify specific code blocks. |
 | `google_search` | Search the web for real-time information. |
 | `fetch_url` | Fetch raw HTML or media files (images/PDFs) from a URL. |
 | `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
@@ -341,7 +343,8 @@ AIエージェントは以下のツールを標準で備えています：
 | `execute_command` | シェルコマンドを実行（ホワイトリストによる安全検証付き）。 |
 | `list_files` | ディレクトリ内のファイル一覧を表示し、プロジェクト構造を把握。 |
 | `read_file` | テキストファイルの内容を読み取り（行指定可能）。 |
-| `write_file` | ファイルを新規作成または更新。 |
+| `write_file` | ファイルを新規作成または更新（全体書き換え）。 |
+| `edit_file` | 精密な検索と置換により、特定のコードブロックを修正。 |
 | `google_search` | Google検索を使用してリアルタイムの情報を取得. |
 | `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |

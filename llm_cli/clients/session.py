@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from prompt_toolkit import prompt
+from prompt_toolkit.completion import Completer, PathCompleter
+from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from rich.markup import escape
@@ -24,6 +26,24 @@ from llm_cli.modules.tool_registry import registry
 
 kb = KeyBindings()
 kb_exit = KeyBindings()
+
+
+class LlmCliPathCompleter(Completer):
+    """Provides path completion only after specific slash commands."""
+
+    def __init__(self):
+        self.path_completer = PathCompleter(expanduser=True)
+        self.trigger_commands = ("/attach ", "/save ", "/load ")
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+        for cmd in self.trigger_commands:
+            if text.startswith(cmd):
+                # Slicing the document to only show the path part to PathCompleter
+                sub_text = text[len(cmd) :]
+                new_doc = Document(sub_text, cursor_position=len(sub_text))
+                yield from self.path_completer.get_completions(new_doc, complete_event)
+                break
 
 
 @kb.add("c-delete")
@@ -117,6 +137,7 @@ class ChatSession:
                 user_input = prompt(
                     "> ",
                     history=self.prompt_history,
+                    completer=LlmCliPathCompleter(),
                     key_bindings=combined_kb,
                     enable_system_prompt=True,
                     enable_open_in_editor=True,
@@ -356,7 +377,7 @@ class ChatSession:
             )
 
         # Display Agent Request in a Panel
-        if name in ("write_file", "execute_command", "generate_image"):
+        if name in ("write_file", "edit_file", "execute_command", "generate_image"):
             # Detailed preview panel will be shown, so skip inline args
             request_content = f"[cyan]{escape(name)}[/cyan]"
         else:
@@ -381,6 +402,8 @@ class ChatSession:
 
         if name == "write_file":
             self._preview_diff(args)
+        elif name == "edit_file":
+            self._preview_edit_diff(args)
         elif name == "execute_command":
             self._preview_command(args)
         elif name == "generate_image":
@@ -517,6 +540,48 @@ class ChatSession:
                         title=f"[bold green]New File: {path}[/bold green]",
                         border_style="green",
                         expand=False,
+                    )
+                )
+        except Exception:
+            pass
+
+    def _preview_edit_diff(self, args: Dict[str, Any]):
+        """Generate a unified diff preview for edit_file (search/replace)."""
+        try:
+            path_str = args.get("path", "")
+            search = args.get("search", "")
+            replace = args.get("replace", "")
+            if not path_str or not search:
+                return
+
+            path = Path(path_str)
+            title = f"[bold]Edit Diff: {path}[/bold]"
+
+            diff = list(
+                difflib.unified_diff(
+                    search.splitlines(keepends=True),
+                    replace.splitlines(keepends=True),
+                    fromfile="before (fragment)",
+                    tofile="after (fragment)",
+                )
+            )
+
+            if diff:
+                syn = Syntax("".join(diff), "diff", theme="monokai", word_wrap=True)
+                console.print(
+                    Panel(
+                        syn,
+                        title=title,
+                        border_style="yellow",
+                        expand=False,
+                    )
+                )
+            else:
+                console.print(
+                    Panel(
+                        "[yellow]No changes detected in search/replace block.[/yellow]",
+                        title=title,
+                        border_style="yellow",
                     )
                 )
         except Exception:

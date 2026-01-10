@@ -29,7 +29,7 @@ def set_resource_limits():
         # Limit address space (Memory)
         # Android/Termux linker allocates large virtual address spaces, which causes
         # SIGABRT (Exit Code -6) when RLIMIT_AS is set.
-        is_termux = "TERMUX_VERSION" in os.environ
+        is_termux = any(k.startswith("TERMUX_") for k in os.environ)
         is_android = "ANDROID_ROOT" in os.environ
 
         if not (is_termux or is_android):
@@ -71,8 +71,45 @@ def execute_command(command: str) -> str:
     # Use a default timeout of 60 seconds.
     timeout = int(os.environ.get("LLM_CLI_COMMAND_TIMEOUT", 60))
 
-    # Clean environment: only pass safe variables
-    safe_env_keys = {"PATH", "LANG", "LC_ALL", "TERM", "HOME", "USER", "PWD"}
+    # 1. Define base safe environment variables
+    safe_env_keys = {
+        "PATH",
+        "LANG",
+        "LC_ALL",
+        "TERM",
+        "HOME",
+        "USER",
+        "PWD",
+        "TMPDIR",
+        "TEMP",
+        "TMP",
+    }
+
+    # 2. Handle Termux/Android specifically
+    # On these platforms, many system variables (including LD_PRELOAD for termux-exec)
+    # are required for basic functionality like shebang resolution.
+    is_termux = any(k.startswith("TERMUX_") for k in os.environ)
+    is_android = "ANDROID_ROOT" in os.environ
+
+    if is_termux or is_android:
+        # We allow system-provided variables but exclude anything sensitive.
+        # Note: CommandValidator already prevents the LLM from injecting NEW
+        # environment variables via the command string (e.g., "LD_PRELOAD=... ls").
+        # These values are inherited from the user's current shell session.
+        sensitive_patterns = [
+            "API_KEY",
+            "SECRET",
+            "PASSWORD",
+            "TOKEN",
+            "AUTH",
+            "CREDENTIAL",
+        ]
+        for k in os.environ:
+            k_upper = k.upper()
+            if not any(pattern in k_upper for pattern in sensitive_patterns):
+                safe_env_keys.add(k)
+
+    # 3. Construct the environment for the subprocess
     env = {k: v for k, v in os.environ.items() if k in safe_env_keys}
 
     kwargs = {

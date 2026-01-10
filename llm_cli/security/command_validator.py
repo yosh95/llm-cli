@@ -146,7 +146,8 @@ class CommandValidator:
             raise CommandValidationError("Empty command not allowed")
 
         # 1. Pre-parsing checks for Python one-liners to provide better feedback
-        self._check_python_oneliner_pre_parse(command)
+        if not self.mcp_mode:
+            self._check_python_oneliner_pre_parse(command)
 
         # 2. Dangerous pattern check
         if not self.allow_dangerous_patterns:

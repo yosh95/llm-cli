@@ -45,7 +45,8 @@ if HAS_PLAYWRIGHT:
             if _state["playwright"] is None:
                 _state["playwright"] = sync_playwright().start()
             if _state["browser"] is None:
-                # We use headless=False to comply with the security policy of visibility.
+                # We use headless=False to comply with the security policy of
+                # visibility.
                 _state["browser"] = _state["playwright"].chromium.launch(headless=False)
             if _state["context"] is None:
                 _state["context"] = _state["browser"].new_context(

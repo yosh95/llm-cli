@@ -458,7 +458,7 @@ class ChatSession:
                 console.print(
                     Panel(
                         escape(p_str),
-                        title="[bold green]✅ Output[/bold green]",
+                        title="[bold green]✅ Tool Output[/bold green]",
                         border_style="green",
                         expand=False,
                     )
@@ -468,7 +468,7 @@ class ChatSession:
                 console.print(
                     Panel(
                         escape(preview),
-                        title="[bold green]✅ Result[/bold green]",
+                        title="[bold green]✅ Tool Result[/bold green]",
                         border_style="green",
                         expand=False,
                     )

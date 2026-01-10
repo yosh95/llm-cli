@@ -3,7 +3,7 @@
 import sys
 from typing import List, Optional
 
-from prompt_toolkit import prompt
+from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.output import create_output
 from rich.console import Console
@@ -20,7 +20,8 @@ def _get_input(message: str, completer=None, multiline=False) -> str:
     """Helper to get input using stderr for output."""
     # Create an output object that writes to stderr
     out = create_output(stdout=sys.stderr)
-    return prompt(message, completer=completer, multiline=multiline, output=out)
+    session = PromptSession(output=out)
+    return session.prompt(message, completer=completer, multiline=multiline)
 
 
 @tool(

@@ -1,16 +1,26 @@
 # llm_cli/modules/tools/study.py
 
+import sys
 from typing import List, Optional
 
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.output import create_output
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
 from llm_cli.modules.tool_registry import tool
 
-console = Console()
+# Use stderr for tools to avoid interfering with stdout-based protocols (like MCP)
+console = Console(stderr=True)
+
+
+def _get_input(message: str, completer=None, multiline=False) -> str:
+    """Helper to get input using stderr for output."""
+    # Create an output object that writes to stderr
+    out = create_output(stdout=sys.stderr)
+    return prompt(message, completer=completer, multiline=multiline, output=out)
 
 
 @tool(
@@ -53,6 +63,19 @@ def present_quiz(
     """
     Displays a quiz to the user and collects their answer.
     """
+    # Check if we are in an interactive terminal
+    if not sys.stdin.isatty():
+        # Non-interactive mode (e.g., MCP server or piped)
+        # Return the quiz content so the caller (AI) can present it.
+        res = f"QUIZ:\n{question}\n"
+        if quiz_type in ["single", "multiple"] and options:
+            res += "\nOPTIONS:\n"
+            for i, opt in enumerate(options, 1):
+                res += f"{i}. {opt}\n"
+        res += f"\n[Type: {quiz_type}]\n"
+        res += "NOTE: Interactive UI is not available. Please present the above to the user and call the tool again with their answer if needed, or handle the interaction yourself."
+        return res
+
     # 1. Display Question
     console.print("\n")
     console.print(
@@ -80,7 +103,7 @@ def present_quiz(
             valid_choices = [str(i) for i in range(1, len(options) + 1)]
             completer = WordCompleter(valid_choices)
             
-            ans = prompt(
+            ans = _get_input(
                 f"Enter the number (1-{len(options)}): ", 
                 completer=completer
             ).strip()
@@ -102,7 +125,7 @@ def present_quiz(
                 return "Error: Options must be provided for multiple choice quizzes."
             
             console.print("[dim]Enter multiple numbers separated by commas (e.g., 1, 3)[/dim]")
-            ans = prompt("Enter the numbers: ").strip()
+            ans = _get_input("Enter the numbers: ").strip()
             
             if not ans:
                 return "User provided no answer."
@@ -123,7 +146,7 @@ def present_quiz(
 
         elif quiz_type == "descriptive":
             console.print("[dim]Type your answer (Press Alt+Enter or Esc-Enter for multi-line if needed)[/dim]")
-            ans = prompt("Your Answer: ", multiline=False).strip()
+            ans = _get_input("Your Answer: ", multiline=False).strip()
             if not ans:
                 return "User provided no answer."
             return f"User's answer: {ans}"

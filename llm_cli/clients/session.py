@@ -376,75 +376,85 @@ class ChatSession:
                 )
             )
 
-        # Display Agent Request in a Panel
-        if name in ("write_file", "edit_file", "execute_command", "generate_image"):
-            # Detailed preview panel will be shown, so skip inline args
-            request_content = f"[cyan]{escape(name)}[/cyan]"
-        else:
-            # Exclude explanation/thought from display args for cleaner output
-            display_args = {
-                k: (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
-                for k, v in args.items()
-                if k not in ("explanation", "thought", "reasoning")
-            }
-            request_content = (
-                f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
-            )
+        tool_entry = registry.tools.get(name, {})
+        skip_approval = tool_entry.get("skip_approval", False)
 
-        console.print(
-            Panel(
-                request_content,
-                title="[bold yellow]🤖 Agent Request[/bold yellow]",
-                border_style="yellow",
-                expand=False,
-            )
-        )
-
-        if name == "write_file":
-            self._preview_diff(args)
-        elif name == "edit_file":
-            self._preview_edit_diff(args)
-        elif name == "execute_command":
-            self._preview_command(args)
-        elif name == "generate_image":
-            self._preview_image_prompt(args)
-
-        user_input = self._get_input(
-            "Allow execution? (y/N or feedback): ",
-            exit_on_escape=True,
-            history=self.prompt_history,
-        )
-        if user_input.lower() != "y":
-            feedback = user_input if user_input.lower() != "n" else ""
-            console.print("[red]Operation denied.[/red]")
-            if feedback:
-                result_msg = f"Rejected by user. Feedback: {feedback}"
+        if not skip_approval:
+            # Display Agent Request in a Panel
+            if name in ("write_file", "edit_file", "execute_command", "generate_image"):
+                # Detailed preview panel will be shown, so skip inline args
+                request_content = f"[cyan]{escape(name)}[/cyan]"
             else:
-                result_msg = (
-                    "Error: Operation denied. DO NOT retry. Ask for instructions."
+                # Exclude explanation/thought from display args for cleaner output
+                display_args = {
+                    k: (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
+                    for k, v in args.items()
+                    if k not in ("explanation", "thought", "reasoning")
+                }
+                request_content = (
+                    f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
                 )
 
-            response = {
-                "functionResponse": {
-                    "id": tool_id,
-                    "name": name,
-                    "response": {"result": result_msg},
+            console.print(
+                Panel(
+                    request_content,
+                    title="[bold yellow]🤖 Agent Request[/bold yellow]",
+                    border_style="yellow",
+                    expand=False,
+                )
+            )
+
+            if name == "write_file":
+                self._preview_diff(args)
+            elif name == "edit_file":
+                self._preview_edit_diff(args)
+            elif name == "execute_command":
+                self._preview_command(args)
+            elif name == "generate_image":
+                self._preview_image_prompt(args)
+
+            user_input = self._get_input(
+                "Allow execution? (y/N or feedback): ",
+                exit_on_escape=True,
+                history=self.prompt_history,
+            )
+            if user_input.lower() != "y":
+                feedback = user_input if user_input.lower() != "n" else ""
+                console.print("[red]Operation denied.[/red]")
+                if feedback:
+                    result_msg = f"Rejected by user. Feedback: {feedback}"
+                else:
+                    result_msg = (
+                        "Error: Operation denied. DO NOT retry. Ask for instructions."
+                    )
+
+                response = {
+                    "functionResponse": {
+                        "id": tool_id,
+                        "name": name,
+                        "response": {"result": result_msg},
+                    }
                 }
-            }
-            # Include thought_signature if present (required by Gemini)
-            if thought_signature:
-                response["functionResponse"]["thought_signature"] = thought_signature
-            return response, None
+                # Include thought_signature if present (required by Gemini)
+                if thought_signature:
+                    response["functionResponse"]["thought_signature"] = thought_signature
+                return response, None
 
         try:
             if name not in registry.tools:
                 raise ValueError(f"Tool '{name}' not found.")
 
-            # Show spinner for tool execution (especially useful for generate_image)
-            with console.status(
-                f"[bold yellow]🏃 Executing {name}...[/bold yellow]", spinner="dots"
-            ):
-                result_data = registry.tools[name]["func"](**args)
+            tool_entry = registry.tools[name]
+            is_interactive = tool_entry.get("interactive", False)
+
+            if is_interactive:
+                result_data = tool_entry["func"](**args)
+            else:
+                # Show spinner for tool execution (especially useful for generate_image)
+                with console.status(
+                    f"[bold yellow]🏃 Executing {name}...[/bold yellow]", spinner="dots"
+                ):
+                    result_data = tool_entry["func"](**args)
 
             injected = (
                 result_data.pop("__llm_cli_data__", None)

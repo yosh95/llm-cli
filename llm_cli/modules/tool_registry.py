@@ -34,6 +34,8 @@ class ToolRegistry:
         description: str,
         parameters: Optional[Dict[str, Any]] = None,
         supported_providers: Optional[List[str]] = None,
+        interactive: bool = False,
+        skip_approval: bool = False,
     ):
         # 1. Initialize parameters
         if parameters is None:
@@ -100,6 +102,8 @@ class ToolRegistry:
             "description": description,
             "parameters": parameters,
             "supported_providers": supported_providers,
+            "interactive": interactive,
+            "skip_approval": skip_approval,
         }
 
     def register_remote_tools(self, mcp_manager) -> List[str]:
@@ -209,6 +213,8 @@ def tool(
     supported_providers: Optional[List[str]] = None,
     desc: Optional[str] = None,
     params: Optional[Dict] = None,
+    interactive: bool = False,
+    skip_approval: bool = False,
 ):
     final_desc = description or desc
     final_params = parameters or params
@@ -217,7 +223,15 @@ def tool(
         raise ValueError("Either 'description' or 'desc' must be provided")
 
     def decorator(f: Callable):
-        registry.register(name, f, final_desc, final_params, supported_providers)
+        registry.register(
+            name,
+            f,
+            final_desc,
+            final_params,
+            supported_providers,
+            interactive,
+            skip_approval,
+        )
         return f
 
     return decorator

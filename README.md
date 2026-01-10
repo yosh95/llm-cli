@@ -71,6 +71,7 @@ The AI agent comes equipped with the following tools:
 | `browser_type` | Type text into an input field. |
 | `browser_screenshot` | Capture a screenshot of the current browser view. |
 | `browser_get_content` | Get the text content of the current page. |
+| `present_quiz` | Take an interactive quiz (single/multiple choice or descriptive). |
 
 > **Note**: To use `google_search`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
 
@@ -128,6 +129,10 @@ allow_dangerous_patterns = false
 ```
 
 **Important**: These guardrails provide defense-in-depth but do not replace user vigilance. Always review commands before approving execution.
+
+### Risk-based Approval Skipping
+
+While most tools require explicit user approval (Human-in-the-Loop), certain non-destructive and interactive tools (like `present_quiz`) may execute without a confirmation prompt to ensure a seamless user experience. This is only permitted for tools specifically flagged as safe and interactive by the developer in the local codebase. External tools (like those from MCP servers) **always** require approval.
 
 ## Installation
 
@@ -355,6 +360,7 @@ AIエージェントは以下のツールを標準で備えています：
 | `browser_type` | 入力フィールドにテキストを入力。 |
 | `browser_screenshot` | 現在のブラウザ画面のスクリーンショットを撮影。 |
 | `browser_get_content` | 現在のページのテキストコンテンツを取得。 |
+| `present_quiz` | インタラクティブなクイズ（選択式・記述式）に回答。 |
 
 > **注**: `google_search` を利用するには、**Google Cloud Platform の API キー**と**カスタム検索エンジン ID (CX)** の取得が必要です。これらは `llm-cli-config` で設定できます。
 
@@ -412,6 +418,10 @@ allow_dangerous_patterns = false
 ```
 
 **重要**: これらのガードレールは多層防御を提供しますが、ユーザーの注意を置き換えるものではありません。実行を承認する前に常にコマンドを確認してください。
+
+### リスクベースの承認スキップ
+
+ほとんどのツールは実行前にユーザーの明示的な承認（Human-in-the-Loop）を必要としますが、`present_quiz` のような非破壊的かつインタラクティブなツールについては、ユーザー体験を損なわないよう承認プロンプトなしで実行される場合があります。これは、開発者によってローカルコード内で安全かつインタラクティブであると明示的にフラグを立てられたツールにのみ許可されます。MCPサーバーなどの外部ツールについては、**常に**承認が必要です。
 
 ## インストール
 

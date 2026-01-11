@@ -1,5 +1,6 @@
 # llm_cli/modules/tool_registry.py
 
+import asyncio
 import functools
 import importlib
 import inspect
@@ -23,7 +24,10 @@ class ToolRegistry:
         """Execute all registered shutdown hooks."""
         for hook in self.shutdown_hooks:
             try:
-                hook()
+                if inspect.iscoroutinefunction(hook):
+                    asyncio.get_event_loop().run_until_complete(hook())
+                else:
+                    hook()
             except Exception:
                 pass
 
@@ -75,7 +79,13 @@ class ToolRegistry:
             }
 
             try:
-                result = func(**filtered_kwargs)
+                if inspect.iscoroutinefunction(func):
+                    loop = asyncio.get_event_loop()
+                    # If the loop is already running, run_until_complete
+                    # requires nest_asyncio
+                    result = loop.run_until_complete(func(**filtered_kwargs))
+                else:
+                    result = func(**filtered_kwargs)
 
                 exit_code = None
                 if isinstance(result, str) and "Exit Code:" in result:

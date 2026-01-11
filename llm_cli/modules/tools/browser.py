@@ -1,7 +1,7 @@
 # llm_cli/modules/tools/browser.py
 
+import asyncio
 import base64
-import time
 from typing import Any, Dict
 
 from rich.console import Console
@@ -13,7 +13,7 @@ from llm_cli.modules.tool_registry import registry, tool
 # like Termux where playwright is not installed.
 try:
     import nest_asyncio
-    from playwright.sync_api import Page, sync_playwright
+    from playwright.async_api import Page, async_playwright
 
     # Apply nest_asyncio to allow Playwright's event loop
     # to run inside prompt-toolkit's event loop.
@@ -36,7 +36,7 @@ _state: Dict[str, Any] = {
 
 if HAS_PLAYWRIGHT:
 
-    def _get_page() -> Page:
+    async def _get_page() -> Page:
         """
         Initializes or returns the existing browser instance in 'headed' mode.
         (headless=False)
@@ -44,16 +44,18 @@ if HAS_PLAYWRIGHT:
         """
         if _state["page"] is None:
             if _state["playwright"] is None:
-                _state["playwright"] = sync_playwright().start()
+                _state["playwright"] = await async_playwright().start()
             if _state["browser"] is None:
                 # We use headless=False to comply with the security policy of
                 # visibility.
-                _state["browser"] = _state["playwright"].chromium.launch(headless=False)
+                _state["browser"] = await _state["playwright"].chromium.launch(
+                    headless=False
+                )
             if _state["context"] is None:
-                _state["context"] = _state["browser"].new_context(
+                _state["context"] = await _state["browser"].new_context(
                     viewport={"width": 1280, "height": 720}
                 )
-            _state["page"] = _state["context"].new_page()
+            _state["page"] = await _state["context"].new_page()
         return _state["page"]
 
     @tool(
@@ -74,15 +76,17 @@ if HAS_PLAYWRIGHT:
             "required": ["url", "explanation"],
         },
     )
-    def browser_navigate(url: str, explanation: str) -> str:
+    async def browser_navigate(url: str, explanation: str) -> str:
         # User confirmation is handled by the main CLI tool-calling logic.
         try:
-            page = _get_page()
-            response = page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page = await _get_page()
+            response = await page.goto(
+                url, wait_until="domcontentloaded", timeout=30000
+            )
             status = response.status if response else "unknown"
             msg = (
                 f"Successfully navigated to '{url}' (Status: {status}). "
-                f"Page title: {page.title()}"
+                f"Page title: {await page.title()}"
             )
             return msg
         except Exception as e:
@@ -109,12 +113,12 @@ if HAS_PLAYWRIGHT:
             "required": ["selector", "explanation"],
         },
     )
-    def browser_click(selector: str, explanation: str) -> str:
+    async def browser_click(selector: str, explanation: str) -> str:
         try:
-            page = _get_page()
-            page.click(selector, timeout=10000)
+            page = await _get_page()
+            await page.click(selector, timeout=10000)
             # Short sleep to allow the user to see the result of the click.
-            time.sleep(1)
+            await asyncio.sleep(1)
             return f"Successfully clicked on '{selector}'."
         except Exception as e:
             return f"Click failed: {e}"
@@ -146,15 +150,15 @@ if HAS_PLAYWRIGHT:
             "required": ["selector", "text", "explanation"],
         },
     )
-    def browser_type(
+    async def browser_type(
         selector: str, text: str, explanation: str, press_enter: bool = False
     ) -> str:
         try:
-            page = _get_page()
-            page.fill(selector, text, timeout=10000)
+            page = await _get_page()
+            await page.fill(selector, text, timeout=10000)
             if press_enter:
-                page.keyboard.press("Enter")
-            time.sleep(1)
+                await page.keyboard.press("Enter")
+            await asyncio.sleep(1)
             return "Successfully completed the input action."
         except Exception as e:
             return f"Input failed: {e}"
@@ -167,13 +171,14 @@ if HAS_PLAYWRIGHT:
         ),
         parameters={"type": "object", "properties": {}},
     )
-    def browser_get_content() -> str:
+    async def browser_get_content() -> str:
         try:
-            page = _get_page()
-            title = page.title()
+            page = await _get_page()
+            title = await page.title()
             # Extracts visible text from the body
             max_output = int(get_setting("max_browser_content_len", "general") or 30000)
-            content = page.inner_text("body")[:max_output]
+            content = await page.inner_text("body")
+            content = content[:max_output]
             return f"Page Title: {title}\n\nContent Excerpt:\n{content}"
         except Exception as e:
             return f"Failed to retrieve content: {e}"
@@ -185,10 +190,10 @@ if HAS_PLAYWRIGHT:
         ),
         parameters={"type": "object", "properties": {}},
     )
-    def browser_screenshot() -> dict:
+    async def browser_screenshot() -> dict:
         try:
-            page = _get_page()
-            screenshot_bytes = page.screenshot(type="png", full_page=False)
+            page = await _get_page()
+            screenshot_bytes = await page.screenshot(type="png", full_page=False)
             b64_data = base64.b64encode(screenshot_bytes).decode("utf-8")
 
             return {
@@ -207,13 +212,13 @@ if HAS_PLAYWRIGHT:
         description="Closes the active browser session.",
         parameters={"type": "object", "properties": {}},
     )
-    def browser_close() -> str:
+    async def browser_close() -> str:
         global _state
         try:
             if _state["browser"]:
-                _state["browser"].close()
+                await _state["browser"].close()
             if _state["playwright"]:
-                _state["playwright"].stop()
+                await _state["playwright"].stop()
             _state = {
                 "playwright": None,
                 "browser": None,

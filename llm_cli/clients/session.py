@@ -22,6 +22,7 @@ from prompt_toolkit.completion import Completer, PathCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
+from prompt_toolkit.shortcuts import CompleteStyle
 from rich.markup import escape
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -154,6 +155,7 @@ class ChatSession:
                 user_input = self.prompt_session.prompt(
                     "> ",
                     completer=LlmCliPathCompleter(),
+                    complete_style=CompleteStyle.READLINE_LIKE,
                     key_bindings=combined_kb,
                     enable_system_prompt=True,
                     enable_open_in_editor=True,
@@ -375,6 +377,7 @@ class ChatSession:
             # to match the main prompt's behavior.
             current_kb = merge_key_bindings([kb, kb_exit]) if exit_on_escape else kb
             kwargs.setdefault("key_bindings", current_kb)
+            kwargs.setdefault("complete_style", CompleteStyle.READLINE_LIKE)
             kwargs.setdefault("enable_open_in_editor", True)
             kwargs.setdefault("enable_system_prompt", True)
             kwargs.setdefault("enable_suspend", True)

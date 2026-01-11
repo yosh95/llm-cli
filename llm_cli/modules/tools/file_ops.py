@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
 
@@ -118,7 +119,7 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
         content = "\n".join(lines[start:end])
 
         header = f"--- {path} (Lines {start + 1} to {end}) ---"
-        max_output = int(get_setting("max_read_file_len", "general") or 100000)
+        max_output = int(get_setting("max_read_file_len", "general") or 10000)
         return f"{header}\n{content[:max_output]}"
     except PathValidationError as e:
         return f"Security Error: {e}"

@@ -381,7 +381,13 @@ class ChatSession:
 
         if not skip_approval:
             # Display Agent Request in a Panel
-            if name in ("write_file", "edit_file", "execute_command", "generate_image"):
+            if name in (
+                "write_file",
+                "edit_file",
+                "apply_diff",
+                "execute_command",
+                "generate_image",
+            ):
                 # Detailed preview panel will be shown, so skip inline args
                 request_content = f"[cyan]{escape(name)}[/cyan]"
             else:
@@ -408,6 +414,8 @@ class ChatSession:
                 self._preview_diff(args)
             elif name == "edit_file":
                 self._preview_edit_diff(args)
+            elif name == "apply_diff":
+                self._preview_apply_diff(args)
             elif name == "execute_command":
                 self._preview_command(args)
             elif name == "generate_image":
@@ -596,6 +604,29 @@ class ChatSession:
                         border_style="yellow",
                     )
                 )
+        except Exception:
+            pass
+
+    def _preview_apply_diff(self, args: Dict[str, Any]):
+        """Generate a unified diff preview for apply_diff."""
+        try:
+            path_str = args.get("path", "")
+            diff_text = args.get("diff", "")
+            if not path_str or not diff_text:
+                return
+
+            path = Path(path_str)
+            title = f"[bold]Apply Diff: {path}[/bold]"
+
+            syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
+            console.print(
+                Panel(
+                    syn,
+                    title=title,
+                    border_style="yellow",
+                    expand=False,
+                )
+            )
         except Exception:
             pass
 

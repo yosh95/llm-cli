@@ -257,12 +257,28 @@ def apply_diff(path: str, diff: str) -> str:
                 "Ensure it is in Unified Diff format."
             )
 
-        # We assume one file per apply_diff call for better auditability,
-        # but whatthepatch can handle multiple. We'll take the first one.
         patch = patches[0]
 
+        # Check for context mismatches before applying
+        if patch.changes:
+            for change in patch.changes:
+                if change.old is not None:
+                    # This is a context line or a deleted line
+                    # Check if the line in the file matches
+                    line_idx = change.old - 1
+                    if line_idx < 0 or line_idx >= len(original_lines):
+                        return (
+                            f"Error: Line number {change.old} is out of range "
+                            f"in hunk #{change.hunk}."
+                        )
+                    if original_lines[line_idx] != change.line:
+                        return (
+                            f"Error: context line {change.old}, "
+                            f'"{original_lines[line_idx]}" does not match '
+                            f'"{change.line}", in hunk #{change.hunk}'
+                        )
+
         # Apply the patch
-        # whatthepatch returns a generator of lines for the patched file
         new_lines = whatthepatch.apply_diff(patch, original_lines)
 
         if new_lines is None:

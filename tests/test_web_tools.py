@@ -139,4 +139,5 @@ def test_google_search_auth_error(monkeypatch):
     monkeypatch.setattr("llm_cli.modules.tools.web.get_setting", lambda k, s: None)
 
     result = google_search(queries=["test"])
-    assert "Error: Google API credentials not configured." in result
+    assert "Error: Google Search is not configured." in result
+    assert "llm-cli-config" in result

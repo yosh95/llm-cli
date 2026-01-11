@@ -80,6 +80,9 @@ class ToolRegistry:
 
             try:
                 if inspect.iscoroutinefunction(func):
+                    import nest_asyncio
+
+                    nest_asyncio.apply()
                     loop = asyncio.get_event_loop()
                     # If the loop is already running, run_until_complete
                     # requires nest_asyncio

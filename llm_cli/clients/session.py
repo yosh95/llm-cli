@@ -1,5 +1,6 @@
 # llm_cli/clients/session.py
 
+import asyncio
 import copy
 import datetime
 import difflib
@@ -122,6 +123,7 @@ class ChatSession:
     ):
         data = initial_data or []
         while True:
+            self._retrieve_task_exceptions()
             try:
                 if (
                     len(self.client.conversation) >= 30
@@ -168,6 +170,7 @@ class ChatSession:
             except Exception as e:
                 console.print(f"[bold red]Error: {e}[/bold red]")
                 data = []
+        self._retrieve_task_exceptions()
 
     def process_and_print(self, data: List[DataSource]):
         self._log_chat(data, role="User")
@@ -317,9 +320,26 @@ class ChatSession:
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
+    def _retrieve_task_exceptions(self):
+        """
+        Silences 'Task exception was never retrieved' warnings by explicitly
+        accessing the exception of finished tasks. This is particularly useful
+        when KeyboardInterrupt or EOFError occurs during a prompt_toolkit
+        session while nest_asyncio is active.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            for task in asyncio.all_tasks(loop):
+                if task.done() and not task.cancelled():
+                    # Accessing the exception marks it as retrieved.
+                    task.exception()
+        except Exception:
+            pass
+
     def _get_input(self, message: str, exit_on_escape: bool = False, **kwargs) -> str:
         """Helper for console input, supporting both TTY and prompt_toolkit."""
         if sys.stdin.isatty():
+            self._retrieve_task_exceptions()
             # Use provided kwargs, but set defaults for key_bindings and editor
             # to match the main prompt's behavior.
             current_kb = merge_key_bindings([kb, kb_exit]) if exit_on_escape else kb

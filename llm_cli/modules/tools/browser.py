@@ -15,10 +15,6 @@ try:
     import nest_asyncio
     from playwright.async_api import Page, async_playwright
 
-    # Apply nest_asyncio to allow Playwright's event loop
-    # to run inside prompt-toolkit's event loop.
-    # This resolves "RuntimeError: asyncio.run() cannot be called from running loop".
-    nest_asyncio.apply()
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False
@@ -42,6 +38,7 @@ if HAS_PLAYWRIGHT:
         (headless=False)
         This ensures the user can visually monitor the agent's actions.
         """
+        nest_asyncio.apply()
         if _state["page"] is None:
             if _state["playwright"] is None:
                 _state["playwright"] = await async_playwright().start()

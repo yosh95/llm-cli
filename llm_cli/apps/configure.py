@@ -124,12 +124,7 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
             "Google Custom Search Engine ID (Optional)", p_config.get("cse_id")
         )
 
-    p_config["system_prompt"] = prompt_input(
-        "System Prompt (Optional)",
-        p_config.get("system_prompt", "You are a helpful assistant."),
-    )
-
-    print(f"\nModel Aliases for {name}:")
+    print(f"\nModel Aliases for {name} (Press Enter to keep default):")
     m_config = p_config.setdefault("models", {})
 
     # Configure default models and aliases
@@ -143,7 +138,7 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
 
 
 def configure_general(config: Dict[str, Any]):
-    """Configures general application settings."""
+    """Configures general application settings, including data paths."""
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
 
@@ -152,6 +147,7 @@ def configure_general(config: Dict[str, Any]):
     print(f"Available providers: {', '.join(providers)}")
     g_config["unified_default_provider"] = prompt_input("Default Provider", current_p)
 
+    print("\nData Storage Paths (Press Enter to keep default):")
     g_config["LLM_PROMPT_HISTORY"] = prompt_input(
         "Prompt History Path",
         g_config.get("LLM_PROMPT_HISTORY", "~/.config/llm_cli/history.log"),
@@ -160,50 +156,8 @@ def configure_general(config: Dict[str, Any]):
         "Chat Log Path", g_config.get("LLM_CHAT_LOG", "~/.config/llm_cli/chat.log")
     )
     g_config["LLM_AUDIT_LOG"] = prompt_input(
-        "Audit Log Path (for tools)",
+        "Audit Log Path (Tool usage)",
         g_config.get("LLM_AUDIT_LOG", "~/.local/state/llm_cli/audit.log"),
-    )
-
-    try:
-        g_config["max_chat_log_lines"] = int(
-            prompt_input(
-                "Max Chat Log Lines", g_config.get("max_chat_log_lines", 10000)
-            )
-        )
-        g_config["max_audit_log_lines"] = int(
-            prompt_input(
-                "Max Audit Log Lines", g_config.get("max_audit_log_lines", 5000)
-            )
-        )
-    except ValueError:
-        print("Invalid number, keeping defaults.")
-
-
-def configure_security(config: Dict[str, Any]):
-    """Configures security guardrails for AI agents."""
-    print("\n--- Security Settings (AI Agent Guardrails) ---")
-    if not prompt_bool("Configure security settings?", "security" in config):
-        return
-
-    s_config = config.setdefault("security", {})
-
-    print(
-        "\nNote: Many basic commands (ls, cat, grep, etc.) are whitelisted by default."
-    )
-    s_config["allowed_commands"] = prompt_list(
-        "Additional allowed shell commands", s_config.get("allowed_commands", [])
-    )
-    s_config["allowed_mcp_commands"] = prompt_list(
-        "Additional allowed MCP commands", s_config.get("allowed_mcp_commands", [])
-    )
-
-    print(
-        "\nWARNING: allow_dangerous_patterns enables shell pipes (|), "
-        "redirects (>), etc."
-    )
-    s_config["allow_dangerous_patterns"] = prompt_bool(
-        "Allow dangerous shell patterns?",
-        s_config.get("allow_dangerous_patterns", False),
     )
 
 
@@ -256,7 +210,6 @@ def main():
 
         # General and Security
         configure_general(config)
-        configure_security(config)
         configure_mcp(config)
 
         print("\nSummary of changes:")

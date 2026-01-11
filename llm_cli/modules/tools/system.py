@@ -11,13 +11,14 @@ try:
 except ImportError:
     resource = None
 
-from llm_cli.modules.tool_registry import tool
+from llm_cli.clients.config import get_setting
+from llm_cli.modules.tool_registry import registry, tool
 from llm_cli.security import CommandValidationError, validate_command
 
 logger = logging.getLogger(__name__)
 
 
-def set_resource_limits():
+def set_resource_limits(mem_limit_mb: int):
     """Sets resource limits for the child process. (Linux/Unix only)"""
     if resource is None:
         return
@@ -33,7 +34,7 @@ def set_resource_limits():
         is_android = "ANDROID_ROOT" in os.environ
 
         if not (is_termux or is_android):
-            mem_limit = 512 * 1024 * 1024
+            mem_limit = mem_limit_mb * 1024 * 1024
             resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
         else:
             logger.debug("Skipping RLIMIT_AS on Termux/Android to prevent SIGABRT.")
@@ -70,6 +71,9 @@ def execute_command(command: str) -> str:
 
     # Use a default timeout of 60 seconds.
     timeout = int(os.environ.get("LLM_CLI_COMMAND_TIMEOUT", 60))
+
+    # Read memory limit from config, default to 512MB
+    mem_limit_mb = int(get_setting("max_command_memory_mb", "general") or 512)
 
     # 1. Define base safe environment variables
     safe_env_keys = {
@@ -123,7 +127,7 @@ def execute_command(command: str) -> str:
 
     if platform.system() != "Windows":
         kwargs["start_new_session"] = True
-        kwargs["preexec_fn"] = set_resource_limits
+        kwargs["preexec_fn"] = lambda: set_resource_limits(mem_limit_mb)
 
     try:
         with subprocess.Popen(command, **kwargs) as proc:

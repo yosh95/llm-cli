@@ -105,6 +105,20 @@ All shell commands executed through the AI agent (`execute_command` tool) are va
 
 **MCP Server Protection**: MCP server commands loaded from config files are also validated against a separate whitelist.
 
+### Resource Limits
+
+To prevent resource exhaustion, commands executed by the agent are subject to the following limits:
+- **CPU Time**: 30 seconds
+- **Max File Write**: 50 MB
+- **Memory (RLIMIT_AS)**: 512 MB (Default)
+
+If a tool fails with `Exit Code: 134 (Aborted)` (commonly seen with memory-heavy tools like `ruff` or compilers), you can increase the memory limit in your configuration:
+
+```toml
+[general]
+max_command_memory_mb = 1024
+```
+
 ### Configuration
 
 You can customize the allowed commands in `~/.config/llm_cli/config.toml`:
@@ -391,6 +405,20 @@ AIエージェント (`execute_command` ツール) が実行するシェルコ�
 - 重要なシステムパスへのアクセス (例: `/etc`, `/var`, `/root`)
 
 **MCP サーバー保護**: 設定ファイルから読み込まれる MCP サーバーコマンドも、別のホワイトリストに対して検証されます。
+
+### リソース制限
+
+リソースの枯渇を防ぐため、エージェントが実行するコマンドには以下の制限が適用されます。
+- **CPU時間**: 30秒
+- **最大ファイル書き込み**: 50 MB
+- **メモリ (RLIMIT_AS)**: 512 MB (デフォルト)
+
+`ruff` やコンパイラなどのメモリ消費の激しいツールを実行した際に `Exit Code: 134 (Aborted)` で失敗する場合は、設定ファイル（`~/.config/llm_cli/config.toml`）の `[general]` セクションでメモリ制限を増やすことができます。
+
+```toml
+[general]
+max_command_memory_mb = 1024
+```
 
 ### 設定
 

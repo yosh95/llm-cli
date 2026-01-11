@@ -16,6 +16,9 @@ try:
     from playwright.async_api import Page, async_playwright
 
     HAS_PLAYWRIGHT = True
+    # Apply nest_asyncio once at the module level to avoid repeated patching
+    # and potential interference with signal handlers.
+    nest_asyncio.apply()
 except ImportError:
     HAS_PLAYWRIGHT = False
 
@@ -38,7 +41,6 @@ if HAS_PLAYWRIGHT:
         (headless=False)
         This ensures the user can visually monitor the agent's actions.
         """
-        nest_asyncio.apply()
         if _state["page"] is None:
             if _state["playwright"] is None:
                 _state["playwright"] = await async_playwright().start()

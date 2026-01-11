@@ -12,6 +12,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+try:
+    import termios
+except ImportError:
+    termios = None
+
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import Completer, PathCompleter
 from prompt_toolkit.document import Document
@@ -133,6 +138,14 @@ class ChatSession:
                         "[dim]Tip: Use /checkpoint to compress context.[/dim]"
                     )
                     self._checkpoint_hint_shown = True
+
+                # Clear any pending input (especially after browser tool use)
+                # to prevent ghost KeyboardInterrupt/EOFError.
+                if termios and sys.stdin.isatty():
+                    try:
+                        termios.tcflush(sys.stdin, termios.TCIFLUSH)
+                    except Exception:
+                        pass
 
                 # Apply both standard key bindings and exit-on-escape bindings
                 combined_kb = merge_key_bindings([kb, kb_exit])
@@ -330,9 +343,17 @@ class ChatSession:
         try:
             loop = asyncio.get_event_loop()
             for task in asyncio.all_tasks(loop):
-                if task.done() and not task.cancelled():
-                    # Accessing the exception marks it as retrieved.
-                    task.exception()
+                if task.done():
+                    try:
+                        # Accessing the exception (or result) marks it as retrieved.
+                        if task.cancelled():
+                            # For cancelled tasks, calling result() or exception()
+                            # raises CancelledError, which we catch.
+                            task.exception()
+                        else:
+                            task.exception()
+                    except (asyncio.CancelledError, KeyboardInterrupt, Exception):
+                        pass
         except Exception:
             pass
 
@@ -340,6 +361,13 @@ class ChatSession:
         """Helper for console input, supporting both TTY and prompt_toolkit."""
         if sys.stdin.isatty():
             self._retrieve_task_exceptions()
+
+            if termios:
+                try:
+                    termios.tcflush(sys.stdin, termios.TCIFLUSH)
+                except Exception:
+                    pass
+
             # Use provided kwargs, but set defaults for key_bindings and editor
             # to match the main prompt's behavior.
             current_kb = merge_key_bindings([kb, kb_exit]) if exit_on_escape else kb
@@ -623,7 +651,6 @@ class ChatSession:
                 )
         except Exception:
             pass
-
 
     def _preview_command(self, args: Dict[str, Any]):
         try:

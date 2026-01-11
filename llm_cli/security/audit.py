@@ -36,10 +36,12 @@ def log_audit(
             status = f"FAILED ({error})"
 
         # Format arguments and output safely
+        max_val_len = int(get_setting("max_audit_val_len", "general") or 100000)
+
         def _fmt(val):
             s = str(val)
-            if len(s) > 2000:
-                return s[:2000] + "\n... [Truncated]"
+            if max_val_len > 0 and len(s) > max_val_len:
+                return s[:max_val_len] + f"\n... [Truncated at {max_val_len} chars]"
             return s
 
         log_entry = (

@@ -9,7 +9,15 @@ max_chat_log_lines = 10000
 
 # Audit log for tool execution (especially execute_command)
 LLM_AUDIT_LOG = "~/.local/state/llm_cli/audit.log"
-max_audit_log_lines = 5000
+max_audit_log_lines = 10000
+# Maximum length of values (args/output) in audit log. Set to 0 for unlimited.
+max_audit_val_len = 100000
+
+# Tool output limits (to manage context window)
+max_read_file_len = 100000
+max_fetch_url_len = 50000
+max_fetch_web_text_len = 50000
+max_browser_content_len = 30000
 
 [google]
 api_key = "YOUR_GEMINI_API_KEY"

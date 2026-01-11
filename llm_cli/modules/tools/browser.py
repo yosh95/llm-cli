@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from rich.console import Console
 
+from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import registry, tool
 
 # Conditional import to prevent errors on environments
@@ -174,8 +175,9 @@ if HAS_PLAYWRIGHT:
         try:
             page = _get_page()
             title = page.title()
-            # Extracts visible text from the body, limited to 5000 characters.
-            content = page.inner_text("body")[:5000]
+            # Extracts visible text from the body
+            max_output = int(get_setting("max_browser_content_len", "general") or 30000)
+            content = page.inner_text("body")[:max_output]
             return f"Page Title: {title}\n\nContent Excerpt:\n{content}"
         except Exception as e:
             return f"Failed to retrieve content: {e}"

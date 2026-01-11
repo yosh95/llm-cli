@@ -19,6 +19,10 @@ max_fetch_url_len = 50000
 max_fetch_web_text_len = 50000
 max_browser_content_len = 30000
 
+# Default output directory for generated images
+# image_output_dir = "images"
+image_output_dir = "."
+
 [google]
 api_key = "YOUR_GEMINI_API_KEY"
 system_prompt = "You are a helpful assistant."

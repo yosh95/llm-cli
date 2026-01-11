@@ -480,9 +480,16 @@ class BaseLlmClient(ABC):
             ext = inline_data["mimeType"].split("/")[-1]
             now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             fname = f"output_image_{now_str}_{uuid.uuid4().hex[:4]}.{ext}"
+
+            # Honor image_output_dir from config
+            output_dir_str = get_setting("image_output_dir", "general") or "."
+            output_dir = Path(output_dir_str)
+            output_dir.mkdir(exist_ok=True)
+            target_path = output_dir / fname
+
             try:
-                Path(fname).write_bytes(base64.b64decode(inline_data["data"]))
-                return f"\n**output image: {fname}**"
+                target_path.write_bytes(base64.b64decode(inline_data["data"]))
+                return f"\n**output image: {target_path}**"
             except Exception as e:
                 console.print(f"[red]Failed to save image: {e}[/red]")
         return None

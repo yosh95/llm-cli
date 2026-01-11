@@ -66,9 +66,10 @@ def attach_file(path: str) -> dict:
             "output_path": {
                 "type": "string",
                 "description": (
-                    "The local path to save the image (e.g., 'images/my_slide.png'). "
-                    "If not provided, it will be saved to the 'images/' directory "
-                    "with a timestamped name."
+                    "The local path to save the image (e.g., 'my_slide.png'). "
+                    "If not provided, it will be saved to the directory specified "
+                    "in config (defaulting to the current directory) with a "
+                    "timestamped name."
                 ),
             },
         },
@@ -91,9 +92,11 @@ def generate_image(prompt: str, output_path: Optional[str] = None) -> dict:
             )
         }
 
-    # Default to 'images' directory in the current project
+    # Determine the base output directory
     if not output_path:
-        images_dir = Path("images")
+        # Check config for 'image_output_dir' in [general] section, default to '.'
+        output_dir_str = get_setting("image_output_dir", "general") or "."
+        images_dir = Path(output_dir_str)
         images_dir.mkdir(exist_ok=True)
         now = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = str(images_dir / f"generated_{now}_{uuid.uuid4().hex[:4]}.png")

@@ -5,8 +5,9 @@ description = "A Unified Command-Line Interface for Multiple LLMs"
 authors = [
     {name = "Yoshihiro Ando", email = "yosh5295@gmail.com"}
 ]
-license = {text = " Apache License 2.0"}
+license = {text = "Apache License 2.0"}
 readme = "README.md"
+requires-python = ">=3.11"
 dependencies = [
     "beautifulsoup4",
     "cloudscraper",
@@ -16,7 +17,7 @@ dependencies = [
     "requests",
     "rich",
     "tomli-w",
-    "tqdm"
+    "whatthepatch",
 ]
 
 [project.optional-dependencies]
@@ -34,12 +35,6 @@ test = [
     "ruff>=0.1.0"
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.11"
-
-[tool.setuptools]
-packages = ["llm_cli"]
-
 [project.scripts]
 llm-cli-config = "llm_cli.apps.configure:main"
 llm = "llm_cli.apps.unified:main"
@@ -48,7 +43,9 @@ openai-models = "llm_cli.apps.openai_models:main"
 claude-models = "llm_cli.apps.claude_models:main"
 grok-models = "llm_cli.apps.grok_models:main"
 ollama-models = "llm_cli.apps.ollama_models:main"
-translate-json = "llm_cli.apps.translate_json_data:main"
+
+[tool.setuptools]
+packages = ["llm_cli"]
 
 [tool.ruff]
 line-length = 88
@@ -62,5 +59,5 @@ ignore = ["E203"]
 "tests/*" = ["E501"]
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

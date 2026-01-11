@@ -5,6 +5,7 @@ import sys
 
 try:
     import nest_asyncio
+
     nest_asyncio.apply()
 except ImportError:
     pass

@@ -61,6 +61,7 @@ The AI agent comes equipped with the following tools:
 | `read_file` | Read content from a text file (with optional line range). |
 | `write_file` | Create or update a file (full overwrite). |
 | `edit_file` | Precise search-and-replace to modify specific code blocks. |
+| `apply_diff` | Apply a Unified Diff (patch) to a file (more robust than edit_file). |
 | `google_search` | Search the web for real-time information. |
 | `fetch_url` | Fetch raw HTML or media files (images/PDFs) from a URL. |
 | `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
@@ -575,7 +576,6 @@ llm --mcp
 
 -   `llm-cli-config`: 対話型設定ツール。
 -   `*-models`: 各プロバイダの利用可能なモデルリスト (例: `ollama-models`)。
--   `translate-json`: JSONファイル内の特定のキーを翻訳するユーティリティ。
 
 ## License
 

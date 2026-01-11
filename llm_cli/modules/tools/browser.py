@@ -30,7 +30,7 @@ _state: Dict[str, Any] = {
     "playwright": None,
     "browser": None,
     "context": None,
-    "page": None
+    "page": None,
 }
 
 
@@ -56,7 +56,6 @@ if HAS_PLAYWRIGHT:
             _state["page"] = _state["context"].new_page()
         return _state["page"]
 
-
     @tool(
         name="browser_navigate",
         description=(
@@ -69,11 +68,11 @@ if HAS_PLAYWRIGHT:
                 "url": {"type": "string", "description": "The destination URL."},
                 "explanation": {
                     "type": "string",
-                    "description": "Reason for navigating to this URL."
-                }
+                    "description": "Reason for navigating to this URL.",
+                },
             },
-            "required": ["url", "explanation"]
-        }
+            "required": ["url", "explanation"],
+        },
     )
     def browser_navigate(url: str, explanation: str) -> str:
         # User confirmation is handled by the main CLI tool-calling logic.
@@ -100,15 +99,15 @@ if HAS_PLAYWRIGHT:
             "properties": {
                 "selector": {
                     "type": "string",
-                    "description": "The CSS selector of the element to click."
+                    "description": "The CSS selector of the element to click.",
                 },
                 "explanation": {
                     "type": "string",
-                    "description": "Reason for clicking this element."
-                }
+                    "description": "Reason for clicking this element.",
+                },
             },
-            "required": ["selector", "explanation"]
-        }
+            "required": ["selector", "explanation"],
+        },
     )
     def browser_click(selector: str, explanation: str) -> str:
         try:
@@ -131,27 +130,24 @@ if HAS_PLAYWRIGHT:
             "properties": {
                 "selector": {
                     "type": "string",
-                    "description": "The CSS selector for the input field."
+                    "description": "The CSS selector for the input field.",
                 },
                 "text": {"type": "string", "description": "The text to type."},
                 "explanation": {
                     "type": "string",
-                    "description": "Reason for this input."
+                    "description": "Reason for this input.",
                 },
                 "press_enter": {
                     "type": "boolean",
                     "description": "Whether to press Enter after typing.",
-                    "default": False
-                }
+                    "default": False,
+                },
             },
-            "required": ["selector", "text", "explanation"]
-        }
+            "required": ["selector", "text", "explanation"],
+        },
     )
     def browser_type(
-        selector: str,
-        text: str,
-        explanation: str,
-        press_enter: bool = False
+        selector: str, text: str, explanation: str, press_enter: bool = False
     ) -> str:
         try:
             page = _get_page()
@@ -169,7 +165,7 @@ if HAS_PLAYWRIGHT:
             "Retrieves the text content of the current page. "
             "This is a read-only operation."
         ),
-        parameters={"type": "object", "properties": {}}
+        parameters={"type": "object", "properties": {}},
     )
     def browser_get_content() -> str:
         try:
@@ -185,10 +181,9 @@ if HAS_PLAYWRIGHT:
     @tool(
         name="browser_screenshot",
         description=(
-            "Captures a screenshot of the current browser view "
-            "and sends it to the AI."
+            "Captures a screenshot of the current browser view and sends it to the AI."
         ),
-        parameters={"type": "object", "properties": {}}
+        parameters={"type": "object", "properties": {}},
     )
     def browser_screenshot() -> dict:
         try:
@@ -201,8 +196,8 @@ if HAS_PLAYWRIGHT:
                 "__llm_cli_data__": {
                     "content": b64_data,
                     "content_type": "image/png",
-                    "is_file_or_url": True
-                }
+                    "is_file_or_url": True,
+                },
             }
         except Exception as e:
             return {"result": f"Failed to capture screenshot: {e}"}
@@ -210,7 +205,7 @@ if HAS_PLAYWRIGHT:
     @tool(
         name="browser_close",
         description="Closes the active browser session.",
-        parameters={"type": "object", "properties": {}}
+        parameters={"type": "object", "properties": {}},
     )
     def browser_close() -> str:
         global _state
@@ -223,7 +218,7 @@ if HAS_PLAYWRIGHT:
                 "playwright": None,
                 "browser": None,
                 "context": None,
-                "page": None
+                "page": None,
             }
             return "Browser session closed successfully."
         except Exception as e:

@@ -15,10 +15,13 @@ def test_dir():
     if d.exists():
         shutil.rmtree(d)
 
+
 def test_edit_file_success(test_dir):
     # Setup
     test_file = test_dir / "test.txt"
-    original_content = "def hello():\n    print('hello')\n\ndef world():\n    print('world')"
+    original_content = (
+        "def hello():\n    print('hello')\n\ndef world():\n    print('world')"
+    )
     test_file.write_text(original_content, encoding="utf-8")
 
     search_block = "def hello():\n    print('hello')"
@@ -34,12 +37,14 @@ def test_edit_file_success(test_dir):
     assert "print(f'hello {name}')" in new_content
     assert "def world():" in new_content
 
+
 def test_edit_file_not_found(test_dir):
     test_file = test_dir / "test.txt"
     test_file.write_text("content", encoding="utf-8")
 
     result = edit_file(str(test_file), "non-existent", "replacement")
     assert "Error: The 'search' block was not found" in result
+
 
 def test_edit_file_multiple_occurrences(test_dir):
     test_file = test_dir / "test.txt"

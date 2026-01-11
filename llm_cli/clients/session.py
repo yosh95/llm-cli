@@ -437,7 +437,9 @@ class ChatSession:
                 }
                 # Include thought_signature if present (required by Gemini)
                 if thought_signature:
-                    response["functionResponse"]["thought_signature"] = thought_signature
+                    response["functionResponse"]["thought_signature"] = (
+                        thought_signature
+                    )
                 return response, None
 
         try:

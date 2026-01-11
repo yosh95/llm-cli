@@ -288,7 +288,6 @@ llm --mcp
 
 -   `llm-cli-config`: Interactive configuration tool.
 -   `*-models`: List available models for each provider (e.g., `ollama-models`).
--   `translate-json`: A utility to translate specific keys in a JSON file.
 
 ## License
 

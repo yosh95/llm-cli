@@ -17,7 +17,7 @@ try:
 except ImportError:
     termios = None
 
-from prompt_toolkit import prompt
+from prompt_toolkit import PromptSession, prompt
 from prompt_toolkit.completion import Completer, PathCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory, InMemoryHistory
@@ -120,6 +120,8 @@ class ChatSession:
             self.prompt_history = FileHistory(self.history_path)
         else:
             self.prompt_history = InMemoryHistory()
+        
+        self.prompt_session = PromptSession(history=self.prompt_history)
 
     def run(
         self,
@@ -149,9 +151,8 @@ class ChatSession:
 
                 # Apply both standard key bindings and exit-on-escape bindings
                 combined_kb = merge_key_bindings([kb, kb_exit])
-                user_input = prompt(
+                user_input = self.prompt_session.prompt(
                     "> ",
-                    history=self.prompt_history,
                     completer=LlmCliPathCompleter(),
                     key_bindings=combined_kb,
                     enable_system_prompt=True,
@@ -160,6 +161,8 @@ class ChatSession:
                 ).strip()
             except (KeyboardInterrupt, EOFError):
                 break
+            finally:
+                self._retrieve_task_exceptions()
 
             if not user_input:
                 continue
@@ -375,7 +378,12 @@ class ChatSession:
             kwargs.setdefault("enable_open_in_editor", True)
             kwargs.setdefault("enable_system_prompt", True)
             kwargs.setdefault("enable_suspend", True)
-            return prompt(message, **kwargs).strip()
+            kwargs.pop("history", None) # PromptSession.prompt() does not accept history
+            try:
+                result = self.prompt_session.prompt(message, **kwargs).strip()
+                return result
+            finally:
+                self._retrieve_task_exceptions()
 
         try:
             tty_path = "/dev/tty" if sys.platform != "win32" else "CON"
@@ -469,7 +477,6 @@ class ChatSession:
             user_input = self._get_input(
                 "Allow execution? (y/N or feedback): ",
                 exit_on_escape=True,
-                history=self.prompt_history,
             )
             if user_input.lower() != "y":
                 feedback = user_input if user_input.lower() != "n" else ""

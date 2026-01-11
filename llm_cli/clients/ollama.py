@@ -7,7 +7,6 @@ from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import registry
 
-FALLBACK_MODEL = "gemma3:270m"
 DEFAULT_API_URL = "http://localhost:11434/v1/chat/completions"
 
 
@@ -29,8 +28,6 @@ class OllamaClient(BaseLlmClient):
         from llm_cli.clients.config import get_model_aliases
 
         self.available_models = get_model_aliases("ollama")
-        if "default" not in self.available_models:
-            self.available_models["default"] = FALLBACK_MODEL
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         messages = []

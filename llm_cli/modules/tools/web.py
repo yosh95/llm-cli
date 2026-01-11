@@ -33,7 +33,11 @@ def google_search(queries: list[str], num: int = 10) -> str:
     api_key = get_setting("api_key", "google")
     cse_id = get_setting("cse_id", "google")
     if not api_key or not cse_id:
-        return "Error: Google API credentials not configured."
+        return (
+            "Error: Google Search is not configured. "
+            "Please ensure both 'api_key' and 'cse_id' are set in the [google] section "
+            "of your config.toml. You can use 'llm-cli-config' to set them."
+        )
 
     # Clamp num to the valid range for Google Custom Search API (1-10)
     num = max(1, min(10, num))

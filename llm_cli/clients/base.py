@@ -62,8 +62,11 @@ class BaseLlmClient(ABC):
         self.tools_enabled = True
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
+        user_name = get_setting("user_name", "general")
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S (%A)")
         self.system_prompt = f"Current date and time: {now}"
+        if user_name:
+            self.system_prompt += f"\nYou are talking to {user_name}."
         if raw_prompt:
             self.system_prompt += f"\n{raw_prompt}"
 
@@ -187,6 +190,20 @@ class BaseLlmClient(ABC):
         sources: Optional[List[str]] = None,
     ):
         """Start an interactive chat session."""
+        if not self.api_key and self.config_section != "ollama":
+            console.print(
+                f"[bold red]Error: API key for '{self.config_section}' is missing.[/bold red]\n"
+                f"Please run [cyan]llm-cli-config[/cyan] to set it up."
+            )
+            return
+
+        if not self.model:
+            console.print(
+                f"[bold red]Error: No model is configured for '{self.config_section}'.[/bold red]\n"
+                f"Please run [cyan]llm-cli-config[/cyan] to define model aliases."
+            )
+            return
+
         from llm_cli.clients.session import ChatSession
 
         ChatSession(self).run(initial_data, sources)

@@ -10,8 +10,6 @@ import requests
 from llm_cli.clients.base import BaseLlmClient, DataSource, console
 from llm_cli.modules.tool_registry import registry
 
-FALLBACK_MODEL = "gemini-flash-lite-latest"
-
 
 class GeminiClient(BaseLlmClient):
     """A client for interacting with the Google Gemini API."""
@@ -42,8 +40,10 @@ class GeminiClient(BaseLlmClient):
         from llm_cli.clients.config import get_model_aliases
 
         self.available_models = get_model_aliases("google")
-        if "default" not in self.available_models:
-            self.available_models["default"] = FALLBACK_MODEL
+        if not self.available_models:
+            console.print(
+                f"[yellow]Warning: No models configured for '{self.config_section}'.[/yellow]"
+            )
 
     def _process_single_source(self, source: str) -> Optional[DataSource]:
         """Override to handle Gemini-specific File API uploads for media."""

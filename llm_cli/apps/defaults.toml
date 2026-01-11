@@ -1,0 +1,30 @@
+[google]
+image_model = "gemini-3-pro-image-preview"
+
+[google.models]
+default = "gemini-3-flash-preview"
+lite = "gemini-2.5-flash-lite"
+flash = "gemini-3-flash-preview"
+pro = "gemini-3-pro-preview"
+
+[openai.models]
+default = "gpt-5.2"
+nano = "gpt-5-nano"
+mini = "gpt-5-mini"
+
+[anthropic.models]
+default = "claude-opus-4-5-20251101"
+haiku = "claude-haiku-4-5-20251001"
+sonnet = "claude-sonnet-4-5-20250929"
+opus = "claude-opus-4-5-20251101"
+
+[xai.models]
+default = "grok-4-fast-reasoning"
+non-reasoning = "grok-4-fast-non-reasoning"
+reasoning = "grok-4-fast-reasoning"
+
+[ollama]
+api_url = "http://localhost:11434/v1/chat/completions"
+
+[ollama.models]
+default = "gemma3:270m"

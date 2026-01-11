@@ -7,7 +7,6 @@ from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import registry
 
-FALLBACK_MODEL = "gpt-5-nano"
 DEFAULT_API_URL = "https://api.openai.com/v1/chat/completions"
 
 
@@ -28,8 +27,6 @@ class OpenAIClient(BaseLlmClient):
         from llm_cli.clients.config import get_model_aliases
 
         self.available_models = get_model_aliases("openai")
-        if "default" not in self.available_models:
-            self.available_models["default"] = FALLBACK_MODEL
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         messages = self._build_messages(data)

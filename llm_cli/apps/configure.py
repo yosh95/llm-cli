@@ -1,5 +1,7 @@
 # llm_cli/apps/configure.py
 
+import json
+import re
 import shlex
 import sys
 import tomllib
@@ -12,36 +14,13 @@ import tomli_w
 CONFIG_DIR = Path.home() / ".config" / "llm_cli"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 
-# Default Model Constants
-DEFAULTS = {
-    "google": {
-        "default": "gemini-3-flash-preview",
-        "lite": "gemini-2.5-flash-lite",
-        "flash": "gemini-3-flash-preview",
-        "pro": "gemini-3-pro-preview",
-        "image": "gemini-3-pro-image-preview",
-    },
-    "openai": {
-        "default": "gpt-5.2",
-        "nano": "gpt-5-nano",
-        "mini": "gpt-5-mini",
-    },
-    "anthropic": {
-        "default": "claude-opus-4-5-20250929",
-        "haiku": "claude-haiku-4-5-20250929",
-        "sonnet": "claude-sonnet-4-5-20250929",
-        "opus": "claude-opus-4-5-20250929",
-    },
-    "xai": {
-        "default": "grok-4-fast-reasoning",
-        "non-reasoning": "grok-4-fast-non-reasoning",
-        "reasoning": "grok-4-fast-reasoning",
-    },
-    "ollama": {
-        "default": "gemma3:270m",
-        "api_url": "http://localhost:11434/v1/chat/completions",
-    },
-}
+# Load default values from external TOML
+DEFAULTS_FILE = Path(__file__).parent / "defaults.toml"
+if DEFAULTS_FILE.exists():
+    with open(DEFAULTS_FILE, "rb") as f:
+        DEFAULTS = tomllib.load(f)
+else:
+    DEFAULTS = {}
 
 
 def load_config() -> Dict[str, Any]:
@@ -116,22 +95,24 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
         )
     else:
         p_config["api_url"] = prompt_input(
-            "API URL", p_config.get("api_url", DEFAULTS["ollama"]["api_url"])
+            "API URL", p_config.get("api_url", DEFAULTS.get("ollama", {}).get("api_url"))
         )
 
     if provider == "google":
         p_config["cse_id"] = prompt_input(
             "Google Custom Search Engine ID (Optional)", p_config.get("cse_id")
         )
+        p_config["image_model"] = prompt_input(
+            "Model for Image Generation",
+            p_config.get("image_model", DEFAULTS.get(provider, {}).get("image_model")),
+        )
 
     print(f"\nModel Aliases for {name} (Press Enter to keep default):")
     m_config = p_config.setdefault("models", {})
 
     # Configure default models and aliases
-    provider_defaults = DEFAULTS.get(provider, {})
+    provider_defaults = DEFAULTS.get(provider, {}).get("models", {})
     for alias, def_model in provider_defaults.items():
-        if alias == "api_url":
-            continue
         m_config[alias] = prompt_input(
             f"Model for alias '{alias}'", m_config.get(alias, def_model)
         )
@@ -142,6 +123,8 @@ def configure_general(config: Dict[str, Any]):
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
 
+    g_config["user_name"] = prompt_input("User Name (Optional, for personalization)", g_config.get("user_name"))
+
     providers = ["google", "openai", "anthropic", "xai", "ollama"]
     current_p = g_config.get("unified_default_provider", "google")
     print(f"Available providers: {', '.join(providers)}")
@@ -150,14 +133,14 @@ def configure_general(config: Dict[str, Any]):
     print("\nData Storage Paths (Press Enter to keep default):")
     g_config["LLM_PROMPT_HISTORY"] = prompt_input(
         "Prompt History Path",
-        g_config.get("LLM_PROMPT_HISTORY", "~/.config/llm_cli/history.log"),
+        g_config.get("LLM_PROMPT_HISTORY", "~/.local/share/llm_cli/history.log"),
     )
     g_config["LLM_CHAT_LOG"] = prompt_input(
-        "Chat Log Path", g_config.get("LLM_CHAT_LOG", "~/.config/llm_cli/chat.log")
+        "Chat Log Path", g_config.get("LLM_CHAT_LOG", "~/.local/share/llm_cli/chat.log")
     )
     g_config["LLM_AUDIT_LOG"] = prompt_input(
         "Audit Log Path (Tool usage)",
-        g_config.get("LLM_AUDIT_LOG", "~/.local/state/llm_cli/audit.log"),
+        g_config.get("LLM_AUDIT_LOG", "~/.local/share/llm_cli/audit.log"),
     )
 
 
@@ -192,6 +175,27 @@ def configure_mcp(config: Dict[str, Any]):
     config["mcp_servers"] = mcp_servers
 
 
+def mask_secrets(data: Any) -> Any:
+    """Recursively mask sensitive information in configuration data."""
+    if isinstance(data, dict):
+        return {
+            k: mask_secrets(v)
+            if k != "api_key"
+            else (f"...{v[-4:]}" if isinstance(v, str) and len(v) > 8 else "***")
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [mask_secrets(item) for item in data]
+    if isinstance(data, str):
+        # Match github_pat_ followed by at least 10 alphanumeric characters
+        return re.sub(
+            r"github_pat_[a-zA-Z0-9_]{10,}",
+            lambda m: f"{m.group(0)[:11]}...{m.group(0)[-4:]}",
+            data,
+        )
+    return data
+
+
 def main():
     try:
         print("========================================")
@@ -213,18 +217,9 @@ def main():
         configure_mcp(config)
 
         print("\nSummary of changes:")
-        # Masking secrets for summary
-        display_config = {}
-        for k, v in config.items():
-            if isinstance(v, dict):
-                display_config[k] = v.copy()
-                if "api_key" in display_config[k]:
-                    key = display_config[k]["api_key"]
-                    display_config[k]["api_key"] = (
-                        f"...{key[-4:]}" if len(key) > 8 else "***"
-                    )
-            else:
-                display_config[k] = v
+        display_config = mask_secrets(config)
+
+        print(json.dumps(display_config, indent=2, ensure_ascii=False))
 
         # Check if user wants to save
         if prompt_bool("Save configuration?", True):

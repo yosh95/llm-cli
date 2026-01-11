@@ -35,11 +35,17 @@ class UnifiedClient(BaseLlmClient):
         self.clients: Dict[str, BaseLlmClient] = {}
         self.client_kwargs = kwargs
 
-        self.current_provider_name = (
-            initial_provider
-            or get_setting("unified_default_provider", "general")
-            or "google"
-        )
+        default_p = get_setting("unified_default_provider", "general")
+        if not initial_provider and not default_p:
+            console.print(
+                "[bold red]Error: No default provider is configured.[/bold red]\n"
+                "Please set 'unified_default_provider' in the [general] section of your config.toml "
+                "or run [cyan]llm-cli-config[/cyan] to set it up."
+            )
+            import sys
+            sys.exit(1)
+
+        self.current_provider_name = initial_provider or default_p
         self._activate_provider(self.current_provider_name)
 
         super().__init__(

@@ -5,8 +5,6 @@ from typing import Dict, List, Optional, Tuple
 from llm_cli.clients.base import BaseLlmClient, DataSource
 from llm_cli.modules.tool_registry import registry
 
-FALLBACK_MODEL = "claude-haiku-4-5-20251001"
-
 
 class ClaudeClient(BaseLlmClient):
     """A client for interacting with the Anthropic Claude API."""
@@ -26,8 +24,6 @@ class ClaudeClient(BaseLlmClient):
         from llm_cli.clients.config import get_model_aliases
 
         self.available_models = get_model_aliases("anthropic")
-        if "default" not in self.available_models:
-            self.available_models["default"] = FALLBACK_MODEL
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         messages = self._build_messages(data)

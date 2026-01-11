@@ -94,8 +94,9 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
             "API Key", p_config.get("api_key"), secret=True
         )
     else:
+        default_url = DEFAULTS.get("ollama", {}).get("api_url")
         p_config["api_url"] = prompt_input(
-            "API URL", p_config.get("api_url", DEFAULTS.get("ollama", {}).get("api_url"))
+            "API URL", p_config.get("api_url", default_url)
         )
 
     if provider == "google":
@@ -123,7 +124,9 @@ def configure_general(config: Dict[str, Any]):
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
 
-    g_config["user_name"] = prompt_input("User Name (Optional, for personalization)", g_config.get("user_name"))
+    g_config["user_name"] = prompt_input(
+        "User Name (Optional, for personalization)", g_config.get("user_name")
+    )
 
     providers = ["google", "openai", "anthropic", "xai", "ollama"]
     current_p = g_config.get("unified_default_provider", "google")

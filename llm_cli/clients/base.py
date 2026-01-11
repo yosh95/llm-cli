@@ -192,15 +192,17 @@ class BaseLlmClient(ABC):
         """Start an interactive chat session."""
         if not self.api_key and self.config_section != "ollama":
             console.print(
-                f"[bold red]Error: API key for '{self.config_section}' is missing.[/bold red]\n"
-                f"Please run [cyan]llm-cli-config[/cyan] to set it up."
+                f"[bold red]Error: API key for '{self.config_section}' "
+                "is missing.[/bold red]\n"
+                "Please run [cyan]llm-cli-config[/cyan] to set it up."
             )
             return
 
         if not self.model:
             console.print(
-                f"[bold red]Error: No model is configured for '{self.config_section}'.[/bold red]\n"
-                f"Please run [cyan]llm-cli-config[/cyan] to define model aliases."
+                f"[bold red]Error: No model is configured for "
+                f"'{self.config_section}'.[/bold red]\n"
+                "Please run [cyan]llm-cli-config[/cyan] to define model aliases."
             )
             return
 

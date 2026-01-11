@@ -12,7 +12,7 @@ except ImportError:
     resource = None
 
 from llm_cli.clients.config import get_setting
-from llm_cli.modules.tool_registry import registry, tool
+from llm_cli.modules.tool_registry import tool
 from llm_cli.security import CommandValidationError, validate_command
 
 logger = logging.getLogger(__name__)

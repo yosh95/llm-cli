@@ -42,7 +42,8 @@ class GeminiClient(BaseLlmClient):
         self.available_models = get_model_aliases("google")
         if not self.available_models:
             console.print(
-                f"[yellow]Warning: No models configured for '{self.config_section}'.[/yellow]"
+                f"[yellow]Warning: No models configured for "
+                f"'{self.config_section}'.[/yellow]"
             )
 
     def _process_single_source(self, source: str) -> Optional[DataSource]:

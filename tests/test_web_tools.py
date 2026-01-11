@@ -68,7 +68,7 @@ def test_fetch_web_text_truncation(mock_cloudscraper):
     """Test fetch_web_text truncates output at 20000 chars."""
     with patch("llm_cli.modules.tools.web.get_setting") as mock_get:
         mock_get.return_value = None  # Force use of default 20000
-        
+
         long_text = "word " * 10000  # 50000 chars
         html_content = f"<html><body>{long_text}</body></html>"
 

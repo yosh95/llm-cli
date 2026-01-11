@@ -39,8 +39,8 @@ class UnifiedClient(BaseLlmClient):
         if not initial_provider and not default_p:
             console.print(
                 "[bold red]Error: No default provider is configured.[/bold red]\n"
-                "Please set 'unified_default_provider' in the [general] section of your config.toml "
-                "or run [cyan]llm-cli-config[/cyan] to set it up."
+                "Please set 'unified_default_provider' in the [general] section "
+                "of your config.toml or run [cyan]llm-cli-config[/cyan] to set it up."
             )
             import sys
             sys.exit(1)

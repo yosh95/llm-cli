@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import whatthepatch
-
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
@@ -219,85 +217,4 @@ def edit_file(path: str, search: str, replace: str) -> str:
         return f"Error: {e}"
 
 
-@tool(
-    name="apply_diff",
-    desc="Apply a Unified Diff (patch) to a file. This is more robust than edit_file "
-    "as it uses surrounding context to locate the changes. Supports multiple hunks.",
-    params={
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Path to the file to patch."},
-            "diff": {
-                "type": "string",
-                "description": "The unified diff content to apply.",
-            },
-        },
-        "required": ["path", "diff"],
-    },
-)
-def apply_diff(path: str, diff: str) -> str:
-    """
-    Apply a unified diff (patch) to a file using the whatthepatch library.
-    This is a native Python implementation that doesn't require the 'patch' command.
-    """
-    try:
-        validate_path(path)
-        p = Path(path)
-        if not p.is_file():
-            return f"Error: '{path}' is not a file."
 
-        original_content = p.read_text(encoding="utf-8")
-        original_lines = original_content.splitlines()
-
-        # Parse the diff
-        patches = list(whatthepatch.parse_patch(diff))
-        if not patches:
-            return (
-                "Error: Could not parse the provided diff. "
-                "Ensure it is in Unified Diff format."
-            )
-
-        patch = patches[0]
-
-        # Check for context mismatches before applying
-        if patch.changes:
-            for change in patch.changes:
-                if change.old is not None:
-                    # This is a context line or a deleted line
-                    # Check if the line in the file matches
-                    line_idx = change.old - 1
-                    if line_idx < 0 or line_idx >= len(original_lines):
-                        return (
-                            f"Error: Line number {change.old} is out of range "
-                            f"in hunk #{change.hunk}."
-                        )
-                    if original_lines[line_idx] != change.line:
-                        return (
-                            f"Error: context line {change.old}, "
-                            f'"{original_lines[line_idx]}" does not match '
-                            f'"{change.line}", in hunk #{change.hunk}'
-                        )
-
-        # Apply the patch
-        new_lines = whatthepatch.apply_diff(patch, original_lines)
-
-        if new_lines is None:
-            return (
-                f"Error: Failed to apply the diff to {path}. "
-                "This usually happens if the context lines in the diff don't match "
-                "the current file content."
-            )
-
-        new_content = "\n".join(new_lines)
-
-        # Preserve the original trailing newline if it existed
-        if original_content.endswith("\n") and not new_content.endswith("\n"):
-            new_content += "\n"
-
-        p.write_text(new_content, encoding="utf-8")
-        return f"Successfully applied diff to {path}"
-
-    except PathValidationError as e:
-        return f"Security Error: {e}"
-    except Exception as e:
-        return f"Error: {e}"

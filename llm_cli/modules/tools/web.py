@@ -113,7 +113,7 @@ def fetch_web_text(url: str) -> str:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get("Content-Type", "").lower()
 
-        max_output = int(get_setting("max_fetch_web_text_len", "general") or 50000)
+        max_output = int(get_setting("max_fetch_web_text_len", "general") or 20000)
         if "text/html" not in ctype:
             # Fallback for non-HTML text content (plain text, etc.)
             return resp.text[:max_output]

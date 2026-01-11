@@ -17,7 +17,6 @@ dependencies = [
     "requests",
     "rich",
     "tomli-w",
-    "whatthepatch",
 ]
 
 [project.optional-dependencies]

@@ -556,18 +556,19 @@ class BaseLlmClient(ABC):
             output_dir = Path(output_dir_str)
             target_path = output_dir / fname
 
-            # Ensure parent directory of the target path exists
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-
-            if target_path.exists():
-                if not Confirm.ask(
-                    f"[yellow]File {target_path} already exists. Overwrite?[/yellow]",
-                    default=False,
-                ):
-                    console.print("[yellow]Skipping image save.[/yellow]")
-                    return None
-
             try:
+                # Ensure parent directory of the target path exists
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                if target_path.exists():
+                    if not Confirm.ask(
+                        f"[yellow]File {target_path} already exists. "
+                        "Overwrite?[/yellow]",
+                        default=False,
+                    ):
+                        console.print("[yellow]Skipping image save.[/yellow]")
+                        return None
+
                 target_path.write_bytes(base64.b64decode(inline_data["data"]))
                 return f"\n**output image: {target_path}**"
             except Exception as e:

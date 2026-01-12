@@ -1,4 +1,3 @@
---- README.md (Lines 1 to 571) ---
 # llm-cli: A Unified Command-Line Interface for Multiple LLMs
 
 [English] | [日本語](#japanese-description)
@@ -8,7 +7,13 @@
 
 `llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
 
-![llm-cli banner](images/banner.jpeg)
+<p align="center">
+  <img src="images/banner.jpeg" width="800" alt="llm-cli banner" />
+</p>
+
+<p align="center">
+  <img src="images/llm_cli_overview_en.jpg" width="800" alt="llm-cli overview" />
+</p>
 
 ## Screenshots
 
@@ -16,13 +21,17 @@
 
 The AI can use tools like `google_search` to find the latest information. In this example, it searches for the latest AI news and summarizes it. **Agent Mode is enabled by default**, allowing the AI to autonomously use various tools to help with your tasks.
 
-![Real-time Research](images/google_search.png)
+<p align="center">
+  <img src="images/google_search.png" width="700" alt="Real-time Research" />
+</p>
 
 ### 🌐 Web Browsing & Interaction
 
 The AI agent can now browse the web interactively. It can navigate to URLs, click buttons, type text, and capture screenshots to "see" the page layout. This is powered by `browser-use` and Playwright.
 
-![Web Browsing Example](images/browser_example.png)
+<p align="center">
+  <img src="images/browser_example.png" width="700" alt="Web Browsing Example" />
+</p>
 
 ## Features
 
@@ -313,17 +322,25 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 `llm-cli` は、多様な大規模言語モデル（LLM）と対話するための、強力で汎用性の高いコマンドラインツールです。Google (Gemini)、OpenAI、Anthropic (Claude)、xAI (Grok) に加え、**Ollama を介したローカルLLM** をサポートしており、単一の `llm` コマンドだけでプロバイダをシームレスに切り替えながら、各モデルの機能をターミナルから直接活用できます。
 
+<p align="center">
+  <img src="images/llm_cli_overview.jpg" width="800" alt="llm-cli 概要図" />
+</p>
+
 ## スクリーンショット
 
 ### 🔍 リアルタイム調査とツール利用
 AIは `google_search` などのツールを活用して最新情報を取得できます。この例では、最新のAIニュースを検索して要約しています。**エージェントモードはデフォルトで有効**になっており、AIが自律的に様々なツールを使いこなしながらタスクをサポートします。
 
-![Real-time Research](images/google_search.png)
+<p align="center">
+  <img src="images/google_search.png" width="700" alt="リアルタイム調査" />
+</p>
 
 ### 🌐 Webブラウジングと操作
 AIエージェントが対話的にWebサイトをブラウジングできるようになりました。URLへのアクセス、ボタンのクリック、テキスト入力、そしてスクリーンショット撮影を通じて、Webサイトの構造を「見て」操作することが可能です。これには `browser-use` と Playwright が活用されています。
 
-![Web Browsing Example](images/browser_example.png)
+<p align="center">
+  <img src="images/browser_example.png" width="700" alt="Webブラウジング例" />
+</p>
 
 ## 主な機能
 
@@ -361,7 +378,7 @@ AIエージェントは以下のツールを標準で備えています：
 | `list_files` | ディレクトリ内のファイル一覧を表示し、プロジェクト構造を把握。 |
 | `read_file` | テキストファイルの内容を読み取り（行指定可能）。 |
 | `write_file` | ファイルを新規作成または更新（全体書き換え）。 |
-| `edit_file` | 精密な検索と置換により、特定のコードブロックを修正。 |
+| `edit_file` | 精密な検索と置換により、特定のコードブロックを修正. |
 | `google_search` | Google検索を使用してリアルタイムの情報を取得. |
 | `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
@@ -474,7 +491,7 @@ pip install ".[mcp]"
 llm-cli-config
 ```
 
-> **注**: Google, OpenAI, Anthropic, xAI の LLM を利用するには、各プロバイダの API キーが必要です。これらは `llm-cli-config` で設定できます。
+> **Note**: Google, OpenAI, Anthropic, xAI の LLM を利用するには、各プロバイダの API キーが必要です。これらは `llm-cli-config` で設定できます。
 
 ## 使い方
 
@@ -512,7 +529,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `-d, --debug`: ライブデバッグモードを有効化。
 -   `--mcp`: MCP（Model Context Protocol）連携を有効化。
 -   `--mcp-server`: `llm-cli` を MCP サーバーとして起動。
--   `--no-system-prompt`: 設定されたシステムプロンプトを無効化。
+-   `--no-system-prompt`: 指定されたシステムプロンプトを無効化。
 
 ## チャット内コマンド
 
@@ -521,16 +538,16 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/models` (または `/m`): 利用可能なモデルとエイリアスを表示。
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツール等）を表示。
 -   `/tools [on|off]`: ツールの有効・無効を切り替え。
--   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
+-   `/checkpoint` (or `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動で添付。
 -   `/save <path>`: 会話履歴をJSONファイルに保存。
 -   `/load <path>`: 会話履歴をJSONファイルから読み込み。
 -   `/dump`: 会話履歴をJSON形式でダンプ。
 -   `/raw`: 生の会話テキストを表示。
 -   `/clear` (or `/c`): 会話履歴をクリア。
--   `/debug` (または `/d`): ライブデバッグモードのON/OFF切り替え。
--   `/help` (または `/h`): 全コマンドリストを表示。
--   `/quit` (または `/q`): 終了。
+-   `/debug` (or `/d`): ライブデバッグモードのON/OFF切り替え。
+-   `/help` (or `/h`): 全コマンドリストを表示。
+-   `/quit` (or `/q`): 終了。
 
 ## プラグイン・アーキテクチャ: ツールの追加
 

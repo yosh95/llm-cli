@@ -118,9 +118,8 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
         end = min(len(lines), end_line) if end_line else len(lines)
         content = "\n".join(lines[start:end])
 
-        header = f"--- {path} (Lines {start + 1} to {end}) ---"
         max_output = int(get_setting("max_read_file_len", "general") or 10000)
-        return f"{header}\n{content[:max_output]}"
+        return content[:max_output]
     except PathValidationError as e:
         return f"Security Error: {e}"
     except Exception as e:

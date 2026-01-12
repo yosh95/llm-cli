@@ -178,7 +178,7 @@ if HAS_PLAYWRIGHT:
             max_output = int(get_setting("max_browser_content_len", "general") or 30000)
             content = await page.inner_text("body")
             content = content[:max_output]
-            return f"Page Title: {title}\n\nContent Excerpt:\n{content}"
+            return f"{title}\n\n{content}"
         except Exception as e:
             return f"Failed to retrieve content: {e}"
 

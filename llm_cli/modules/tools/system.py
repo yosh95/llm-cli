@@ -135,6 +135,9 @@ def execute_command(command: str) -> str:
                 stdout, stderr = proc.communicate(timeout=timeout)
                 exit_code = proc.returncode
 
+                if exit_code == 0 and not stderr:
+                    return stdout
+
                 result = f"STDOUT:\n{stdout}"
                 if stderr:
                     result += f"\nSTDERR:\n{stderr}"

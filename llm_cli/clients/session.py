@@ -1,6 +1,5 @@
 # llm_cli/clients/session.py
 
-import asyncio
 import copy
 import datetime
 import difflib
@@ -131,7 +130,6 @@ class ChatSession:
     ):
         data = initial_data or []
         while True:
-            self._retrieve_task_exceptions()
             try:
                 if (
                     len(self.client.conversation) >= 30
@@ -142,8 +140,7 @@ class ChatSession:
                     )
                     self._checkpoint_hint_shown = True
 
-                # Clear any pending input (especially after browser tool use)
-                # to prevent ghost KeyboardInterrupt/EOFError.
+                # Clear any pending input to prevent ghost KeyboardInterrupt/EOFError.
                 if termios and sys.stdin.isatty():
                     try:
                         termios.tcflush(sys.stdin, termios.TCIFLUSH)
@@ -163,8 +160,6 @@ class ChatSession:
                 ).strip()
             except (KeyboardInterrupt, EOFError):
                 break
-            finally:
-                self._retrieve_task_exceptions()
 
             if not user_input:
                 continue
@@ -188,7 +183,6 @@ class ChatSession:
             except Exception as e:
                 console.print(f"[bold red]Error: {e}[/bold red]")
                 data = []
-        self._retrieve_task_exceptions()
 
     def process_and_print(self, data: List[DataSource]):
         self._log_chat(data, role="User")
@@ -338,35 +332,9 @@ class ChatSession:
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
-    def _retrieve_task_exceptions(self):
-        """
-        Silences 'Task exception was never retrieved' warnings by explicitly
-        accessing the exception of finished tasks. This is particularly useful
-        when KeyboardInterrupt or EOFError occurs during a prompt_toolkit
-        session while nest_asyncio is active.
-        """
-        try:
-            loop = asyncio.get_event_loop()
-            for task in asyncio.all_tasks(loop):
-                if task.done():
-                    try:
-                        # Accessing the exception (or result) marks it as retrieved.
-                        if task.cancelled():
-                            # For cancelled tasks, calling result() or exception()
-                            # raises CancelledError, which we catch.
-                            task.exception()
-                        else:
-                            task.exception()
-                    except (asyncio.CancelledError, KeyboardInterrupt, Exception):
-                        pass
-        except Exception:
-            pass
-
     def _get_input(self, message: str, exit_on_escape: bool = False, **kwargs) -> str:
         """Helper for console input, supporting both TTY and prompt_toolkit."""
         if sys.stdin.isatty():
-            self._retrieve_task_exceptions()
-
             if termios:
                 try:
                     termios.tcflush(sys.stdin, termios.TCIFLUSH)
@@ -382,11 +350,7 @@ class ChatSession:
             kwargs.setdefault("enable_system_prompt", True)
             kwargs.setdefault("enable_suspend", True)
             kwargs.pop("history", None) # PromptSession.prompt() does not accept history
-            try:
-                result = self.prompt_session.prompt(message, **kwargs).strip()
-                return result
-            finally:
-                self._retrieve_task_exceptions()
+            return self.prompt_session.prompt(message, **kwargs).strip()
 
         try:
             tty_path = "/dev/tty" if sys.platform != "win32" else "CON"

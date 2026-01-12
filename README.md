@@ -21,14 +21,6 @@ The AI can use tools like `google_search` to find the latest information. In thi
   <img src="images/google_search.png" width="700" alt="Real-time Research" />
 </p>
 
-### 🌐 Web Browsing & Interaction
-
-The AI agent can now browse the web interactively. It can navigate to URLs, click buttons, type text, and capture screenshots to "see" the page layout. This is powered by `browser-use` and Playwright.
-
-<p align="center">
-  <img src="images/browser_example.png" width="700" alt="Web Browsing Example" />
-</p>
-
 ## Features
 
 -   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, and **Ollama** through a single `llm` command.
@@ -36,7 +28,6 @@ The AI agent can now browse the web interactively. It can navigate to URLs, clic
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Exit anytime**: Use **Escape**, **Ctrl+C**, or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
--   **Interactive Browsing**: The agent can perform complex web tasks (like booking, searching, or analyzing SPAs) using a real headless browser.
 -   **Multimodal Output (Gemini)**: Generate images mid-conversation by switching to an image generation model (e.g., via the `/image` alias). Images are automatically saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
@@ -70,11 +61,6 @@ The AI agent comes equipped with the following tools:
 | `fetch_url` | Fetch raw HTML or media files (images/PDFs) from a URL. |
 | `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
 | `attach_file` | Manually/Autonomously inject a file into the conversation context. |
-| `browser_navigate` | Navigate to a specific URL in the browser. |
-| `browser_click` | Click an element on the page using CSS selectors. |
-| `browser_type` | Type text into an input field. |
-| `browser_screenshot` | Capture a screenshot of the current browser view. |
-| `browser_get_content` | Get the text content of the current page. |
 
 > **Note**: To use `google_search`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
 
@@ -330,13 +316,6 @@ AIは `google_search` などのツールを活用して最新情報を取得で�
   <img src="images/google_search.png" width="700" alt="リアルタイム調査" />
 </p>
 
-### 🌐 Webブラウジングと操作
-AIエージェントが対話的にWebサイトをブラウジングできるようになりました。URLへのアクセス、ボタンのクリック、テキスト入力、そしてスクリーンショット撮影を通じて、Webサイトの構造を「見て」操作することが可能です。これには `browser-use` と Playwright が活用されています。
-
-<p align="center">
-  <img src="images/browser_example.png" width="700" alt="Webブラウジング例" />
-</p>
-
 ## 主な機能
 
 -   **統合インターフェース**: `llm` コマンド一つで Gemini, OpenAI, Claude, Grok, **Ollama** にアクセス可能。
@@ -344,7 +323,6 @@ AIエージェントが対話的にWebサイトをブラウジングできるよ
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Escape**、**Ctrl+C**、または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
--   **対話型ブラウジング**: ヘッドレスブラウザを使用して、複雑なWeb操作（予約、検索、SPAの解析など）をエージェントが行えます。
 -   **マルチモーダル出力 (Gemini)**: 会話の途中で画像生成モデルに切り替える（例： `/image` エイリアスを使用）ことで、画像を生成できます。生成された画像は自動的にローカルに保存されます。
 -   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
@@ -378,11 +356,6 @@ AIエージェントは以下のツールを標準で備えています：
 | `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
 | `attach_file` | ファイルを会話のコンテキストに注入。 |
-| `browser_navigate` | ブラウザで指定されたURLに移動。 |
-| `browser_click` | ページ上の要素をクリック。 |
-| `browser_type` | 入力フィールドにテキストを入力。 |
-| `browser_screenshot` | 現在のブラウザ画面のスクリーンショットを撮影。 |
-| `browser_get_content` | 現在のページのテキストコンテンツを取得。 |
 
 > **注**: `google_search` を利用するには、**Google Cloud Platform の API キー**と**カスタム検索エンジン ID (CX)** の取得が必要です。これらは `llm-cli-config` で設定できます。
 

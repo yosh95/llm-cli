@@ -79,14 +79,9 @@ class ToolRegistry:
             }
 
             try:
-                if inspect.iscoroutinefunction(func):
-                    import nest_asyncio
-                    nest_asyncio.apply()
-
-                    loop = asyncio.get_event_loop()
-                    result = loop.run_until_complete(func(**filtered_kwargs))
-                else:
-                    result = func(**filtered_kwargs)
+                # Local tools are currently all synchronous.
+                # Coroutine support is removed to avoid nest_asyncio issues.
+                result = func(**filtered_kwargs)
 
                 exit_code = None
                 if isinstance(result, str) and "Exit Code:" in result:

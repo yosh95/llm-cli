@@ -3,13 +3,6 @@
 import logging
 import sys
 
-try:
-    import nest_asyncio
-
-    nest_asyncio.apply()
-except ImportError:
-    pass
-
 from mcp.server.fastmcp import FastMCP
 
 from llm_cli.modules.tool_registry import registry

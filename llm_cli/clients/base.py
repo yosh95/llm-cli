@@ -327,6 +327,9 @@ class BaseLlmClient(ABC):
                         console.print("[yellow]Save cancelled.[/yellow]")
                         return True
 
+                # Ensure parent directory exists
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+
                 with save_path.open("w", encoding="utf-8") as f:
                     json.dump(self.conversation, f, indent=2, ensure_ascii=False)
                 console.print(f"[green]Session saved to {save_path}[/green]")
@@ -551,8 +554,10 @@ class BaseLlmClient(ABC):
             # Honor image_output_dir from config
             output_dir_str = get_setting("image_output_dir", "general") or "."
             output_dir = Path(output_dir_str)
-            output_dir.mkdir(exist_ok=True)
             target_path = output_dir / fname
+
+            # Ensure parent directory of the target path exists
+            target_path.parent.mkdir(parents=True, exist_ok=True)
 
             if target_path.exists():
                 if not Confirm.ask(

@@ -66,11 +66,8 @@ class BaseLlmClient(ABC):
         self.tools_enabled = True
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
-        user_name = get_setting("user_name", "general")
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S (%A)")
         self.system_prompt = f"Current date and time: {now}"
-        if user_name:
-            self.system_prompt += f"\nUser name: {user_name}"
         if raw_prompt:
             self.system_prompt += f"\n{raw_prompt}"
 

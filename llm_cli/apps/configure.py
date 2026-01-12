@@ -124,10 +124,6 @@ def configure_general(config: Dict[str, Any]):
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
 
-    g_config["user_name"] = prompt_input(
-        "User Name (Optional, for personalization)", g_config.get("user_name")
-    )
-
     providers = ["google", "openai", "anthropic", "xai", "ollama"]
     current_p = g_config.get("unified_default_provider", "google")
     print(f"Available providers: {', '.join(providers)}")

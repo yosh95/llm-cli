@@ -111,12 +111,10 @@ class TestBaseLlmClient:
             mock_session_cls.assert_called_once_with(concrete_client)
             mock_session.run.assert_called_once()
 
-    def test_system_prompt_personalization(self, monkeypatch):
-        """Test that system prompt includes user name when available."""
+    def test_system_prompt_construction(self, monkeypatch):
+        """Test that system prompt includes date/time and base prompt."""
 
         def mock_get_setting(key, section):
-            if key == "user_name" and section == "general":
-                return "Alice"
             if key == "system_prompt":
                 return "Base Prompt"
             return None
@@ -131,30 +129,7 @@ class TestBaseLlmClient:
                 return "", {}
 
         client = ConcreteClient("default", "key", "google", False, False)
-        assert "User name: Alice" in client.system_prompt
         assert "Base Prompt" in client.system_prompt
         assert "Current date and time:" in client.system_prompt
-
-    def test_system_prompt_no_personalization(self, monkeypatch):
-        """Test that system prompt excludes user name when not available."""
-
-        def mock_get_setting(key, section):
-            if key == "user_name":
-                return None
-            if key == "system_prompt":
-                return "Base Prompt"
-            return None
-
-        monkeypatch.setattr("llm_cli.clients.base.get_setting", mock_get_setting)
-
-        class ConcreteClient(BaseLlmClient):
-            def _load_model_aliases(self):
-                self.available_models = {"default": "test"}
-
-            def _send(self, data):
-                return "", {}
-
-        client = ConcreteClient("default", "key", "google", False, False)
         assert "User name:" not in client.system_prompt
-        assert "Base Prompt" in client.system_prompt
 

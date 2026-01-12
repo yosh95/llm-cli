@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import tomli_w
+from prompt_toolkit import prompt
+from prompt_toolkit.completion import PathCompleter
+from prompt_toolkit.shortcuts import CompleteStyle
 
 # Define the path for the configuration directory and file
 CONFIG_DIR = Path.home() / ".config" / "llm_cli"
@@ -47,7 +50,10 @@ def save_config(config: Dict[str, Any]):
 
 
 def prompt_input(
-    prompt_text: str, current_value: Any = None, secret: bool = False
+    prompt_text: str,
+    current_value: Any = None,
+    secret: bool = False,
+    completer: Any = None,
 ) -> str:
     """Displays a prompt and returns user input or current value."""
     if current_value is not None:
@@ -55,18 +61,35 @@ def prompt_input(
             display_val = f"...{current_value[-4:]}"
         else:
             display_val = str(current_value)
-        prompt = f"{prompt_text} [{display_val}]: "
+        prompt_str = f"{prompt_text} [{display_val}]: "
     else:
-        prompt = f"{prompt_text}: "
+        prompt_str = f"{prompt_text}: "
 
-    value = input(prompt).strip()
+    try:
+        value = prompt(
+            prompt_str,
+            completer=completer,
+            complete_style=CompleteStyle.READLINE_LIKE,
+            is_password=secret,
+        ).strip()
+    except (KeyboardInterrupt, EOFError):
+        # We handle this in main() but for smaller prompts we might just return current
+        return str(current_value) if current_value is not None else ""
+
     return value if value else (str(current_value) if current_value is not None else "")
 
 
 def prompt_bool(prompt_text: str, current_value: bool = False) -> bool:
     """Prompts for a boolean value."""
     default_str = "Y/n" if current_value else "y/N"
-    val = input(f"{prompt_text} ({default_str}): ").strip().lower()
+    try:
+        val = prompt(
+            f"{prompt_text} ({default_str}): ",
+            complete_style=CompleteStyle.READLINE_LIKE,
+        ).strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        return current_value
+
     if not val:
         return current_value
     return val.startswith("y")
@@ -130,16 +153,21 @@ def configure_general(config: Dict[str, Any]):
     g_config["unified_default_provider"] = prompt_input("Default Provider", current_p)
 
     print("\nData Storage Paths (Press Enter to keep default):")
+    path_completer = PathCompleter(expanduser=True)
     g_config["LLM_PROMPT_HISTORY"] = prompt_input(
         "Prompt History Path",
         g_config.get("LLM_PROMPT_HISTORY", "~/.local/share/llm_cli/history.log"),
+        completer=path_completer,
     )
     g_config["LLM_CHAT_LOG"] = prompt_input(
-        "Chat Log Path", g_config.get("LLM_CHAT_LOG", "~/.local/share/llm_cli/chat.log")
+        "Chat Log Path",
+        g_config.get("LLM_CHAT_LOG", "~/.local/share/llm_cli/chat.log"),
+        completer=path_completer,
     )
     g_config["LLM_AUDIT_LOG"] = prompt_input(
         "Audit Log Path (Tool usage)",
         g_config.get("LLM_AUDIT_LOG", "~/.local/share/llm_cli/audit.log"),
+        completer=path_completer,
     )
 
 
@@ -157,17 +185,40 @@ def configure_mcp(config: Dict[str, Any]):
             for i, srv in enumerate(mcp_servers):
                 print(f"{i + 1}. {srv.get('name')} ({srv.get('command')})")
 
-        choice = input("\nOptions: [a]dd server, [r]emove server, [d]one: ").lower()
+        try:
+            choice = prompt(
+                "\nOptions: [a]dd server, [r]emove server, [d]one: ",
+                complete_style=CompleteStyle.READLINE_LIKE,
+            ).lower()
+        except (KeyboardInterrupt, EOFError):
+            break
+
         if choice == "a":
-            name = input("Server Name: ").strip()
-            cmd = input("Command (e.g. ssh, docker, npx): ").strip()
-            args_str = input("Arguments (space separated): ").strip()
+            name = prompt(
+                "Server Name: ", complete_style=CompleteStyle.READLINE_LIKE
+            ).strip()
+            cmd = prompt(
+                "Command (e.g. ssh, docker, npx): ",
+                complete_style=CompleteStyle.READLINE_LIKE,
+                completer=PathCompleter(expanduser=True),
+            ).strip()
+            args_str = prompt(
+                "Arguments (space separated): ",
+                complete_style=CompleteStyle.READLINE_LIKE,
+            ).strip()
             args = shlex.split(args_str)
             mcp_servers.append({"name": name, "command": cmd, "args": args})
         elif choice == "r" and mcp_servers:
-            idx = int(input("Server number to remove: ")) - 1
-            if 0 <= idx < len(mcp_servers):
-                mcp_servers.pop(idx)
+            try:
+                idx_str = prompt(
+                    "Server number to remove: ",
+                    complete_style=CompleteStyle.READLINE_LIKE,
+                )
+                idx = int(idx_str) - 1
+                if 0 <= idx < len(mcp_servers):
+                    mcp_servers.pop(idx)
+            except (ValueError, KeyboardInterrupt, EOFError):
+                pass
         elif choice == "d" or not choice:
             break
 

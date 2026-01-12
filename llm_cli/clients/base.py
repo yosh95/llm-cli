@@ -10,12 +10,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from rich.console import Console, Group
-from rich.panel import Panel
-from rich.syntax import Syntax
-from rich.prompt import Confirm
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import PathCompleter
+from prompt_toolkit.shortcuts import CompleteStyle
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.prompt import Confirm
+from rich.syntax import Syntax
 
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.media_utils import (
@@ -302,7 +303,8 @@ class BaseLlmClient(ABC):
                     user_input = prompt(
                         "Enter session filename: ",
                         default=default_filename,
-                        completer=PathCompleter(),
+                        completer=PathCompleter(expanduser=True),
+                        complete_style=CompleteStyle.READLINE_LIKE,
                     ).strip()
                     if not user_input:
                         user_input = default_filename
@@ -533,7 +535,8 @@ class BaseLlmClient(ABC):
                     user_input = prompt(
                         "Enter image file prefix (extension will be added): ",
                         default=default_prefix,
-                        completer=PathCompleter(),
+                        completer=PathCompleter(expanduser=True),
+                        complete_style=CompleteStyle.READLINE_LIKE,
                     ).strip()
                     if not user_input:
                         user_input = default_prefix

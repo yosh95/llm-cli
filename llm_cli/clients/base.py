@@ -643,7 +643,11 @@ class BaseLlmClient(ABC):
 
         if response_obj:
             req_info = []
-            if hasattr(response_obj, "request"):
+            title_req = f"[bold cyan]API Request ({timestamp})[/bold cyan]"
+
+            if request_payload:
+                req_info.append(_format_json(request_payload))
+            elif hasattr(response_obj, "request"):
                 req = response_obj.request
                 req_info.append(f"[bold]URL:[/bold] {req.url}")
                 if req.body:
@@ -655,25 +659,35 @@ class BaseLlmClient(ABC):
                         )
                         req_info.append(_format_json(json.loads(b_str)))
                     except Exception:
-                        req_info.append(str(req.body))
+                        req_info.append(f"[dim]Raw Body:[/dim]\n{str(req.body)}")
 
             if req_info:
-                title = f"[bold cyan]API Request ({timestamp})[/bold cyan]"
                 console.print(
                     Panel(
-                        Group(*req_info), title=title, border_style="cyan", expand=False
+                        Group(*req_info),
+                        title=title_req,
+                        border_style="cyan",
+                        expand=False,
                     )
                 )
 
             res_info = [f"[bold]Status:[/bold] {response_obj.status_code}"]
-            try:
-                res_info.append(_format_json(response_obj.json()))
-            except Exception:
-                res_info.append(response_obj.text)
+            if response_content:
+                res_info.append(_format_json(response_content))
+            else:
+                try:
+                    res_info.append(_format_json(response_obj.json()))
+                except Exception:
+                    res_info.append(response_obj.text)
 
-            title = f"[bold green]API Response ({timestamp})[/bold green]"
+            title_res = f"[bold green]API Response ({timestamp})[/bold green]"
             console.print(
-                Panel(Group(*res_info), title=title, border_style="green", expand=False)
+                Panel(
+                    Group(*res_info),
+                    title=title_res,
+                    border_style="green",
+                    expand=False,
+                )
             )
         else:
             if request_payload:

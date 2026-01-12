@@ -132,7 +132,7 @@ class GeminiClient(BaseLlmClient):
                 json_data=payload,
                 timeout=self.REQUEST_TIMEOUT,
             )
-            self._log_debug(response_obj=response)
+            self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
             res_json = response.json()
 

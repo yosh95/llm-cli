@@ -52,7 +52,8 @@ class ToolRegistry:
         parameters["properties"]["explanation"] = {
             "type": "string",
             "description": (
-                "A brief explanation of what you are about to do with this tool."
+                "A detailed explanation of why this tool is needed and what it will do, "
+                "providing context for the user to approve the action."
             ),
         }
 

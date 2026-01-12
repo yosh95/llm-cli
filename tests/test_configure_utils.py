@@ -2,13 +2,11 @@ from llm_cli.apps.configure import mask_secrets
 
 
 def test_mask_secrets_api_key():
-    config = {
-        "google": {"api_key": "1234567890abcdef"},
-        "other": "value"
-    }
+    config = {"google": {"api_key": "1234567890abcdef"}, "other": "value"}
     masked = mask_secrets(config)
     assert masked["google"]["api_key"] == "...cdef"
     assert masked["other"] == "value"
+
 
 def test_mask_secrets_github_pat_in_string():
     config = {
@@ -17,7 +15,7 @@ def test_mask_secrets_github_pat_in_string():
                 "args": [
                     "run",
                     "GITHUB_TOKEN=github_pat_1234567890abcdefGHIKLMNOP",
-                    "other_arg"
+                    "other_arg",
                 ]
             }
         ]
@@ -31,13 +29,8 @@ def test_mask_secrets_github_pat_in_string():
     assert val.endswith("MNOP")
     assert "1234567890" not in val
 
+
 def test_mask_secrets_recursive():
-    config = {
-        "nested": {
-            "list": [
-                {"api_key": "secret_key_123"}
-            ]
-        }
-    }
+    config = {"nested": {"list": [{"api_key": "secret_key_123"}]}}
     masked = mask_secrets(config)
     assert masked["nested"]["list"][0]["api_key"] == "..._123"

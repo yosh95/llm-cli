@@ -40,6 +40,10 @@ class OllamaClient(BaseLlmClient):
             for p in msg.get("parts", []):
                 if "text" in p:
                     content += p["text"]
+                elif "thought" in p:
+                    # Optional: Include thought in messages sent back to Ollama
+                    # Some models benefit from seeing their previous reasoning.
+                    content += f"<think>\n{p['thought']}\n</think>\n"
             messages.append({"role": role, "content": content})
 
         user_content = ""
@@ -68,28 +72,50 @@ class OllamaClient(BaseLlmClient):
             response.raise_for_status()
             res_json = response.json()
 
-            content, tool_calls = self._parse_response(res_json)
-            model_parts = self._build_model_parts(content, tool_calls)
+            raw_content, tool_calls, reasoning = self._parse_response(res_json)
+
+            # Handle <think> tags in content (common in DeepSeek-R1 via Ollama)
+            if not reasoning and raw_content and "<think>" in raw_content:
+                import re
+
+                think_match = re.search(r"<think>(.*?)</think>", raw_content, re.DOTALL)
+                if think_match:
+                    reasoning = think_match.group(1).strip()
+                    raw_content = re.sub(
+                        r"<think>.*?</think>", "", raw_content, flags=re.DOTALL
+                    ).strip()
+
+            model_parts = self._build_model_parts(raw_content, tool_calls, reasoning)
+
+            full_display_text = ""
+            if reasoning and self.reasoning_enabled:
+                full_display_text += f"\n> **Reasoning:** {reasoning}\n\n"
+            full_display_text += raw_content
 
             self._update_history(user_content, model_parts)
-            return content, res_json.get("usage", {})
+            return full_display_text.strip(), res_json.get("usage", {})
         except Exception as e:
             self._report_error("Ollama", e)
             return None, None
 
     def _parse_response(self, res_json):
+        reasoning = None
         if "choices" in res_json:
             choice = res_json["choices"][0].get("message", {})
             content = choice.get("content", "")
             tool_calls = choice.get("tool_calls", [])
+            reasoning = choice.get("reasoning_content")
         else:
             message = res_json.get("message", {})
             content = message.get("content", "")
             tool_calls = message.get("tool_calls", [])
-        return content, tool_calls
+        return content, tool_calls, reasoning
 
-    def _build_model_parts(self, content, tool_calls):
+    def _build_model_parts(self, content, tool_calls, reasoning=None):
         model_parts = []
+        if reasoning:
+            model_parts.append({"thought": reasoning})
+
         if content:
             model_parts.append({"text": content})
 

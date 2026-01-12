@@ -39,6 +39,12 @@ class OpenAIClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
+        # Enable reasoning effort for o1/o3 models
+        if self.reasoning_enabled and (
+            self.model.startswith("o1") or self.model.startswith("o3")
+        ):
+            payload["reasoning_effort"] = "medium"
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -54,7 +60,17 @@ class OpenAIClient(BaseLlmClient):
 
             choice = res["choices"][0]["message"]
             model_parts = []
+            full_text = ""
+
+            # Extract reasoning/thought if present
+            reasoning = choice.get("reasoning_content")
+            if reasoning:
+                model_parts.append({"thought": reasoning})
+                if self.reasoning_enabled:
+                    full_text += f"\n> **Reasoning:** {reasoning}\n\n"
+
             if choice.get("content"):
+                full_text += choice["content"]
                 model_parts.append({"text": choice["content"]})
 
             if choice.get("tool_calls"):
@@ -72,7 +88,7 @@ class OpenAIClient(BaseLlmClient):
             model_msg = {"role": "model", "parts": model_parts}
 
             self._update_history(data, model_msg)
-            return choice.get("content", ""), res.get("usage")
+            return full_text.strip(), res.get("usage")
         except Exception as e:
             self._report_error("OpenAI", e)
             return None, None

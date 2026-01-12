@@ -40,6 +40,14 @@ class ClaudeClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
+        # Enable extended thinking for Claude 3.7+
+        # Note: budget_tokens is mandatory for Anthropic when thinking is enabled.
+        if self.reasoning_enabled and "3-7" in self.model:
+            payload["thinking"] = {"type": "enabled", "budget_tokens": 1024}
+            # max_tokens must be greater than budget_tokens
+            if payload["max_tokens"] <= 1024:
+                payload["max_tokens"] = 2048
+
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
@@ -60,6 +68,10 @@ class ClaudeClient(BaseLlmClient):
                 if block["type"] == "text":
                     full_text += block["text"]
                     model_parts.append({"text": block["text"]})
+                elif block["type"] == "thinking":
+                    thought = block["thinking"]
+                    model_parts.append({"thought": thought})
+                    full_text += f"\n> **Reasoning:** {thought}\n\n"
                 elif block["type"] == "tool_use":
                     model_parts.append(
                         {
@@ -74,7 +86,7 @@ class ClaudeClient(BaseLlmClient):
             model_msg = {"role": "model", "parts": model_parts}
             self._update_history(data, model_msg)
 
-            return full_text, res.get("usage")
+            return full_text.strip(), res.get("usage")
         except Exception as e:
             self._report_error("Claude", e)
             return None, None

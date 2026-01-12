@@ -83,10 +83,14 @@ def prompt_bool(prompt_text: str, current_value: bool = False) -> bool:
     """Prompts for a boolean value."""
     default_str = "Y/n" if current_value else "y/N"
     try:
-        val = prompt(
-            f"{prompt_text} ({default_str}): ",
-            complete_style=CompleteStyle.READLINE_LIKE,
-        ).strip().lower()
+        val = (
+            prompt(
+                f"{prompt_text} ({default_str}): ",
+                complete_style=CompleteStyle.READLINE_LIKE,
+            )
+            .strip()
+            .lower()
+        )
     except (KeyboardInterrupt, EOFError):
         return current_value
 
@@ -168,6 +172,12 @@ def configure_general(config: Dict[str, Any]):
         "Audit Log Path (Tool usage)",
         g_config.get("LLM_AUDIT_LOG", "~/.local/share/llm_cli/audit.log"),
         completer=path_completer,
+    )
+
+    print("\nBehavior Settings:")
+    g_config["enable_reasoning"] = prompt_bool(
+        "Enable Reasoning/Thinking display by default?",
+        g_config.get("enable_reasoning", True),
     )
 
 

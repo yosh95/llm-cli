@@ -148,7 +148,8 @@ class GeminiClient(BaseLlmClient):
                 if "text" in p:
                     text += p["text"]
                 elif "thought" in p:
-                    text += f"\n> **Thought:** {p['thought']}\n\n"
+                    if self.reasoning_enabled:
+                        text += f"\n> **Reasoning:** {p['thought']}\n\n"
                 elif "inlineData" in p:
                     log = self._save_inline_image_and_get_log_entry(p["inlineData"])
                     if log:
@@ -172,6 +173,12 @@ class GeminiClient(BaseLlmClient):
             payload["tools"] = registry.get_gemini_spec(
                 self.active_tools, provider=self.config_section
             )
+
+        # Enable thinking/reasoning for compatible models
+        if self.reasoning_enabled and "thinking" in self.model:
+            payload["generationConfig"] = {
+                "thinking_config": {"include_thoughts": True}
+            }
 
         return payload
 

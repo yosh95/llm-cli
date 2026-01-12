@@ -43,6 +43,7 @@ class UnifiedClient(BaseLlmClient):
                 "of your config.toml or run [cyan]llm-cli-config[/cyan] to set it up."
             )
             import sys
+
             sys.exit(1)
 
         self.current_provider_name = initial_provider or default_p

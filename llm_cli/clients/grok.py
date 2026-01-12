@@ -55,10 +55,19 @@ class GrokClient(BaseLlmClient):
             res = response.json()
 
             choice = res["choices"][0]["message"]
-            content = choice.get("content", "")
-
+            full_text = ""
             model_parts = []
+
+            # Extract reasoning/thought if present (Grok-3 etc.)
+            reasoning = choice.get("reasoning_content")
+            if reasoning:
+                model_parts.append({"thought": reasoning})
+                if self.reasoning_enabled:
+                    full_text += f"\n> **Reasoning:** {reasoning}\n\n"
+
+            content = choice.get("content", "")
             if content:
+                full_text += content
                 model_parts.append({"text": content})
 
             if choice.get("tool_calls"):
@@ -76,7 +85,7 @@ class GrokClient(BaseLlmClient):
             model_msg = {"role": "model", "parts": model_parts}
             self._update_history(data, model_msg)
 
-            return content, res.get("usage")
+            return full_text.strip(), res.get("usage")
         except Exception as e:
             self._report_error("Grok", e)
             return None, None

@@ -18,7 +18,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.syntax import Syntax
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import get_bool_setting, get_setting
 from llm_cli.modules.media_utils import (
     fetch_url_content,
     process_file,
@@ -67,6 +67,11 @@ class BaseLlmClient(ABC):
 
         # Tools are enabled by default. Can be toggled via /tools on/off
         self.tools_enabled = True
+
+        # Reasoning/Thinking enabled status
+        self.reasoning_enabled = get_bool_setting(
+            "enable_reasoning", "general", default=True
+        )
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S (%A)")
@@ -418,7 +423,7 @@ class BaseLlmClient(ABC):
             for msg in self.conversation:
                 role = msg.get("role", "unknown")
                 for p in msg.get("parts", []):
-                    role_suffix = " (THOUGHT)" if "thought" in p else ""
+                    role_suffix = " (REASONING)" if "thought" in p else ""
                     text = p.get("text") or p.get("thought")
                     if text:
                         print(f"[{role.upper()}{role_suffix}]\n{text}\n")
@@ -459,6 +464,28 @@ class BaseLlmClient(ABC):
                 )
             return True
 
+        if cmd == "reasoning":
+            if args == "on":
+                self.reasoning_enabled = True
+                console.print("[green]Reasoning display enabled.[/green]")
+            elif args == "off":
+                self.reasoning_enabled = False
+                console.print("[yellow]Reasoning display disabled.[/yellow]")
+            elif not args:
+                status = (
+                    "[green]ENABLED[/green]"
+                    if self.reasoning_enabled
+                    else "[red]DISABLED[/red]"
+                )
+                console.print(f"[bold]Reasoning Status:[/bold] {status}")
+                console.print("[dim]Usage: /reasoning on|off[/dim]")
+            else:
+                console.print(
+                    f"[red]Error: Invalid argument '{args}'. "
+                    "Usage: /reasoning on|off[/red]"
+                )
+            return True
+
         if cmd in ("debug", "d"):
             self.live_debug = not self.live_debug
             status = "ENABLED" if self.live_debug else "DISABLED"
@@ -467,6 +494,7 @@ class BaseLlmClient(ABC):
 
         if cmd in ("info", "i"):
             debug_status = "ON" if self.live_debug else "OFF"
+            reasoning_status = "ON" if self.reasoning_enabled else "OFF"
             if not self.tools_enabled:
                 tools_str = "[red]Disabled[/red]"
             else:
@@ -480,6 +508,7 @@ class BaseLlmClient(ABC):
                 f"  Model: [cyan]{self.model}[/cyan] "
                 f"(Alias: {self.current_alias})\n"
                 f"  Tools: {tools_str}\n"
+                f"  Reasoning: {reasoning_status}\n"
                 f"  Debug: [magenta]{debug_status}[/magenta]\n"
                 f"  History: {len(self.conversation)} messages"
             )
@@ -497,7 +526,7 @@ class BaseLlmClient(ABC):
             "[bold]Available Commands:[/bold]\n"
             "  /attach <path> Attach media/file to context\n"
             "  /save <path>   Save conversation history to a JSON file\n"
-            "  /load <path>   Load conversation history from a JSON file\n"
+            "  /load <path>   Save conversation history to a JSON file\n"
             "  /clear (c)     Clear conversation history\n"
             "  /checkpoint(cp)Summarize and clear history\n"
             "  /dump          Dump conversation history as JSON\n"
@@ -507,6 +536,7 @@ class BaseLlmClient(ABC):
             "  /debug (d)     Toggle live debug mode\n"
             "  /models (m)    List available models\n"
             "  /tools on|off  Show or toggle tool status\n"
+            "  /reasoning on|off Show or toggle reasoning display\n"
             "  /google, /openai, /anthropic, /xai, /ollama  Switch provider\n"
             f"  <model_alias>  Switch to specific model ({models_str})\n\n"
             "[bold]Exit Application:[/bold]\n"

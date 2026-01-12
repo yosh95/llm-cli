@@ -214,6 +214,3 @@ def edit_file(path: str, search: str, replace: str) -> str:
         return f"Security Error: {e}"
     except Exception as e:
         return f"Error: {e}"
-
-
-

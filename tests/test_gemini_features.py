@@ -56,7 +56,7 @@ def test_gemini_saves_image_and_displays_thought(
 
             # Check if text contains thought and image path
             assert "**output image:" in full_text
-            assert "**Thought:** This is a thought." in full_text
+            assert "**Reasoning:** This is a thought." in full_text
             assert files_jpeg[0] in full_text
 
         finally:

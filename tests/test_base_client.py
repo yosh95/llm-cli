@@ -132,4 +132,3 @@ class TestBaseLlmClient:
         assert "Base Prompt" in client.system_prompt
         assert "Current date and time:" in client.system_prompt
         assert "User name:" not in client.system_prompt
-

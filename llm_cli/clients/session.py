@@ -349,7 +349,9 @@ class ChatSession:
             kwargs.setdefault("enable_open_in_editor", True)
             kwargs.setdefault("enable_system_prompt", True)
             kwargs.setdefault("enable_suspend", True)
-            kwargs.pop("history", None) # PromptSession.prompt() does not accept history
+            kwargs.pop(
+                "history", None
+            )  # PromptSession.prompt() does not accept history
             return self.prompt_session.prompt(message, **kwargs).strip()
 
         try:
@@ -389,12 +391,12 @@ class ChatSession:
             args.get("explanation") or args.get("thought") or args.get("reasoning")
         )
         if explanation:
-            # Use consistent display name for thoughts
+            # Use consistent display name for reasoning
             display_name = self.client.get_display_name()
             console.print(
                 Panel(
                     explanation,
-                    title=f"[bold cyan]{display_name} (Thought)[/bold cyan]",
+                    title=f"[bold cyan]{display_name} (Reasoning)[/bold cyan]",
                     border_style="cyan",
                 )
             )

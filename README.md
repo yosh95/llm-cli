@@ -114,7 +114,7 @@ All shell commands executed through the AI agent (`execute_command` tool) are va
 To prevent resource exhaustion, commands executed by the agent are subject to the following limits:
 - **CPU Time**: 30 seconds
 - **Max File Write**: 50 MB
-- **Memory (RLIMIT_AS)**: 512 MB (Default)
+- **Memory (RLIMIT_AS)**: 1024 MB (1GB) (Default)
 
 If a tool fails with `Exit Code: 134 (Aborted)` (commonly seen with memory-heavy tools like `ruff` or compilers), you can increase the memory limit in your configuration:
 
@@ -422,7 +422,7 @@ AIエージェント (`execute_command` ツール) が実行するシェルコ�
 リソースの枯渇を防ぐため、エージェントが実行するコマンドには以下の制限が適用されます。
 - **CPU時間**: 30秒
 - **最大ファイル書き込み**: 50 MB
-- **メモリ (RLIMIT_AS)**: 512 MB (デフォルト)
+- **メモリ (RLIMIT_AS)**: 1024 MB (1GB) (デフォルト)
 
 `ruff` やコンパイラなどのメモリ消費の激しいツールを実行した際に `Exit Code: 134 (Aborted)` で失敗する場合は、設定ファイル（`~/.config/llm_cli/config.toml`）の `[general]` セクションでメモリ制限を増やすことができます。
 

@@ -17,7 +17,7 @@ try:
 except ImportError:
     termios = None
 
-from prompt_toolkit import PromptSession, prompt
+from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, PathCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory, InMemoryHistory
@@ -121,7 +121,7 @@ class ChatSession:
             self.prompt_history = FileHistory(self.history_path)
         else:
             self.prompt_history = InMemoryHistory()
-        
+
         self.prompt_session = PromptSession(history=self.prompt_history)
 
     def run(
@@ -438,13 +438,14 @@ class ChatSession:
         tool_entry = registry.tools.get(name, {})
         skip_approval = tool_entry.get("skip_approval", False)
 
+        # Check if it's one of the core tools, potentially namespaced
+        is_write = name == "write_file" or name.endswith("__write_file")
+        is_edit = name == "edit_file" or name.endswith("__edit_file")
+        is_exec = name == "execute_command" or name.endswith("__execute_command")
+
         if not skip_approval:
             # Display Agent Request in a Panel
-            if name in (
-                "write_file",
-                "edit_file",
-                "execute_command",
-            ):
+            if is_write or is_edit or is_exec:
                 # Detailed preview panel will be shown, so skip inline args
                 request_content = f"[cyan]{escape(name)}[/cyan]"
             else:
@@ -467,11 +468,11 @@ class ChatSession:
                 )
             )
 
-            if name == "write_file":
+            if is_write:
                 self._preview_diff(args)
-            elif name == "edit_file":
+            elif is_edit:
                 self._preview_edit_diff(args)
-            elif name == "execute_command":
+            elif is_exec:
                 self._preview_command(args)
 
             user_input = self._get_input(
@@ -526,7 +527,7 @@ class ChatSession:
 
             p_str = str(result_data)
             # Display Result in a Panel
-            if "execute_command" in name:
+            if is_exec:
                 console.print(
                     Panel(
                         escape(p_str),

@@ -72,8 +72,8 @@ def execute_command(command: str) -> str:
     # Use a default timeout of 60 seconds.
     timeout = int(os.environ.get("LLM_CLI_COMMAND_TIMEOUT", 60))
 
-    # Read memory limit from config, default to 512MB
-    mem_limit_mb = int(get_setting("max_command_memory_mb", "general") or 512)
+    # Read memory limit from config, default to 1024MB (1GB)
+    mem_limit_mb = int(get_setting("max_command_memory_mb", "general") or 1024)
 
     # 1. Define base safe environment variables
     safe_env_keys = {
@@ -134,9 +134,6 @@ def execute_command(command: str) -> str:
             try:
                 stdout, stderr = proc.communicate(timeout=timeout)
                 exit_code = proc.returncode
-
-                if exit_code == 0 and not stderr:
-                    return stdout
 
                 result = f"STDOUT:\n{stdout}"
                 if stderr:

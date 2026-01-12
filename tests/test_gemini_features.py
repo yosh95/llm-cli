@@ -50,7 +50,7 @@ def test_gemini_saves_image_and_displays_thought(
             # In base.py: ext_parts = mime_type.split('/'); extension = "bin"
             # if len(ext_parts) != 2 else ext_parts[1]
             # mimeType is "image/jpeg", so extension should be "jpeg".
-            files_jpeg = glob.glob("output_image_*.jpeg")
+            files_jpeg = glob.glob("generated_*.jpeg")
 
             assert len(files_jpeg) == 1, f"Expected 1 jpeg file, found: {files_jpeg}"
 

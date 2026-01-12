@@ -1,5 +1,5 @@
-import json
 from llm_cli.apps.configure import mask_secrets
+
 
 def test_mask_secrets_api_key():
     config = {

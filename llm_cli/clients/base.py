@@ -17,7 +17,6 @@ from rich.syntax import Syntax
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.media_utils import (
     fetch_url_content,
-    generate_safe_filename,
     process_file,
 )
 from llm_cli.modules.tool_registry import registry

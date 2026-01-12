@@ -94,6 +94,16 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, "active_client"):
             self.active_client.tools_enabled = value
 
+    @property
+    def reasoning_enabled(self) -> bool:
+        return getattr(self, "_reasoning_enabled", False)
+
+    @reasoning_enabled.setter
+    def reasoning_enabled(self, value: bool):
+        self._reasoning_enabled = value
+        if hasattr(self, "active_client"):
+            self.active_client.reasoning_enabled = value
+
     def _activate_provider(self, provider_alias: str) -> bool:
         if provider_alias not in self.PROVIDER_CONFIG:
             return False
@@ -105,6 +115,7 @@ class UnifiedClient(BaseLlmClient):
         self.active_client = self.clients[config_section]
         self.active_client.live_debug = self.live_debug
         self.active_client.tools_enabled = self.tools_enabled
+        self.active_client.reasoning_enabled = self.reasoning_enabled
         self.current_provider_name = config_section
         self.config_section = self.active_client.config_section
         self.available_models = self.active_client.available_models
@@ -155,6 +166,7 @@ class UnifiedClient(BaseLlmClient):
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
         self.active_client.tools_enabled = self.tools_enabled
+        self.active_client.reasoning_enabled = self.reasoning_enabled
         return self.active_client._send(data)
 
     def _has_pending_tool_calls(self) -> bool:

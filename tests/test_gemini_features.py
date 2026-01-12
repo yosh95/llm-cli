@@ -37,6 +37,7 @@ def test_gemini_saves_image_and_displays_thought(
         mock_post.return_value = mock_response
 
         client = GeminiClient(stdout=True)
+        client.reasoning_enabled = True
 
         # Change to tmp_path so image is saved there
         orig_cwd = os.getcwd()

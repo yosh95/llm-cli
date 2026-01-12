@@ -8,10 +8,6 @@
 `llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
 
 <p align="center">
-  <img src="images/banner.jpeg" width="800" alt="llm-cli banner" />
-</p>
-
-<p align="center">
   <img src="images/llm_cli_overview_en.jpg" width="800" alt="llm-cli overview" />
 </p>
 

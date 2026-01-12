@@ -555,7 +555,10 @@ class ChatSession:
                     )
                 )
                 if diff:
-                    syn = Syntax("".join(diff), "diff", theme="monokai", word_wrap=True)
+                    diff_text = "".join(
+                        [line if line.endswith("\n") else line + "\n" for line in diff]
+                    )
+                    syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
                     console.print(
                         Panel(
                             syn,
@@ -606,7 +609,10 @@ class ChatSession:
             )
 
             if diff:
-                syn = Syntax("".join(diff), "diff", theme="monokai", word_wrap=True)
+                diff_text = "".join(
+                    [line if line.endswith("\n") else line + "\n" for line in diff]
+                )
+                syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
                 console.print(
                     Panel(
                         syn,

@@ -37,7 +37,7 @@ The AI agent can now browse the web interactively. It can navigate to URLs, clic
 -   **Exit anytime**: Use **Escape**, **Ctrl+C**, or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
 -   **Interactive Browsing**: The agent can perform complex web tasks (like booking, searching, or analyzing SPAs) using a real headless browser.
--   **Integrated Image Generation (Gemini)**: The agent can generate images and slides mid-conversation using Gemini's integrated image generation capabilities.
+-   **Multimodal Output (Gemini)**: Generate images mid-conversation by switching to an image generation model (e.g., via the `/image` alias). Images are automatically saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
@@ -70,7 +70,6 @@ The AI agent comes equipped with the following tools:
 | `fetch_url` | Fetch raw HTML or media files (images/PDFs) from a URL. |
 | `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
 | `attach_file` | Manually/Autonomously inject a file into the conversation context. |
-| `generate_image` | Generate an image/slide using AI (Gemini) and save it locally. |
 | `browser_navigate` | Navigate to a specific URL in the browser. |
 | `browser_click` | Click an element on the page using CSS selectors. |
 | `browser_type` | Type text into an input field. |
@@ -346,7 +345,7 @@ AIエージェントが対話的にWebサイトをブラウジングできるよ
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Escape**、**Ctrl+C**、または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
 -   **対話型ブラウジング**: ヘッドレスブラウザを使用して、複雑なWeb操作（予約、検索、SPAの解析など）をエージェントが行えます。
--   **統合画像生成 (Gemini)**: 会話の途中でGeminiの画像生成機能を使い、図解やスライド画像を生成できます。
+-   **マルチモーダル出力 (Gemini)**: 会話の途中で画像生成モデルに切り替える（例： `/image` エイリアスを使用）ことで、画像を生成できます。生成された画像は自動的にローカルに保存されます。
 -   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
@@ -379,7 +378,6 @@ AIエージェントは以下のツールを標準で備えています：
 | `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
 | `attach_file` | ファイルを会話のコンテキストに注入。 |
-| `generate_image` | AI (Gemini) を使用して画像やスライドを生成し、ローカルに保存。 |
 | `browser_navigate` | ブラウザで指定されたURLに移動。 |
 | `browser_click` | ページ上の要素をクリック。 |
 | `browser_type` | 入力フィールドにテキストを入力。 |

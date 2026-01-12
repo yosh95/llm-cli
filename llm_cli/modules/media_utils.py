@@ -1,11 +1,14 @@
 # llm_cli/modules/media_utils.py
 
 import base64
+import datetime
 import ipaddress
+import re
 import urllib.parse
+import uuid
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cloudscraper
 import filetype
@@ -104,3 +107,24 @@ def process_file(path: Path, pdf_as_base64: bool = True) -> Optional[Dict[str, A
         }
     except Exception:
         return None
+
+
+def generate_safe_filename(
+    text: str, prefix: str = "output", ext: str = "png", max_len: int = 50
+) -> str:
+    """Generates a safe and descriptive filename from text."""
+    # Remove non-alphanumeric chars, replace with underscores
+    clean = re.sub(r"[^\w\s-]", "", text.lower())
+    clean = re.sub(r"[-\s]+", "_", clean).strip("_")
+
+    # Truncate
+    if len(clean) > max_len:
+        clean = clean[:max_len].rsplit("_", 1)[0]
+
+    now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    rand_id = uuid.uuid4().hex[:4]
+
+    if not clean:
+        return f"{prefix}_{now_str}_{rand_id}.{ext}"
+
+    return f"{clean}_{now_str}_{rand_id}.{ext}"

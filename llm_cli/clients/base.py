@@ -15,7 +15,11 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 
 from llm_cli.clients.config import get_setting
-from llm_cli.modules.media_utils import fetch_url_content, process_file
+from llm_cli.modules.media_utils import (
+    fetch_url_content,
+    generate_safe_filename,
+    process_file,
+)
 from llm_cli.modules.tool_registry import registry
 
 console = Console()
@@ -498,7 +502,7 @@ class BaseLlmClient(ABC):
         if inline_data.get("mimeType", "").startswith("image/"):
             ext = inline_data["mimeType"].split("/")[-1]
             now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            fname = f"output_image_{now_str}_{uuid.uuid4().hex[:4]}.{ext}"
+            fname = f"generated_{now_str}_{uuid.uuid4().hex[:4]}.{ext}"
 
             # Honor image_output_dir from config
             output_dir_str = get_setting("image_output_dir", "general") or "."

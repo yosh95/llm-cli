@@ -444,7 +444,6 @@ class ChatSession:
                 "write_file",
                 "edit_file",
                 "execute_command",
-                "generate_image",
             ):
                 # Detailed preview panel will be shown, so skip inline args
                 request_content = f"[cyan]{escape(name)}[/cyan]"
@@ -474,8 +473,6 @@ class ChatSession:
                 self._preview_edit_diff(args)
             elif name == "execute_command":
                 self._preview_command(args)
-            elif name == "generate_image":
-                self._preview_image_prompt(args)
 
             user_input = self._get_input(
                 "Allow execution? (y/N or feedback): ",
@@ -515,7 +512,7 @@ class ChatSession:
             if is_interactive:
                 result_data = tool_entry["func"](**args)
             else:
-                # Show spinner for tool execution (especially useful for generate_image)
+                # Show spinner for tool execution
                 with console.status(
                     f"[bold yellow]🏃 Executing {name}...[/bold yellow]", spinner="dots"
                 ):
@@ -674,24 +671,6 @@ class ChatSession:
                     syn,
                     title="[bold]Execute Command[/bold]",
                     border_style="magenta",
-                    expand=False,
-                )
-            )
-        except Exception:
-            pass
-
-    def _preview_image_prompt(self, args: Dict[str, Any]):
-        try:
-            prompt_text = args.get("prompt", "")
-            output_path = args.get("output_path", "default")
-            if not prompt_text:
-                return
-
-            console.print(
-                Panel(
-                    prompt_text,
-                    title=f"[bold]Image Prompt (Output: {output_path})[/bold]",
-                    border_style="green",
                     expand=False,
                 )
             )

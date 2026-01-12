@@ -2,6 +2,9 @@
 
 import asyncio
 import base64
+import datetime
+import urllib.parse
+from pathlib import Path
 from typing import Any, Dict
 
 from rich.console import Console
@@ -187,16 +190,35 @@ if HAS_PLAYWRIGHT:
         description=(
             "Captures a screenshot of the current browser view and sends it to the AI."
         ),
-        parameters={"type": "object", "properties": {}},
+        parameters={
+            "type": "object",
+            "properties": {
+                "explanation": {
+                    "type": "string",
+                    "description": "Reason for taking a screenshot.",
+                }
+            },
+            "required": ["explanation"],
+        },
     )
-    async def browser_screenshot() -> dict:
+    async def browser_screenshot(explanation: str) -> dict:
         try:
             page = await _get_page()
+            url = page.url
+            domain = urllib.parse.urlparse(url).netloc.replace(".", "_") or "unknown"
+            now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"screenshot_{domain}_{now}.png"
+
+            # Use image_output_dir from config
+            output_dir_str = get_setting("image_output_dir", "general") or "."
+            output_path = Path(output_dir_str) / filename
+
             screenshot_bytes = await page.screenshot(type="png", full_page=False)
+            output_path.write_bytes(screenshot_bytes)
             b64_data = base64.b64encode(screenshot_bytes).decode("utf-8")
 
             return {
-                "result": "Screenshot captured and added to the AI context.",
+                "result": f"Screenshot saved to {output_path} and added to context.",
                 "__llm_cli_data__": {
                     "content": b64_data,
                     "content_type": "image/png",

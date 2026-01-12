@@ -13,6 +13,9 @@ import requests
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.prompt import Confirm
+from prompt_toolkit import prompt
+from prompt_toolkit.completion import PathCompleter
 
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.media_utils import (
@@ -294,10 +297,34 @@ class BaseLlmClient(ABC):
             path_str = args
             if not path_str:
                 now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                path_str = f"session_{now_str}.json"
+                default_filename = f"session_{now_str}"
+                try:
+                    user_input = prompt(
+                        "Enter session filename: ",
+                        default=default_filename,
+                        completer=PathCompleter(),
+                    ).strip()
+                    if not user_input:
+                        user_input = default_filename
+
+                    if not user_input.lower().endswith(".json"):
+                        path_str = f"{user_input}.json"
+                    else:
+                        path_str = user_input
+                except (KeyboardInterrupt, EOFError):
+                    console.print("[yellow]Save cancelled.[/yellow]")
+                    return True
 
             try:
                 save_path = Path(path_str)
+                if save_path.exists():
+                    if not Confirm.ask(
+                        f"[yellow]File {save_path} already exists. Overwrite?[/yellow]",
+                        default=False,
+                    ):
+                        console.print("[yellow]Save cancelled.[/yellow]")
+                        return True
+
                 with save_path.open("w", encoding="utf-8") as f:
                     json.dump(self.conversation, f, indent=2, ensure_ascii=False)
                 console.print(f"[green]Session saved to {save_path}[/green]")
@@ -498,13 +525,39 @@ class BaseLlmClient(ABC):
         if inline_data.get("mimeType", "").startswith("image/"):
             ext = inline_data["mimeType"].split("/")[-1]
             now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            fname = f"generated_{now_str}_{uuid.uuid4().hex[:4]}.{ext}"
+            default_prefix = f"generated_{now_str}_{uuid.uuid4().hex[:4]}"
+
+            if not self.stdout:
+                try:
+                    console.print("\n[cyan]Image generation detected.[/cyan]")
+                    user_input = prompt(
+                        "Enter image file prefix (extension will be added): ",
+                        default=default_prefix,
+                        completer=PathCompleter(),
+                    ).strip()
+                    if not user_input:
+                        user_input = default_prefix
+
+                    # Use user_input as is (with extension fixed)
+                    fname = f"{user_input}.{ext}"
+                except (KeyboardInterrupt, EOFError):
+                    fname = f"{default_prefix}.{ext}"
+            else:
+                fname = f"{default_prefix}.{ext}"
 
             # Honor image_output_dir from config
             output_dir_str = get_setting("image_output_dir", "general") or "."
             output_dir = Path(output_dir_str)
             output_dir.mkdir(exist_ok=True)
             target_path = output_dir / fname
+
+            if target_path.exists():
+                if not Confirm.ask(
+                    f"[yellow]File {target_path} already exists. Overwrite?[/yellow]",
+                    default=False,
+                ):
+                    console.print("[yellow]Skipping image save.[/yellow]")
+                    return None
 
             try:
                 target_path.write_bytes(base64.b64decode(inline_data["data"]))

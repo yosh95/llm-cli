@@ -24,6 +24,7 @@ from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.shortcuts import CompleteStyle
 from rich.markup import escape
 from rich.panel import Panel
+from rich.rule import Rule
 from rich.syntax import Syntax
 
 from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, console
@@ -192,17 +193,12 @@ class ChatSession:
             # Prefix for the model response
             display_name = self.client.get_display_name()
 
-            # Show thinking status statically to avoid spinner artifacts
-            console.print(
-                f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan]"
-            )
-
-            try:
-                # Use non-streaming response as requested to avoid JSON parsing issues.
+            # Use status context for spinner (clears automatically after exit)
+            with console.status(
+                f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan]",
+                spinner="dots",
+            ):
                 res = self.client._send(data)
-            finally:
-                # No cleanup needed for static print
-                pass
 
             # Response is now expected to be a tuple (response_text, usage)
             response_text, _ = res if res else (None, None)
@@ -213,13 +209,24 @@ class ChatSession:
                     print(response_text)
                 else:
                     # Wrap the textual response in a Panel for clarity
-                    console.print(
-                        Panel(
-                            CustomMarkdown(response_text),
-                            title=f"[bold cyan]{display_name}[/bold cyan]",
-                            border_style="cyan",
+                    # if we are in a ReAct loop. Otherwise, use a simple Rule.
+                    if self.client._has_pending_tool_calls():
+                        console.print(
+                            Panel(
+                                CustomMarkdown(response_text),
+                                title=f"[bold cyan]{display_name}[/bold cyan]",
+                                border_style="cyan",
+                            )
                         )
-                    )
+                    else:
+                        console.print(
+                            Rule(
+                                title=f"[bold cyan]{display_name}[/bold cyan]",
+                                style="cyan",
+                            )
+                        )
+                        console.print(CustomMarkdown(response_text))
+                        console.print(Rule(style="cyan"))
 
             if response_text is None and not self.client._has_pending_tool_calls():
                 return
@@ -490,11 +497,12 @@ class ChatSession:
             if is_interactive:
                 result_data = tool_entry["func"](**args)
             else:
-                # Show static status for tool execution
-                console.print(
-                    f"[bold yellow]🏃 Executing {name}...[/bold yellow]"
-                )
-                result_data = tool_entry["func"](**args)
+                # Use status context for tool execution spinner
+                with console.status(
+                    f"[bold yellow]🏃 Executing {name}...[/bold yellow]",
+                    spinner="dots",
+                ):
+                    result_data = tool_entry["func"](**args)
 
             injected_data = (
                 result_data.pop("__llm_cli_data__", None)

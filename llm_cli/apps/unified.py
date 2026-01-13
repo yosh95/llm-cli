@@ -3,13 +3,14 @@
 from typing import Dict, List, Optional, Tuple
 
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
-from llm_cli.clients.base import BaseLlmClient, Conversation, DataSource, console
+from llm_cli.clients.base import BaseLlmClient, console
 from llm_cli.clients.claude import ClaudeClient
 from llm_cli.clients.config import get_setting
 from llm_cli.clients.gemini import GeminiClient
 from llm_cli.clients.grok import GrokClient
 from llm_cli.clients.ollama import OllamaClient
 from llm_cli.clients.openai import OpenAIClient
+from llm_cli.modules.models import DataSource, Message
 
 
 class UnifiedClient(BaseLlmClient):
@@ -65,11 +66,11 @@ class UnifiedClient(BaseLlmClient):
         self.active_client.conversation = self.conversation
 
     @property
-    def conversation(self) -> Conversation:
+    def conversation(self) -> List[Message]:
         return getattr(self, "_conversation", [])
 
     @conversation.setter
-    def conversation(self, value: Conversation):
+    def conversation(self, value: List[Message]):
         self._conversation = value
         if hasattr(self, "active_client"):
             self.active_client.conversation = value

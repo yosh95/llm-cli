@@ -1,19 +1,27 @@
 # llm_cli/clients/ollama.py
 
 import json
-from typing import Dict, List, Optional, Tuple
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
-from llm_cli.clients.base import BaseLlmClient, DataSource
+from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
+from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 DEFAULT_API_URL = "http://localhost:11434/v1/chat/completions"
 
 
 class OllamaClient(BaseLlmClient):
-    """A client for interacting with the Ollama API."""
+    """
+    Client for interacting with the Ollama API.
 
-    def __init__(self, initial_model_alias="default", **kwargs):
+    Supports OpenAI-compatible chat completion endpoint.
+    Specially handles <think> tags for models like DeepSeek-R1.
+    """
+
+    def __init__(self, initial_model_alias: str = "default", **kwargs):
+        """Initializes the Ollama client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
             api_key_name="api_key",
@@ -25,33 +33,13 @@ class OllamaClient(BaseLlmClient):
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
     def _load_model_aliases(self):
+        """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
-
         self.available_models = get_model_aliases("ollama")
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
-        messages = []
-        if self.system_prompt and self.system_prompt_enabled:
-            messages.append({"role": "system", "content": self.system_prompt})
-
-        for msg in self.conversation:
-            role = "assistant" if msg["role"] == "model" else msg["role"]
-            content = ""
-            for p in msg.get("parts", []):
-                if "text" in p:
-                    content += p["text"]
-                elif "thought" in p:
-                    # Optional: Include thought in messages sent back to Ollama
-                    # Some models benefit from seeing their previous reasoning.
-                    content += f"<think>\n{p['thought']}\n</think>\n"
-            messages.append({"role": role, "content": content})
-
-        user_content = ""
-        for item in data:
-            user_content += item["content"]
-
-        if user_content:
-            messages.append({"role": "user", "content": user_content})
+        """Sends the conversation history and new data to Ollama."""
+        messages = self._build_messages(data)
 
         payload = {
             "model": self.model,
@@ -76,8 +64,6 @@ class OllamaClient(BaseLlmClient):
 
             # Handle <think> tags in content (common in DeepSeek-R1 via Ollama)
             if not reasoning and raw_content and "<think>" in raw_content:
-                import re
-
                 think_match = re.search(r"<think>(.*?)</think>", raw_content, re.DOTALL)
                 if think_match:
                     reasoning = think_match.group(1).strip()
@@ -87,18 +73,57 @@ class OllamaClient(BaseLlmClient):
 
             model_parts = self._build_model_parts(raw_content, tool_calls, reasoning)
 
-            full_display_text = ""
-            if reasoning and self.reasoning_enabled:
-                full_display_text += f"\n> **Reasoning:** {reasoning}\n\n"
-            full_display_text += raw_content
+            # Update history
+            user_text = "".join(str(d.content) for d in data)
+            if user_text:
+                self.conversation.append(
+                    Message(role=Role.USER, parts=[ContentPart(text=user_text)])
+                )
 
-            self._update_history(user_content, model_parts)
-            return full_display_text.strip(), res_json.get("usage", {})
+            model_msg = Message(role=Role.MODEL, parts=model_parts)
+            self.conversation.append(model_msg)
+
+            # Prepare display text
+            display_text = ""
+            if reasoning and self.reasoning_enabled:
+                display_text += f"\n> **Reasoning:** {reasoning}\n\n"
+            display_text += raw_content
+
+            return display_text.strip(), res_json.get("usage", {})
         except Exception as e:
             self._report_error("Ollama", e)
             return None, None
 
-    def _parse_response(self, res_json):
+    def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
+        """Converts history and new data to Ollama API format."""
+        msgs = []
+        if self.system_prompt and self.system_prompt_enabled:
+            msgs.append({"role": "system", "content": self.system_prompt})
+
+        for m in self.conversation:
+            role = "assistant" if m.role == Role.MODEL else m.role.value
+            content_text = ""
+            for p in m.parts:
+                if isinstance(p, str):
+                    content_text += p
+                elif isinstance(p, ContentPart):
+                    if p.text:
+                        content_text += p.text
+                    if p.thought:
+                        content_text += f"<think>\n{p.thought}\n</think>\n"
+
+            if content_text:
+                msgs.append({"role": role, "content": content_text})
+
+        # Append incoming data
+        user_content = "".join(str(d.content) for d in data)
+        if user_content:
+            msgs.append({"role": "user", "content": user_content})
+
+        return msgs
+
+    def _parse_response(self, res_json: Dict) -> Tuple[str, List, Optional[str]]:
+        """Parses Ollama API response."""
         reasoning = None
         if "choices" in res_json:
             choice = res_json["choices"][0].get("message", {})
@@ -111,36 +136,27 @@ class OllamaClient(BaseLlmClient):
             tool_calls = message.get("tool_calls", [])
         return content, tool_calls, reasoning
 
-    def _build_model_parts(self, content, tool_calls, reasoning=None):
+    def _build_model_parts(
+        self, content: str, tool_calls: List, reasoning: Optional[str] = None
+    ) -> List[ContentPart]:
+        """Builds internal ContentPart list."""
         model_parts = []
         if reasoning:
-            model_parts.append({"thought": reasoning})
-
+            model_parts.append(ContentPart(thought=reasoning))
         if content:
-            model_parts.append({"text": content})
-
+            model_parts.append(ContentPart(text=content))
         if tool_calls:
             for tc in tool_calls:
                 fn = tc.get("function", {})
-                model_parts.append(
-                    {
-                        "functionCall": {
-                            "id": tc.get("id"),
-                            "name": fn.get("name"),
-                            "args": (
-                                json.loads(fn["arguments"])
-                                if isinstance(fn.get("arguments"), str)
-                                else fn.get("arguments")
-                            ),
-                        }
+                model_parts.append(ContentPart(
+                    function_call={
+                        "id": tc.get("id"),
+                        "name": fn.get("name"),
+                        "args": (
+                            json.loads(fn["arguments"])
+                            if isinstance(fn.get("arguments"), str)
+                            else fn.get("arguments")
+                        ),
                     }
-                )
+                ))
         return model_parts
-
-    def _update_history(self, user_content, model_parts):
-        if user_content:
-            self.conversation.append(
-                {"role": "user", "parts": [{"text": user_content}]}
-            )
-        if model_parts:
-            self.conversation.append({"role": "model", "parts": model_parts})

@@ -7,12 +7,18 @@ from typing import Dict, List, Optional, Tuple
 
 import requests
 
-from llm_cli.clients.base import BaseLlmClient, DataSource, console
+from llm_cli.clients.base import BaseLlmClient, console
+from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 
 class GeminiClient(BaseLlmClient):
-    """A client for interacting with the Google Gemini API."""
+    """
+    Client for interacting with Google's Gemini API.
+
+    Supports multimodal inputs (images, video, audio, PDF) using both
+    inline base64 and the Gemini File API for larger files.
+    """
 
     BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta"
     UPLOAD_API_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files"
@@ -23,11 +29,8 @@ class GeminiClient(BaseLlmClient):
     # PDF size threshold for using File API instead of inline base64
     PDF_FILE_API_THRESHOLD = 10 * 1024 * 1024  # 10MB
 
-    def __init__(self, initial_model_alias="default", **kwargs):
-        # Ensure stdout has a default if not provided in kwargs
-        if "stdout" not in kwargs:
-            kwargs["stdout"] = False
-
+    def __init__(self, initial_model_alias: str = "default", **kwargs):
+        """Initializes the Gemini client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
             api_key_name="api_key",
@@ -37,6 +40,7 @@ class GeminiClient(BaseLlmClient):
         )
 
     def _load_model_aliases(self):
+        """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
 
         self.available_models = get_model_aliases("google")
@@ -50,11 +54,12 @@ class GeminiClient(BaseLlmClient):
         """Override to handle Gemini-specific File API uploads for media."""
         # 1. Handle Gemini File API URIs directly
         if source.startswith("https://generativelanguage.googleapis.com/"):
-            return {
-                "file_uri": source,
-                "content_type": "image/jpeg",  # Default, can be overridden by tests
-                "is_file_or_url": True,
-            }
+            return DataSource(
+                content=None,
+                content_type="image/jpeg",  # Default
+                is_file_or_url=True,
+                metadata={"file_uri": source}
+            )
 
         # 2. Handle local files that need uploading
         path = Path(source)
@@ -67,7 +72,6 @@ class GeminiClient(BaseLlmClient):
 
             # Determine if we should use the File API
             # Videos and Audios ALWAYS use File API in this client
-            # PDFs use File API if they are large
             use_file_api = (
                 mime.startswith("audio/")
                 or mime.startswith("video/")
@@ -81,45 +85,47 @@ class GeminiClient(BaseLlmClient):
                 upload_res = self._upload_file(path, mime_type=mime)
                 if upload_res:
                     uri, mime_type = upload_res
-                    return {
-                        "file_uri": uri,
-                        "content_type": mime_type,
-                        "is_file_or_url": True,
-                    }
+                    return DataSource(
+                        content=None,
+                        content_type=mime_type,
+                        is_file_or_url=True,
+                        metadata={"file_uri": uri}
+                    )
                 else:
-                    # If File API upload failed, we don't fall back for media
                     return None
 
         return super()._process_single_source(source)
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+        """Sends the conversation history and new data to Gemini."""
         new_parts = []
         for item in data:
-            if item.get("file_uri"):
+            file_uri = item.metadata.get("file_uri")
+            if file_uri:
                 new_parts.append(
                     {
                         "file_data": {
-                            "mime_type": item["content_type"],
-                            "file_uri": item["file_uri"],
+                            "mime_type": item.content_type,
+                            "file_uri": file_uri,
                         }
                     }
                 )
             elif any(
-                item["content_type"].startswith(t)
+                item.content_type.startswith(t)
                 for t in ["image/", "audio/", "video/", "application/pdf"]
             ):
                 new_parts.append(
                     {
                         "inlineData": {
-                            "mimeType": item["content_type"],
-                            "data": item["content"],
+                            "mimeType": item.content_type,
+                            "data": item.content,
                         }
                     }
                 )
             else:
-                new_parts.append({"text": item["content"]})
+                new_parts.append({"text": str(item.content)})
 
-        payload = self._to_provider_request_format(self.conversation, {}, new_parts)
+        payload = self._to_provider_request_format(new_parts)
 
         api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
         try:
@@ -136,32 +142,86 @@ class GeminiClient(BaseLlmClient):
             response.raise_for_status()
             res_json = response.json()
 
-            model_msg, _ = self._from_provider_response_format(res_json)
-            if new_parts:
-                self.conversation.append({"role": "user", "parts": new_parts})
-            self.conversation.append(model_msg)
+            model_msg = self._parse_response(res_json)
 
+            # Update history
+            if new_parts:
+                history_user_parts = []
+                for p in new_parts:
+                    if "text" in p:
+                        history_user_parts.append(ContentPart(text=p["text"]))
+                    elif "inlineData" in p:
+                        history_user_parts.append(ContentPart(inline_data=p["inlineData"]))
+                    elif "file_data" in p:
+                        # Placeholder text for file data in history
+                        uri = p["file_data"]["file_uri"]
+                        history_user_parts.append(ContentPart(text=f"[File: {uri}]"))
+                self.conversation.append(
+                    Message(role=Role.USER, parts=history_user_parts)
+                )
+
+            self.conversation.append(model_msg)
             self.last_usage = res_json.get("usageMetadata")
 
-            text = ""
-            for p in model_msg["parts"]:
-                if "text" in p:
-                    text += p["text"]
-                elif "thought" in p:
-                    if self.reasoning_enabled:
-                        text += f"\n> **Reasoning:** {p['thought']}\n\n"
-                elif "inlineData" in p:
-                    log = self._save_inline_image_and_get_log_entry(p["inlineData"])
-                    if log:
-                        text += log
+            # Extract display text
+            display_text = ""
+            for p in model_msg.parts:
+                if isinstance(p, ContentPart):
+                    if p.text:
+                        display_text += p.text
+                    if p.thought and self.reasoning_enabled:
+                        display_text += f"\n> **Reasoning:** {p.thought}\n\n"
+                    # Handle image generation / other inline data if supported
+                    if p.inline_data:
+                        # Extract inline_data from ContentPart
+                        log = self._save_inline_image_and_get_log_entry(
+                            p.inline_data
+                        )
+                        if log:
+                            display_text += log
 
-            return text, self.last_usage
+            return display_text.strip(), self.last_usage
         except Exception as e:
             self._report_error("Gemini", e)
             return None, None
 
-    def _to_provider_request_format(self, history, context, new_parts):
-        contents = [{"role": m["role"], "parts": m["parts"]} for m in history]
+    def _to_provider_request_format(self, new_parts: List[Dict]) -> Dict:
+        """Converts history and new parts to Gemini API format."""
+        contents = []
+        for m in self.conversation:
+            parts = []
+            for p in m.parts:
+                if isinstance(p, str):
+                    parts.append({"text": p})
+                elif isinstance(p, ContentPart):
+                    part_dict = {}
+                    if p.text:
+                        part_dict["text"] = p.text
+                    if p.thought:
+                        part_dict["thought"] = p.thought
+                    if p.function_call:
+                        part_dict["functionCall"] = {
+                            "name": p.function_call.get("name"),
+                            "args": p.function_call.get("args"),
+                        }
+                    if p.function_response:
+                        part_dict["functionResponse"] = {
+                            "name": p.function_response.get("name"),
+                            "response": p.function_response.get("response"),
+                        }
+
+                    # Gemini API expects 'thoughtSignature' (camelCase)
+                    if p.thought_signature:
+                        part_dict["thoughtSignature"] = p.thought_signature
+
+                    if part_dict:
+                        parts.append(part_dict)
+
+            contents.append({
+                "role": "model" if m.role == Role.MODEL else "user",
+                "parts": parts
+            })
+
         if new_parts:
             contents.append({"role": "user", "parts": new_parts})
 
@@ -169,39 +229,54 @@ class GeminiClient(BaseLlmClient):
         if self.system_prompt and self.system_prompt_enabled:
             payload["system_instruction"] = {"parts": [{"text": self.system_prompt}]}
 
-        if self.active_tools:
+        if self.active_tools and self.tools_enabled:
             payload["tools"] = registry.get_gemini_spec(
                 self.active_tools, provider=self.config_section
             )
 
-        # Enable thinking/reasoning for compatible models
-        if self.reasoning_enabled and "thinking" in self.model:
+        if self.reasoning_enabled:
             payload["generationConfig"] = {
                 "thinking_config": {"include_thoughts": True}
             }
 
         return payload
 
-    def _from_provider_response_format(self, response_json):
+    def _parse_response(self, response_json: Dict) -> Message:
+        """Parses Gemini response into internal Message format."""
         if not response_json.get("candidates"):
-            return {
-                "role": "model",
-                "parts": [{"text": "[No response candidates]"}],
-            }, {}
+            return Message(
+                role=Role.MODEL,
+                parts=[ContentPart(text="[No response candidates]")]
+            )
+
         candidate = response_json["candidates"][0]
-        parts = candidate.get("content", {}).get("parts", [])
-        return {"role": "model", "parts": parts}, {}
+        raw_parts = candidate.get("content", {}).get("parts", [])
+
+        model_parts = []
+        for p in raw_parts:
+            # API returns 'thoughtSignature'
+            sig = p.get("thoughtSignature")
+            if "text" in p:
+                model_parts.append(ContentPart(text=p["text"], thought_signature=sig))
+            if "thought" in p:
+                model_parts.append(ContentPart(thought=p["thought"], thought_signature=sig))
+            if "inlineData" in p:
+                model_parts.append(ContentPart(inline_data=p["inlineData"], thought_signature=sig))
+            if "functionCall" in p:
+                model_parts.append(ContentPart(function_call=p["functionCall"], thought_signature=sig))
+
+        return Message(role=Role.MODEL, parts=model_parts)
 
     def _upload_file(
         self, path: Path, mime_type: Optional[str] = None
     ) -> Optional[Tuple[str, str]]:
+        """Handles resumable upload to Gemini File API."""
         if not mime_type:
             mime_type, _ = mimetypes.guess_type(path)
         if not mime_type:
             return None
         file_size = path.stat().st_size
 
-        # Step 1: Initiate resumable upload
         headers = {
             "X-Goog-Upload-Protocol": "resumable",
             "X-Goog-Upload-Command": "start",
@@ -225,7 +300,6 @@ class GeminiClient(BaseLlmClient):
             start_response.raise_for_status()
             upload_url = start_response.headers["X-Goog-Upload-URL"]
 
-            # Step 2: Upload the actual data
             console.print(f"[dim]Uploading {path.name}...[/dim]")
             with path.open("rb") as f:
                 upload_response = requests.post(
@@ -241,7 +315,6 @@ class GeminiClient(BaseLlmClient):
                 upload_response.raise_for_status()
                 file_info = upload_response.json()["file"]
 
-            # Step 3: Wait for file to be ACTIVE (especially for video)
             if not self._wait_for_file_active(file_info["name"]):
                 return None
 
@@ -255,8 +328,6 @@ class GeminiClient(BaseLlmClient):
         console.print("[dim]Waiting for remote file processing...[/dim]")
         url = f"{self.BASE_API_URL}/{file_name}?key={self.api_key}"
 
-        # Poll for up to 10 minutes (120 * 5s)
-        # Video processing can take significant time
         for i in range(120):
             try:
                 r = requests.get(url, timeout=10)
@@ -265,24 +336,16 @@ class GeminiClient(BaseLlmClient):
                 state = info.get("state")
 
                 if state == "ACTIVE":
-                    console.print("[green]File is now active.[/green]")
+                    console.print("[dim]File is active.[/dim]")
                     return True
-                elif state == "FAILED":
-                    error_msg = info.get("error", {}).get("message", "Unknown error")
-                    console.print(
-                        f"[red]Remote file processing failed: {error_msg}[/red]"
-                    )
+                if state == "FAILED":
+                    console.print("[red]File processing failed.[/red]")
                     return False
 
-                # PROCESSING or other state
-                if i % 2 == 0:
-                    console.print(
-                        f"[dim]State: {state or 'UNKNOWN'} (polling...)[/dim]"
-                    )
                 time.sleep(5)
             except Exception as e:
-                console.print(f"[dim red]Error checking file status: {e}[/dim red]")
+                console.print(f"[dim red]Polling failed: {e}. Retrying...[/dim red]")
                 time.sleep(5)
 
-        console.print("[red]Timeout waiting for file to become active.[/red]")
+        console.print("[red]File processing timed out.[/red]")
         return False

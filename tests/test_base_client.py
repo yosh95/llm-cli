@@ -78,14 +78,14 @@ class TestBaseLlmClient:
                 data.append(source_data)
 
         assert len(data) == 1
-        assert data[0]["content"] == "Hello world"
-        assert data[0]["content_type"] == "text/plain"
+        assert data[0].content == "Hello world"
+        assert data[0].content_type == "text/plain"
 
     def test_process_single_source_media(self, concrete_client, temp_text_file):
         """Test that media files are marked with is_file_or_url."""
         result = concrete_client._process_single_source(str(temp_text_file))
         assert result is not None
-        assert result["is_file_or_url"] is True
+        assert result.is_file_or_url is True
 
     def test_save_inline_image(self, concrete_client, tmp_path, sample_image_base64):
         """Test saving received image data to a file."""

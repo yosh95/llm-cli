@@ -77,7 +77,7 @@ class TestUnifiedClient:
         result = client._process_single_source(str(temp_pdf_file))
 
         if result:
-            assert result["content_type"] == "application/pdf"
+            assert result.content_type == "application/pdf"
 
     def test_unified_model_aliases(self, mock_config):
         """Test that UnifiedClient loads model aliases correctly."""

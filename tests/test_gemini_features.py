@@ -1,11 +1,9 @@
 import glob
 import os
 from unittest.mock import MagicMock, patch
-
 import pytest
-
 from llm_cli.clients.gemini import GeminiClient
-
+from llm_cli.modules.models import DataSource
 
 @pytest.fixture
 def mock_gemini_response_image():
@@ -25,7 +23,6 @@ def mock_gemini_response_image():
         "usageMetadata": {"totalTokenCount": 10},
     }
 
-
 def test_gemini_saves_image_and_displays_thought(
     mock_config, mock_gemini_response_image, tmp_path
 ):
@@ -43,14 +40,12 @@ def test_gemini_saves_image_and_displays_thought(
         orig_cwd = os.getcwd()
         os.chdir(tmp_path)
         try:
+            # Use DataSource list
             full_text, _ = client._send(
-                [{"content": "Generate an image", "content_type": "text/plain"}]
+                [DataSource(content="Generate an image", content_type="text/plain")]
             )
 
             # Check if image file exists
-            # In base.py: ext_parts = mime_type.split('/'); extension = "bin"
-            # if len(ext_parts) != 2 else ext_parts[1]
-            # mimeType is "image/jpeg", so extension should be "jpeg".
             files_jpeg = glob.glob("generated_*.jpeg")
 
             assert len(files_jpeg) == 1, f"Expected 1 jpeg file, found: {files_jpeg}"

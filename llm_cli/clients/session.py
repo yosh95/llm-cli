@@ -26,8 +26,9 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.syntax import Syntax
 
-from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, DataSource, console
+from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, console
 from llm_cli.modules.custom_markdown import CustomMarkdown
+from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 kb = KeyBindings()
@@ -172,7 +173,7 @@ class ChatSession:
                     self._handle_checkpoint()
                     continue
 
-                data.append({"content": user_input, "content_type": "text/plain"})
+                data.append(DataSource(content=user_input, content_type="text/plain"))
                 self.process_and_print(data)
                 data = []
             except (KeyboardInterrupt, EOFError):
@@ -230,19 +231,20 @@ class ChatSession:
             tool_results_parts = []
             injected_datas = []
 
-            for part in last_msg.get("parts", []):
-                if "functionCall" in part:
-                    res_tool = self._execute_tool_call(part["functionCall"])
+            for part in last_msg.parts:
+                if isinstance(part, ContentPart) and part.function_call:
+                    res_tool = self._execute_tool_call(part)
                     if not res_tool:
                         return
                     tool_result, injected = res_tool
+                    # tool_result is expected to be a ContentPart with function_response
                     tool_results_parts.append(tool_result)
                     if injected:
                         injected_datas.append(injected)
 
             if tool_results_parts:
                 self.client.conversation.append(
-                    {"role": "function", "parts": tool_results_parts}
+                    Message(role=Role.TOOL, parts=tool_results_parts)
                 )
                 if injected_datas:
                     self._log_chat(injected_datas, role="Tool Output")
@@ -260,7 +262,7 @@ class ChatSession:
 
         temp_conversation = copy.deepcopy(self.client.conversation)
         temp_conversation.append(
-            {"role": "user", "parts": [{"text": summarize_prompt}]}
+            Message(role=Role.USER, parts=[ContentPart(text=summarize_prompt)])
         )
 
         original_conversation = self.client.conversation
@@ -285,15 +287,15 @@ class ChatSession:
 
             if self._confirm("Clear history and use this summary? (y/N): "):
                 self.client.conversation = [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "text": f"SYSTEM: History cleared. "
+                    Message(
+                        role=Role.USER,
+                        parts=[
+                            ContentPart(
+                                text=f"SYSTEM: History cleared. "
                                 f"Continue from this summary:\n\n{summary}"
-                            }
+                            )
                         ],
-                    }
+                    )
                 ]
                 console.print("[green]✅ Context refreshed.[/green]")
                 self._checkpoint_hint_shown = False
@@ -318,10 +320,19 @@ class ChatSession:
 
             text_content = ""
             if isinstance(content, list):
-                text_content = "\n".join(
-                    str(item.get("content", f"[File/Media: {item.get('file_uri')}]"))
-                    for item in content
-                )
+                # Handle list of DataSource or ContentPart
+                parts = []
+                for item in content:
+                    if isinstance(item, DataSource):
+                        parts.append(str(item.content))
+                    elif isinstance(item, ContentPart):
+                        fc = item.function_call
+                        fr = item.function_response
+                        desc = item.text or f"[Tool: {fc or fr}]"
+                        parts.append(desc)
+                    else:
+                        parts.append(str(item))
+                text_content = "\n".join(parts)
             else:
                 text_content = str(content)
 
@@ -375,7 +386,8 @@ class ChatSession:
     def _confirm(self, message: str) -> bool:
         return self._get_input(message, exit_on_escape=True).lower() == "y"
 
-    def _execute_tool_call(self, call: Dict[str, Any]) -> Optional[Any]:
+    def _execute_tool_call(self, part: ContentPart) -> Optional[Any]:
+        call = part.function_call
         tool_id, name, args = (
             call.get("id", "unknown"),
             call["name"],
@@ -383,7 +395,7 @@ class ChatSession:
         )
 
         # Extract thought_signature if present (required by Gemini API)
-        thought_signature = call.get("thought_signature")
+        thought_signature = part.thought_signature
 
         # Extract explanation for visibility.
         # Check 'explanation' first (new), then fall back to 'thought' or 'reasoning'.
@@ -455,18 +467,14 @@ class ChatSession:
                         "Error: Operation denied. DO NOT retry. Ask for instructions."
                     )
 
-                response = {
-                    "functionResponse": {
+                response = ContentPart(
+                    function_response={
                         "id": tool_id,
                         "name": name,
                         "response": {"result": result_msg},
-                    }
-                }
-                # Include thought_signature if present (required by Gemini)
-                if thought_signature:
-                    response["functionResponse"]["thought_signature"] = (
-                        thought_signature
-                    )
+                    },
+                    thought_signature=thought_signature
+                )
                 return response, None
 
         try:
@@ -485,11 +493,23 @@ class ChatSession:
                 ):
                     result_data = tool_entry["func"](**args)
 
-            injected = (
+            injected_data = (
                 result_data.pop("__llm_cli_data__", None)
                 if isinstance(result_data, dict)
                 else None
             )
+            # injected is expected to be a DataSource or None
+            injected = None
+            if injected_data:
+                if isinstance(injected_data, dict):
+                    injected = DataSource(
+                        content=injected_data["content"],
+                        content_type=injected_data.get("content_type", "text/plain"),
+                        is_file_or_url=injected_data.get("is_file_or_url", False),
+                        metadata=injected_data.get("metadata", {}),
+                    )
+                elif isinstance(injected_data, DataSource):
+                    injected = injected_data
 
             p_str = str(result_data)
             # Display Result in a Panel
@@ -513,29 +533,25 @@ class ChatSession:
                     )
                 )
 
-            response = {
-                "functionResponse": {
+            response = ContentPart(
+                function_response={
                     "id": tool_id,
                     "name": name,
                     "response": {"result": result_data},
-                }
-            }
-            # Include thought_signature if present (required by Gemini)
-            if thought_signature:
-                response["functionResponse"]["thought_signature"] = thought_signature
+                },
+                thought_signature=thought_signature
+            )
             return response, injected
         except Exception as e:
             console.print(f"[bold red]Tool execution failed: {e}[/bold red]")
-            response = {
-                "functionResponse": {
+            response = ContentPart(
+                function_response={
                     "id": tool_id,
                     "name": name,
                     "response": {"result": f"Error: {e}"},
-                }
-            }
-            # Include thought_signature if present (required by Gemini)
-            if thought_signature:
-                response["functionResponse"]["thought_signature"] = thought_signature
+                },
+                thought_signature=thought_signature
+            )
             return response, None
 
     def _preview_diff(self, args: Dict[str, Any]):

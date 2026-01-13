@@ -1,17 +1,17 @@
 from unittest.mock import MagicMock, patch
 
 from llm_cli.clients.gemini import GeminiClient
+from llm_cli.modules.models import DataSource
 
 
 def test_process_single_source_detects_gemini_uri():
     client = GeminiClient(initial_model_alias="default", stdout=True)
     uri = "https://generativelanguage.googleapis.com/v1beta/files/abc"
     result = client._process_single_source(uri)
-    assert result == {
-        "file_uri": uri,
-        "content_type": "image/jpeg",
-        "is_file_or_url": True,
-    }
+    assert isinstance(result, DataSource)
+    assert result.metadata["file_uri"] == uri
+    assert result.content_type == "image/jpeg"
+    assert result.is_file_or_url is True
 
 
 def test_process_single_source_with_gemini_uri_fetches_url():
@@ -33,8 +33,7 @@ def test_process_single_source_with_gemini_uri_fetches_url():
             with patch("llm_cli.clients.base.fetch_url_content") as mock_fetch:
                 mock_fetch.return_value = (b"fake video content", "video/mp4")
                 result = client._process_single_source(uri)
-                assert result == {
-                    "content": b"fake video content",
-                    "content_type": "video/mp4",
-                    "is_file_or_url": True,
-                }
+                assert isinstance(result, DataSource)
+                assert result.content == b"fake video content"
+                assert result.content_type == "video/mp4"
+                assert result.is_file_or_url is True

@@ -18,32 +18,53 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.syntax import Syntax
 
-from llm_cli.clients.config import get_bool_setting, get_setting
+from llm_cli.clients.config import get_setting
 from llm_cli.modules.media_utils import (
     fetch_url_content,
     process_file,
 )
+from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 console = Console()
 
-ContentPart = Dict[str, Any]
-Message = Dict[str, Any]
-Conversation = List[Message]
-DataSource = Dict[str, Any]
-
 
 class ProviderSwitchRequest(Exception):
+    """Exception raised to request a switch to a different LLM provider."""
+
     def __init__(self, provider: str):
         self.provider = provider
 
 
 class CheckpointRequest(Exception):
+    """Exception raised to request a conversation checkpoint (summarization)."""
     pass
 
 
 class BaseLlmClient(ABC):
-    """Abstract Base Class for LLM API clients."""
+    """
+    Abstract Base Class for LLM API clients.
+
+    This class defines the interface and common logic for interacting with various
+    LLM providers (OpenAI, Anthropic, Gemini, etc.).
+
+    Attributes:
+        config_section (str): The section name in the config file.
+        api_key (str): The API key for the provider.
+        pdf_as_base64 (bool): Whether to send PDFs as base64 or extract text.
+        stdout (bool): Whether to output to stdout (non-interactive).
+        render_markdown (bool): Whether to render markdown in the console.
+        live_debug (bool): Whether to show debug information during generation.
+        tools_enabled (bool): Whether tool calling is enabled.
+        reasoning_enabled (bool): Whether "thinking/reasoning" mode is enabled.
+        system_prompt (str): The system prompt text.
+        system_prompt_enabled (bool): Whether the system prompt is active.
+        available_models (Dict[str, str]): Map of aliases to model strings.
+        current_alias (str): The currently active model alias.
+        model (str): The currently active model string.
+        conversation (List[Message]): The message history.
+        active_tools (List[str]): List of enabled tool names.
+    """
 
     def __init__(
         self,
@@ -58,6 +79,7 @@ class BaseLlmClient(ABC):
         enable_mcp: bool = False,
         live_debug: bool = False,
     ):
+        """Initializes the LLM client with configuration and state."""
         self.config_section = config_section
         self.api_key = get_setting(api_key_name, config_section)
         self.pdf_as_base64 = pdf_as_base64
@@ -65,13 +87,8 @@ class BaseLlmClient(ABC):
         self.render_markdown = render_markdown
         self.live_debug = live_debug
 
-        # Tools are enabled by default. Can be toggled via /tools on/off
         self.tools_enabled = True
-
-        # Reasoning/Thinking enabled status
-        self.reasoning_enabled = get_bool_setting(
-            "enable_reasoning", "general", default=True
-        )
+        self.reasoning_enabled = False
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S (%A)")
@@ -87,7 +104,7 @@ class BaseLlmClient(ABC):
         self._load_model_aliases()
         self.set_model(initial_model_alias) or self.set_model("default")
 
-        self.conversation: Conversation = []
+        self.conversation: List[Message] = []
         self.last_usage: Optional[Dict[str, int]] = None
         self.last_request_duration: Optional[float] = None
 
@@ -105,6 +122,7 @@ class BaseLlmClient(ABC):
             self._init_mcp(initial_tools is None)
 
     def _init_mcp(self, update_active_tools: bool):
+        """Initializes Model Context Protocol (MCP) tools."""
         try:
             from llm_cli.clients.mcp_manager import mcp_manager
 
@@ -126,16 +144,25 @@ class BaseLlmClient(ABC):
             console.print(f"[yellow]Note: MCP initialization failed: {e}[/yellow]")
 
     def _expand(self, p: Optional[str]) -> Optional[str]:
+        """Expands user path symbols."""
         return str(Path(p).expanduser()) if p else None
 
     @abstractmethod
     def _load_model_aliases(self):
-        """Load model aliases from config."""
+        """Loads model aliases from the configuration."""
         pass
 
     @abstractmethod
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
-        """Send the request to the specific provider API."""
+        """
+        Sends the request to the specific provider API.
+
+        Args:
+            data: A list of DataSource objects containing the user's latest input.
+
+        Returns:
+            A tuple of (response_text, usage_dict).
+        """
         pass
 
     def _post_with_retry(
@@ -146,7 +173,22 @@ class BaseLlmClient(ABC):
         timeout: int = 120,
         max_retries: int = 3,
     ) -> requests.Response:
-        """Perform a POST request with automatic retry and exponential backoff."""
+        """
+        Performs a POST request with automatic retry and exponential backoff.
+
+        Args:
+            url: The endpoint URL.
+            headers: HTTP headers.
+            json_data: The JSON payload.
+            timeout: Request timeout in seconds.
+            max_retries: Maximum number of retry attempts.
+
+        Returns:
+            The successful requests.Response object.
+
+        Raises:
+            requests.exceptions.RequestException: If all retries fail.
+        """
         last_exception = None
         for attempt in range(max_retries):
             try:
@@ -154,7 +196,6 @@ class BaseLlmClient(ABC):
                     url, headers=headers, json=json_data, timeout=timeout
                 )
 
-                # Retry on 429 (Rate Limit) and 5xx (Server errors)
                 if response.status_code == 429 or 500 <= response.status_code < 600:
                     response.raise_for_status()
 
@@ -165,15 +206,13 @@ class BaseLlmClient(ABC):
             ) as e:
                 last_exception = e
 
-                # If it's an HTTPError, check the status code
                 if isinstance(e, requests.exceptions.HTTPError):
                     status_code = e.response.status_code
-                    # Don't retry on client errors except 429
                     if status_code != 429 and status_code < 500:
                         raise e
 
                 if attempt < max_retries - 1:
-                    wait_time = (2**attempt) + 1  # 2, 3, 5 seconds...
+                    wait_time = (2**attempt) + 1
                     console.print(
                         f"[yellow]Request failed: {e}. "
                         f"Retrying in {wait_time}s... "
@@ -183,10 +222,18 @@ class BaseLlmClient(ABC):
                 else:
                     raise last_exception
 
-        # Should not be reached if max_retries > 0
         raise last_exception if last_exception else Exception("Request failed")
 
     def set_model(self, alias: str) -> bool:
+        """
+        Sets the active model using its alias.
+
+        Args:
+            alias: The model alias defined in config.
+
+        Returns:
+            True if the model was successfully set, False otherwise.
+        """
         if alias in self.available_models:
             self.current_alias = alias
             self.model = self.available_models[alias]
@@ -198,7 +245,7 @@ class BaseLlmClient(ABC):
         initial_data: Optional[List[DataSource]] = None,
         sources: Optional[List[str]] = None,
     ):
-        """Start an interactive chat session."""
+        """Starts an interactive chat session."""
         if not self.api_key and self.config_section != "ollama":
             console.print(
                 f"[bold red]Error: API key for '{self.config_section}' "
@@ -220,11 +267,11 @@ class BaseLlmClient(ABC):
         ChatSession(self).run(initial_data, sources)
 
     def process_sources(self, sources: List[str]):
-        """Input source processing logic."""
+        """Processes a list of input sources (files, URLs, text)."""
         data = [
             processed for s in sources if (processed := self._process_single_source(s))
         ]
-        has_prompt = any(not d.get("is_file_or_url") for d in data)
+        has_prompt = any(not d.is_file_or_url for d in data)
 
         from llm_cli.clients.session import ChatSession
 
@@ -241,29 +288,38 @@ class BaseLlmClient(ABC):
             session.run(sources=sources)
 
     def _process_single_source(self, source: str) -> Optional[DataSource]:
+        """Processes a single source string into a DataSource object."""
         if source.startswith("http"):
             content, ctype = fetch_url_content(source, self.pdf_as_base64)
             if content:
-                return {
-                    "content": content,
-                    "content_type": ctype,
-                    "is_file_or_url": True,
-                }
+                return DataSource(
+                    content=content,
+                    content_type=ctype,
+                    is_file_or_url=True,
+                )
             return None
 
         path = Path(source)
         if len(source) < 256 and path.exists() and path.is_file():
-            res = process_file(path, self.pdf_as_base64)
-            if res:
-                res["is_file_or_url"] = True
-            return res
+            res_dict = process_file(path, self.pdf_as_base64)
+            if res_dict:
+                return DataSource(
+                    content=res_dict["content"],
+                    content_type=res_dict["content_type"],
+                    is_file_or_url=True,
+                )
+            return None
 
-        return {"content": source, "content_type": "text/plain"}
+        return DataSource(content=source, content_type="text/plain")
 
     def _has_pending_tool_calls(self) -> bool:
-        if not self.conversation or self.conversation[-1].get("role") != "model":
+        """Checks if the last model response contains tool calls."""
+        if not self.conversation or self.conversation[-1].role != Role.MODEL:
             return False
-        return any("functionCall" in p for p in self.conversation[-1].get("parts", []))
+        for part in self.conversation[-1].parts:
+            if isinstance(part, ContentPart) and part.function_call:
+                return True
+        return False
 
     def _handle_command(
         self,
@@ -271,7 +327,7 @@ class BaseLlmClient(ABC):
         sources: Optional[List[str]],
         pending_data: Optional[List[DataSource]] = None,
     ) -> bool:
-        """Handle in-chat slash commands."""
+        """Handles in-chat slash commands."""
         if not user_input.startswith("/"):
             return False
 

@@ -11,17 +11,24 @@ from llm_cli.security.audit import log_audit
 
 
 class ToolRegistry:
+    """
+    Registry for managing local and remote (MCP) tools.
+
+    This registry handles tool discovery, registration, and generating
+    provider-specific tool specifications (OpenAI, Gemini, Anthropic).
+    """
+
     def __init__(self):
         self.tools: Dict[str, Dict[str, Any]] = {}
         self.shutdown_hooks: List[Callable] = []
 
     def register_shutdown_hook(self, func: Callable):
-        """Register a function to be called when the application exits."""
+        """Registers a function to be called when the application exits."""
         if func not in self.shutdown_hooks:
             self.shutdown_hooks.append(func)
 
     def shutdown(self):
-        """Execute all registered shutdown hooks."""
+        """Executes all registered shutdown hooks."""
         for hook in self.shutdown_hooks:
             try:
                 if inspect.iscoroutinefunction(hook):
@@ -41,14 +48,27 @@ class ToolRegistry:
         interactive: bool = False,
         skip_approval: bool = False,
     ):
-        # 1. Initialize parameters
+        """
+        Registers a tool in the registry.
+
+        Args:
+            name: The name of the tool (used by LLMs).
+            func: The Python function to execute.
+            description: A clear description of what the tool does.
+            parameters: JSON Schema of the function parameters.
+            supported_providers: List of providers that support this tool.
+            interactive: Whether the tool requires interactive input.
+            skip_approval: Whether to skip user approval before execution.
+        """
+        # Initialize parameters following JSON Schema standard
         if parameters is None:
             parameters = {"type": "object", "properties": {}, "required": []}
 
         if "properties" not in parameters:
             parameters["properties"] = {}
 
-        # 2. Force inject 'explanation' parameter
+        # Force inject 'explanation' parameter to encourage LLMs to explain
+        # their actions
         parameters["properties"]["explanation"] = {
             "type": "string",
             "description": (
@@ -62,12 +82,12 @@ class ToolRegistry:
         if "explanation" not in parameters["required"]:
             parameters["required"].append("explanation")
 
-        # 3. Wrap the function with Auditing and Parameter Filtering
         @functools.wraps(func)
         def wrapper(**kwargs):
             # Extract explanation for logging (internal audit)
             _ = kwargs.get("explanation", "No explanation provided.")
 
+            # Filter kwargs to match the wrapped function's signature
             sig = inspect.signature(func)
             filtered_kwargs = {
                 k: v
@@ -80,10 +100,9 @@ class ToolRegistry:
             }
 
             try:
-                # Local tools are currently all synchronous.
-                # Coroutine support is removed to avoid nest_asyncio issues.
                 result = func(**filtered_kwargs)
 
+                # Parse exit code if present in the string result (common for CLI tools)
                 exit_code = None
                 if isinstance(result, str) and "Exit Code:" in result:
                     try:

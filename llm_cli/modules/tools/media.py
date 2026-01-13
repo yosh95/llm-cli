@@ -19,7 +19,14 @@ def attach_file(path: str) -> dict:
     try:
         p = Path(path)
         if not p.exists():
-            return {"result": f"Error: File not found: {path}"}
+            msg = f"Error: File not found: {path}"
+            # Add hint if it looks like an image file, to correct model hallucination
+            if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+                msg += (
+                    " If you intended to generate an image, please generate it "
+                    "directly as inline data instead of using this tool."
+                )
+            return {"result": msg}
 
         # process_file returns {content, content_type, [file_uri]}
         res = process_file(p, pdf_as_base64=True)

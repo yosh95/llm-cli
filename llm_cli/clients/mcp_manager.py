@@ -78,9 +78,10 @@ class MCPManager:
                 )
                 continue
 
-            with console.status(f"[bold green]Connecting to MCP server '{name}'..."):
-                try:
-                    params = StdioServerParameters(command=command, args=args, env=env)
+            # Static status message instead of spinner
+            console.print(f"[bold green]Connecting to MCP server '{name}'...[/bold green]")
+            try:
+                params = StdioServerParameters(command=command, args=args, env=env)
                     tools = self._run_async(self._connect_and_list_tools(name, params))
                     all_remote_tools.extend(tools)
                     console.print(

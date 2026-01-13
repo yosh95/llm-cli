@@ -192,13 +192,17 @@ class ChatSession:
             # Prefix for the model response
             display_name = self.client.get_display_name()
 
-            # Show thinking animation with full model name instead of alias
-            with console.status(
-                f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan]",
-                spinner="dots",
-            ):
+            # Show thinking status statically to avoid spinner artifacts
+            console.print(
+                f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan]"
+            )
+
+            try:
                 # Use non-streaming response as requested to avoid JSON parsing issues.
                 res = self.client._send(data)
+            finally:
+                # No cleanup needed for static print
+                pass
 
             # Response is now expected to be a tuple (response_text, usage)
             response_text, _ = res if res else (None, None)
@@ -269,11 +273,10 @@ class ChatSession:
         self.client.conversation = temp_conversation
 
         try:
-            status_msg = (
+            console.print(
                 f"[bold cyan]🤔 Summarizing ({self.client.model})...[/bold cyan]"
             )
-            with console.status(status_msg, spinner="dots"):
-                res = self.client._send([])
+            res = self.client._send([])
 
             summary, _ = res if res else (None, None)
 
@@ -487,11 +490,11 @@ class ChatSession:
             if is_interactive:
                 result_data = tool_entry["func"](**args)
             else:
-                # Show spinner for tool execution
-                with console.status(
-                    f"[bold yellow]🏃 Executing {name}...[/bold yellow]", spinner="dots"
-                ):
-                    result_data = tool_entry["func"](**args)
+                # Show static status for tool execution
+                console.print(
+                    f"[bold yellow]🏃 Executing {name}...[/bold yellow]"
+                )
+                result_data = tool_entry["func"](**args)
 
             injected_data = (
                 result_data.pop("__llm_cli_data__", None)

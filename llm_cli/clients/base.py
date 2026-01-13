@@ -4,7 +4,6 @@ import base64
 import datetime
 import json
 import time
-import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
@@ -663,13 +662,17 @@ class BaseLlmClient(ABC):
         if inline_data.get("mimeType", "").startswith("image/"):
             ext = inline_data["mimeType"].split("/")[-1]
             now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_prefix = f"generated_{now_str}_{uuid.uuid4().hex[:4]}"
+            default_prefix = f"generated_{now_str}"
 
             if not self.stdout:
                 try:
                     console.print("\n[cyan]Image generation detected.[/cyan]")
+                    msg = (
+                        f"Enter image file name (default extension .{ext} will "
+                        "be added if missing): "
+                    )
                     user_input = prompt(
-                        "Enter image file prefix (extension will be added): ",
+                        msg,
                         default=default_prefix,
                         completer=PathCompleter(expanduser=True),
                         complete_style=CompleteStyle.READLINE_LIKE,
@@ -677,8 +680,10 @@ class BaseLlmClient(ABC):
                     if not user_input:
                         user_input = default_prefix
 
-                    # Use user_input as is (with extension fixed)
-                    fname = f"{user_input}.{ext}"
+                    if user_input.lower().endswith(f".{ext}"):
+                        fname = user_input
+                    else:
+                        fname = f"{user_input}.{ext}"
                 except (KeyboardInterrupt, EOFError):
                     fname = f"{default_prefix}.{ext}"
             else:

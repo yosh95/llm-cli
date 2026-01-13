@@ -4,6 +4,7 @@ import base64
 import datetime
 import json
 import time
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
@@ -662,32 +663,9 @@ class BaseLlmClient(ABC):
         if inline_data.get("mimeType", "").startswith("image/"):
             ext = inline_data["mimeType"].split("/")[-1]
             now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_prefix = f"generated_{now_str}"
-
-            if not self.stdout:
-                try:
-                    console.print("\n[cyan]Image generation detected.[/cyan]")
-                    msg = (
-                        f"Enter image file name (default extension .{ext} will "
-                        "be added if missing): "
-                    )
-                    user_input = prompt(
-                        msg,
-                        default=default_prefix,
-                        completer=PathCompleter(expanduser=True),
-                        complete_style=CompleteStyle.READLINE_LIKE,
-                    ).strip()
-                    if not user_input:
-                        user_input = default_prefix
-
-                    if user_input.lower().endswith(f".{ext}"):
-                        fname = user_input
-                    else:
-                        fname = f"{user_input}.{ext}"
-                except (KeyboardInterrupt, EOFError):
-                    fname = f"{default_prefix}.{ext}"
-            else:
-                fname = f"{default_prefix}.{ext}"
+            # Generate a random suffix to avoid collisions and file name prompts
+            random_suffix = uuid.uuid4().hex[:8]
+            fname = f"generated_{now_str}_{random_suffix}.{ext}"
 
             # Honor image_output_dir from config
             output_dir_str = get_setting("image_output_dir", "general") or "."
@@ -698,16 +676,9 @@ class BaseLlmClient(ABC):
                 # Ensure parent directory of the target path exists
                 target_path.parent.mkdir(parents=True, exist_ok=True)
 
-                if target_path.exists():
-                    if not Confirm.ask(
-                        f"[yellow]File {target_path} already exists. "
-                        "Overwrite?[/yellow]",
-                        default=False,
-                    ):
-                        console.print("[yellow]Skipping image save.[/yellow]")
-                        return None
-
                 target_path.write_bytes(base64.b64decode(inline_data["data"]))
+                # Inform user that image was saved (useful if no prompt)
+                console.print(f"[cyan]Image saved to: {target_path}[/cyan]")
                 return f"\n**output image: {target_path}**"
             except Exception as e:
                 console.print(f"[red]Failed to save image: {e}[/red]")

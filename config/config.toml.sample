@@ -3,12 +3,12 @@
 
 [general]
 unified_default_provider = "google"
-LLM_PROMPT_HISTORY = "~/.config/llm_cli/history.log"
-LLM_CHAT_LOG = "~/.config/llm_cli/chat.log"
+LLM_PROMPT_HISTORY = "~/.local/share/llm_cli/history.log"
+LLM_CHAT_LOG = "~/.local/share/llm_cli/chat.log"
 max_chat_log_lines = 10000
 
 # Audit log for tool execution (especially execute_command)
-LLM_AUDIT_LOG = "~/.local/state/llm_cli/audit.log"
+LLM_AUDIT_LOG = "~/.local/share/llm_cli/audit.log"
 max_audit_log_lines = 10000
 # Maximum length of values (args/output) in audit log. Set to 0 for unlimited.
 max_audit_val_len = 100000
@@ -36,24 +36,26 @@ image = "gemini-3-pro-image-preview"
 
 [openai]
 api_key = "YOUR_OPENAI_API_KEY"
+
 [openai.models]
-default = "gpt-5.1"
+default = "gpt-5.2"
 nano = "gpt-5-nano"
 mini = "gpt-5-mini"
 
 [anthropic]
 api_key = "YOUR_CLAUDE_API_KEY"
+
 [anthropic.models]
 default = "claude-opus-4-5-20251101"
-haiku = "claude-haiku-4-5-20251101"
+haiku = "claude-haiku-4-5-20251001"
 sonnet = "claude-sonnet-4-5-20250929"
 opus = "claude-opus-4-5-20251101"
 
 [xai]
 api_key = "YOUR_GROK_API_KEY"
+
 [xai.models]
 default = "grok-4-1-fast-reasoning"
-reasoning = "grok-4-1-fast-reasoning"
 non-reasoning = "grok-4-1-fast-non-reasoning"
 
 [ollama]

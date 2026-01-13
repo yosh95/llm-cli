@@ -58,7 +58,9 @@ def test_timeout_and_cleanup():
                 capture_output=True,
                 text=True,
             )
-            assert ps_check.stdout.strip() == "", f"Child process 'sleep 10' should have been killed. Found:\n{ps_check.stdout}"
+            assert ps_check.stdout.strip() == "", (
+                f"Child process 'sleep 10' should have been killed. Found:\n{ps_check.stdout}"
+            )
     finally:
         if "LLM_CLI_COMMAND_TIMEOUT" in os.environ:
             del os.environ["LLM_CLI_COMMAND_TIMEOUT"]

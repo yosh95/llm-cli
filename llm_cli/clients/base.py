@@ -6,6 +6,7 @@ import json
 import time
 import uuid
 from abc import ABC, abstractmethod
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -38,6 +39,7 @@ class ProviderSwitchRequest(Exception):
 
 class CheckpointRequest(Exception):
     """Exception raised to request a conversation checkpoint (summarization)."""
+
     pass
 
 
@@ -447,7 +449,9 @@ class BaseLlmClient(ABC):
             return True
 
         if cmd == "dump":
-            json_str = json.dumps(self.conversation, indent=2, ensure_ascii=False)
+            json_str = json.dumps(
+                [asdict(m) for m in self.conversation], indent=2, ensure_ascii=False
+            )
             syn = Syntax(
                 json_str,
                 "json",
@@ -477,10 +481,19 @@ class BaseLlmClient(ABC):
 
         if cmd == "raw":
             for msg in self.conversation:
-                role = msg.get("role", "unknown")
-                for p in msg.get("parts", []):
-                    role_suffix = " (REASONING)" if "thought" in p else ""
-                    text = p.get("text") or p.get("thought")
+                role = msg.role
+                for p in msg.parts:
+                    role_suffix = ""
+                    text = ""
+                    if isinstance(p, str):
+                        text = p
+                    elif isinstance(p, ContentPart):
+                        if p.thought:
+                            role_suffix = " (REASONING)"
+                            text = p.thought
+                        elif p.text:
+                            text = p.text
+
                     if text:
                         print(f"[{role.upper()}{role_suffix}]\n{text}\n")
             return True

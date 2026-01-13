@@ -199,6 +199,10 @@ class CommandValidator:
             raise CommandValidationError("I/O redirection (> or <) is forbidden.")
 
     def _check_paths(self, parts: List[str]) -> None:
+        base_command = parts[0]
+        if "/" in base_command:
+            base_command = base_command.split("/")[-1]
+
         for part in parts[1:]:
             # More careful path check: only validate if it really looks like a path
             if "/" in part or part.startswith(".") or part.startswith("~"):
@@ -207,6 +211,17 @@ class CommandValidator:
                 try:
                     validate_path(part)
                 except PathValidationError as e:
+                    # Exception handling logic for grep-like commands
+                    if base_command in {"grep", "egrep", "fgrep", "find", "locate"}:
+                        # If the path doesn't exist, it might be a pattern or
+                        # search query. For these read-only/search commands, we
+                        # allow non-existent paths because they won't lead to
+                        # unauthorized file access (file not found).
+                        import os
+
+                        if not os.path.exists(part):
+                            continue
+
                     # Bubble up the specific traversal error message
                     raise CommandValidationError(str(e))
 

@@ -1,11 +1,15 @@
 from unittest.mock import MagicMock, patch
+
 import pytest
+
 from llm_cli.clients.gemini import GeminiClient
 from llm_cli.modules.models import DataSource
+
 
 @pytest.fixture
 def mock_config_audio(mock_config):
     return mock_config
+
 
 def test_gemini_audio_upload_called(mock_config_audio, tmp_path):
     # Create a dummy audio file
@@ -32,6 +36,7 @@ def test_gemini_audio_upload_called(mock_config_audio, tmp_path):
         assert result.is_file_or_url is True
         mock_upload.assert_called_once_with(audio_file, mime_type="audio/wav")
 
+
 def test_gemini_send_with_audio_file_uri(mock_config_audio):
     client = GeminiClient(initial_model_alias="default", stdout=True)
     # Use DataSource dataclass
@@ -40,7 +45,7 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
             content=None,
             content_type="audio/wav",
             is_file_or_url=True,
-            metadata={"file_uri": "https://gemini.api/files/abc"}
+            metadata={"file_uri": "https://gemini.api/files/abc"},
         )
     ]
 
@@ -64,6 +69,7 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
             part.get("file_data", {}).get("file_uri") == "https://gemini.api/files/abc"
             for part in user_parts
         )
+
 
 def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
     # Test that base client now treats audio as base64 instead of text
@@ -92,6 +98,7 @@ def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
         assert isinstance(result, DataSource)
         assert result.content_type == "audio/mpeg"
         assert result.is_file_or_url is True
-        
+
         import base64
+
         assert result.content == base64.b64encode(b"binary mp3 data").decode("utf-8")

@@ -1,9 +1,12 @@
 import glob
 import os
 from unittest.mock import MagicMock, patch
+
 import pytest
+
 from llm_cli.clients.gemini import GeminiClient
 from llm_cli.modules.models import DataSource
+
 
 @pytest.fixture
 def mock_gemini_response_image():
@@ -22,6 +25,7 @@ def mock_gemini_response_image():
         ],
         "usageMetadata": {"totalTokenCount": 10},
     }
+
 
 def test_gemini_saves_image_and_displays_thought(
     mock_config, mock_gemini_response_image, tmp_path

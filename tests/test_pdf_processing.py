@@ -1,10 +1,12 @@
 """Tests for PDF processing functionality across providers using dataclasses."""
 
 from unittest.mock import patch
+
 from llm_cli.clients.claude import ClaudeClient
 from llm_cli.clients.gemini import GeminiClient
 from llm_cli.clients.grok import GrokClient
 from llm_cli.modules.models import DataSource
+
 
 class TestPDFProcessing:
     """Test suite for PDF processing in different providers."""

@@ -19,6 +19,7 @@ class ContentPart:
     A part of a message, which can be text or other data.
     Aligns with Gemini/OpenAI/Anthropic mixed content formats.
     """
+
     text: Optional[str] = None
     inline_data: Optional[Dict[str, Any]] = None
     function_call: Optional[Dict[str, Any]] = None
@@ -30,6 +31,7 @@ class ContentPart:
 @dataclass
 class Message:
     """A single message in a conversation."""
+
     role: Role
     parts: List[Union[str, ContentPart]]
 
@@ -47,6 +49,7 @@ class Message:
 @dataclass
 class DataSource:
     """Input data sourced from files, URLs, or direct text."""
+
     content: Any
     content_type: str = "text/plain"
     is_file_or_url: bool = False
@@ -56,6 +59,7 @@ class DataSource:
 @dataclass
 class Usage:
     """Token usage tracking."""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -64,6 +68,7 @@ class Usage:
 @dataclass
 class ClientState:
     """Current state of an LLM client session."""
+
     model: str
     provider: str
     conversation: List[Message] = field(default_factory=list)

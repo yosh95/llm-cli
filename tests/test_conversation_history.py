@@ -14,7 +14,7 @@ def test_initial_data_not_duplicated_in_conversation(mock_config):
             content=None,
             content_type="video/mp4",
             is_file_or_url=True,
-            metadata={"file_uri": "https://gemini.api/files/test123"}
+            metadata={"file_uri": "https://gemini.api/files/test123"},
         )
     ]
 
@@ -24,9 +24,7 @@ def test_initial_data_not_duplicated_in_conversation(mock_config):
         for item in data:
             file_uri = item.metadata.get("file_uri")
             if file_uri:
-                new_parts.append(
-                    ContentPart(text=f"[File: {file_uri}]")
-                )
+                new_parts.append(ContentPart(text=f"[File: {file_uri}]"))
             else:
                 new_parts.append(ContentPart(text=str(item.content)))
 
@@ -58,7 +56,10 @@ def test_initial_data_not_duplicated_in_conversation(mock_config):
 
     # First user message should have file_uri placeholder + text
     assert len(client.conversation[0].parts) == 2
-    assert "[File: https://gemini.api/files/test123]" in client.conversation[0].parts[0].text
+    assert (
+        "[File: https://gemini.api/files/test123]"
+        in client.conversation[0].parts[0].text
+    )
     assert "Question 1" in client.conversation[0].parts[1].text
 
     # Second user message should have only text

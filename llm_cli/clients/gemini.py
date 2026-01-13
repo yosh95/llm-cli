@@ -58,7 +58,7 @@ class GeminiClient(BaseLlmClient):
                 content=None,
                 content_type="image/jpeg",  # Default
                 is_file_or_url=True,
-                metadata={"file_uri": source}
+                metadata={"file_uri": source},
             )
 
         # 2. Handle local files that need uploading
@@ -89,7 +89,7 @@ class GeminiClient(BaseLlmClient):
                         content=None,
                         content_type=mime_type,
                         is_file_or_url=True,
-                        metadata={"file_uri": uri}
+                        metadata={"file_uri": uri},
                     )
                 else:
                     return None
@@ -151,7 +151,9 @@ class GeminiClient(BaseLlmClient):
                     if "text" in p:
                         history_user_parts.append(ContentPart(text=p["text"]))
                     elif "inlineData" in p:
-                        history_user_parts.append(ContentPart(inline_data=p["inlineData"]))
+                        history_user_parts.append(
+                            ContentPart(inline_data=p["inlineData"])
+                        )
                     elif "file_data" in p:
                         # Placeholder text for file data in history
                         uri = p["file_data"]["file_uri"]
@@ -174,9 +176,7 @@ class GeminiClient(BaseLlmClient):
                     # Handle image generation / other inline data if supported
                     if p.inline_data:
                         # Extract inline_data from ContentPart
-                        log = self._save_inline_image_and_get_log_entry(
-                            p.inline_data
-                        )
+                        log = self._save_inline_image_and_get_log_entry(p.inline_data)
                         if log:
                             display_text += log
 
@@ -217,10 +217,9 @@ class GeminiClient(BaseLlmClient):
                     if part_dict:
                         parts.append(part_dict)
 
-            contents.append({
-                "role": "model" if m.role == Role.MODEL else "user",
-                "parts": parts
-            })
+            contents.append(
+                {"role": "model" if m.role == Role.MODEL else "user", "parts": parts}
+            )
 
         if new_parts:
             contents.append({"role": "user", "parts": new_parts})
@@ -245,8 +244,7 @@ class GeminiClient(BaseLlmClient):
         """Parses Gemini response into internal Message format."""
         if not response_json.get("candidates"):
             return Message(
-                role=Role.MODEL,
-                parts=[ContentPart(text="[No response candidates]")]
+                role=Role.MODEL, parts=[ContentPart(text="[No response candidates]")]
             )
 
         candidate = response_json["candidates"][0]
@@ -259,11 +257,17 @@ class GeminiClient(BaseLlmClient):
             if "text" in p:
                 model_parts.append(ContentPart(text=p["text"], thought_signature=sig))
             if "thought" in p:
-                model_parts.append(ContentPart(thought=p["thought"], thought_signature=sig))
+                model_parts.append(
+                    ContentPart(thought=p["thought"], thought_signature=sig)
+                )
             if "inlineData" in p:
-                model_parts.append(ContentPart(inline_data=p["inlineData"], thought_signature=sig))
+                model_parts.append(
+                    ContentPart(inline_data=p["inlineData"], thought_signature=sig)
+                )
             if "functionCall" in p:
-                model_parts.append(ContentPart(function_call=p["functionCall"], thought_signature=sig))
+                model_parts.append(
+                    ContentPart(function_call=p["functionCall"], thought_signature=sig)
+                )
 
         return Message(role=Role.MODEL, parts=model_parts)
 

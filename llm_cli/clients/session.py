@@ -473,7 +473,7 @@ class ChatSession:
                         "name": name,
                         "response": {"result": result_msg},
                     },
-                    thought_signature=thought_signature
+                    thought_signature=thought_signature,
                 )
                 return response, None
 
@@ -539,7 +539,7 @@ class ChatSession:
                     "name": name,
                     "response": {"result": result_data},
                 },
-                thought_signature=thought_signature
+                thought_signature=thought_signature,
             )
             return response, injected
         except Exception as e:
@@ -550,7 +550,7 @@ class ChatSession:
                     "name": name,
                     "response": {"result": f"Error: {e}"},
                 },
-                thought_signature=thought_signature
+                thought_signature=thought_signature,
             )
             return response, None
 

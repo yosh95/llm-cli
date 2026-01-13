@@ -33,6 +33,7 @@ class GrokClient(BaseLlmClient):
     def _load_model_aliases(self):
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
+
         self.available_models = get_model_aliases("xai")
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
@@ -143,17 +144,19 @@ class GrokClient(BaseLlmClient):
                         func_resp = p.function_response
                         tool_id = func_resp.get("id")
                         is_responded = (
-                            tool_id and
-                            tool_id != "unknown" and
-                            tool_id in responded_tool_ids
+                            tool_id
+                            and tool_id != "unknown"
+                            and tool_id in responded_tool_ids
                         )
                         if is_responded:
                             result = func_resp.get("response", {}).get("result", "")
-                            msgs.append({
-                                "role": "tool",
-                                "tool_call_id": tool_id,
-                                "content": str(result),
-                            })
+                            msgs.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tool_id,
+                                    "content": str(result),
+                                }
+                            )
             else:
                 role = "assistant" if m.role == Role.MODEL else m.role.value
                 msg_content = ""
@@ -172,21 +175,23 @@ class GrokClient(BaseLlmClient):
                             func_call = p.function_call
                             tool_id = func_call.get("id")
                             is_responded = (
-                                tool_id and
-                                tool_id != "unknown" and
-                                tool_id in responded_tool_ids
+                                tool_id
+                                and tool_id != "unknown"
+                                and tool_id in responded_tool_ids
                             )
                             if is_responded:
-                                tool_calls.append({
-                                    "id": tool_id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": func_call.get("name", "unknown"),
-                                        "arguments": json.dumps(
-                                            func_call.get("args", {})
-                                        ),
-                                    },
-                                })
+                                tool_calls.append(
+                                    {
+                                        "id": tool_id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": func_call.get("name", "unknown"),
+                                            "arguments": json.dumps(
+                                                func_call.get("args", {})
+                                            ),
+                                        },
+                                    }
+                                )
 
                 if msg_content or reasoning_content or tool_calls:
                     msg = {"role": role, "content": msg_content or None}
@@ -201,10 +206,14 @@ class GrokClient(BaseLlmClient):
             if d.content_type == "text/plain":
                 user_content.append({"type": "text", "text": str(d.content)})
             elif d.content_type.startswith("image/"):
-                user_content.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:{d.content_type};base64,{d.content}"},
-                })
+                user_content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{d.content_type};base64,{d.content}"
+                        },
+                    }
+                )
 
         if user_content:
             msgs.append({"role": "user", "content": user_content})

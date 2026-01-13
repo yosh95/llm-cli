@@ -35,6 +35,7 @@ class OllamaClient(BaseLlmClient):
     def _load_model_aliases(self):
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
+
         self.available_models = get_model_aliases("ollama")
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
@@ -148,15 +149,17 @@ class OllamaClient(BaseLlmClient):
         if tool_calls:
             for tc in tool_calls:
                 fn = tc.get("function", {})
-                model_parts.append(ContentPart(
-                    function_call={
-                        "id": tc.get("id"),
-                        "name": fn.get("name"),
-                        "args": (
-                            json.loads(fn["arguments"])
-                            if isinstance(fn.get("arguments"), str)
-                            else fn.get("arguments")
-                        ),
-                    }
-                ))
+                model_parts.append(
+                    ContentPart(
+                        function_call={
+                            "id": tc.get("id"),
+                            "name": fn.get("name"),
+                            "args": (
+                                json.loads(fn["arguments"])
+                                if isinstance(fn.get("arguments"), str)
+                                else fn.get("arguments")
+                            ),
+                        }
+                    )
+                )
         return model_parts

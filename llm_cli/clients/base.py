@@ -394,7 +394,12 @@ class BaseLlmClient(ABC):
                 save_path.parent.mkdir(parents=True, exist_ok=True)
 
                 with save_path.open("w", encoding="utf-8") as f:
-                    json.dump(self.conversation, f, indent=2, ensure_ascii=False)
+                    json.dump(
+                        [asdict(m) for m in self.conversation],
+                        f,
+                        indent=2,
+                        ensure_ascii=False,
+                    )
                 console.print(f"[green]Session saved to {save_path}[/green]")
             except Exception as e:
                 console.print(f"[red]Failed to save session: {e}[/red]")
@@ -413,7 +418,21 @@ class BaseLlmClient(ABC):
                     return True
 
                 with load_path.open("r", encoding="utf-8") as f:
-                    self.conversation = json.load(f)
+                    data = json.load(f)
+
+                # Convert list of dicts back to list of Message objects
+                loaded_conversation = []
+                for msg_data in data:
+                    role = Role(msg_data["role"])
+                    parts = []
+                    for p in msg_data["parts"]:
+                        if isinstance(p, str):
+                            parts.append(p)
+                        elif isinstance(p, dict):
+                            parts.append(ContentPart(**p))
+                    loaded_conversation.append(Message(role=role, parts=parts))
+
+                self.conversation = loaded_conversation
                 console.print(
                     f"[green]Session loaded from {load_path} "
                     f"({len(self.conversation)} messages)[/green]"
@@ -429,15 +448,15 @@ class BaseLlmClient(ABC):
                 return True
 
             res = self._process_single_source(path_str)
-            if res and res.get("is_file_or_url"):
-                if res.get("content_type") == "text/plain":
+            if res and res.is_file_or_url:
+                if res.content_type == "text/plain":
                     console.print(
                         f"[yellow]Notice: {path_str} is text. "
                         "Added as text context.[/yellow]"
                     )
                 else:
                     console.print(
-                        f"[green]Attached {res['content_type']}: {path_str}[/green]"
+                        f"[green]Attached {res.content_type}: {path_str}[/green]"
                     )
                 if pending_data is not None:
                     pending_data.append(res)
@@ -462,7 +481,9 @@ class BaseLlmClient(ABC):
             console.print(Panel(syn, title="Conversation History", border_style="blue"))
 
             if pending_data:
-                json_pending = json.dumps(pending_data, indent=2, ensure_ascii=False)
+                json_pending = json.dumps(
+                    [asdict(d) for d in pending_data], indent=2, ensure_ascii=False
+                )
                 syn_pending = Syntax(
                     json_pending,
                     "json",
@@ -522,10 +543,17 @@ class BaseLlmClient(ABC):
                 active_for_provider = registry.get_active_names(
                     self.active_tools, provider=self.config_section
                 )
-                tools_str = ", ".join(active_for_provider) or "None"
+                if active_for_provider:
+                    tools_list = "\n".join(
+                        [f"  - {t}" for t in active_for_provider]
+                    )
+                    tools_str = f"\n{tools_list}"
+                else:
+                    tools_str = " None"
+
                 console.print(f"[bold]Tools Status:[/bold] {status}")
                 if self.tools_enabled:
-                    console.print(f"[bold]Active Tools:[/bold] {tools_str}")
+                    console.print(f"[bold]Active Tools:[/bold]{tools_str}")
                 console.print("[dim]Usage: /tools on|off[/dim]")
             else:
                 console.print(
@@ -565,18 +593,24 @@ class BaseLlmClient(ABC):
             debug_status = "ON" if self.live_debug else "OFF"
             reasoning_status = "ON" if self.reasoning_enabled else "OFF"
             if not self.tools_enabled:
-                tools_str = "[red]Disabled[/red]"
+                tools_str = " [red]Disabled[/red]"
             else:
                 active_for_provider = registry.get_active_names(
                     self.active_tools, provider=self.config_section
                 )
-                tools_str = ", ".join(active_for_provider) or "None"
+                if active_for_provider:
+                    tools_list = "\n".join(
+                        [f"    - {t}" for t in active_for_provider]
+                    )
+                    tools_str = f"\n{tools_list}"
+                else:
+                    tools_str = " None"
             console.print(
                 "[bold]Session Info:[/bold]\n"
                 f"  Provider: [cyan]{self.config_section}[/cyan]\n"
                 f"  Model: [cyan]{self.model}[/cyan] "
                 f"(Alias: {self.current_alias})\n"
-                f"  Tools: {tools_str}\n"
+                f"  Tools:{tools_str}\n"
                 f"  Reasoning: {reasoning_status}\n"
                 f"  Debug: [magenta]{debug_status}[/magenta]\n"
                 f"  History: {len(self.conversation)} messages"
@@ -701,13 +735,16 @@ class BaseLlmClient(ABC):
     ):
         def _format_json(data):
             if isinstance(data, (dict, list)):
-                return Syntax(
-                    json.dumps(data, indent=2, ensure_ascii=False),
-                    "json",
-                    theme="monokai",
-                    background_color="default",
-                    word_wrap=True,
-                )
+                try:
+                    return Syntax(
+                        json.dumps(data, indent=2, ensure_ascii=False),
+                        "json",
+                        theme="monokai",
+                        background_color="default",
+                        word_wrap=True,
+                    )
+                except TypeError:
+                    pass  # Fallback to string representation
             return str(data)
 
         if response_obj:

@@ -46,19 +46,21 @@ def test_attach_file_tool_text_file(mock_path, mock_process):
 
 
 def test_handle_attach_command():
+    from llm_cli.modules.models import DataSource
+
     client = MockClient("default", "KEY", "section", True, False)
     pending_data = []
 
     with patch.object(client, "_process_single_source") as mock_process:
-        mock_process.return_value = {
-            "content": "data",
-            "content_type": "image/png",
-            "is_file_or_url": True,
-        }
+        mock_process.return_value = DataSource(
+            content="data",
+            content_type="image/png",
+            is_file_or_url=True,
+        )
         res = client._handle_command("/attach my.png", None, pending_data)
         assert res is True
         assert len(pending_data) == 1
-        assert pending_data[0]["content_type"] == "image/png"
+        assert pending_data[0].content_type == "image/png"
 
 
 def test_handle_attach_command_invalid():

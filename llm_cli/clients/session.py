@@ -280,10 +280,11 @@ class ChatSession:
         self.client.conversation = temp_conversation
 
         try:
-            console.print(
-                f"[bold cyan]🤔 Summarizing ({self.client.model})...[/bold cyan]"
-            )
-            res = self.client._send([])
+            with console.status(
+                f"[bold cyan]🤔 Summarizing ({self.client.model})...[/bold cyan]",
+                spinner="dots",
+            ):
+                res = self.client._send([])
 
             summary, _ = res if res else (None, None)
 
@@ -292,8 +293,14 @@ class ChatSession:
                 self.client.conversation = original_conversation
                 return
 
-            title = "[bold cyan]Proposed Context Summary[/bold cyan]"
-            console.print(Panel(summary, title=title, expand=False))
+            console.print(
+                Rule(
+                    title="[bold cyan]Proposed Context Summary[/bold cyan]",
+                    style="cyan",
+                )
+            )
+            console.print(CustomMarkdown(summary) if summary else "")
+            console.print(Rule(style="cyan"))
 
             if self._confirm("Clear history and use this summary? (y/N): "):
                 self.client.conversation = [

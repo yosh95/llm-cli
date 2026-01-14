@@ -175,7 +175,20 @@ class GeminiClient(BaseLlmClient):
                     # Handle image generation / other inline data if supported
                     if p.inline_data:
                         # Extract inline_data from ContentPart
-                        log = self._save_inline_image_and_get_log_entry(p.inline_data)
+                        # Use last user text as hint for filename
+                        hint = ""
+                        for m in reversed(self.conversation):
+                            if m.role == Role.USER:
+                                for up in m.parts:
+                                    if isinstance(up, ContentPart) and up.text:
+                                        hint = up.text[:100]
+                                        break
+                                if hint:
+                                    break
+                        
+                        log = self._save_inline_image_and_get_log_entry(
+                            p.inline_data, hint_text=hint
+                        )
                         if log:
                             display_text += log
 

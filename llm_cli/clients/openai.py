@@ -1,6 +1,7 @@
 # llm_cli/clients/openai.py
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from llm_cli.clients.base import BaseLlmClient
@@ -9,13 +10,14 @@ from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 DEFAULT_API_URL = "https://api.openai.com/v1/chat/completions"
+IMAGE_API_URL = "https://api.openai.com/v1/images/generations"
 
 
 class OpenAIClient(BaseLlmClient):
     """
-    Client for interacting with OpenAI's Chat Completions API.
+    Client for interacting with OpenAI's Chat Completions API and Images API.
 
-    Supports vision, tool calling, and reasoning (thinking) modes.
+    Supports vision, tool calling, reasoning (thinking) modes, and DALL-E image generation.
     """
 
     def __init__(self, initial_model_alias: str = "default", **kwargs):
@@ -37,16 +39,18 @@ class OpenAIClient(BaseLlmClient):
 
         self.available_models = get_model_aliases("openai")
 
+    def _is_image_model(self) -> bool:
+        """Determines if the current model is an image generation model."""
+        m = self.model.lower()
+        return "dall-e" in m or "image" in m
+
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         """
         Sends the conversation history and new data to OpenAI.
-
-        Args:
-            data: New DataSource inputs from the user.
-
-        Returns:
-            A tuple of (response_text, usage_dict).
         """
+        if self._is_image_model():
+            return self._send_image_generation(data)
+
         messages = self._build_messages(data)
         payload = {
             "model": self.model,
@@ -111,6 +115,91 @@ class OpenAIClient(BaseLlmClient):
             return full_text.strip(), res.get("usage")
         except Exception as e:
             self._report_error("OpenAI", e)
+            return None, None
+
+    def _send_image_generation(
+        self, data: List[DataSource]
+    ) -> Tuple[Optional[str], Optional[Dict]]:
+        """Handles image generation via OpenAI's DALL-E API."""
+        # Extract prompt from conversation and new data
+        prompt_parts = []
+        for m in self.conversation:
+            for p in m.parts:
+                if isinstance(p, ContentPart) and p.text:
+                    prompt_parts.append(p.text)
+                elif isinstance(p, str):
+                    prompt_parts.append(p)
+        for d in data:
+            if d.content_type == "text/plain":
+                prompt_parts.append(str(d.content))
+
+        full_prompt = "\n".join(prompt_parts)
+        payload = {
+            "model": self.model,
+            "prompt": full_prompt,
+            "n": 1,
+            "size": "1024x1024",
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            response = self._post_with_retry(
+                IMAGE_API_URL,
+                headers=headers,
+                json_data=payload,
+                timeout=self.request_timeout,
+            )
+            self._log_debug(response_obj=response, request_payload=payload)
+            response.raise_for_status()
+            res = response.json()
+
+            data_item = res["data"][0]
+            revised_prompt = data_item.get("revised_prompt", "")
+            img_data = None
+            mime_type = "image/png"  # Default
+
+            # Handle both URL and Base64 response formats
+            if "b64_json" in data_item:
+                img_data = data_item["b64_json"]
+            elif "url" in data_item:
+                img_url = data_item["url"]
+                from llm_cli.modules.media_utils import fetch_url_content
+                img_data, fetched_mime = fetch_url_content(img_url)
+                if fetched_mime:
+                    mime_type = fetched_mime
+            
+            if not img_data:
+                return "Failed to retrieve image data from the response.", None
+
+            # Use shared media saving logic from BaseLlmClient
+            display_text = self._save_inline_image_and_get_log_entry(
+                {"mimeType": mime_type, "data": img_data}, hint_text=full_prompt[:100]
+            )
+            if not display_text:
+                display_text = "Successfully generated image, but failed to save it locally."
+
+            if revised_prompt:
+                display_text += f"\n**Revised Prompt:** {revised_prompt}"
+
+            # Update history with the image data (base64)
+            model_msg = Message(
+                role=Role.MODEL,
+                parts=[
+                    ContentPart(text=display_text),
+                    ContentPart(
+                        inline_data={"mimeType": mime_type, "data": img_data}
+                    ),
+                ],
+            )
+            self._update_history(data, model_msg)
+
+            return display_text.strip(), None
+        except Exception as e:
+            self._report_error("OpenAI Image", e)
             return None, None
 
     def _update_history(self, data: List[DataSource], model_msg: Message):

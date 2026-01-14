@@ -720,28 +720,28 @@ class BaseLlmClient(ABC):
             console.print(f"[dim red]Log trimming failed: {e}[/dim red]")
 
     def _save_inline_image_and_get_log_entry(
-        self, inline_data: Dict[str, Any]
+        self, inline_data: Dict[str, Any], hint_text: str = ""
     ) -> Optional[str]:
+        """
+        Saves inline image data (base64) to a file and returns a formatted display string.
+        Uses the shared images/generated directory and safe filenames based on hint_text.
+        """
         if inline_data.get("mimeType", "").startswith("image/"):
-            ext = inline_data["mimeType"].split("/")[-1]
-            now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            # Generate a random suffix to avoid collisions and file name prompts
-            random_suffix = uuid.uuid4().hex[:8]
-            fname = f"generated_{now_str}_{random_suffix}.{ext}"
+            import mimetypes
+            from llm_cli.modules.media_utils import generate_safe_filename
 
-            # Honor image_output_dir from config
-            output_dir_str = get_setting("image_output_dir", "general") or "."
-            output_dir = Path(output_dir_str)
-            target_path = output_dir / fname
+            save_dir = Path("images/generated")
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+            mime_type = inline_data["mimeType"]
+            ext = mimetypes.guess_extension(mime_type) or ".png"
+            filename = generate_safe_filename(hint_text, ext=ext.strip("."))
+            target_path = save_dir / filename
 
             try:
-                # Ensure parent directory of the target path exists
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-
                 target_path.write_bytes(base64.b64decode(inline_data["data"]))
-                # Inform user that image was saved (useful if no prompt)
-                console.print(f"[cyan]Image saved to: {target_path}[/cyan]")
-                return f"\n**output image: {target_path}**"
+                # Inform user that image was saved
+                return f"\n\n🎨 Image generated and saved to: **{target_path}**\n"
             except Exception as e:
                 console.print(f"[red]Failed to save image: {e}[/red]")
         return None

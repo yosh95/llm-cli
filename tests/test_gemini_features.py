@@ -49,15 +49,16 @@ def test_gemini_saves_image_and_displays_thought(
                 [DataSource(content="Generate an image", content_type="text/plain")]
             )
 
-            # Check if image file exists
-            files_jpeg = glob.glob("generated_*.jpeg")
+            # Check if image file exists in images/generated/
+            # Note: mimetypes.guess_extension("image/jpeg") can return .jpg or .jpeg depending on OS
+            files_jpeg = glob.glob("images/generated/*.jp*g")
 
             assert len(files_jpeg) == 1, f"Expected 1 jpeg file, found: {files_jpeg}"
 
             # Check if text contains thought and image path
-            assert "**output image:" in full_text
+            assert "Image generated and saved to:" in full_text
             assert "**Reasoning:** This is a thought." in full_text
-            assert files_jpeg[0] in full_text
+            assert str(files_jpeg[0]) in full_text
 
         finally:
             os.chdir(orig_cwd)

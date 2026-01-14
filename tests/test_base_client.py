@@ -96,12 +96,16 @@ class TestBaseLlmClient:
         # Test current dir for image saving
         log_entry = concrete_client._save_inline_image_and_get_log_entry(inline_data)
         assert log_entry is not None
-        assert "output image" in log_entry
+        assert "Image generated and saved to" in log_entry
 
         # Cleanup
-        filename = log_entry.split(": ")[1].strip("*")
-        if os.path.exists(filename):
-            os.remove(filename)
+        # Extract path from "**path**" format
+        import re
+        match = re.search(r"\*\*(.+?)\*\*", log_entry)
+        if match:
+            filename = match.group(1)
+            if os.path.exists(filename):
+                os.remove(filename)
 
     def test_talk_delegates_to_session(self, concrete_client):
         """Test that talk() instantiates ChatSession and calls run()."""

@@ -185,7 +185,7 @@ class GeminiClient(BaseLlmClient):
                                         break
                                 if hint:
                                     break
-                        
+
                         log = self._save_inline_image_and_get_log_entry(
                             p.inline_data, hint_text=hint
                         )

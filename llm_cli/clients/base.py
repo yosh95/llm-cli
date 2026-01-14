@@ -4,7 +4,6 @@ import base64
 import datetime
 import json
 import time
-import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
@@ -723,11 +722,13 @@ class BaseLlmClient(ABC):
         self, inline_data: Dict[str, Any], hint_text: str = ""
     ) -> Optional[str]:
         """
-        Saves inline image data (base64) to a file and returns a formatted display string.
-        Uses the shared images/generated directory and safe filenames based on hint_text.
+        Saves inline image data (base64) to a file and returns a formatted display
+        string. Uses the shared images/generated directory and safe filenames based
+        on hint_text.
         """
         if inline_data.get("mimeType", "").startswith("image/"):
             import mimetypes
+
             from llm_cli.modules.media_utils import generate_safe_filename
 
             save_dir = Path("images/generated")

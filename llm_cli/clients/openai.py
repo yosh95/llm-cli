@@ -1,7 +1,6 @@
 # llm_cli/clients/openai.py
 
 import json
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from llm_cli.clients.base import BaseLlmClient
@@ -17,7 +16,8 @@ class OpenAIClient(BaseLlmClient):
     """
     Client for interacting with OpenAI's Chat Completions API and Images API.
 
-    Supports vision, tool calling, reasoning (thinking) modes, and DALL-E image generation.
+    Supports vision, tool calling, reasoning (thinking) modes,
+    and DALL-E image generation.
     """
 
     def __init__(self, initial_model_alias: str = "default", **kwargs):
@@ -171,7 +171,7 @@ class OpenAIClient(BaseLlmClient):
                 img_data, fetched_mime = fetch_url_content(img_url)
                 if fetched_mime:
                     mime_type = fetched_mime
-            
+
             if not img_data:
                 return "Failed to retrieve image data from the response.", None
 
@@ -180,7 +180,9 @@ class OpenAIClient(BaseLlmClient):
                 {"mimeType": mime_type, "data": img_data}, hint_text=full_prompt[:100]
             )
             if not display_text:
-                display_text = "Successfully generated image, but failed to save it locally."
+                display_text = (
+                    "Successfully generated image, but failed to save it locally."
+                )
 
             if revised_prompt:
                 display_text += f"\n**Revised Prompt:** {revised_prompt}"

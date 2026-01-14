@@ -142,6 +142,12 @@ class UnifiedClient(BaseLlmClient):
             return True
         return False
 
+    def set_custom_model(self, model_name: str):
+        """Sets a custom model for the active client."""
+        self.active_client.set_custom_model(model_name)
+        self.model = self.active_client.model
+        self.current_alias = self.active_client.current_alias
+
     def _process_single_source(self, source: str) -> Optional[DataSource]:
         """Delegate source processing to the active provider client."""
         return self.active_client._process_single_source(source)

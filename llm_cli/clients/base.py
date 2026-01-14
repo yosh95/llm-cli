@@ -242,6 +242,11 @@ class BaseLlmClient(ABC):
             return True
         return False
 
+    def set_custom_model(self, model_name: str):
+        """Sets a custom model that is not in the configuration."""
+        self.current_alias = "custom"
+        self.model = model_name
+
     def talk(
         self,
         initial_data: Optional[List[DataSource]] = None,
@@ -388,8 +393,7 @@ class BaseLlmClient(ABC):
                 )
             else:
                 # Allow setting arbitrary models not in config
-                self.current_alias = "custom"
-                self.model = model_alias
+                self.set_custom_model(model_alias)
                 console.print(
                     f"[yellow]Custom model set: {self.model} (not in config)[/yellow]"
                 )

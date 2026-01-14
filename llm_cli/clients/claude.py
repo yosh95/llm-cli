@@ -63,7 +63,10 @@ class ClaudeClient(BaseLlmClient):
 
         try:
             response = self._post_with_retry(
-                self.API_URL, headers=headers, json_data=payload, timeout=120
+                self.API_URL,
+                headers=headers,
+                json_data=payload,
+                timeout=self.request_timeout,
             )
             self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()

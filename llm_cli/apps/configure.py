@@ -179,6 +179,10 @@ def configure_general(config: Dict[str, Any]):
         "Enable Reasoning/Thinking display by default?",
         g_config.get("enable_reasoning", True),
     )
+    g_config["request_timeout"] = int(prompt_input(
+        "Request Timeout (seconds)",
+        g_config.get("request_timeout", 60)
+    ))
 
 
 def configure_mcp(config: Dict[str, Any]):

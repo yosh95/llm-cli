@@ -120,6 +120,8 @@ class BaseLlmClient(ABC):
             initial_tools if initial_tools is not None else list(registry.tools.keys())
         )
 
+        self.request_timeout = int(get_setting("request_timeout", "general") or 60)
+
         if enable_mcp:
             self._init_mcp(initial_tools is None)
 
@@ -172,7 +174,7 @@ class BaseLlmClient(ABC):
         url: str,
         headers: Dict,
         json_data: Dict,
-        timeout: int = 120,
+        timeout: int = 60,
         max_retries: int = 3,
     ) -> requests.Response:
         """

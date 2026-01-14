@@ -28,7 +28,7 @@ The AI can use tools like `google_search` to find the latest information. In thi
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Exit anytime**: Use **Escape**, **Ctrl+C**, or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
--   **Multimodal Output (Gemini)**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`). Images are automatically saved locally.
+-   **Multimodal Output (Gemini / OpenAI)**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image` or `/m dall-e-3`). Images are automatically saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
@@ -38,7 +38,8 @@ The AI can use tools like `google_search` to find the latest information. In thi
     -   **Manual Attachment**: Use the `/attach <path>` command mid-session to inject images, PDFs, videos, or audio.
     -   **Autonomous Attachment**: Agents can use the `attach_file` or `fetch_url` tools to bring media files into the context when needed.
     -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**.
-    -   **OpenAI / Claude / Grok**: Text and local images (PDFs are processed as text/Base64).
+    -   **OpenAI**: Text, local images, and **DALL-E image generation**.
+    -   **Claude / Grok**: Text and local images (PDFs are processed as text/Base64).
 -   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
 -   **Safe Execution**: Includes a **Diff Preview** for file changes and asks for user confirmation before executing any tool (Human-in-the-Loop).
 -   **Security Guardrails**: Whitelist-based command validation protects against command injection and dangerous operations performed by the AI.
@@ -341,7 +342,7 @@ AIは `google_search` などのツールを活用して最新情報を取得で�
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Escape**、**Ctrl+C**、または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
--   **マルチモーダル出力 (Gemini)**: 会話の途中で画像生成モデルに切り替える（例： `/image` エイリアスを使用）ことで、画像を生成できます。生成された画像は自動的にローカルに保存されます。
+-   **マルチモーダル出力 (Gemini / OpenAI)**: 会話の途中で画像生成モデルに切り替える（例： `/m image` や `/m dall-e-3`）ことで、画像を生成できます。生成された画像は自動的にローカルに保存されます。
 -   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
@@ -351,7 +352,8 @@ AIは `google_search` などのツールを活用して最新情報を取得で�
     -   **手動添付**: `/attach <path>` コマンドで画像、PDF、音声、動画を会話の途中から注入。
     -   **自律添付**: エージェントが必要に応じてツールを使い、メディアファイルをコンテキストに読み込みます。
     -   **Gemini**: テキスト、ローカル画像、PDF、**音声**、**動画**をサポート。
-    -   **OpenAI / Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
+    -   **OpenAI**: テキスト、ローカル画像、および **DALL-E による画像生成**をサポート。
+    -   **Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。
 -   **安全な実行**: ファイル変更時の **Diffプレビュー** 表示と、ツール実行前のユーザー確認（Human-in-the-Loop）。
 -   **セキュリティガードレール**: ホワイトリストベースのコマンド検証により、AIによるコマンドインジェクションや危険な操作を防止。

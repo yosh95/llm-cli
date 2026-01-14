@@ -152,12 +152,36 @@ class UnifiedClient(BaseLlmClient):
         sources: Optional[List[str]],
         pending_data: Optional[List[DataSource]] = None,
     ) -> bool:
-        if user_input.startswith("/") and user_input[1:] in self.PROVIDER_CONFIG:
-            cmd = user_input[1:]
-            if self._activate_provider(cmd):
+        if not user_input.startswith("/"):
+            return False
+
+        parts = user_input[1:].split(None, 1)
+        cmd = parts[0]
+        args = parts[1].strip() if len(parts) > 1 else ""
+
+        if cmd in ("p", "provider"):
+            if not args:
+                console.print("[bold]Available Providers:[/bold]")
+                # Get unique provider aliases mapping to config sections
+                seen_sections = set()
+                for alias, (_, section) in self.PROVIDER_CONFIG.items():
+                    if section not in seen_sections:
+                        active = "*" if section == self.current_provider_name else " "
+                        console.print(
+                            f" {active} [cyan]{alias:15}[/cyan] -> [dim]{section}[/dim]"
+                        )
+                        seen_sections.add(section)
+                return True
+
+            provider_alias = args
+            if self._activate_provider(provider_alias):
                 console.print(
-                    f"[cyan]Switched to provider: {cmd} (Model: {self.model})[/cyan]"
+                    f"[cyan]Switched to provider: {provider_alias} "
+                    f"(Model: {self.model})[/cyan]"
                 )
+                return True
+            else:
+                console.print(f"[red]Unknown provider: {provider_alias}[/red]")
                 return True
 
         return super()._handle_command(user_input, sources, pending_data)

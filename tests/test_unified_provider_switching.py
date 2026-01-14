@@ -51,22 +51,22 @@ def test_unified_client_switches_provider_via_alias(mock_config):
         # We need to access the client stored in the clients dict, which is the mock
         assert client.clients["google"] == mock_gemini_instance
 
-        # Switch to OpenAI using /gpt alias
-        client._handle_command("/gpt", None)
+        # Switch to OpenAI using /p openai
+        client._handle_command("/p openai", None)
 
         # Check if provider switched
         assert client.current_provider_name == "openai"
         assert "openai" in client.clients
         assert client.clients["openai"] == mock_openai_instance
 
-        # Switch back to Gemini using /gemini
-        client._handle_command("/gemini", None)
+        # Switch back to Gemini using /provider gemini
+        client._handle_command("/provider gemini", None)
         assert (
             client.current_provider_name == "google"
         )  # The config section name is 'google'
 
-        # Switch to OpenAI using /openai
-        client._handle_command("/openai", None)
+        # Switch to OpenAI again using /p openai
+        client._handle_command("/p openai", None)
         assert client.current_provider_name == "openai"
 
 

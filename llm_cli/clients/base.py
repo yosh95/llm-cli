@@ -370,22 +370,30 @@ class BaseLlmClient(ABC):
         cmd = parts[0]
         args = parts[1].strip() if len(parts) > 1 else ""
 
-        if cmd in self.available_models:
-            self.set_model(cmd)
-            console.print(
-                f"[cyan]Model switched to: {self.current_alias} ({self.model})[/cyan]"
-            )
-            return True
+        if cmd in ("m", "model"):
+            if not args:
+                console.print("[bold]Available Models:[/bold]")
+                for alias, name in self.available_models.items():
+                    active = "*" if alias == self.current_alias else " "
+                    console.print(
+                        f" {active} [cyan]{alias:15}[/cyan] -> [dim]{name}[/dim]"
+                    )
+                return True
 
-        if cmd in ("m", "models"):
-            console.print("[bold]Available Models:[/bold]")
-            for alias, name in self.available_models.items():
-                active = "*" if alias == self.current_alias else " "
-                console.print(f" {active} [cyan]{alias:15}[/cyan] -> [dim]{name}[/dim]")
+            model_alias = args
+            if self.set_model(model_alias):
+                console.print(
+                    f"[cyan]Model switched to: {self.current_alias} "
+                    f"({self.model})[/cyan]"
+                )
+            else:
+                # Allow setting arbitrary models not in config
+                self.current_alias = "custom"
+                self.model = model_alias
+                console.print(
+                    f"[yellow]Custom model set: {self.model} (not in config)[/yellow]"
+                )
             return True
-
-        if cmd in ("google", "openai", "anthropic", "xai", "ollama"):
-            raise ProviderSwitchRequest(cmd)
 
         if cmd in ("checkpoint", "cp"):
             raise CheckpointRequest()
@@ -630,12 +638,11 @@ class BaseLlmClient(ABC):
         return False
 
     def _print_help(self):
-        models_str = ", ".join(self.available_models.keys())
         console.print(
             "[bold]Available Commands:[/bold]\n"
             "  /attach <path> Attach media/file to context\n"
             "  /save <path>   Save conversation history to a JSON file\n"
-            "  /load <path>   Save conversation history to a JSON file\n"
+            "  /load <path>   Load conversation history from a JSON file\n"
             "  /clear (c)     Clear conversation history\n"
             "  /checkpoint(cp)Summarize and clear history\n"
             "  /dump          Dump conversation history as JSON\n"
@@ -643,11 +650,13 @@ class BaseLlmClient(ABC):
             "  /quit (q)      Exit the application\n"
             "  /info (i)      Show session info\n"
             "  /debug (d)     Toggle live debug mode\n"
-            "  /models (m)    List available models\n"
+            "  /model (m)     List available models or switch model\n"
+            "                 (e.g. /m gpt4o)\n"
+            "  /provider (p)  List available providers or switch provider\n"
+            "                 (e.g. /p openai)\n"
             "  /tools on|off  Show or toggle tool status\n"
             "  /reasoning on|off Show or toggle reasoning display\n"
-            "  /google, /openai, /anthropic, /xai, /ollama  Switch provider\n"
-            f"  <model_alias>  Switch to specific model ({models_str})\n\n"
+            "\n"
             "[bold]Exit Application:[/bold]\n"
             "  Use [cyan]escape[/cyan], [cyan]Ctrl+C[/cyan], "
             "or [cyan]Ctrl+D[/cyan] at any prompt to exit."

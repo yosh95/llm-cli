@@ -28,7 +28,7 @@ The AI can use tools like `google_search` to find the latest information. In thi
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Exit anytime**: Use **Escape**, **Ctrl+C**, or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
--   **Multimodal Output (Gemini)**: Generate images mid-conversation by switching to an image generation model (e.g., via the `/image` alias). Images are automatically saved locally.
+-   **Multimodal Output (Gemini)**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`). Images are automatically saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
@@ -195,21 +195,19 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 
 -   `-p, --provider <provider>`: Specify the provider (`google`, `openai`, `anthropic`, `xai`, `ollama`).
 -   `-m, --model <alias>`: Specify the model alias (e.g., `pro`, `flash`, `gpt4o`, `opus`, `gemma`).
--   `-t, --tools <tool_name>`: Enable specific tools.
 -   `-s, --stdout`: Print the response directly to stdout and exit.
 -   `--raw`: Disable Markdown rendering in the terminal.
--   `-d, --debug`: Enable live debug mode.
 -   `--mcp`: Enable Model Context Protocol (MCP) integration.
 -   `--mcp-server`: Run `llm-cli` as an MCP server.
--   `--no-system-prompt`: Disable the configured system prompt.
+-   `--session <path>`: Load a saved session JSON file on startup.
 
 ## In-Chat Commands
 
--   `/<provider>`: Switch provider instantly (`/google`, `/openai`, `/anthropic`, `/xai`, `/ollama`).
--   `/<alias>`: Switch model within the current provider (e.g., `/pro`, `/gpt4o`, `/opus`, `/gemma`).
--   `/models` (or `/m`): List available models and their aliases.
+-   `/provider` (or `/p`): List available providers or switch provider (e.g., `/p openai`).
+-   `/model` (or `/m`): List available models or switch model (e.g., `/m gpt4o`).
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
 -   `/tools [on|off]`: Show or toggle tool status.
+-   `/reasoning [on|off]`: Show or toggle reasoning model display.
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
 -   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video).
 -   `/save <path>`: Save conversation history to a JSON file.
@@ -490,23 +488,29 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 -   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`)。
 -   `-m, --model <alias>`: モデルのエイリアスを指定 (例: `pro`, `flash`, `gpt4o`, `opus`, `gemma`)。
--   `-t, --tools <tool_name>`: 特定のツールを有効化。
 -   `-s, --stdout`: 応答を直接標準出力に表示して終了。
 -   `--raw`: Markdownレンダリングを無効化。
--   `-d, --debug`: ライブデバッグモードを有効化。
 -   `--mcp`: MCP（Model Context Protocol）連携を有効化。
 -   `--mcp-server`: `llm-cli` を MCP サーバーとして起動。
--   `--no-system-prompt`: 指定されたシステムプロンプトを無効化。
+-   `--session <path>`: 保存されたセッションJSONファイルを起動時に読み込み。
 
 ## チャット内コマンド
 
--   `/<provider>`: プロバイダを即座に切り替え (`/google`, `/openai`, `/anthropic`, `/xai`, `/ollama`)。
--   `/<alias>`: 現在のプロバイダ内でモデルを切り替え (例: `/pro`, `/gpt4o`, `/opus`, `/gemma`)。
--   `/models` (または `/m`): 利用可能なモデルとエイリアスを表示。
+-   `/provider` (または `/p`): 利用可能なプロバイダを表示、またはプロバイダを切り替え (例: `/p openai`)。
+-   `/model` (または `/m`): 利用可能なモデルを表示、またはモデルを切り替え (例: `/m gpt4o`)。
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツール等）を表示。
 -   `/tools [on|off]`: ツールの有効・無効を切り替え。
+-   `/reasoning [on|off]`: 推論モデルの思考プロセスの表示切り替え。
 -   `/checkpoint` (or `/cp`): 進捗を要約し、会話履歴をクリア。
--   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動で添付。
+-   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動添付。
+-   `/save <path>`: 会話履歴をJSONファイルに保存。
+-   `/load <path>`: 会話履歴をJSONファイルから読み込み。
+-   `/dump`: 会話履歴をJSONオブジェクトとしてダンプ。
+-   `/raw`: 生の会話テキストを表示。
+-   `/clear` (または `/c`): 会話履歴を消去。
+-   `/debug` (または `/d`): ライブデバッグモードの切り替え。
+-   `/help` (または `/h`): コマンドリストを表示。
+-   `/quit` (または `/q`): 終了。）を手動で添付。
 -   `/save <path>`: 会話履歴をJSONファイルに保存。
 -   `/load <path>`: 会話履歴をJSONファイルから読み込み。
 -   `/dump`: 会話履歴をJSON形式でダンプ。

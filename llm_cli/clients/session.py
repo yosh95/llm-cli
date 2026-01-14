@@ -17,7 +17,7 @@ except ImportError:
     termios = None
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import Completer, PathCompleter
+from prompt_toolkit.completion import Completer, Completion, PathCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
@@ -36,22 +36,78 @@ kb = KeyBindings()
 kb_exit = KeyBindings()
 
 
-class LlmCliPathCompleter(Completer):
-    """Provides path completion only after specific slash commands."""
+class LlmCliCompleter(Completer):
+    """Provides completion for slash commands and their arguments."""
 
-    def __init__(self):
+    def __init__(self, client: BaseLlmClient):
+        self.client = client
         self.path_completer = PathCompleter(expanduser=True)
-        self.trigger_commands = ("/attach ", "/save ", "/load ")
+
+        self.path_cmds = ("/attach", "/save", "/load")
+        self.provider_cmds = ("/p", "/provider")
+        self.model_cmds = ("/m", "/model")
+        self.other_cmds = ("/checkpoint", "/cp", "/help", "/exit", "/clear")
+
+        self.all_cmds = (
+            self.path_cmds
+            + self.provider_cmds
+            + self.model_cmds
+            + self.other_cmds
+        )
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
-        for cmd in self.trigger_commands:
-            if text.startswith(cmd):
-                # Slicing the document to only show the path part to PathCompleter
-                sub_text = text[len(cmd) :]
+
+        # 1. Command completion (if no space yet)
+        if " " not in text and text.startswith("/"):
+            for cmd in self.all_cmds:
+                if cmd.startswith(text):
+                    yield Completion(cmd, start_position=-len(text))
+            return
+
+        # 2. Argument completion
+        try:
+            space_idx = text.index(" ")
+        except ValueError:
+            return
+
+        cmd = text[:space_idx]
+        # Calculate prefix for argument completion
+        # We only complete the word being typed
+        arg_text_full = text[space_idx + 1 :]
+        arg_prefix = (
+            arg_text_full.split()[-1]
+            if arg_text_full and not arg_text_full.endswith(" ")
+            else ""
+        )
+        if arg_text_full.endswith(" "):
+            arg_prefix = ""
+
+        # Determine start position for replacement
+        # It should be negative length of current word
+        start_pos = -len(arg_prefix)
+
+        if cmd in self.provider_cmds:
+            if hasattr(self.client, "PROVIDER_CONFIG"):
+                # Use a set to avoid duplicates if multiple aliases point to same
+                # section. Actually keys are aliases, so just list aliases.
+                for alias in self.client.PROVIDER_CONFIG:
+                    if alias.startswith(arg_prefix):
+                        yield Completion(alias, start_position=start_pos)
+
+        elif cmd in self.model_cmds:
+            for alias in self.client.available_models:
+                if alias.startswith(arg_prefix):
+                    yield Completion(alias, start_position=start_pos)
+
+        elif cmd in self.path_cmds:
+            # Path completion needs the full part after command
+            if text.startswith(cmd + " "):
+                sub_text = text[len(cmd) + 1 :]
                 new_doc = Document(sub_text, cursor_position=len(sub_text))
-                yield from self.path_completer.get_completions(new_doc, complete_event)
-                break
+                yield from self.path_completer.get_completions(
+                    new_doc, complete_event
+                )
 
 
 @kb.add("c-delete")
@@ -124,6 +180,7 @@ class ChatSession:
             self.prompt_history = InMemoryHistory()
 
         self.prompt_session = PromptSession(history=self.prompt_history)
+        self.completer = LlmCliCompleter(client)
 
     def run(
         self,
@@ -153,7 +210,7 @@ class ChatSession:
                 combined_kb = merge_key_bindings([kb, kb_exit])
                 user_input = self.prompt_session.prompt(
                     "> ",
-                    completer=LlmCliPathCompleter(),
+                    completer=self.completer,
                     complete_style=CompleteStyle.READLINE_LIKE,
                     key_bindings=combined_kb,
                     enable_system_prompt=True,

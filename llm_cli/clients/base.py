@@ -323,6 +323,39 @@ class BaseLlmClient(ABC):
                 return True
         return False
 
+    def load_session(self, path_str: str) -> bool:
+        """Loads a conversation session from a JSON file."""
+        try:
+            load_path = Path(path_str)
+            if not load_path.exists():
+                console.print(f"[red]File not found: {load_path}[/red]")
+                return False
+
+            with load_path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Convert list of dicts back to list of Message objects
+            loaded_conversation = []
+            for msg_data in data:
+                role = Role(msg_data["role"])
+                parts = []
+                for p in msg_data["parts"]:
+                    if isinstance(p, str):
+                        parts.append(p)
+                    elif isinstance(p, dict):
+                        parts.append(ContentPart(**p))
+                loaded_conversation.append(Message(role=role, parts=parts))
+
+            self.conversation = loaded_conversation
+            console.print(
+                f"[green]Session loaded from {load_path} "
+                f"({len(self.conversation)} messages)[/green]"
+            )
+            return True
+        except Exception as e:
+            console.print(f"[red]Failed to load session: {e}[/red]")
+            return False
+
     def _handle_command(
         self,
         user_input: str,
@@ -411,34 +444,7 @@ class BaseLlmClient(ABC):
                 console.print("[red]Usage: /load <path>[/red]")
                 return True
 
-            try:
-                load_path = Path(path_str)
-                if not load_path.exists():
-                    console.print(f"[red]File not found: {load_path}[/red]")
-                    return True
-
-                with load_path.open("r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                # Convert list of dicts back to list of Message objects
-                loaded_conversation = []
-                for msg_data in data:
-                    role = Role(msg_data["role"])
-                    parts = []
-                    for p in msg_data["parts"]:
-                        if isinstance(p, str):
-                            parts.append(p)
-                        elif isinstance(p, dict):
-                            parts.append(ContentPart(**p))
-                    loaded_conversation.append(Message(role=role, parts=parts))
-
-                self.conversation = loaded_conversation
-                console.print(
-                    f"[green]Session loaded from {load_path} "
-                    f"({len(self.conversation)} messages)[/green]"
-                )
-            except Exception as e:
-                console.print(f"[red]Failed to load session: {e}[/red]")
+            self.load_session(path_str)
             return True
 
         if cmd == "attach":

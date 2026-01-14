@@ -132,3 +132,43 @@ class TestBaseLlmClient:
         assert "Base Prompt" in client.system_prompt
         assert "Current date and time:" in client.system_prompt
         assert "User name:" not in client.system_prompt
+
+    def test_load_session_success(self, concrete_client, tmp_path):
+        """Test loading a session from a valid JSON file."""
+        import json
+
+        from llm_cli.modules.models import Role
+
+        session_file = tmp_path / "session.json"
+        session_data = [
+            {"role": "user", "parts": ["Hello"]},
+            {"role": "model", "parts": [{"text": "Hi there"}]}
+        ]
+        with open(session_file, "w") as f:
+            json.dump(session_data, f)
+
+        result = concrete_client.load_session(str(session_file))
+
+        assert result is True
+        assert len(concrete_client.conversation) == 2
+        assert concrete_client.conversation[0].role == Role.USER
+        assert concrete_client.conversation[0].parts[0] == "Hello"
+        assert concrete_client.conversation[1].role == Role.MODEL
+        assert concrete_client.conversation[1].parts[0].text == "Hi there"
+
+    def test_load_session_file_not_found(self, concrete_client):
+        """Test loading a session from a non-existent file."""
+        result = concrete_client.load_session("non_existent_file.json")
+        assert result is False
+        assert len(concrete_client.conversation) == 0
+
+    def test_load_session_invalid_json(self, concrete_client, tmp_path):
+        """Test loading a session from an invalid JSON file."""
+        session_file = tmp_path / "invalid.json"
+        with open(session_file, "w") as f:
+            f.write("This is not JSON")
+
+        result = concrete_client.load_session(str(session_file))
+        assert result is False
+        assert len(concrete_client.conversation) == 0
+

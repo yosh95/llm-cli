@@ -32,9 +32,6 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
     parser.add_argument(
         "-m", "--model", default="default", help="Model alias (default: 'default')"
     )
-    parser.add_argument(
-        "-t", "--tools", action="append", help="Enable a tool (e.g., -t search)."
-    )
 
     if config.supports_provider_selection:
         parser.add_argument(
@@ -57,15 +54,12 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
         "-s", "--stdout", action="store_true", help="Print to stdout and exit"
     )
     parser.add_argument("--raw", action="store_true", help="Disable Markdown rendering")
-    parser.add_argument(
-        "--no-system-prompt", action="store_true", help="Disable system prompt"
-    )
-    parser.add_argument(
-        "-d", "--debug", action="store_true", help="Enable live debug mode"
-    )
     parser.add_argument("--mcp", action="store_true", help="Enable MCP integration")
     parser.add_argument(
         "--mcp-server", action="store_true", help="Run as an MCP server"
+    )
+    parser.add_argument(
+        "--session", help="Load a saved session JSON file on startup"
     )
 
     for arg_name, arg_config in config.extra_args:
@@ -93,16 +87,19 @@ def run_client_cli(config: ClientConfig) -> None:
         "initial_model_alias": args.model,
         "stdout": stdout,
         "render_markdown": not args.raw,
-        "initial_tools": args.tools,
-        "disable_system_prompt": args.no_system_prompt,
+        "initial_tools": None,
+        "disable_system_prompt": False,
         "enable_mcp": args.mcp,
-        "live_debug": args.debug,
+        "live_debug": False,
     }
 
     if config.supports_provider_selection and getattr(args, "provider", None):
         client_kwargs["initial_provider"] = args.provider
 
     client = config.client_class(**client_kwargs)
+
+    if args.session:
+        client.load_session(args.session)
 
     try:
         if not sys.stdin.isatty():

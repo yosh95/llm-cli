@@ -167,7 +167,26 @@ llm-cli-config
 
 ## Usage
 
-### 1. Research Automation (Example)
+### 1. Template Management (New!)
+You can define frequently used prompts as templates in your `config.toml` and quickly insert them into the input buffer using the `/t` command.
+
+1.  Add templates to `~/.config/llm_cli/config.toml`:
+
+    ```toml
+    [templates]
+    proofread = "Proofread the following text for grammar and clarity:"
+    summarize = "Summarize the following content into 3 key points:"
+    code_review = "Review this code for bugs and improvements:"
+    ```
+
+2.  Use the template in chat:
+    ```bash
+    > /t proofread
+    ```
+
+    The template text will be inserted into your prompt input, allowing you to edit or append text before sending.
+
+### 2. Research Automation (Example)
 Search for papers using Google, find the best one, and summarize its contributions in one command:
 ```bash
 llm "Search for the 'Direct Preference Optimization' paper on Google, fetch its abstract, and summarize its key contributions."
@@ -205,6 +224,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 
 -   `/provider` (or `/p`): List available providers or switch provider (e.g., `/p openai`).
 -   `/model` (or `/m`): List available models or switch model (e.g., `/m gpt4o`).
+-   `/template` (or `/t`): Insert a template prompt into the input buffer (e.g., `/t proofread`).
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
 -   `/tools [on|off]`: Show or toggle tool status.
 -   `/reasoning [on|off]`: Show or toggle reasoning model display.
@@ -498,6 +518,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 -   `/provider` (または `/p`): 利用可能なプロバイダを表示、またはプロバイダを切り替え (例: `/p openai`)。
 -   `/model` (または `/m`): 利用可能なモデルを表示、またはモデルを切り替え (例: `/m gpt4o`)。
+-   `/template` (または `/t`): 定型プロンプトを呼び出し、入力欄にセット (例: `/t proofread`)。
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツール等）を表示。
 -   `/tools [on|off]`: ツールの有効・無効を切り替え。
 -   `/reasoning [on|off]`: 推論モデルの思考プロセスの表示切り替え。

@@ -27,7 +27,13 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.syntax import Syntax
 
-from llm_cli.clients.base import BaseLlmClient, CheckpointRequest, console
+from llm_cli.clients.base import (
+    BaseLlmClient,
+    CheckpointRequest,
+    TemplateRequest,
+    console,
+)
+from llm_cli.clients.config import get_templates
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
@@ -46,12 +52,14 @@ class LlmCliCompleter(Completer):
         self.path_cmds = ("/attach", "/save", "/load")
         self.provider_cmds = ("/p", "/provider")
         self.model_cmds = ("/m", "/model")
+        self.template_cmds = ("/t", "/template")
         self.other_cmds = ("/checkpoint", "/cp", "/help", "/exit", "/clear")
 
         self.all_cmds = (
             self.path_cmds
             + self.provider_cmds
             + self.model_cmds
+            + self.template_cmds
             + self.other_cmds
         )
 
@@ -99,6 +107,12 @@ class LlmCliCompleter(Completer):
             for alias in self.client.available_models:
                 if alias.startswith(arg_prefix):
                     yield Completion(alias, start_position=start_pos)
+
+        elif cmd in self.template_cmds:
+            templates = get_templates()
+            for name in templates:
+                if name.startswith(arg_prefix):
+                    yield Completion(name, start_position=start_pos)
 
         elif cmd in self.path_cmds:
             # Path completion needs the full part after command
@@ -188,6 +202,8 @@ class ChatSession:
         sources: Optional[List[str]] = None,
     ):
         data = initial_data or []
+        prompt_default = ""
+
         while True:
             try:
                 if (
@@ -210,6 +226,7 @@ class ChatSession:
                 combined_kb = merge_key_bindings([kb, kb_exit])
                 user_input = self.prompt_session.prompt(
                     "> ",
+                    default=prompt_default,
                     completer=self.completer,
                     complete_style=CompleteStyle.READLINE_LIKE,
                     key_bindings=combined_kb,
@@ -217,6 +234,7 @@ class ChatSession:
                     enable_open_in_editor=True,
                     enable_suspend=True,
                 ).strip()
+                prompt_default = ""  # Reset default after use
             except (KeyboardInterrupt, EOFError):
                 break
 
@@ -229,6 +247,9 @@ class ChatSession:
                         continue
                 except CheckpointRequest:
                     self._handle_checkpoint()
+                    continue
+                except TemplateRequest as e:
+                    prompt_default = e.text
                     continue
 
                 data.append(DataSource(content=user_input, content_type="text/plain"))

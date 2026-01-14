@@ -19,7 +19,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.syntax import Syntax
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import get_setting, get_templates
 from llm_cli.modules.media_utils import (
     fetch_url_content,
     process_file,
@@ -41,6 +41,13 @@ class CheckpointRequest(Exception):
     """Exception raised to request a conversation checkpoint (summarization)."""
 
     pass
+
+
+class TemplateRequest(Exception):
+    """Exception raised to request loading a template into the input buffer."""
+
+    def __init__(self, text: str):
+        self.text = text
 
 
 class BaseLlmClient(ABC):
@@ -400,6 +407,40 @@ class BaseLlmClient(ABC):
                     f"[yellow]Custom model set: {self.model} (not in config)[/yellow]"
                 )
             return True
+
+        if cmd in ("t", "template"):
+            templates = get_templates()
+            if not args:
+                if not templates:
+                    console.print(
+                        "[yellow]No templates defined in [templates] section "
+                        "of config.toml[/yellow]"
+                    )
+                else:
+                    console.print("[bold]Available Templates:[/bold]")
+                    for name, text in templates.items():
+                        # Show a preview of the template text
+                        preview = (text[:60] + "...") if len(text) > 60 else text
+                        console.print(
+                            f" [cyan]{name:15}[/cyan] -> [dim]{preview}[/dim]"
+                        )
+                return True
+
+            template_name = args
+            if template_name in templates:
+                template_text = templates[template_name]
+                if pending_data is not None:
+                    # Instead of sending immediately,
+                    # request to load it into the input buffer
+                    raise TemplateRequest(template_text)
+                else:
+                    # If called from somewhere else without pending_data
+                    console.print(f"[cyan]Selected template '{template_name}':[/cyan]")
+                    console.print(Panel(template_text))
+                    return True
+            else:
+                console.print(f"[red]Template not found: {template_name}[/red]")
+                return True
 
         if cmd in ("checkpoint", "cp"):
             raise CheckpointRequest()

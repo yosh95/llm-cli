@@ -78,3 +78,9 @@ def get_mcp_servers() -> List[Dict[str, Any]]:
     """Loads MCP server configurations from the config file."""
     config = _load_config_from_file()
     return config.get("mcp_servers", [])
+
+
+def get_templates() -> Dict[str, str]:
+    """Loads prompt templates from the [templates] section of the config file."""
+    config = _load_config_from_file()
+    return config.get("templates", {})

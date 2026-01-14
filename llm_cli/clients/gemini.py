@@ -217,14 +217,54 @@ class GeminiClient(BaseLlmClient):
                     if part_dict:
                         parts.append(part_dict)
 
-            contents.append(
-                {"role": "model" if m.role == Role.MODEL else "user", "parts": parts}
-            )
+            if parts:
+                contents.append(
+                    {
+                        "role": "model" if m.role == Role.MODEL else "user",
+                        "parts": parts,
+                    }
+                )
+
+        # Filter out function calls that don't have a corresponding response
+        # Gemini API requires functionCall to be followed by functionResponse
+        filtered_contents = []
+        i = 0
+        while i < len(contents):
+            msg = contents[i]
+            if msg["role"] == "model":
+                # Check if this message has function calls
+                has_func_call = any("functionCall" in p for p in msg["parts"])
+                if has_func_call:
+                    # Look ahead for function response
+                    has_response = False
+                    if i + 1 < len(contents):
+                        next_msg = contents[i + 1]
+                        if next_msg["role"] == "user" and any(
+                            "functionResponse" in p for p in next_msg["parts"]
+                        ):
+                            has_response = True
+
+                    if not has_response:
+                        # Remove function calls from this message
+                        new_parts_list = [
+                            p for p in msg["parts"] if "functionCall" not in p
+                        ]
+                        if new_parts_list:
+                            msg["parts"] = new_parts_list
+                            filtered_contents.append(msg)
+                        # If message becomes empty, don't append it
+                    else:
+                        filtered_contents.append(msg)
+                else:
+                    filtered_contents.append(msg)
+            else:
+                filtered_contents.append(msg)
+            i += 1
 
         if new_parts:
-            contents.append({"role": "user", "parts": new_parts})
+            filtered_contents.append({"role": "user", "parts": new_parts})
 
-        payload = {"contents": contents}
+        payload = {"contents": filtered_contents}
         if self.system_prompt and self.system_prompt_enabled:
             payload["system_instruction"] = {"parts": [{"text": self.system_prompt}]}
 

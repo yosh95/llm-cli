@@ -101,20 +101,65 @@ class OllamaClient(BaseLlmClient):
         if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
+        # Track tool_call_ids that have responses to maintain consistency
+        responded_tool_ids = set()
         for m in self.conversation:
-            role = "assistant" if m.role == Role.MODEL else m.role.value
-            content_text = ""
-            for p in m.parts:
-                if isinstance(p, str):
-                    content_text += p
-                elif isinstance(p, ContentPart):
-                    if p.text:
-                        content_text += p.text
-                    if p.thought:
-                        content_text += f"<think>\n{p.thought}\n</think>\n"
+            if m.role == Role.TOOL:
+                for p in m.parts:
+                    if isinstance(p, ContentPart) and p.function_response:
+                        tool_id = p.function_response.get("id")
+                        if tool_id:
+                            responded_tool_ids.add(tool_id)
 
-            if content_text:
-                msgs.append({"role": role, "content": content_text})
+        for m in self.conversation:
+            if m.role == Role.TOOL:
+                for p in m.parts:
+                    if isinstance(p, ContentPart) and p.function_response:
+                        tool_id = p.function_response.get("id")
+                        if tool_id and tool_id in responded_tool_ids:
+                            result = p.function_response.get(
+                                "response", {}
+                            ).get("result", "")
+                            if not isinstance(result, str):
+                                result = json.dumps(result, ensure_ascii=False)
+                            msgs.append({
+                                "role": "tool",
+                                "tool_call_id": tool_id,
+                                "content": result
+                            })
+            else:
+                role = "assistant" if m.role == Role.MODEL else m.role.value
+                content_text = ""
+                tool_calls = []
+
+                for p in m.parts:
+                    if isinstance(p, str):
+                        content_text += p
+                    elif isinstance(p, ContentPart):
+                        if p.text:
+                            content_text += p.text
+                        if p.thought:
+                            content_text += f"<think>\n{p.thought}\n</think>\n"
+
+                        if p.function_call:
+                            tool_id = p.function_call.get("id")
+                            if tool_id and tool_id in responded_tool_ids:
+                                tool_calls.append({
+                                    "id": tool_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": p.function_call.get("name"),
+                                        "arguments": json.dumps(
+                                            p.function_call.get("args")
+                                        ),
+                                    },
+                                })
+
+                if content_text or tool_calls:
+                    msg_obj = {"role": role, "content": content_text}
+                    if tool_calls:
+                        msg_obj["tool_calls"] = tool_calls
+                    msgs.append(msg_obj)
 
         # Append incoming data
         user_content = "".join(str(d.content) for d in data)

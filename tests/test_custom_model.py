@@ -1,13 +1,15 @@
 
+
 import pytest
-from unittest.mock import MagicMock
-from llm_cli.clients.base import BaseLlmClient
+
 from llm_cli.apps.unified import UnifiedClient
+from llm_cli.clients.base import BaseLlmClient
+
 
 class MockClient(BaseLlmClient):
     def _load_model_aliases(self):
         self.available_models = {"default": "default-model"}
-    
+
     def _send(self, data):
         return "response", {}
 
@@ -19,20 +21,20 @@ def test_base_client_custom_model():
         pdf_as_base64=False,
         stdout=False
     )
-    
+
     # Verify initial state
     assert client.model == "default-model"
-    
+
     # Test setting a known model
     client.set_model("default")
     assert client.model == "default-model"
-    
+
     # Test setting a custom model directly
     client.set_custom_model("custom-gpt-4")
     assert client.model == "custom-gpt-4"
     assert client.current_alias == "custom"
-    
-    # Verify _handle_command behavior via mock if needed, 
+
+    # Verify _handle_command behavior via mock if needed,
     # but unit testing the method logic is sufficient here.
     # Simulating the command handling logic manually:
     success = client.set_model("non-existent")
@@ -45,10 +47,10 @@ def test_unified_client_custom_model():
     # We need to patch get_setting to avoid config errors
     with pytest.MonkeyPatch.context() as m:
         m.setattr("llm_cli.apps.unified.get_setting", lambda key, section: "provider" if key == "unified_default_provider" else "key")
-        
+
         # We also need to mock the PROVIDER_CONFIG to use our MockClient
         m.setattr(UnifiedClient, "PROVIDER_CONFIG", {"mock": (MockClient, "mock_section")})
-        
+
         client = UnifiedClient(
             initial_provider="mock",
             initial_model_alias="default",
@@ -57,14 +59,14 @@ def test_unified_client_custom_model():
             pdf_as_base64=False,
             stdout=False
         )
-        
+
         # Verify initial state
         assert client.model == "default-model"
         assert client.active_client.model == "default-model"
-        
+
         # Test custom model setting
         client.set_custom_model("unified-custom-model")
-        
+
         # Verify it propagated to the active client
         assert client.model == "unified-custom-model"
         assert client.active_client.model == "unified-custom-model"

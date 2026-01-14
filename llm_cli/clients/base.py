@@ -823,7 +823,7 @@ class BaseLlmClient(ABC):
     def get_display_name(self) -> str:
         """Get the formatted display name including icon and model path."""
         icon = self.get_model_icon()
-        return f"{icon} ({self.config_section}/{self.current_alias}/{self.model})"
+        return f"{icon} ({self.model})"
 
     def _format_response_text(self, text: Optional[str]) -> Optional[str]:
         if text is None:

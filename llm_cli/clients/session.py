@@ -33,7 +33,7 @@ from llm_cli.clients.base import (
     TemplateRequest,
     console,
 )
-from llm_cli.clients.config import get_templates
+from llm_cli.clients.config import get_setting, get_templates
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
@@ -607,7 +607,23 @@ class ChatSession:
                 elif isinstance(injected_data, DataSource):
                     injected = injected_data
 
+            # --- Truncation Logic Start ---
+            # Apply a global safety limit on tool output length to prevent token exhaustion.
+            # This acts as a safety net even if individual tools don't implement limits.
             p_str = str(result_data)
+            max_len = int(get_setting("max_tool_output_len", "general") or 20000)
+
+            if len(p_str) > max_len:
+                original_len = len(p_str)
+                p_str = p_str[:max_len] + (
+                    f"\n... (Output truncated by system safety limit. "
+                    f"Shown {max_len} of {original_len} characters. "
+                    f"Use tool parameters (e.g., start_line, start_offset) to read the rest.)"
+                )
+                # Update result_data so the truncated version is sent to the LLM
+                result_data = p_str
+            # --- Truncation Logic End ---
+
             # Display Result in a Panel
             if is_exec:
                 console.print(

@@ -73,11 +73,25 @@ def google_search(queries: list[str], num: int = 10) -> str:
     ),
     parameters={
         "type": "object",
-        "properties": {"url": {"type": "string", "description": "Target URL."}},
+        "properties": {
+            "url": {"type": "string", "description": "Target URL."},
+            "start_offset": {
+                "type": "integer",
+                "description": "Start character index for pagination.",
+                "default": 0,
+            },
+            "max_length": {
+                "type": "integer",
+                "description": "Maximum characters to return.",
+                "default": 10000,
+            },
+        },
         "required": ["url"],
     },
 )
-def fetch_url(url: str) -> dict | str:
+def fetch_url(
+    url: str, start_offset: int = 0, max_length: int = 10000
+) -> dict | str:
     try:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get("Content-Type", "")
@@ -93,8 +107,19 @@ def fetch_url(url: str) -> dict | str:
                     "is_file_or_url": True,
                 },
             }
-        max_output = int(get_setting("max_fetch_url_len", "general") or 50000)
-        return resp.text[:max_output]
+        
+        full_text = resp.text
+        start = max(0, start_offset)
+        end = start + max_length
+        content = full_text[start:end]
+        
+        if len(full_text) > end:
+            content += (
+                f"\n... (Output truncated. Total chars: {len(full_text)}. "
+                f"Use start_offset={end} to read more)"
+            )
+            
+        return content
     except Exception as e:
         return f"Error fetching {url}: {e}"
 
@@ -108,34 +133,55 @@ def fetch_url(url: str) -> dict | str:
     ),
     parameters={
         "type": "object",
-        "properties": {"url": {"type": "string", "description": "Target URL."}},
+        "properties": {
+            "url": {"type": "string", "description": "Target URL."},
+            "start_offset": {
+                "type": "integer",
+                "description": "Start character index for pagination.",
+                "default": 0,
+            },
+            "max_length": {
+                "type": "integer",
+                "description": "Maximum characters to return.",
+                "default": 10000,
+            },
+        },
         "required": ["url"],
     },
 )
-def fetch_web_text(url: str) -> str:
+def fetch_web_text(
+    url: str, start_offset: int = 0, max_length: int = 10000
+) -> str:
     try:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get("Content-Type", "").lower()
 
-        max_output = int(get_setting("max_fetch_web_text_len", "general") or 20000)
         if "text/html" not in ctype:
-            # Fallback for non-HTML text content (plain text, etc.)
-            return resp.text[:max_output]
+            full_text = resp.text
+        else:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            # Remove script and style elements
+            for script_or_style in soup(["script", "style"]):
+                script_or_style.decompose()
 
-        soup = BeautifulSoup(resp.text, "html.parser")
+            # Get text with a separator
+            text = soup.get_text(separator="\n")
 
-        # Remove script and style elements which don't contain visible text
-        for script_or_style in soup(["script", "style"]):
-            script_or_style.decompose()
+            # Clean up whitespace
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            full_text = "\n".join(chunk for chunk in chunks if chunk)
 
-        # Get text with a separator to prevent words from sticking together
-        text = soup.get_text(separator="\n")
+        start = max(0, start_offset)
+        end = start + max_length
+        content = full_text[start:end]
+        
+        if len(full_text) > end:
+            content += (
+                f"\n... (Output truncated. Total chars: {len(full_text)}. "
+                f"Use start_offset={end} to read more)"
+            )
 
-        # Clean up whitespace: strip lines and remove empty ones
-        lines = (line.strip() for line in text.splitlines())
-        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-        text = "\n".join(chunk for chunk in chunks if chunk)
-
-        return text[:max_output]
+        return content
     except Exception as e:
         return f"Error fetching or parsing {url}: {e}"

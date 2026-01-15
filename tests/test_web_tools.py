@@ -65,18 +65,27 @@ def test_fetch_web_text_basic(mock_cloudscraper):
 
 
 def test_fetch_web_text_truncation(mock_cloudscraper):
-    """Test fetch_web_text truncates output at 20000 chars."""
+    """Test fetch_web_text truncates output and adds helper message."""
     with patch("llm_cli.modules.tools.web.get_setting") as mock_get:
-        mock_get.return_value = None  # Force use of default 20000
+        mock_get.return_value = None  # Force use of default max_length
 
-        long_text = "word " * 10000  # 50000 chars
+        # "word " is 5 chars. 10000 * 5 = 50000 chars
+        long_text = "word " * 10000
         html_content = f"<html><body>{long_text}</body></html>"
 
         mock_cloudscraper.get.return_value.headers = {"Content-Type": "text/html"}
         mock_cloudscraper.get.return_value.text = html_content
 
-        result = fetch_web_text("https://example.com")
-        assert len(result) == 20000
+        # Default max_length is 10000
+        result = fetch_web_text("https://example.com", max_length=10000)
+        
+        # Should contain the truncation message
+        assert "... (Output truncated" in result
+        assert "Use start_offset=10000" in result
+        
+        # The content part should be length 10000
+        content_part = result.split("\n... (Output truncated")[0]
+        assert len(content_part) == 10000
 
 
 def test_fetch_web_text_error(mock_cloudscraper):

@@ -181,7 +181,7 @@ def configure_general(config: Dict[str, Any]):
     )
     g_config["request_timeout"] = int(prompt_input(
         "Request Timeout (seconds)",
-        g_config.get("request_timeout", 60)
+        g_config.get("request_timeout", 180)
     ))
 
 

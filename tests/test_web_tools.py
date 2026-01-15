@@ -78,11 +78,11 @@ def test_fetch_web_text_truncation(mock_cloudscraper):
 
         # Default max_length is 10000
         result = fetch_web_text("https://example.com", max_length=10000)
-        
+
         # Should contain the truncation message
         assert "... (Output truncated" in result
         assert "Use start_offset=10000" in result
-        
+
         # The content part should be length 10000
         content_part = result.split("\n... (Output truncated")[0]
         assert len(content_part) == 10000

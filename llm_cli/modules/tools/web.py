@@ -107,18 +107,18 @@ def fetch_url(
                     "is_file_or_url": True,
                 },
             }
-        
+
         full_text = resp.text
         start = max(0, start_offset)
         end = start + max_length
         content = full_text[start:end]
-        
+
         if len(full_text) > end:
             content += (
                 f"\n... (Output truncated. Total chars: {len(full_text)}. "
                 f"Use start_offset={end} to read more)"
             )
-            
+
         return content
     except Exception as e:
         return f"Error fetching {url}: {e}"
@@ -175,7 +175,7 @@ def fetch_web_text(
         start = max(0, start_offset)
         end = start + max_length
         content = full_text[start:end]
-        
+
         if len(full_text) > end:
             content += (
                 f"\n... (Output truncated. Total chars: {len(full_text)}. "

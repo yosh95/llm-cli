@@ -28,7 +28,7 @@ The AI can use tools like `google_search` to find the latest information. In thi
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Exit anytime**: Use **Escape**, **Ctrl+C**, or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
--   **Multimodal Output (Gemini / OpenAI)**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image` or `/m dall-e-3`). Images are automatically saved locally.
+-   **Multimodal Output (Gemini / OpenAI / Grok)**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`, `/m dall-e-3` or `/m grok-2-image`). Images are automatically saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
@@ -39,7 +39,8 @@ The AI can use tools like `google_search` to find the latest information. In thi
     -   **Autonomous Attachment**: Agents can use the `attach_file` or `fetch_url` tools to bring media files into the context when needed.
     -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**.
     -   **OpenAI**: Text, local images, and **DALL-E image generation**.
-    -   **Claude / Grok**: Text and local images (PDFs are processed as text/Base64).
+    -   **Claude**: Text and local images (PDFs are processed as text/Base64).
+    -   **Grok**: Text, local images, and **Image Generation**.
 -   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
 -   **Safe Execution**: Includes a **Diff Preview** for file changes and asks for user confirmation before executing any tool (Human-in-the-Loop).
 -   **Security Guardrails**: Whitelist-based command validation protects against command injection and dangerous operations performed by the AI.

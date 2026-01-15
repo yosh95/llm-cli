@@ -608,7 +608,8 @@ class ChatSession:
                     injected = injected_data
 
             # --- Truncation Logic Start ---
-            # Apply a global safety limit on tool output length to prevent token exhaustion.
+            # Apply a global safety limit on tool output length to prevent
+            # token exhaustion.
             # This acts as a safety net even if individual tools don't implement limits.
             p_str = str(result_data)
             max_len = int(get_setting("max_tool_output_len", "general") or 20000)
@@ -618,7 +619,8 @@ class ChatSession:
                 p_str = p_str[:max_len] + (
                     f"\n... (Output truncated by system safety limit. "
                     f"Shown {max_len} of {original_len} characters. "
-                    f"Use tool parameters (e.g., start_line, start_offset) to read the rest.)"
+                    "Use tool parameters (e.g., start_line, start_offset) "
+                    "to read the rest.)"
                 )
                 # Update result_data so the truncated version is sent to the LLM
                 result_data = p_str

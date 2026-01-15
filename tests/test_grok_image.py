@@ -1,15 +1,18 @@
 
-import pytest
 from unittest.mock import MagicMock, patch
-from llm_cli.clients.grok import GrokClient, IMAGE_API_URL
+
+import pytest
+
+from llm_cli.clients.grok import IMAGE_API_URL, GrokClient
 from llm_cli.modules.models import DataSource, Role
+
 
 class TestGrokImageGeneration:
     @pytest.fixture
     def mock_grok_client(self):
         with patch("llm_cli.clients.config.get_setting") as mock_get_setting, \
              patch("llm_cli.clients.config.get_model_aliases") as mock_get_aliases:
-            
+
             # Mock configuration
             def get_setting_side_effect(key, section):
                 if key == "api_key" and section == "xai":
@@ -17,9 +20,9 @@ class TestGrokImageGeneration:
                 if key == "api_url" and section == "xai":
                     return "https://api.x.ai/v1/chat/completions"
                 return None
-            
+
             mock_get_setting.side_effect = get_setting_side_effect
-            
+
             # Mock model aliases
             mock_get_aliases.return_value = {
                 "default": "grok-beta",
@@ -35,7 +38,7 @@ class TestGrokImageGeneration:
         """Test detection of image generation models."""
         mock_grok_client.model = "grok-2-image-preview"
         assert mock_grok_client._is_image_model() is True
-        
+
         mock_grok_client.model = "grok-beta"
         assert mock_grok_client._is_image_model() is False
 
@@ -61,7 +64,7 @@ class TestGrokImageGeneration:
         # Mock _save_inline_image_and_get_log_entry to avoid file I/O
         with patch.object(mock_grok_client, "_save_inline_image_and_get_log_entry") as mock_save:
             mock_save.return_value = "Image saved at images/img.png"
-            
+
             data = [DataSource(content="Draw a cat", content_type="text/plain")]
             response_text, usage = mock_grok_client._send(data)
 
@@ -78,7 +81,7 @@ class TestGrokImageGeneration:
             # Verify response handling
             assert "Image saved at images/img.png" in response_text
             assert "Revised Prompt:** A cute cat" in response_text
-            
+
             # Verify history update
             last_msg = mock_grok_client.conversation[-1]
             assert last_msg.role == Role.MODEL
@@ -106,7 +109,7 @@ class TestGrokImageGeneration:
         # Mock fetch_url_content
         with patch("llm_cli.modules.media_utils.fetch_url_content") as mock_fetch:
             mock_fetch.return_value = ("fetched_base64_data", "image/png")
-            
+
             # Mock _save_inline_image_and_get_log_entry
             with patch.object(mock_grok_client, "_save_inline_image_and_get_log_entry") as mock_save:
                 mock_save.return_value = "Image saved at images/dog.png"
@@ -116,7 +119,7 @@ class TestGrokImageGeneration:
 
                 # Verify fetch was called
                 mock_fetch.assert_called_with("https://example.com/image.png")
-                
+
                 # Verify history update uses fetched data
                 last_msg = mock_grok_client.conversation[-1]
                 assert last_msg.parts[1].inline_data["data"] == "fetched_base64_data"

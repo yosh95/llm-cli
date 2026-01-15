@@ -88,12 +88,13 @@ All shell commands executed through the AI agent (`execute_command` tool) are va
 - Absolute paths are allowed if they point to non-existent files (useful for regex/strings) or are within the current project directory.
 
 **Blocked Patterns**:
-- Command separator (`;`)
+- Command separators (`;`, `&`, `\n`)
 - I/O Redirection (`>`, `<`)
 - Command substitution (`` ` ``, `$()`)
-- Dangerous operations (e.g., `rm -rf`, `mkfs`, `dd`)
+- Dangerous operations (e.g., `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`)
 - Risky subcommands (e.g., `git push`, `pip install`, `tar -x`)
 - Access to sensitive system paths (e.g., `/etc`, `/var`, `/root`)
+- **Note**: `awk` is removed from the whitelist due to its `system()` capability. Please use `grep`, `sed`, or `cut` instead.
 
 **MCP Server Protection**: MCP server commands loaded from config files are also validated against a separate whitelist.
 
@@ -402,12 +403,13 @@ AIエージェント (`execute_command` ツール) が実行するシェルコ�
 - 絶対パスは、実在しないパス（検索パターンなど）であるか、現在のプロジェクトディレクトリ内を指している場合に許可されます。
 
 **ブロックされるパターン**:
-- コマンドセパレータ (`;`)
+- コマンドセパレータ (`;`, `&`, `\n`)
 - I/O リダイレクト (`>`, `<`)
 - コマンド置換 (`` ` ``, `$()`)
-- 危険な操作 (例: `rm -rf`, `mkfs`, `dd`)
+- 危険な操作 (例: `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`)
 - 危険なサブコマンド (例: `git push`, `pip install`, `tar -x`)
 - 重要なシステムパスへのアクセス (例: `/etc`, `/var`, `/root`)
+- **注**: `awk` は `system()` 関数によるリスクがあるため、ホワイトリストから削除されました。代わりに `grep`, `sed`, `cut` を使用してください。
 
 **MCP サーバー保護**: 設定ファイルから読み込まれる MCP サーバーコマンドも、別のホワイトリストに対して検証されます。
 

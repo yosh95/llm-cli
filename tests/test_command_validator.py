@@ -71,3 +71,62 @@ class TestCommandValidator:
         validate_mcp_command("python -m mcp_server")
         with pytest.raises(CommandValidationError):
             validate_mcp_command("rm -rf /")
+
+    def test_newline_injection(self):
+        """Test that newline characters are strictly forbidden."""
+        validator = CommandValidator()
+        # Verify the error message contains the readable representation
+        with pytest.raises(
+            CommandValidationError, match=r"Command contains dangerous pattern '\\n \(Newline\)'"
+        ):
+            validator.validate("ls\necho dangerous")
+
+    def test_background_execution(self):
+        """Test that background execution using '&' is forbidden."""
+        validator = CommandValidator()
+        with pytest.raises(
+            CommandValidationError, match="Command contains dangerous pattern '&'"
+        ):
+            validator.validate("ls & echo dangerous")
+
+    def test_find_restrictions(self):
+        """Test specific restrictions on find command arguments."""
+        validator = CommandValidator()
+
+        # Safe usage should be allowed
+        validator.validate("find . -name '*.py'")
+
+        # Forbidden arguments
+        forbidden_args = ["-exec", "-execdir", "-ok", "-okdir", "-delete"]
+        for arg in forbidden_args:
+            # Use '+' for exec to avoid semicolon check, or just the arg itself
+            test_cmd = f"find . {arg} rm {{}} +" if "exec" in arg or "ok" in arg else f"find . {arg}"
+            with pytest.raises(
+                CommandValidationError, match=f"Find argument '{arg}' is prohibited"
+            ):
+                validator.validate(test_cmd)
+
+    def test_awk_removed(self):
+        """Test that awk has been removed from the whitelist."""
+        validator = CommandValidator()
+        with pytest.raises(
+            CommandValidationError, match="Command 'awk' is not in the allowed whitelist"
+        ):
+            validator.validate("awk '{print $1}' file.txt")
+
+    def test_error_message_readability(self):
+        """Test that dangerous patterns produce readable error messages."""
+        validator = CommandValidator()
+
+        # Test newline specifically
+        try:
+            validator.validate("ls\nls")
+        except CommandValidationError as e:
+            assert "\\n (Newline)" in str(e)
+
+        # Test backtick
+        try:
+            validator.validate("echo `ls`")
+        except CommandValidationError as e:
+            # Should show '`' (repr)
+            assert "`" in str(e)

@@ -94,6 +94,8 @@ class CommandValidator:
         r"`",
         r"\$\(",
         r"\$\{",
+        r"&",
+        r"\n",
     ]
 
     CHAINING_OPERATORS = {"&&", "||", "|"}
@@ -119,6 +121,9 @@ class CommandValidator:
             self.whitelist = self.MCP_SERVER_WHITELIST.copy()
         else:
             self.whitelist = self.DEFAULT_WHITELIST.copy()
+            # awk is too dangerous due to system() function
+            if "awk" in self.whitelist:
+                self.whitelist.remove("awk")
 
         if custom_whitelist:
             self.whitelist.update(custom_whitelist)
@@ -191,8 +196,13 @@ class CommandValidator:
     def _check_dangerous_patterns(self, command: str) -> None:
         for pattern in self.DANGEROUS_PATTERNS:
             if re.search(pattern, command):
+                # Use repr() to make invisible characters like \n visible
+                readable_pattern = repr(pattern).strip("'\"")
+                if pattern == r"\n":
+                    readable_pattern = "\\n (Newline)"
+
                 raise CommandValidationError(
-                    f"Command contains dangerous pattern '{pattern}'."
+                    f"Command contains dangerous pattern '{readable_pattern}'."
                 )
 
         if re.search(r"[<>]", command):
@@ -282,6 +292,14 @@ class CommandValidator:
             for arg in parts[1:]:
                 if arg.startswith("-") and "x" in arg:
                     raise CommandValidationError("Tar extraction is not allowed.")
+
+        if base_command == "find":
+            forbidden_find_args = {"-exec", "-execdir", "-ok", "-okdir", "-delete"}
+            for arg in parts[1:]:
+                if arg in forbidden_find_args:
+                    raise CommandValidationError(
+                        f"Find argument '{arg}' is prohibited for security."
+                    )
 
 
 def validate_command(command: str, custom_whitelist: Optional[Set[str]] = None) -> None:

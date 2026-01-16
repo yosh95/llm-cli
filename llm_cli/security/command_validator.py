@@ -36,7 +36,6 @@ class CommandValidator:
         "grep",
         "egrep",
         "fgrep",
-        "awk",
         "cut",
         "sort",
         "uniq",
@@ -52,41 +51,17 @@ class CommandValidator:
         "echo",
         "date",
         "cal",
-        "uptime",
-        "whoami",
-        "id",
-        "groups",
-        "hostname",
-        "uname",
-        "arch",
         "sleep",
-        "ps",
-        "top",
-        "htop",
-        "pgrep",
         "git",
         "diff",
         "ruff",
         "python",
         "python3",
         "pytest",
-        "tar",
-        "gzip",
-        "gunzip",
-        "bzip2",
-        "bunzip2",
-        "zip",
-        "unzip",
-        "zcat",
-        "zless",
         "jq",
         "yq",
-        "base64",
-        "xxd",
         "md5sum",
         "sha256sum",
-        "env",
-        "printenv",
     }
 
     DANGEROUS_PATTERNS = [
@@ -100,44 +75,24 @@ class CommandValidator:
 
     CHAINING_OPERATORS = {"&&", "||", "|"}
 
-    MCP_SERVER_WHITELIST = {
-        "node",
-        "python",
-        "python3",
-        "deno",
-        "npx",
-        "docker",
-        "ssh",
-        "uvx",
-    }
-
     def __init__(
         self,
         custom_whitelist: Optional[Set[str]] = None,
         allow_dangerous_patterns: bool = False,
-        mcp_mode: bool = False,
     ):
-        if mcp_mode:
-            self.whitelist = self.MCP_SERVER_WHITELIST.copy()
-        else:
-            self.whitelist = self.DEFAULT_WHITELIST.copy()
-            # awk is too dangerous due to system() function
-            if "awk" in self.whitelist:
-                self.whitelist.remove("awk")
+        self.whitelist = self.DEFAULT_WHITELIST.copy()
 
         if custom_whitelist:
             self.whitelist.update(custom_whitelist)
 
         self.allow_dangerous_patterns = allow_dangerous_patterns
-        self.mcp_mode = mcp_mode
 
     def validate(self, command: str) -> None:
         if not command or not command.strip():
             raise CommandValidationError("Empty command not allowed")
 
         # 1. Pre-parsing checks for Python one-liners to provide better feedback
-        if not self.mcp_mode:
-            self._check_python_oneliner_pre_parse(command)
+        self._check_python_oneliner_pre_parse(command)
 
         # 2. Dangerous pattern check
         if not self.allow_dangerous_patterns:
@@ -297,20 +252,13 @@ class CommandValidator:
                             )
 
         if base_command in {"python", "python3"}:
-            # Relax for MCP mode as -m is often required to start servers
-            if not self.mcp_mode:
-                forbidden_python_flags = {"-c", "-m", "--code", "--module"}
-                for p in parts[1:]:
-                    if p in forbidden_python_flags:
-                        raise CommandValidationError(
-                            f"Python flag '{p}' is prohibited. "
-                            "Please write the code to a file first and then execute it."
-                        )
-
-        if base_command == "tar":
-            for arg in parts[1:]:
-                if arg.startswith("-") and "x" in arg:
-                    raise CommandValidationError("Tar extraction is not allowed.")
+            forbidden_python_flags = {"-c", "-m", "--code", "--module"}
+            for p in parts[1:]:
+                if p in forbidden_python_flags:
+                    raise CommandValidationError(
+                        f"Python flag '{p}' is prohibited. "
+                        "Please write the code to a file first and then execute it."
+                    )
 
         if base_command == "find":
             forbidden_find_args = {"-exec", "-execdir", "-ok", "-okdir", "-delete"}
@@ -332,17 +280,5 @@ def validate_command(command: str, custom_whitelist: Optional[Set[str]] = None) 
     validator = CommandValidator(
         custom_whitelist=config_whitelist if config_whitelist else None,
         allow_dangerous_patterns=allow_dangerous,
-    )
-    validator.validate(command)
-
-
-def validate_mcp_command(command: str) -> None:
-    config = _load_config_from_file()
-    security_config = config.get("security", {})
-    mcp_whitelist = set(security_config.get("allowed_mcp_commands", []))
-    validator = CommandValidator(
-        custom_whitelist=mcp_whitelist if mcp_whitelist else None,
-        allow_dangerous_patterns=False,
-        mcp_mode=True,
     )
     validator.validate(command)

@@ -5,7 +5,6 @@ import pytest
 from llm_cli.security import (
     CommandValidationError,
     CommandValidator,
-    validate_mcp_command,
 )
 
 
@@ -79,23 +78,6 @@ class TestCommandValidator:
         ):
             validator.validate("ls ../secrets")
 
-    def test_mcp_mode(self):
-        """Verify MCP mode still works with its own whitelist."""
-        validator = CommandValidator(mcp_mode=True)
-        validator.validate("node server.js")
-        validator.validate("docker run alpine")
-
-        with pytest.raises(
-            CommandValidationError, match="not in the allowed whitelist"
-        ):
-            validator.validate("ls -la")
-
-    def test_validate_mcp_command_function(self):
-        """Test the convenience function for MCP, now allowing -m for python."""
-        validate_mcp_command("python -m mcp_server")
-        with pytest.raises(CommandValidationError):
-            validate_mcp_command("rm -rf /")
-
     def test_newline_injection(self):
         """Test that newline characters are strictly forbidden."""
         validator = CommandValidator()
@@ -130,13 +112,28 @@ class TestCommandValidator:
             ):
                 validator.validate(test_cmd)
 
-    def test_awk_removed(self):
-        """Test that awk has been removed from the whitelist."""
+    def test_removed_commands(self):
+        """Test that dangerous commands have been removed from the whitelist."""
         validator = CommandValidator()
-        with pytest.raises(
-            CommandValidationError, match="Command 'awk' is not in the allowed whitelist"
-        ):
-            validator.validate("awk '{print $1}' file.txt")
+
+        # List of commands that were removed for security
+        removed_commands = [
+            "awk",
+            "tar",
+            "gzip", "gunzip", "bzip2", "bunzip2",
+            "zip", "unzip",
+            "whoami", "id", "groups", "hostname", "uname",
+            "ps", "top", "htop", "pgrep",
+            "env", "printenv",
+            "base64", "xxd",
+            "curl", "wget", "nc"
+        ]
+
+        for cmd in removed_commands:
+            with pytest.raises(
+                CommandValidationError, match=f"Command '{cmd}' is not in the allowed whitelist"
+            ):
+                validator.validate(f"{cmd} some_arg")
 
     def test_error_message_readability(self):
         """Test that dangerous patterns produce readable error messages."""

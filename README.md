@@ -92,11 +92,13 @@ All shell commands executed through the AI agent (`execute_command` tool) are va
 - I/O Redirection (`>`, `<`)
 - Command substitution (`` ` ``, `$()`)
 - Dangerous operations (e.g., `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`)
-- Risky subcommands (e.g., `git push`, `pip install`, `tar -x`)
+- Risky subcommands (e.g., `git push`, `pip install`)
 - Access to sensitive system paths (e.g., `/etc`, `/var`, `/root`)
-- **Note**: `awk` is removed from the whitelist due to its `system()` capability. Please use `grep`, `sed`, or `cut` instead.
+- **Note**: `awk`, `sed`, `tar`, `gzip`, `zip` and system reconnaissance tools (e.g., `whoami`, `ps`, `env`) are removed from the whitelist to minimize the attack surface. Please use Python scripts or built-in tools for complex processing.
 
-**MCP Server Protection**: MCP server commands loaded from config files are also validated against a separate whitelist.
+**MCP Server Protection**:
+MCP server commands defined in `config.toml` are executed as-is, trusting the user's configuration.
+> **Warning**: Adding third-party MCP servers to your `config.toml` is done at your own risk. Do not register MCP servers from untrusted sources, as they may execute arbitrary code or compromise your system. Always verify the safety and integrity of the MCP server implementation before use.
 
 ### Resource Limits
 
@@ -411,7 +413,9 @@ AIエージェント (`execute_command` ツール) が実行するシェルコ�
 - 重要なシステムパスへのアクセス (例: `/etc`, `/var`, `/root`)
 - **注**: `awk` は `system()` 関数によるリスクがあるため、ホワイトリストから削除されました。代わりに `grep`, `sed`, `cut` を使用してください。
 
-**MCP サーバー保護**: 設定ファイルから読み込まれる MCP サーバーコマンドも、別のホワイトリストに対して検証されます。
+**MCPサーバーの保護**:
+`config.toml` で定義されたMCPサーバーの起動コマンドは、ユーザーの設定を信頼してそのまま実行されます。
+> **警告**: サードパーティ製のMCPサーバーを `config.toml` に追加する場合は、**自己責任**で行ってください。信頼できないソースからのMCPサーバーは、任意のコードを実行したりシステムを侵害したりする可能性があるため、登録しないでください。使用する前に、必ずMCPサーバーの実装の安全性と整合性を確認してください。
 
 ### リソース制限
 

@@ -47,6 +47,30 @@ class TestCommandValidator:
         validator.validate("git log")
         validator.validate("git commit -m 'test'")
 
+    def test_git_add_restrictions(self):
+        """Test that bulk git add operations are blocked."""
+        validator = CommandValidator()
+
+        # Forbidden bulk add operations
+        forbidden_adds = [
+            "git add .",
+            "git add *",
+            "git add :",
+            "git add -A",
+            "git add --all",
+            "git add -u",
+            "git add --update",
+            "git add . --force",
+        ]
+        for cmd in forbidden_adds:
+            with pytest.raises(CommandValidationError, match="Bulk adding with 'git add .*' is forbidden"):
+                validator.validate(cmd)
+
+        # Explicit file additions should be allowed
+        validator.validate("git add main.py")
+        validator.validate("git add src/core.py tests/test_core.py")
+        validator.validate("git add README.md .gitignore")
+
     def test_path_traversal_blocking(self):
         """Test that any command with .. is blocked."""
         validator = CommandValidator()

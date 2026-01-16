@@ -277,6 +277,25 @@ class CommandValidator:
                         f"Git subcommand '{subcommand}' is not allowed."
                     )
 
+                if subcommand == "add":
+                    forbidden_add_args = {
+                        ".",
+                        "*",
+                        ":",
+                        "-A",
+                        "--all",
+                        "-u",
+                        "--update",
+                    }
+                    for arg in parts[2:]:
+                        if arg in forbidden_add_args:
+                            raise CommandValidationError(
+                                f"Bulk adding with 'git add {arg}' is "
+                                "forbidden for AI agents. Please specify "
+                                "files explicitly (e.g., 'git add path/to/file.py') "
+                                "to ensure temporary or unrelated files are not staged."
+                            )
+
         if base_command in {"python", "python3"}:
             # Relax for MCP mode as -m is often required to start servers
             if not self.mcp_mode:

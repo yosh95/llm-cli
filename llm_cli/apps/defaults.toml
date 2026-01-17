@@ -11,10 +11,10 @@
 [google]
 
 [google.models]
-default = "gemini-3-flash-preview"
-lite = "gemini-2.5-flash-lite"
-flash = "gemini-3-flash-preview"
-pro = "gemini-3-pro-preview"
+default = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "low" }
+lite = { model = "gemini-flash-lite-latest", thinking_key = "thinkingBudget", thinking_budget = "1024" }
+flash = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "low" }
+pro = { model = "gemini-3-pro-preview", thinking_key = "thinkingLevel", thinking_budget = "high" }
 image = "gemini-3-pro-image-preview"
 
 # =============================================================================

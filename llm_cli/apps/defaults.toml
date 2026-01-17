@@ -11,9 +11,9 @@
 [google]
 
 [google.models]
-default = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "low" }
-lite = { model = "gemini-flash-lite-latest", thinking_key = "thinkingBudget", thinking_budget = "1024" }
-flash = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "low" }
+default = { model = "gemini-3-pro-preview", thinking_key = "thinkingLevel", thinking_budget = "high" }
+lite = { model = "gemini-flash-lite-latest", thinking_key = "thinkingBudget", thinking_budget = 1024 }
+flash = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "minimal" }
 pro = { model = "gemini-3-pro-preview", thinking_key = "thinkingLevel", thinking_budget = "high" }
 image = "gemini-3-pro-image-preview"
 

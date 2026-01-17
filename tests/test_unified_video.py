@@ -21,8 +21,8 @@ def test_unified_client_handles_video_via_gemini(mock_config, tmp_path):
 
         # Mock upload result
         mock_upload.return_value = ("https://gemini.api/files/abc", "video/mp4")
-        # Mock send result
-        mock_send.return_value = ("Video processed", {"totalTokens": 100})
+        # Mock send result: ((text, thought), usage)
+        mock_send.return_value = (("Video processed", ""), {"totalTokens": 100})
 
         client = UnifiedClient(initial_model_alias="gemini-flash", stdout=True)
         # Use process_sources instead of talk to trigger the upload logic

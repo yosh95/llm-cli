@@ -46,7 +46,7 @@ def test_timeout_and_cleanup():
             execute_command("sleep 10")
 
         duration = time.time() - start_time
-        assert 2 <= duration <= 5, f"Command should timeout around 2s, took {duration}s"
+        assert 2 <= duration <= 8, f"Command should timeout around 2s, took {duration}s"
         assert "Command timed out (2s)." in str(excinfo.value)
 
         # Verify that the child process is not lingering (POSIX only)

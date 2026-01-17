@@ -46,7 +46,7 @@ def test_gemini_saves_image_and_displays_thought(
         os.chdir(tmp_path)
         try:
             # Use DataSource list
-            full_text, _ = client._send(
+            (full_text, thought_text), _ = client._send(
                 [DataSource(content="Generate an image", content_type="text/plain")]
             )
 
@@ -58,7 +58,7 @@ def test_gemini_saves_image_and_displays_thought(
 
             # Check if text contains thought and image path
             assert "Image generated and saved to:" in full_text
-            assert "**Reasoning:** This is a thought." in full_text
+            assert "This is a thought." in thought_text
             assert str(files_jpeg[0]) in full_text
 
         finally:

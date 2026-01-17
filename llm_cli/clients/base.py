@@ -684,7 +684,8 @@ class BaseLlmClient(ABC):
 
                 self.reasoning_enabled = True
                 console.print(
-                    f"[green]Thinking budget set to {self.thinking_budget} and display enabled.[/green]"
+                    f"[green]Thinking budget set to {self.thinking_budget} "
+                    "and display enabled.[/green]"
                 )
             return True
 
@@ -731,7 +732,13 @@ class BaseLlmClient(ABC):
                 usage_str = ", ".join(f"{k}: {v}" for k, v in self.last_usage.items())
                 info_table.add_row("Last Usage", f"[yellow]{usage_str}[/yellow]")
 
-            console.print(Panel(info_table, title="[bold]Session Info[/bold]", border_style="cyan"))
+            console.print(
+                Panel(
+                    info_table,
+                    title="[bold]Session Info[/bold]",
+                    border_style="cyan",
+                )
+            )
             return True
 
         if cmd in ("help", "h"):

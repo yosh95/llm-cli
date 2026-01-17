@@ -296,7 +296,7 @@ class GeminiClient(BaseLlmClient):
             budget = self.thinking_budget or "medium"
             thinking_config[key] = budget
 
-            payload["generationConfig"] = {"thinking_config": thinking_config}
+            payload["generationConfig"] = {"thinkingConfig": thinking_config}
 
         return payload
 

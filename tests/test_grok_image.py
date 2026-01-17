@@ -78,8 +78,8 @@ class TestGrokImageGeneration:
             assert "size" not in payload  # Verify size param is absent
 
             # Verify response handling
-            assert "Image saved at images/img.png" in response_text
-            assert "Revised Prompt:** A cute cat" in response_text
+            assert "Image saved at images/img.png" in response_text[0]
+            assert "Revised Prompt:** A cute cat" in response_text[0]
 
             # Verify history update
             last_msg = mock_grok_client.conversation[-1]

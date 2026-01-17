@@ -54,13 +54,14 @@ class ClaudeClient(BaseLlmClient):
 
         # Enable extended thinking if reasoning_enabled is set
         if self.reasoning_enabled:
-            budget = (
-                self.thinking_budget
-                if self.thinking_budget
-                else 1024
-            )
+            budget = self.thinking_budget or 1024
             if isinstance(budget, str):
-                budget = int(budget)
+                try:
+                    budget = int(budget)
+                except ValueError:
+                    # Anthropic currently requires integer budget.
+                    # If 'minimal' or other string is provided, we default to 1024.
+                    budget = 1024
             payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
             # max_tokens must be greater than budget_tokens
             if payload.get("max_tokens", 0) <= budget:

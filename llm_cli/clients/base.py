@@ -659,22 +659,33 @@ class BaseLlmClient(ABC):
                     "[green]ON[/green]" if self.reasoning_enabled else "[red]OFF[/red]"
                 )
                 console.print(f"[bold]Thought Display:[/bold] {status}")
-                if self.thinking_budget:
-                    console.print(f"[bold]Thinking Budget:[/bold] {self.thinking_budget}")
-                console.print("[dim]Usage: /thought on|off or /thought <budget_number>[/dim]")
+                console.print("[dim]Usage: /thought on|off[/dim]")
+            else:
+                console.print(
+                    f"[red]Error: Invalid argument '{args}'. "
+                    "Usage: /thought on|off[/red]"
+                )
+            return True
+
+        if cmd in ("budget", "thinking"):
+            if not args:
+                budget_val = (
+                    str(self.thinking_budget) if self.thinking_budget else "Not set"
+                )
+                console.print(f"[bold]Thinking Budget:[/bold] {budget_val}")
+                console.print("[dim]Usage: /budget <number> or /budget minimal[/dim]")
             else:
                 try:
-                    budget = int(args)
-                    self.thinking_budget = budget
-                    self.reasoning_enabled = True
-                    console.print(
-                        f"[green]Thinking budget set to {budget} and display enabled.[/green]"
-                    )
+                    # Try to convert to int if possible
+                    self.thinking_budget = int(args)
                 except ValueError:
-                    console.print(
-                        f"[red]Error: Invalid argument '{args}'. "
-                        "Usage: /thought on|off or <number>[/red]"
-                    )
+                    # Otherwise keep as string (e.g., "minimal")
+                    self.thinking_budget = args
+
+                self.reasoning_enabled = True
+                console.print(
+                    f"[green]Thinking budget set to {self.thinking_budget} and display enabled.[/green]"
+                )
             return True
 
         if cmd in ("info", "i"):
@@ -747,7 +758,8 @@ class BaseLlmClient(ABC):
             "  /provider (p)  List available providers or switch provider\n"
             "                 (e.g. /p openai)\n"
             "  /tools on|off  Show or toggle tool status\n"
-            "  /thought on|off Show or toggle reasoning/thought status\n"
+            "  /thought on|off Show or toggle reasoning/thought display\n"
+            "  /budget <val>  Set thinking budget (number or 'minimal')\n"
             "\n"
             "[bold]Exit Application:[/bold]\n"
             "  Use [cyan]escape[/cyan], [cyan]Ctrl+C[/cyan], "

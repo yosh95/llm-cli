@@ -650,57 +650,77 @@ class BaseLlmClient(ABC):
         if cmd in ("thought", "reasoning"):
             if args == "on":
                 self.reasoning_enabled = True
-                console.print("[green]Thought (reasoning) enabled.[/green]")
+                console.print("[green]Thought display enabled.[/green]")
             elif args == "off":
                 self.reasoning_enabled = False
-                console.print("[yellow]Thought (reasoning) disabled.[/yellow]")
+                console.print("[yellow]Thought display disabled.[/yellow]")
             elif not args:
                 status = (
-                    "[green]ENABLED[/green]"
-                    if self.reasoning_enabled
-                    else "[red]DISABLED[/red]"
+                    "[green]ON[/green]" if self.reasoning_enabled else "[red]OFF[/red]"
                 )
-                console.print(f"[bold]Thought Status:[/bold] {status}")
-                console.print("[dim]Usage: /thought on|off[/dim]")
+                console.print(f"[bold]Thought Display:[/bold] {status}")
+                if self.thinking_budget:
+                    console.print(f"[bold]Thinking Budget:[/bold] {self.thinking_budget}")
+                console.print("[dim]Usage: /thought on|off or /thought <budget_number>[/dim]")
             else:
-                console.print(
-                    f"[red]Error: Invalid argument '{args}'. "
-                    "Usage: /thought on|off[/red]"
-                )
+                try:
+                    budget = int(args)
+                    self.thinking_budget = budget
+                    self.reasoning_enabled = True
+                    console.print(
+                        f"[green]Thinking budget set to {budget} and display enabled.[/green]"
+                    )
+                except ValueError:
+                    console.print(
+                        f"[red]Error: Invalid argument '{args}'. "
+                        "Usage: /thought on|off or <number>[/red]"
+                    )
             return True
 
         if cmd in ("info", "i"):
-            debug_status = "ON" if self.live_debug else "OFF"
-            if not self.tools_enabled:
-                tools_str = " [red]Disabled[/red]"
-            else:
+            from rich.table import Table
+
+            info_table = Table(show_header=False, box=None)
+            info_table.add_row("Model Alias", f"[cyan]{self.current_alias}[/cyan]")
+            info_table.add_row("Full Model", f"[dim]{self.model}[/dim]")
+
+            if self.thinking_key:
+                display_status = (
+                    "[green]on[/green]" if self.reasoning_enabled else "[red]off[/red]"
+                )
+                info_table.add_row("Thought Display", display_status)
+                budget_val = (
+                    str(self.thinking_budget) if self.thinking_budget else "Not set"
+                )
+                info_table.add_row("Thinking Budget", budget_val)
+
+            tool_status = (
+                "[green]ENABLED[/green]"
+                if self.tools_enabled
+                else "[red]DISABLED[/red]"
+            )
+            info_table.add_row("Tools Status", tool_status)
+
+            debug_status = (
+                "[green]ON[/green]" if self.live_debug else "[red]OFF[/red]"
+            )
+            info_table.add_row("Live Debug", debug_status)
+
+            if self.tools_enabled:
                 active_for_provider = registry.get_active_names(
                     self.active_tools, provider=self.config_section
                 )
                 if active_for_provider:
-                    tools_list = "\n".join([f"    - {t}" for t in active_for_provider])
-                    tools_str = f"\n{tools_list}"
-                else:
-                    tools_str = " None"
+                    tools_list = ", ".join(active_for_provider)
+                    info_table.add_row("Active Tools", f"[dim]{tools_list}[/dim]")
 
-            if self.reasoning_enabled:
-                thinking_str = (
-                    f"[green]ENABLED[/green] (Key: {self.thinking_key or 'default'}, "
-                    f"Budget: {self.thinking_budget or 'default'})"
-                )
-            else:
-                thinking_str = "[red]DISABLED[/red]"
+            info_table.add_row("History Length", f"{len(self.conversation)} messages")
 
-            console.print(
-                "[bold]Session Info:[/bold]\n"
-                f"  Provider: [cyan]{self.config_section}[/cyan]\n"
-                f"  Model: [cyan]{self.model}[/cyan] "
-                f"(Alias: {self.current_alias})\n"
-                f"  Tools:{tools_str}\n"
-                f"  Thought: {thinking_str}\n"
-                f"  Debug: [magenta]{debug_status}[/magenta]\n"
-                f"  History: {len(self.conversation)} messages"
-            )
+            if self.last_usage:
+                usage_str = ", ".join(f"{k}: {v}" for k, v in self.last_usage.items())
+                info_table.add_row("Last Usage", f"[yellow]{usage_str}[/yellow]")
+
+            console.print(Panel(info_table, title="[bold]Session Info[/bold]", border_style="cyan"))
             return True
 
         if cmd in ("help", "h"):

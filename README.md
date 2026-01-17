@@ -233,7 +233,8 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 -   `/template` (or `/t`): Insert a template prompt into the input buffer (e.g., `/t proofread`).
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
 -   `/tools [on|off]`: Show or toggle tool status.
--   `/reasoning [on|off]`: Show or toggle reasoning model display.
+-   `/thought` (or `/reasoning`) `[on|off]`: Toggle reasoning/thought display.
+-   `/budget` (or `/thinking`) `<number|minimal>`: Set thinking budget for supported models.
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
 -   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video).
 -   `/save <path>`: Save conversation history to a JSON file.
@@ -374,8 +375,9 @@ AIは `google_search` などのツールを活用して最新情報を取得で�
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Escape**、**Ctrl+C**、または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
--   **マルチモーダル出力 (Gemini / OpenAI)**: 会話の途中で画像生成モデルに切り替える（例： `/m image` や `/m dall-e-3`）ことで、画像を生成できます。生成された画像は自動的にローカルに保存されます。
+-   **マルチモーダル出力 (Gemini / OpenAI / Grok)**: 会話の途中で画像生成モデルに切り替える（例： `/m image`、`/m dall-e-3`、`/m grok-2-image`）ことで、画像を生成できます。生成された画像は自動的にローカルに保存されます。
 -   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
+-   **推論 / 思考トグル**: AIが内部推論を行うタイミングを明示的に制御します（例: Ollama経由のDeepSeek-R1、Claude 3.7 Thinking、Gemini 2.0 Thinking）。**トークン節約のためデフォルトでは無効**です。セッション中に `/thought on|off` で切り替えられます。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
 -   **OpenAI互換カスタムエンドポイント**: `api_url` を設定することで、ローカルLLM（Ollama, vLLM 等）やその他のOpenAI互換サービスを利用可能。
@@ -517,19 +519,26 @@ llm-cli-config
 
 ## 使い方
 
-### 1. 研究調査の自動化（例）
+### 1. テンプレート管理
+事前に定義されたプロンプトテンプレートを挿入できます：
+```bash
+> /t proofread
+```
+テンプレートのテキストが入力欄に挿入され、送信前に編集や追記が可能です。
+
+### 2. 研究調査の自動化（例）
 Google検索を用いて特定のトピックに関する論文を探し、内容を要約させることができます。
 ```bash
 llm "Googleで 'Direct Preference Optimization' に関する論文を探して、内容を読み、その主要な貢献をまとめて。"
 ```
 
-### 2. インタラクティブ・チャット
+### 3. インタラクティブ・チャット
 単に `llm` と打つだけでセッションが開始されます：
 ```bash
 llm
 ```
 
-### 3. ワンショットプロンプトとパイプ利用
+### 4. ワンショットプロンプトとパイプ利用
 ```bash
 # 直接プロンプトを実行
 llm "フランスの首都は？"
@@ -557,8 +566,10 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/model` (または `/m`): 利用可能なモデルを表示、またはモデルを切り替え (例: `/m gpt4o`)。
 -   `/template` (または `/t`): 定型プロンプトを呼び出し、入力欄にセット (例: `/t proofread`)。
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツール等）を表示。
--   `/tools [on|off]`: ツールの有効・無効を切り替え。
--   `/thought [on|off]`: 推論（thought）モードの有効・無効を切り替え。
+-   `/tools [on|off]`: ツールの有効・無効を切り替え、または状態表示。
+-   `/thought` (または `/reasoning`) `[on|off]`: 推論（thought）表示の有効・無効を切り替え。
+-   `/budget` (または `/thinking`) `<number|minimal>`: 対応モデルの思考トークン予算（Thinking Budget）を設定。
+-   `/checkpoint` (または `/cp`): 会話の要約を作成し、履歴をリセット（チェックポイント）。
 -   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動添付。
 -   `/save <path>`: 会話履歴をJSONファイルに保存。
 -   `/load <path>`: 会話履歴をJSONファイルから読み込み。
@@ -567,15 +578,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/clear` (または `/c`): 会話履歴を消去。
 -   `/debug` (または `/d`): ライブデバッグモードの切り替え。
 -   `/help` (または `/h`): コマンドリストを表示。
--   `/quit` (または `/q`): 終了。）を手動で添付。
--   `/save <path>`: 会話履歴をJSONファイルに保存。
--   `/load <path>`: 会話履歴をJSONファイルから読み込み。
--   `/dump`: 会話履歴をJSON形式でダンプ。
--   `/raw`: 生の会話テキストを表示。
--   `/clear` (or `/c`): 会話履歴をクリア。
--   `/debug` (or `/d`): ライブデバッグモードのON/OFF切り替え。
--   `/help` (or `/h`): 全コマンドリストを表示。
--   `/quit` (or `/q`): 終了。
+-   `/quit` (または `/q`): 終了。
 
 ## プラグイン・アーキテクチャ: ツールの追加
 

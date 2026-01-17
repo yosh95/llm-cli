@@ -83,7 +83,8 @@ class GrokClient(BaseLlmClient):
             res = response.json()
 
             choice = res["choices"][0]["message"]
-            full_text = ""
+            content = choice.get("content", "")
+            thought_text = ""
             model_parts: List[ContentPart] = []
 
             # Note: reasoning_content is NOT returned by Grok 4 API
@@ -92,11 +93,9 @@ class GrokClient(BaseLlmClient):
             reasoning = choice.get("reasoning_content")
             if reasoning:
                 model_parts.append(ContentPart(thought=reasoning))
-                full_text += f"\n> **Reasoning:** {reasoning}\n\n"
+                thought_text += reasoning
 
-            content = choice.get("content", "")
             if content:
-                full_text += content
                 model_parts.append(ContentPart(text=content))
 
             if choice.get("tool_calls"):
@@ -114,10 +113,10 @@ class GrokClient(BaseLlmClient):
             model_msg = Message(role=Role.MODEL, parts=model_parts)
             self._update_history(data, model_msg)
 
-            return full_text.strip(), res.get("usage")
+            return (content.strip(), thought_text.strip()), res.get("usage")
         except Exception as e:
             self._report_error("Grok", e)
-            return None, None
+            return (None, None), None
 
     def _send_image_generation(
         self, data: List[DataSource]
@@ -175,7 +174,7 @@ class GrokClient(BaseLlmClient):
                     mime_type = fetched_mime
 
             if not img_data:
-                return "Failed to retrieve image data from the response.", None
+                return ("Failed to retrieve image data from the response.", ""), None
 
             # Use shared media saving logic from BaseLlmClient
             display_text = self._save_inline_image_and_get_log_entry(
@@ -199,10 +198,10 @@ class GrokClient(BaseLlmClient):
             )
             self._update_history(data, model_msg)
 
-            return display_text.strip(), None
+            return (display_text.strip(), ""), None
         except Exception as e:
             self._report_error("Grok Image", e)
-            return None, None
+            return (None, None), None
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates internal history."""

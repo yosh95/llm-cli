@@ -87,16 +87,12 @@ class OllamaClient(BaseLlmClient):
             model_msg = Message(role=Role.MODEL, parts=model_parts)
             self.conversation.append(model_msg)
 
-            # Prepare display text
-            display_text = ""
-            if reasoning and self.reasoning_enabled:
-                display_text += f"\n> **Reasoning:** {reasoning}\n\n"
-            display_text += raw_content
-
-            return display_text.strip(), res_json.get("usage", {})
+            return (raw_content.strip(), (reasoning or "").strip()), res_json.get(
+                "usage", {}
+            )
         except Exception as e:
             self._report_error("Ollama", e)
-            return None, None
+            return (None, None), None
 
     def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
         """Converts history and new data to Ollama API format."""

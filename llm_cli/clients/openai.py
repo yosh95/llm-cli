@@ -113,6 +113,7 @@ class OpenAIClient(BaseLlmClient):
 
             model_parts: List[ContentPart] = []
             full_text = ""
+            thought_text = ""
 
             # Parse Responses API output array
             for item in res.get("output", []):
@@ -125,8 +126,8 @@ class OpenAIClient(BaseLlmClient):
                         if summary.get("type") == "summary_text":
                             reasoning_text = summary.get("text", "")
                             if reasoning_text:
+                                thought_text += reasoning_text
                                 model_parts.append(ContentPart(thought=reasoning_text))
-                                full_text += f"\n> **Reasoning:** {reasoning_text}\n\n"
 
                 elif item_type == "message":
                     # Extract text content from message
@@ -152,10 +153,10 @@ class OpenAIClient(BaseLlmClient):
             model_msg = Message(role=Role.MODEL, parts=model_parts)
 
             self._update_history(data, model_msg)
-            return full_text.strip(), res.get("usage")
+            return (full_text.strip(), thought_text.strip()), res.get("usage")
         except Exception as e:
             self._report_error("OpenAI", e)
-            return None, None
+            return (None, None), None
 
     def _send_image_generation(
         self, data: List[DataSource]

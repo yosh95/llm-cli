@@ -276,8 +276,19 @@ class ChatSession:
             ):
                 res = self.client._send(data)
 
-            # Response is now expected to be a tuple (response_text, usage)
-            response_text, _ = res if res else (None, None)
+            # Response is now expected to be a tuple ((text, thought), usage)
+            response_tuple, _ = res if res else ((None, None), None)
+            response_text, thought_text = response_tuple
+
+            # Display thought content in a separate panel if available
+            if thought_text and self.client.reasoning_enabled:
+                console.print(
+                    Panel(
+                        CustomMarkdown(thought_text),
+                        title="[bold dim]Thought[/bold dim]",
+                        border_style="dim",
+                    )
+                )
 
             # Display the response
             if response_text:
@@ -362,7 +373,8 @@ class ChatSession:
             ):
                 res = self.client._send([])
 
-            summary, _ = res if res else (None, None)
+            response_tuple, _ = res if res else ((None, None), None)
+            summary = response_tuple[0]
 
             if not summary:
                 console.print("[red]Failed to generate summary.[/red]")

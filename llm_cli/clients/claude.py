@@ -85,6 +85,7 @@ class ClaudeClient(BaseLlmClient):
 
             model_parts: List[ContentPart] = []
             full_text = ""
+            thought_text = ""
             for block in res.get("content", []):
                 if block["type"] == "text":
                     text_content = block["text"]
@@ -92,11 +93,11 @@ class ClaudeClient(BaseLlmClient):
                     model_parts.append(ContentPart(text=text_content))
                 elif block["type"] == "thinking":
                     thought = block["thinking"]
+                    thought_text += thought
                     signature = block.get("signature")
                     model_parts.append(
                         ContentPart(thought=thought, thought_signature=signature)
                     )
-                    full_text += f"\n> **Reasoning:** {thought}\n\n"
                 elif block["type"] == "tool_use":
                     model_parts.append(
                         ContentPart(
@@ -111,10 +112,10 @@ class ClaudeClient(BaseLlmClient):
             model_msg = Message(role=Role.MODEL, parts=model_parts)
             self._update_history(data, model_msg)
 
-            return full_text.strip(), res.get("usage")
+            return (full_text.strip(), thought_text.strip()), res.get("usage")
         except Exception as e:
             self._report_error("Claude", e)
-            return None, None
+            return (None, None), None
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates the internal conversation history with new messages."""

@@ -650,17 +650,17 @@ class BaseLlmClient(ABC):
         if cmd in ("thought", "reasoning"):
             if args == "on":
                 self.reasoning_enabled = True
-                console.print("[green]Reasoning (thought) enabled.[/green]")
+                console.print("[green]Thought (reasoning) enabled.[/green]")
             elif args == "off":
                 self.reasoning_enabled = False
-                console.print("[yellow]Reasoning (thought) disabled.[/yellow]")
+                console.print("[yellow]Thought (reasoning) disabled.[/yellow]")
             elif not args:
                 status = (
                     "[green]ENABLED[/green]"
                     if self.reasoning_enabled
                     else "[red]DISABLED[/red]"
                 )
-                console.print(f"[bold]Reasoning Status:[/bold] {status}")
+                console.print(f"[bold]Thought Status:[/bold] {status}")
                 console.print("[dim]Usage: /thought on|off[/dim]")
             else:
                 console.print(
@@ -697,7 +697,7 @@ class BaseLlmClient(ABC):
                 f"  Model: [cyan]{self.model}[/cyan] "
                 f"(Alias: {self.current_alias})\n"
                 f"  Tools:{tools_str}\n"
-                f"  Reasoning: {thinking_str}\n"
+                f"  Thought: {thinking_str}\n"
                 f"  Debug: [magenta]{debug_status}[/magenta]\n"
                 f"  History: {len(self.conversation)} messages"
             )

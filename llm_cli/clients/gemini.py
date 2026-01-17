@@ -164,14 +164,15 @@ class GeminiClient(BaseLlmClient):
             self.conversation.append(model_msg)
             self.last_usage = res_json.get("usageMetadata")
 
-            # Extract display text
+            # Extract display text and thoughts
             display_text = ""
+            thought_text = ""
             for p in model_msg.parts:
                 if isinstance(p, ContentPart):
                     if p.text:
                         display_text += p.text
                     if p.thought:
-                        display_text += f"\n> **Reasoning:** {p.thought}\n\n"
+                        thought_text += p.thought
                     # Handle image generation / other inline data if supported
                     if p.inline_data:
                         # Extract inline_data from ContentPart
@@ -192,10 +193,10 @@ class GeminiClient(BaseLlmClient):
                         if log:
                             display_text += log
 
-            return display_text.strip(), self.last_usage
+            return (display_text.strip(), thought_text.strip()), self.last_usage
         except Exception as e:
             self._report_error("Gemini", e)
-            return None, None
+            return (None, None), None
 
     def _to_provider_request_format(self, new_parts: List[Dict]) -> Dict:
         """Converts history and new parts to Gemini API format."""

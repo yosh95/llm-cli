@@ -96,7 +96,17 @@ class BaseLlmClient(ABC):
         self.live_debug = live_debug
 
         self.tools_enabled = True
-        self.reasoning_enabled = False
+
+        # Load model and its specific configuration (including thinking settings)
+        self.available_models: Dict[str, Any] = {}
+        self.current_alias = ""
+        self.model = ""
+        self.thinking_key = None
+        self.thinking_budget = None
+        self.include_thoughts = False
+
+        self._load_model_aliases()
+        self.set_model(initial_model_alias) or self.set_model("default")
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S (%A)")
@@ -105,12 +115,6 @@ class BaseLlmClient(ABC):
             self.system_prompt += f"\n{raw_prompt}"
 
         self.system_prompt_enabled = not disable_system_prompt
-
-        self.available_models: Dict[str, str] = {}
-        self.current_alias = ""
-        self.model = ""
-        self._load_model_aliases()
-        self.set_model(initial_model_alias) or self.set_model("default")
 
         self.conversation: List[Message] = []
         self.last_usage: Optional[Dict[str, int]] = None
@@ -236,7 +240,7 @@ class BaseLlmClient(ABC):
 
     def set_model(self, alias: str) -> bool:
         """
-        Sets the active model using its alias.
+        Sets the active model and its configuration using its alias.
 
         Args:
             alias: The model alias defined in config.
@@ -244,9 +248,17 @@ class BaseLlmClient(ABC):
         Returns:
             True if the model was successfully set, False otherwise.
         """
+        from llm_cli.clients.config import get_model_config
+
         if alias in self.available_models:
             self.current_alias = alias
             self.model = self.available_models[alias]
+
+            # Load additional settings for this specific alias/model
+            config = get_model_config(self.config_section, alias)
+            self.thinking_key = config.get("thinking_key")
+            self.thinking_budget = config.get("thinking_budget")
+            self.include_thoughts = config.get("include_thoughts", False)
             return True
         return False
 
@@ -604,9 +616,7 @@ class BaseLlmClient(ABC):
                     self.active_tools, provider=self.config_section
                 )
                 if active_for_provider:
-                    tools_list = "\n".join(
-                        [f"  - {t}" for t in active_for_provider]
-                    )
+                    tools_list = "\n".join([f"  - {t}" for t in active_for_provider])
                     tools_str = f"\n{tools_list}"
                 else:
                     tools_str = " None"
@@ -621,28 +631,6 @@ class BaseLlmClient(ABC):
                 )
             return True
 
-        if cmd == "reasoning":
-            if args == "on":
-                self.reasoning_enabled = True
-                console.print("[green]Reasoning display enabled.[/green]")
-            elif args == "off":
-                self.reasoning_enabled = False
-                console.print("[yellow]Reasoning display disabled.[/yellow]")
-            elif not args:
-                status = (
-                    "[green]ENABLED[/green]"
-                    if self.reasoning_enabled
-                    else "[red]DISABLED[/red]"
-                )
-                console.print(f"[bold]Reasoning Status:[/bold] {status}")
-                console.print("[dim]Usage: /reasoning on|off[/dim]")
-            else:
-                console.print(
-                    f"[red]Error: Invalid argument '{args}'. "
-                    "Usage: /reasoning on|off[/red]"
-                )
-            return True
-
         if cmd in ("debug", "d"):
             self.live_debug = not self.live_debug
             status = "ENABLED" if self.live_debug else "DISABLED"
@@ -651,7 +639,6 @@ class BaseLlmClient(ABC):
 
         if cmd in ("info", "i"):
             debug_status = "ON" if self.live_debug else "OFF"
-            reasoning_status = "ON" if self.reasoning_enabled else "OFF"
             if not self.tools_enabled:
                 tools_str = " [red]Disabled[/red]"
             else:
@@ -659,19 +646,25 @@ class BaseLlmClient(ABC):
                     self.active_tools, provider=self.config_section
                 )
                 if active_for_provider:
-                    tools_list = "\n".join(
-                        [f"    - {t}" for t in active_for_provider]
-                    )
+                    tools_list = "\n".join([f"    - {t}" for t in active_for_provider])
                     tools_str = f"\n{tools_list}"
                 else:
                     tools_str = " None"
+
+            thinking_str = (
+                f"[green]Always ON[/green] "
+                f"(Key: {self.thinking_key}, Budget: {self.thinking_budget})"
+            )
+            if self.include_thoughts:
+                thinking_str += " [dim](includeThoughts=True)[/dim]"
+
             console.print(
                 "[bold]Session Info:[/bold]\n"
                 f"  Provider: [cyan]{self.config_section}[/cyan]\n"
                 f"  Model: [cyan]{self.model}[/cyan] "
                 f"(Alias: {self.current_alias})\n"
                 f"  Tools:{tools_str}\n"
-                f"  Reasoning: {reasoning_status}\n"
+                f"  Reasoning: {thinking_str}\n"
                 f"  Debug: [magenta]{debug_status}[/magenta]\n"
                 f"  History: {len(self.conversation)} messages"
             )
@@ -701,7 +694,6 @@ class BaseLlmClient(ABC):
             "  /provider (p)  List available providers or switch provider\n"
             "                 (e.g. /p openai)\n"
             "  /tools on|off  Show or toggle tool status\n"
-            "  /reasoning on|off Show or toggle reasoning display\n"
             "\n"
             "[bold]Exit Application:[/bold]\n"
             "  Use [cyan]escape[/cyan], [cyan]Ctrl+C[/cyan], "

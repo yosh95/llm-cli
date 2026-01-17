@@ -62,7 +62,10 @@ class TestCommandValidator:
             "git add . --force",
         ]
         for cmd in forbidden_adds:
-            with pytest.raises(CommandValidationError, match="Bulk adding with 'git add .*' is forbidden"):
+            with pytest.raises(
+                CommandValidationError,
+                match="Bulk adding with 'git add .*' is forbidden",
+            ):
                 validator.validate(cmd)
 
         # Explicit file additions should be allowed
@@ -83,7 +86,8 @@ class TestCommandValidator:
         validator = CommandValidator()
         # Verify the error message contains the readable representation
         with pytest.raises(
-            CommandValidationError, match=r"Command contains dangerous pattern '\\n \(Newline\)'"
+            CommandValidationError,
+            match=r"Command contains dangerous pattern '\\n \(Newline\)'",
         ):
             validator.validate("ls\necho dangerous")
 
@@ -106,7 +110,11 @@ class TestCommandValidator:
         forbidden_args = ["-exec", "-execdir", "-ok", "-okdir", "-delete"]
         for arg in forbidden_args:
             # Use '+' for exec to avoid semicolon check, or just the arg itself
-            test_cmd = f"find . {arg} rm {{}} +" if "exec" in arg or "ok" in arg else f"find . {arg}"
+            test_cmd = (
+                f"find . {arg} rm {{}} +"
+                if "exec" in arg or "ok" in arg
+                else f"find . {arg}"
+            )
             with pytest.raises(
                 CommandValidationError, match=f"Find argument '{arg}' is prohibited"
             ):
@@ -120,18 +128,34 @@ class TestCommandValidator:
         removed_commands = [
             "awk",
             "tar",
-            "gzip", "gunzip", "bzip2", "bunzip2",
-            "zip", "unzip",
-            "whoami", "id", "groups", "hostname", "uname",
-            "ps", "top", "htop", "pgrep",
-            "env", "printenv",
-            "base64", "xxd",
-            "curl", "wget", "nc"
+            "gzip",
+            "gunzip",
+            "bzip2",
+            "bunzip2",
+            "zip",
+            "unzip",
+            "whoami",
+            "id",
+            "groups",
+            "hostname",
+            "uname",
+            "ps",
+            "top",
+            "htop",
+            "pgrep",
+            "env",
+            "printenv",
+            "base64",
+            "xxd",
+            "curl",
+            "wget",
+            "nc",
         ]
 
         for cmd in removed_commands:
             with pytest.raises(
-                CommandValidationError, match=f"Command '{cmd}' is not in the allowed whitelist"
+                CommandValidationError,
+                match=f"Command '{cmd}' is not in the allowed whitelist",
             ):
                 validator.validate(f"{cmd} some_arg")
 

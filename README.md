@@ -310,6 +310,77 @@ Then run `llm-cli` with the `--mcp` flag:
 llm --mcp
 ```
 
+## Reasoning / Extended Thinking
+
+Modern LLMs support "reasoning" or "extended thinking" modes where the model performs internal deliberation before generating a response. This can improve the quality of responses for complex tasks.
+
+### Provider Support
+
+| Provider | Thinking Content Visible | Configuration |
+| :--- | :--- | :--- |
+| **Gemini** | ✅ Full content | `include_thoughts = true`, `thinking_level` |
+| **Claude** | ✅ Summarized (Claude 4) / Full (3.7) | `thinking_budget` (tokens) |
+| **OpenAI** | ⚠️ Summary only | `reasoning_effort`, `reasoning_summary` |
+| **xAI (Grok)** | ❌ Not available | N/A (reasoning tokens still billed) |
+
+### Configuration
+
+Reasoning settings are configured in two places:
+
+1. **`defaults.toml`** (Package defaults): Located at `llm_cli/apps/defaults.toml`. Contains default settings for all providers.
+
+2. **`~/.config/llm_cli/config.toml`** (User config): Your personal settings that override the defaults.
+
+#### Gemini Configuration
+
+```toml
+[google]
+include_thoughts = true  # Display thinking content in responses
+
+[google.models]
+# Gemini 3.x: use thinking_level ("none", "low", "medium", "high")
+default = { model = "gemini-3-flash-preview", thinking_key = "thinking_level", thinking_budget = "medium" }
+# Gemini 2.5: use thinking_budget (token count)
+lite = { model = "gemini-2.5-flash-lite", thinking_key = "thinking_budget", thinking_budget = 1024 }
+```
+
+#### Claude Configuration
+
+```toml
+[anthropic]
+thinking_budget = 1024  # Maximum tokens for extended thinking
+
+[anthropic.models]
+default = "claude-opus-4-5-20251101"
+```
+
+#### OpenAI Configuration
+
+```toml
+[openai]
+reasoning_effort = "medium"  # "minimal", "low", "medium", "high", "xhigh"
+reasoning_summary = "auto"   # "auto", "concise", "detailed"
+
+[openai.models]
+default = "gpt-5.2"
+```
+
+> **Note**: OpenAI reasoning tokens are NOT directly visible. Only a summary is available via `reasoning_summary`. Reasoning tokens are still billed as output tokens.
+
+#### xAI (Grok) - Not Supported
+
+Grok 4 performs internal reasoning but does **not** expose reasoning content via the API. There is no configuration needed, but be aware that reasoning tokens are still billed.
+
+### Toggling Reasoning Display
+
+Use the `/reasoning` command in chat to toggle reasoning display:
+
+```bash
+> /reasoning on   # Enable reasoning display
+> /reasoning off  # Disable reasoning display
+> /reasoning      # Show current status
+```
+
 ## Utility Scripts
 
 -   `llm-cli-config`: Interactive configuration tool.
@@ -614,6 +685,77 @@ args = [
 その後、`--mcp` フラグを付けて `llm-cli-config` で設定したプロバイダで `llm-cli` を起動します：
 ```bash
 llm --mcp
+```
+
+## Reasoning / 拡張思考機能
+
+最新のLLMは「reasoning」や「extended thinking」モードをサポートしており、応答生成前にモデルが内部で熟考を行います。これにより、複雑なタスクに対する応答品質が向上します。
+
+### プロバイダ別サポート状況
+
+| プロバイダ | 思考内容の表示 | 設定 |
+| :--- | :--- | :--- |
+| **Gemini** | ✅ 完全表示 | `include_thoughts = true`, `thinking_level` |
+| **Claude** | ✅ 要約版（Claude 4）/ 完全版（3.7） | `thinking_budget`（トークン数） |
+| **OpenAI** | ⚠️ 要約のみ | `reasoning_effort`, `reasoning_summary` |
+| **xAI (Grok)** | ❌ 非対応 | N/A（推論トークンは課金される） |
+
+### 設定方法
+
+Reasoning設定は2箇所で構成されています：
+
+1. **`defaults.toml`**（パッケージデフォルト）: `llm_cli/apps/defaults.toml` にあります。すべてのプロバイダのデフォルト設定が含まれています。
+
+2. **`~/.config/llm_cli/config.toml`**（ユーザー設定）: デフォルトを上書きする個人設定ファイルです。
+
+#### Gemini の設定
+
+```toml
+[google]
+include_thoughts = true  # 思考内容を応答に表示
+
+[google.models]
+# Gemini 3.x: thinking_level を使用 ("none", "low", "medium", "high")
+default = { model = "gemini-3-flash-preview", thinking_key = "thinking_level", thinking_budget = "medium" }
+# Gemini 2.5: thinking_budget を使用（トークン数）
+lite = { model = "gemini-2.5-flash-lite", thinking_key = "thinking_budget", thinking_budget = 1024 }
+```
+
+#### Claude の設定
+
+```toml
+[anthropic]
+thinking_budget = 1024  # 拡張思考の最大トークン数
+
+[anthropic.models]
+default = "claude-opus-4-5-20251101"
+```
+
+#### OpenAI の設定
+
+```toml
+[openai]
+reasoning_effort = "medium"  # "minimal", "low", "medium", "high", "xhigh"
+reasoning_summary = "auto"   # "auto", "concise", "detailed"
+
+[openai.models]
+default = "gpt-5.2"
+```
+
+> **注意**: OpenAIの推論トークンは直接表示されません。`reasoning_summary` で要約のみ取得可能です。推論トークンは出力トークンとして課金されます。
+
+#### xAI (Grok) - 非対応
+
+Grok 4は内部で推論を行いますが、APIを通じて推論内容を**公開していません**。設定は不要ですが、推論トークンは課金されることに注意してください。
+
+### 推論表示の切り替え
+
+チャット内で `/reasoning` コマンドを使用して推論表示を切り替えます：
+
+```bash
+> /reasoning on   # 推論表示を有効化
+> /reasoning off  # 推論表示を無効化
+> /reasoning      # 現在の状態を表示
 ```
 
 ## ユーティリティ・スクリプト

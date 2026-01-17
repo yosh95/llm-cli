@@ -1,4 +1,3 @@
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,9 +9,10 @@ from llm_cli.modules.models import DataSource, Role
 class TestGrokImageGeneration:
     @pytest.fixture
     def mock_grok_client(self):
-        with patch("llm_cli.clients.config.get_setting") as mock_get_setting, \
-             patch("llm_cli.clients.config.get_model_aliases") as mock_get_aliases:
-
+        with (
+            patch("llm_cli.clients.config.get_setting") as mock_get_setting,
+            patch("llm_cli.clients.config.get_model_aliases") as mock_get_aliases,
+        ):
             # Mock configuration
             def get_setting_side_effect(key, section):
                 if key == "api_key" and section == "xai":
@@ -26,7 +26,7 @@ class TestGrokImageGeneration:
             # Mock model aliases
             mock_get_aliases.return_value = {
                 "default": "grok-beta",
-                "image": "grok-2-image-preview"
+                "image": "grok-2-image-preview",
             }
 
             # Initialize client with required stdout arg via kwargs
@@ -53,16 +53,15 @@ class TestGrokImageGeneration:
         mock_response.json.return_value = {
             "created": 1700000000,
             "data": [
-                {
-                    "b64_json": "base64_image_data_here",
-                    "revised_prompt": "A cute cat"
-                }
-            ]
+                {"b64_json": "base64_image_data_here", "revised_prompt": "A cute cat"}
+            ],
         }
         mock_post.return_value = mock_response
 
         # Mock _save_inline_image_and_get_log_entry to avoid file I/O
-        with patch.object(mock_grok_client, "_save_inline_image_and_get_log_entry") as mock_save:
+        with patch.object(
+            mock_grok_client, "_save_inline_image_and_get_log_entry"
+        ) as mock_save:
             mock_save.return_value = "Image saved at images/img.png"
 
             data = [DataSource(content="Draw a cat", content_type="text/plain")]
@@ -76,7 +75,7 @@ class TestGrokImageGeneration:
             assert payload["model"] == "grok-2-image-preview"
             assert payload["prompt"] == "Draw a cat"
             assert payload["n"] == 1
-            assert "size" not in payload # Verify size param is absent
+            assert "size" not in payload  # Verify size param is absent
 
             # Verify response handling
             assert "Image saved at images/img.png" in response_text
@@ -98,11 +97,8 @@ class TestGrokImageGeneration:
         mock_response.json.return_value = {
             "created": 1700000000,
             "data": [
-                {
-                    "url": "https://example.com/image.png",
-                    "revised_prompt": "A dog"
-                }
-            ]
+                {"url": "https://example.com/image.png", "revised_prompt": "A dog"}
+            ],
         }
         mock_post.return_value = mock_response
 
@@ -111,7 +107,9 @@ class TestGrokImageGeneration:
             mock_fetch.return_value = ("fetched_base64_data", "image/png")
 
             # Mock _save_inline_image_and_get_log_entry
-            with patch.object(mock_grok_client, "_save_inline_image_and_get_log_entry") as mock_save:
+            with patch.object(
+                mock_grok_client, "_save_inline_image_and_get_log_entry"
+            ) as mock_save:
                 mock_save.return_value = "Image saved at images/dog.png"
 
                 data = [DataSource(content="Draw a dog", content_type="text/plain")]

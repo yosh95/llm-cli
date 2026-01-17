@@ -170,7 +170,7 @@ class GeminiClient(BaseLlmClient):
                 if isinstance(p, ContentPart):
                     if p.text:
                         display_text += p.text
-                    if p.thought and self.reasoning_enabled:
+                    if p.thought:
                         display_text += f"\n> **Reasoning:** {p.thought}\n\n"
                     # Handle image generation / other inline data if supported
                     if p.inline_data:
@@ -209,8 +209,8 @@ class GeminiClient(BaseLlmClient):
                     part_dict = {}
                     if p.text:
                         part_dict["text"] = p.text
-                    if p.thought:
-                        part_dict["thought"] = p.thought
+                    # Note: 'thought' is only in API responses, not requests.
+                    # We only send 'thoughtSignature' back to maintain context.
                     if p.function_call:
                         part_dict["functionCall"] = {
                             "name": p.function_call.get("name"),
@@ -285,10 +285,15 @@ class GeminiClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
-        if self.reasoning_enabled:
-            payload["generationConfig"] = {
-                "thinking_config": {"include_thoughts": True}
-            }
+        if self.thinking_key or self.include_thoughts:
+            thinking_config = {}
+            if self.include_thoughts:
+                thinking_config["include_thoughts"] = True
+
+            if self.thinking_key and self.thinking_budget:
+                thinking_config[self.thinking_key] = self.thinking_budget
+
+            payload["generationConfig"] = {"thinking_config": thinking_config}
 
         return payload
 
@@ -306,12 +311,20 @@ class GeminiClient(BaseLlmClient):
         for p in raw_parts:
             # API returns 'thoughtSignature'
             sig = p.get("thoughtSignature")
+            # Gemini's response format:
+            # - Thinking part: {"thought": true, "text": "thinking content..."}
+            # - Regular part: {"text": "response to user..."}
+            is_thought_part = p.get("thought") is True
             if "text" in p:
-                model_parts.append(ContentPart(text=p["text"], thought_signature=sig))
-            if "thought" in p:
-                model_parts.append(
-                    ContentPart(thought=p["thought"], thought_signature=sig)
-                )
+                if is_thought_part:
+                    # Store as thought content for separate display
+                    model_parts.append(
+                        ContentPart(thought=p["text"], thought_signature=sig)
+                    )
+                else:
+                    model_parts.append(
+                        ContentPart(text=p["text"], thought_signature=sig)
+                    )
             if "inlineData" in p:
                 model_parts.append(
                     ContentPart(inline_data=p["inlineData"], thought_signature=sig)

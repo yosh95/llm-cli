@@ -17,6 +17,10 @@ class GrokClient(BaseLlmClient):
     Client for interacting with the xAI Grok API.
 
     Compatible with OpenAI-style chat completions.
+
+    Note: Grok 4 performs internal reasoning but does NOT expose reasoning
+    content via the API. The reasoning_content field is not returned even
+    though reasoning tokens are billed. This is a limitation of the xAI API.
     """
 
     def __init__(self, initial_model_alias: str = "default", **kwargs):
@@ -53,9 +57,9 @@ class GrokClient(BaseLlmClient):
             "messages": messages,
         }
 
-        # Enable reasoning if requested (compatible with Grok-3+)
-        if self.reasoning_enabled:
-            payload["reasoning_format"] = "raw"
+        # Note: Grok 4 does NOT return reasoning_content via API.
+        # We don't add any reasoning configuration as it has no effect
+        # on the response format (reasoning tokens are still billed).
 
         if self.active_tools and self.tools_enabled:
             payload["tools"] = registry.get_openai_spec(
@@ -82,12 +86,13 @@ class GrokClient(BaseLlmClient):
             full_text = ""
             model_parts: List[ContentPart] = []
 
-            # Extract reasoning/thought if present
+            # Note: reasoning_content is NOT returned by Grok 4 API
+            # even though the model performs internal reasoning.
+            # This code is kept for potential future API updates.
             reasoning = choice.get("reasoning_content")
             if reasoning:
                 model_parts.append(ContentPart(thought=reasoning))
-                if self.reasoning_enabled:
-                    full_text += f"\n> **Reasoning:** {reasoning}\n\n"
+                full_text += f"\n> **Reasoning:** {reasoning}\n\n"
 
             content = choice.get("content", "")
             if content:
@@ -189,9 +194,7 @@ class GrokClient(BaseLlmClient):
                 role=Role.MODEL,
                 parts=[
                     ContentPart(text=display_text),
-                    ContentPart(
-                        inline_data={"mimeType": mime_type, "data": img_data}
-                    ),
+                    ContentPart(inline_data={"mimeType": mime_type, "data": img_data}),
                 ],
             )
             self._update_history(data, model_msg)
@@ -259,7 +262,6 @@ class GrokClient(BaseLlmClient):
             else:
                 role = "assistant" if m.role == Role.MODEL else m.role.value
                 msg_content = ""
-                reasoning_content = None
                 tool_calls = []
 
                 for p in m.parts:
@@ -268,8 +270,8 @@ class GrokClient(BaseLlmClient):
                     elif isinstance(p, ContentPart):
                         if p.text:
                             msg_content += p.text
-                        if p.thought:
-                            reasoning_content = p.thought
+                        # Note: We don't include p.thought in history for Grok
+                        # as Grok 4 doesn't return reasoning_content anyway
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
@@ -292,10 +294,8 @@ class GrokClient(BaseLlmClient):
                                     }
                                 )
 
-                if msg_content or reasoning_content or tool_calls:
+                if msg_content or tool_calls:
                     msg = {"role": role, "content": msg_content or None}
-                    if reasoning_content:
-                        msg["reasoning_content"] = reasoning_content
                     if tool_calls:
                         msg["tool_calls"] = tool_calls
                     msgs.append(msg)

@@ -89,9 +89,7 @@ def google_search(queries: list[str], num: int = 10) -> str:
         "required": ["url"],
     },
 )
-def fetch_url(
-    url: str, start_offset: int = 0, max_length: int = 10000
-) -> dict | str:
+def fetch_url(url: str, start_offset: int = 0, max_length: int = 10000) -> dict | str:
     try:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get("Content-Type", "")
@@ -149,9 +147,7 @@ def fetch_url(
         "required": ["url"],
     },
 )
-def fetch_web_text(
-    url: str, start_offset: int = 0, max_length: int = 10000
-) -> str:
+def fetch_web_text(url: str, start_offset: int = 0, max_length: int = 10000) -> str:
     try:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get("Content-Type", "").lower()

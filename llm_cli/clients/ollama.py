@@ -120,16 +120,18 @@ class OllamaClient(BaseLlmClient):
                     if isinstance(p, ContentPart) and p.function_response:
                         tool_id = p.function_response.get("id")
                         if tool_id and tool_id in responded_tool_ids:
-                            result = p.function_response.get(
-                                "response", {}
-                            ).get("result", "")
+                            result = p.function_response.get("response", {}).get(
+                                "result", ""
+                            )
                             if not isinstance(result, str):
                                 result = json.dumps(result, ensure_ascii=False)
-                            msgs.append({
-                                "role": "tool",
-                                "tool_call_id": tool_id,
-                                "content": result
-                            })
+                            msgs.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tool_id,
+                                    "content": result,
+                                }
+                            )
             else:
                 role = "assistant" if m.role == Role.MODEL else m.role.value
                 content_text = ""
@@ -147,16 +149,18 @@ class OllamaClient(BaseLlmClient):
                         if p.function_call:
                             tool_id = p.function_call.get("id")
                             if tool_id and tool_id in responded_tool_ids:
-                                tool_calls.append({
-                                    "id": tool_id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": p.function_call.get("name"),
-                                        "arguments": json.dumps(
-                                            p.function_call.get("args")
-                                        ),
-                                    },
-                                })
+                                tool_calls.append(
+                                    {
+                                        "id": tool_id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": p.function_call.get("name"),
+                                            "arguments": json.dumps(
+                                                p.function_call.get("args")
+                                            ),
+                                        },
+                                    }
+                                )
 
                 if content_text or tool_calls:
                     msg_obj = {"role": role, "content": content_text}

@@ -1,5 +1,3 @@
-
-
 import pytest
 
 from llm_cli.apps.unified import UnifiedClient
@@ -13,13 +11,14 @@ class MockClient(BaseLlmClient):
     def _send(self, data):
         return "response", {}
 
+
 def test_base_client_custom_model():
     client = MockClient(
         initial_model_alias="default",
         api_key_name="test_key",
         config_section="test",
         pdf_as_base64=False,
-        stdout=False
+        stdout=False,
     )
 
     # Verify initial state
@@ -42,14 +41,22 @@ def test_base_client_custom_model():
     client.set_custom_model("non-existent")
     assert client.model == "non-existent"
 
+
 def test_unified_client_custom_model():
     # Setup UnifiedClient with a mock provider
     # We need to patch get_setting to avoid config errors
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("llm_cli.apps.unified.get_setting", lambda key, section: "provider" if key == "unified_default_provider" else "key")
+        m.setattr(
+            "llm_cli.apps.unified.get_setting",
+            lambda key, section: "provider"
+            if key == "unified_default_provider"
+            else "key",
+        )
 
         # We also need to mock the PROVIDER_CONFIG to use our MockClient
-        m.setattr(UnifiedClient, "PROVIDER_CONFIG", {"mock": (MockClient, "mock_section")})
+        m.setattr(
+            UnifiedClient, "PROVIDER_CONFIG", {"mock": (MockClient, "mock_section")}
+        )
 
         client = UnifiedClient(
             initial_provider="mock",
@@ -57,7 +64,7 @@ def test_unified_client_custom_model():
             api_key_name="test_key",
             config_section="test",
             pdf_as_base64=False,
-            stdout=False
+            stdout=False,
         )
 
         # Verify initial state

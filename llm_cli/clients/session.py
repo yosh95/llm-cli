@@ -119,9 +119,7 @@ class LlmCliCompleter(Completer):
             if text.startswith(cmd + " "):
                 sub_text = text[len(cmd) + 1 :]
                 new_doc = Document(sub_text, cursor_position=len(sub_text))
-                yield from self.path_completer.get_completions(
-                    new_doc, complete_event
-                )
+                yield from self.path_completer.get_completions(new_doc, complete_event)
 
 
 @kb.add("c-delete")

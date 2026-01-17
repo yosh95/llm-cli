@@ -130,10 +130,6 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
         p_config["cse_id"] = prompt_input(
             "Google Custom Search Engine ID (Optional)", p_config.get("cse_id")
         )
-        p_config["image_model"] = prompt_input(
-            "Model for Image Generation",
-            p_config.get("image_model", DEFAULTS.get(provider, {}).get("image_model")),
-        )
 
     print(f"\nModel Aliases for {name} (Press Enter to keep default):")
     m_config = p_config.setdefault("models", {})
@@ -141,9 +137,24 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
     # Configure default models and aliases
     provider_defaults = DEFAULTS.get(provider, {}).get("models", {})
     for alias, def_model in provider_defaults.items():
-        m_config[alias] = prompt_input(
-            f"Model for alias '{alias}'", m_config.get(alias, def_model)
-        )
+        current_val = m_config.get(alias, def_model)
+        user_input = prompt_input(f"Model for alias '{alias}'", current_val)
+
+        # If the input looks like a dictionary string (common when defaults have dicts),
+        # try to convert it back to a real dictionary so tomli_w saves it correctly.
+        if isinstance(user_input, str) and user_input.startswith("{"):
+            try:
+                import ast
+
+                parsed = ast.literal_eval(user_input)
+                if isinstance(parsed, dict):
+                    m_config[alias] = parsed
+                else:
+                    m_config[alias] = user_input
+            except (ValueError, SyntaxError):
+                m_config[alias] = user_input
+        else:
+            m_config[alias] = user_input
 
 
 def configure_general(config: Dict[str, Any]):
@@ -179,10 +190,9 @@ def configure_general(config: Dict[str, Any]):
         "Enable Reasoning/Thinking display by default?",
         g_config.get("enable_reasoning", True),
     )
-    g_config["request_timeout"] = int(prompt_input(
-        "Request Timeout (seconds)",
-        g_config.get("request_timeout", 180)
-    ))
+    g_config["request_timeout"] = int(
+        prompt_input("Request Timeout (seconds)", g_config.get("request_timeout", 180))
+    )
 
 
 def configure_mcp(config: Dict[str, Any]):

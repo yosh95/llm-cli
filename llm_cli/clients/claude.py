@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from llm_cli.clients.base import BaseLlmClient
+from llm_cli.clients.config import get_setting
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
@@ -12,6 +13,10 @@ class ClaudeClient(BaseLlmClient):
     Client for interacting with the Anthropic Claude API.
 
     Supports vision, tool calling, and extended thinking modes.
+
+    Extended thinking allows Claude to reason through complex problems
+    before responding. Claude 4 models return summarized thinking content,
+    while Claude Sonnet 3.7 returns full thinking output.
     """
 
     API_URL = "https://api.anthropic.com/v1/messages"
@@ -24,6 +29,10 @@ class ClaudeClient(BaseLlmClient):
             config_section="anthropic",
             pdf_as_base64=True,
             **kwargs,
+        )
+        # Load thinking budget from config (default: 1024)
+        self.default_thinking_budget = (
+            get_setting("thinking_budget", "anthropic") or 1024
         )
 
     def _load_model_aliases(self):
@@ -48,12 +57,19 @@ class ClaudeClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
-        # Enable extended thinking
-        if self.reasoning_enabled:
-            payload["thinking"] = {"type": "enabled", "budget_tokens": 1024}
+        # Enable extended thinking if include_thoughts is set
+        if self.include_thoughts:
+            budget = (
+                self.thinking_budget
+                if self.thinking_budget
+                else self.default_thinking_budget
+            )
+            if isinstance(budget, str):
+                budget = int(budget)
+            payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
             # max_tokens must be greater than budget_tokens
-            if payload.get("max_tokens", 0) <= 1024:
-                payload["max_tokens"] = 2048
+            if payload.get("max_tokens", 0) <= budget:
+                payload["max_tokens"] = budget + 1024
 
         headers = {
             "x-api-key": self.api_key,
@@ -81,9 +97,11 @@ class ClaudeClient(BaseLlmClient):
                     model_parts.append(ContentPart(text=text_content))
                 elif block["type"] == "thinking":
                     thought = block["thinking"]
-                    model_parts.append(ContentPart(thought=thought))
-                    if self.reasoning_enabled:
-                        full_text += f"\n> **Reasoning:** {thought}\n\n"
+                    signature = block.get("signature")
+                    model_parts.append(
+                        ContentPart(thought=thought, thought_signature=signature)
+                    )
+                    full_text += f"\n> **Reasoning:** {thought}\n\n"
                 elif block["type"] == "tool_use":
                     model_parts.append(
                         ContentPart(
@@ -167,7 +185,10 @@ class ClaudeClient(BaseLlmClient):
                         content.append({"type": "text", "text": p})
                     elif isinstance(p, ContentPart):
                         if p.thought:
-                            content.append({"type": "thinking", "thinking": p.thought})
+                            thinking_block = {"type": "thinking", "thinking": p.thought}
+                            if p.thought_signature:
+                                thinking_block["signature"] = p.thought_signature
+                            content.append(thinking_block)
                         if p.text and p.text.strip():
                             content.append({"type": "text", "text": p.text})
                         if p.function_call:

@@ -8,16 +8,21 @@ from llm_cli.clients.config import get_setting
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
-DEFAULT_API_URL = "https://api.openai.com/v1/chat/completions"
+# OpenAI Responses API endpoint (recommended for reasoning models)
+DEFAULT_API_URL = "https://api.openai.com/v1/responses"
 IMAGE_API_URL = "https://api.openai.com/v1/images/generations"
 
 
 class OpenAIClient(BaseLlmClient):
     """
-    Client for interacting with OpenAI's Chat Completions API and Images API.
+    Client for interacting with OpenAI's Responses API and Images API.
 
-    Supports vision, tool calling, reasoning (thinking) modes,
+    Supports vision, tool calling, reasoning modes with summary output,
     and DALL-E image generation.
+
+    Note: This client uses the Responses API (not Chat Completions) for better
+    support of reasoning models like GPT-5 and o-series. Reasoning tokens are
+    not directly visible, but a summary can be retrieved via reasoning.summary.
     """
 
     def __init__(self, initial_model_alias: str = "default", **kwargs):
@@ -33,6 +38,10 @@ class OpenAIClient(BaseLlmClient):
         config_url = get_setting("api_url", "openai")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
+        # Load reasoning configuration from config
+        self.reasoning_effort = get_setting("reasoning_effort", "openai") or "medium"
+        self.reasoning_summary = get_setting("reasoning_summary", "openai") or "auto"
+
     def _load_model_aliases(self):
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
@@ -46,24 +55,49 @@ class OpenAIClient(BaseLlmClient):
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         """
-        Sends the conversation history and new data to OpenAI.
+        Sends the conversation history and new data to OpenAI Responses API.
         """
         if self._is_image_model():
             return self._send_image_generation(data)
 
-        messages = self._build_messages(data)
+        input_items = self._build_input_items(data)
         payload = {
             "model": self.model,
-            "messages": messages,
+            "input": input_items,
         }
+
+        # Add system instructions if enabled
+        if self.system_prompt and self.system_prompt_enabled:
+            payload["instructions"] = self.system_prompt
+
+        # Add tools if enabled
         if self.active_tools and self.tools_enabled:
-            payload["tools"] = registry.get_openai_spec(
+            standard_tools = registry.get_openai_spec(
                 self.active_tools, provider=self.config_section
             )
+            # Transform for Responses API: Move function fields to top level
+            transformed_tools = []
+            for t in standard_tools:
+                if t.get("type") == "function" and "function" in t:
+                    f = t["function"]
+                    transformed_tools.append(
+                        {
+                            "type": "function",
+                            "name": f.get("name"),
+                            "description": f.get("description"),
+                            "parameters": f.get("parameters"),
+                        }
+                    )
+                else:
+                    transformed_tools.append(t)
+            payload["tools"] = transformed_tools
 
-        # Enable reasoning effort for o1-style models if requested
-        if self.reasoning_enabled:
-            payload["reasoning_effort"] = "medium"
+        # Configure reasoning for reasoning models (GPT-5, o-series)
+        if self.include_thoughts:
+            payload["reasoning"] = {
+                "effort": self.reasoning_effort,
+                "summary": self.reasoning_summary,
+            }
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -81,30 +115,40 @@ class OpenAIClient(BaseLlmClient):
             response.raise_for_status()
             res = response.json()
 
-            choice = res["choices"][0]["message"]
             model_parts: List[ContentPart] = []
             full_text = ""
 
-            # Extract reasoning/thought if present (OpenAI o1 models)
-            reasoning = choice.get("reasoning_content")
-            if reasoning:
-                model_parts.append(ContentPart(thought=reasoning))
-                if self.reasoning_enabled:
-                    full_text += f"\n> **Reasoning:** {reasoning}\n\n"
+            # Parse Responses API output array
+            for item in res.get("output", []):
+                item_type = item.get("type")
 
-            if choice.get("content"):
-                text_content = choice["content"]
-                full_text += text_content
-                model_parts.append(ContentPart(text=text_content))
+                if item_type == "reasoning":
+                    # Extract reasoning summary if available
+                    summaries = item.get("summary", [])
+                    for summary in summaries:
+                        if summary.get("type") == "summary_text":
+                            reasoning_text = summary.get("text", "")
+                            if reasoning_text:
+                                model_parts.append(ContentPart(thought=reasoning_text))
+                                full_text += f"\n> **Reasoning:** {reasoning_text}\n\n"
 
-            if choice.get("tool_calls"):
-                for tc in choice["tool_calls"]:
+                elif item_type == "message":
+                    # Extract text content from message
+                    for content_block in item.get("content", []):
+                        if content_block.get("type") == "output_text":
+                            text_content = content_block.get("text", "")
+                            if text_content:
+                                full_text += text_content
+                                model_parts.append(ContentPart(text=text_content))
+
+                elif item_type == "function_call":
+                    # Handle function/tool calls
                     model_parts.append(
                         ContentPart(
                             function_call={
-                                "id": tc["id"],
-                                "name": tc["function"]["name"],
-                                "args": json.loads(tc["function"]["arguments"]),
+                                "id": item.get("call_id", item.get("id")),
+                                "name": item.get("name"),
+                                "args": json.loads(item.get("arguments", "{}")),
                             }
                         )
                     )
@@ -168,6 +212,7 @@ class OpenAIClient(BaseLlmClient):
             elif "url" in data_item:
                 img_url = data_item["url"]
                 from llm_cli.modules.media_utils import fetch_url_content
+
                 img_data, fetched_mime = fetch_url_content(img_url)
                 if fetched_mime:
                     mime_type = fetched_mime
@@ -192,9 +237,7 @@ class OpenAIClient(BaseLlmClient):
                 role=Role.MODEL,
                 parts=[
                     ContentPart(text=display_text),
-                    ContentPart(
-                        inline_data={"mimeType": mime_type, "data": img_data}
-                    ),
+                    ContentPart(inline_data={"mimeType": mime_type, "data": img_data}),
                 ],
             )
             self._update_history(data, model_msg)
@@ -224,11 +267,9 @@ class OpenAIClient(BaseLlmClient):
             self.conversation.append(Message(role=Role.USER, parts=user_parts))
         self.conversation.append(model_msg)
 
-    def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
-        """Converts the internal conversation history to OpenAI API format."""
-        msgs = []
-        if self.system_prompt and self.system_prompt_enabled:
-            msgs.append({"role": "system", "content": self.system_prompt})
+    def _build_input_items(self, data: List[DataSource]) -> List[Dict[str, Any]]:
+        """Converts the internal conversation history to OpenAI Responses API format."""
+        items = []
 
         # Track tool_call_ids that have responses
         responded_tool_ids = set()
@@ -242,6 +283,7 @@ class OpenAIClient(BaseLlmClient):
 
         for m in self.conversation:
             if m.role == Role.TOOL:
+                # Add function call outputs
                 for p in m.parts:
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
@@ -252,24 +294,39 @@ class OpenAIClient(BaseLlmClient):
                             and tool_id in responded_tool_ids
                         ):
                             result = func_resp.get("response", {}).get("result", "")
-                            msgs.append(
+                            items.append(
                                 {
-                                    "role": "tool",
-                                    "tool_call_id": tool_id,
-                                    "content": str(result),
+                                    "type": "function_call_output",
+                                    "call_id": tool_id,
+                                    "output": str(result),
                                 }
                             )
             else:
-                role = "assistant" if m.role == Role.MODEL else m.role.value
-                content_text = ""
-                tool_calls = []
+                role = "assistant" if m.role == Role.MODEL else "user"
+                content_parts = []
+                function_calls = []
 
                 for p in m.parts:
                     if isinstance(p, str):
-                        content_text += p
+                        content_parts.append({"type": "input_text", "text": p})
                     elif isinstance(p, ContentPart):
                         if p.text:
-                            content_text += p.text
+                            text_type = (
+                                "output_text" if role == "assistant" else "input_text"
+                            )
+                            content_parts.append({"type": text_type, "text": p.text})
+                        if p.inline_data and role == "user":
+                            mime = p.inline_data.get("mimeType", "")
+                            if mime.startswith("image/"):
+                                content_parts.append(
+                                    {
+                                        "type": "input_image",
+                                        "image_url": (
+                                            f"data:{mime};base64,"
+                                            f"{p.inline_data.get('data', '')}"
+                                        ),
+                                    }
+                                )
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
@@ -278,41 +335,51 @@ class OpenAIClient(BaseLlmClient):
                                 and tool_id != "unknown"
                                 and tool_id in responded_tool_ids
                             ):
-                                tool_calls.append(
+                                function_calls.append(
                                     {
-                                        "id": tool_id,
-                                        "type": "function",
-                                        "function": {
-                                            "name": func_call.get("name", "unknown"),
-                                            "arguments": json.dumps(
-                                                func_call.get("args", {})
-                                            ),
-                                        },
+                                        "type": "function_call",
+                                        "call_id": tool_id,
+                                        "name": func_call.get("name", "unknown"),
+                                        "arguments": json.dumps(
+                                            func_call.get("args", {})
+                                        ),
                                     }
                                 )
 
-                if content_text or tool_calls:
-                    msg = {"role": role, "content": content_text or None}
-                    if tool_calls:
-                        msg["tool_calls"] = tool_calls
-                    msgs.append(msg)
+                # Add message item
+                if content_parts:
+                    items.append(
+                        {
+                            "type": "message",
+                            "role": role,
+                            "content": content_parts,
+                        }
+                    )
+
+                # Add function calls separately
+                for fc in function_calls:
+                    items.append(fc)
 
         # Append incoming data for the next user message
         user_content = []
         for d in data:
             if d.content_type == "text/plain":
-                user_content.append({"type": "text", "text": str(d.content)})
+                user_content.append({"type": "input_text", "text": str(d.content)})
             elif d.content_type.startswith("image/"):
                 user_content.append(
                     {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{d.content_type};base64,{d.content}"
-                        },
+                        "type": "input_image",
+                        "image_url": f"data:{d.content_type};base64,{d.content}",
                     }
                 )
 
         if user_content:
-            msgs.append({"role": "user", "content": user_content})
+            items.append(
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": user_content,
+                }
+            )
 
-        return msgs
+        return items

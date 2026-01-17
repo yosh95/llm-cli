@@ -1,16 +1,53 @@
+# =============================================================================
+# Gemini (Google)
+# =============================================================================
+# Gemini supports extended thinking with full thinking content visibility.
+# - include_thoughts: Display thinking content in responses
+# - thinking_key: API parameter name for thinking configuration
+# - thinking_budget: Value for the thinking parameter
+#
+# Gemini 3.x models use "thinking_level" with values: "none", "low", "medium", "high"
+# Gemini 2.5 models use "thinking_budget" with token count (e.g., 1024)
 [google]
+include_thoughts = true
 
 [google.models]
-default = "gemini-3-flash-preview"
-lite = "gemini-2.5-flash-lite"
-flash = "gemini-3-flash-preview"
-pro = "gemini-3-pro-preview"
+default = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "medium" }
+lite = { model = "gemini-2.5-flash-lite", thinking_key = "thinking_budget", thinking_budget = 1024 }
+flash = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "medium" }
+pro = { model = "gemini-3-pro-preview", thinking_key = "thinkingLevel", thinking_budget = "high" }
 image = "gemini-3-pro-image-preview"
+
+# =============================================================================
+# OpenAI
+# =============================================================================
+# OpenAI reasoning models (GPT-5, o3, o4-mini) use the Responses API.
+# Reasoning tokens are NOT visible by default - only a summary can be retrieved.
+# - reasoning_effort: Controls how much reasoning the model does
+#   Values: "minimal", "low", "medium", "high", "xhigh" (GPT-5.2+)
+# - reasoning_summary: Whether to include reasoning summary in output
+#   Values: "auto", "concise", "detailed"
+#
+# Note: Reasoning tokens are billed as output tokens even though not visible.
+[openai]
+reasoning_effort = "medium"
+reasoning_summary = "auto"
 
 [openai.models]
 default = "gpt-5.2"
 nano = "gpt-5-nano"
 mini = "gpt-5-mini"
+
+# =============================================================================
+# Anthropic (Claude)
+# =============================================================================
+# Claude supports extended thinking with visible thinking content.
+# - thinking_budget: Maximum tokens for internal reasoning (must be < max_tokens)
+#
+# Claude 4 models return summarized thinking content.
+# Claude Sonnet 3.7 returns full thinking output.
+[anthropic]
+thinking_budget = 1024
 
 [anthropic.models]
 default = "claude-opus-4-5-20251101"
@@ -18,13 +55,28 @@ haiku = "claude-haiku-4-5-20251001"
 sonnet = "claude-sonnet-4-5-20250929"
 opus = "claude-opus-4-5-20251101"
 
+# =============================================================================
+# xAI (Grok)
+# =============================================================================
+# Grok 4 performs internal reasoning but does NOT expose reasoning content
+# via the API. The reasoning_content field is not returned.
+# Reasoning tokens are still billed.
+#
+# Note: Thinking/reasoning display is not supported for Grok.
+[xai]
+# No thinking configuration - Grok 4 does not return reasoning_content
+
 [xai.models]
 default = "grok-4-fast-reasoning"
 non-reasoning = "grok-4-fast-non-reasoning"
 reasoning = "grok-4-fast-reasoning"
 
+# =============================================================================
+# Ollama (Local LLMs)
+# =============================================================================
 [ollama]
 api_url = "http://localhost:11434/v1/chat/completions"
 
 [ollama.models]
-default = "gemma3:270m"
+# No default model configs for Ollama
+

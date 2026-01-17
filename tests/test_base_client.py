@@ -101,6 +101,7 @@ class TestBaseLlmClient:
         # Cleanup
         # Extract path from "**path**" format
         import re
+
         match = re.search(r"\*\*(.+?)\*\*", log_entry)
         if match:
             filename = match.group(1)
@@ -146,7 +147,7 @@ class TestBaseLlmClient:
         session_file = tmp_path / "session.json"
         session_data = [
             {"role": "user", "parts": ["Hello"]},
-            {"role": "model", "parts": [{"text": "Hi there"}]}
+            {"role": "model", "parts": [{"text": "Hi there"}]},
         ]
         with open(session_file, "w") as f:
             json.dump(session_data, f)
@@ -175,4 +176,3 @@ class TestBaseLlmClient:
         result = concrete_client.load_session(str(session_file))
         assert result is False
         assert len(concrete_client.conversation) == 0
-

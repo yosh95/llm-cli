@@ -58,9 +58,7 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
     parser.add_argument(
         "--mcp-server", action="store_true", help="Run as an MCP server"
     )
-    parser.add_argument(
-        "--session", help="Load a saved session JSON file on startup"
-    )
+    parser.add_argument("--session", help="Load a saved session JSON file on startup")
 
     for arg_name, arg_config in config.extra_args:
         parser.add_argument(arg_name, **arg_config)

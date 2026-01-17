@@ -96,6 +96,7 @@ class BaseLlmClient(ABC):
         self.live_debug = live_debug
 
         self.tools_enabled = True
+        self._reasoning_enabled = False
 
         # Load model and its specific configuration (including thinking settings)
         self.available_models: Dict[str, Any] = {}
@@ -237,6 +238,15 @@ class BaseLlmClient(ABC):
                     raise last_exception
 
         raise last_exception if last_exception else Exception("Request failed")
+
+    @property
+    def reasoning_enabled(self) -> bool:
+        return getattr(self, "_reasoning_enabled", False)
+
+    @reasoning_enabled.setter
+    def reasoning_enabled(self, value: bool):
+        self._reasoning_enabled = value
+        self.include_thoughts = value
 
     def set_model(self, alias: str) -> bool:
         """
@@ -637,6 +647,28 @@ class BaseLlmClient(ABC):
             console.print(f"[magenta]Live debug mode {status}.[/magenta]")
             return True
 
+        if cmd in ("thought", "reasoning"):
+            if args == "on":
+                self.reasoning_enabled = True
+                console.print("[green]Reasoning (thought) enabled.[/green]")
+            elif args == "off":
+                self.reasoning_enabled = False
+                console.print("[yellow]Reasoning (thought) disabled.[/yellow]")
+            elif not args:
+                status = (
+                    "[green]ENABLED[/green]"
+                    if self.reasoning_enabled
+                    else "[red]DISABLED[/red]"
+                )
+                console.print(f"[bold]Reasoning Status:[/bold] {status}")
+                console.print("[dim]Usage: /thought on|off[/dim]")
+            else:
+                console.print(
+                    f"[red]Error: Invalid argument '{args}'. "
+                    "Usage: /thought on|off[/red]"
+                )
+            return True
+
         if cmd in ("info", "i"):
             debug_status = "ON" if self.live_debug else "OFF"
             if not self.tools_enabled:
@@ -651,12 +683,13 @@ class BaseLlmClient(ABC):
                 else:
                     tools_str = " None"
 
-            thinking_str = (
-                f"[green]Always ON[/green] "
-                f"(Key: {self.thinking_key}, Budget: {self.thinking_budget})"
-            )
-            if self.include_thoughts:
-                thinking_str += " [dim](includeThoughts=True)[/dim]"
+            if self.reasoning_enabled:
+                thinking_str = (
+                    f"[green]ENABLED[/green] (Key: {self.thinking_key or 'default'}, "
+                    f"Budget: {self.thinking_budget or 'default'})"
+                )
+            else:
+                thinking_str = "[red]DISABLED[/red]"
 
             console.print(
                 "[bold]Session Info:[/bold]\n"
@@ -694,6 +727,7 @@ class BaseLlmClient(ABC):
             "  /provider (p)  List available providers or switch provider\n"
             "                 (e.g. /p openai)\n"
             "  /tools on|off  Show or toggle tool status\n"
+            "  /thought on|off Show or toggle reasoning/thought status\n"
             "\n"
             "[bold]Exit Application:[/bold]\n"
             "  Use [cyan]escape[/cyan], [cyan]Ctrl+C[/cyan], "

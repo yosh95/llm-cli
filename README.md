@@ -30,6 +30,7 @@ The AI can use tools like `google_search` to find the latest information. In thi
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
 -   **Multimodal Output (Gemini / OpenAI / Grok)**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`, `/m dall-e-3` or `/m grok-2-image`). Images are automatically saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
+-   **Reasoning / Thought Toggle (New!)**: Explicitly control when the AI performs internal reasoning (e.g., DeepSeek-R1 via Ollama, Claude 3.7 Thinking, Gemini 2.0 Thinking). **Disabled by default to save tokens**. Toggle mid-session using `/thought on|off`.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
 -   **OpenAI-Compatible Custom Endpoints**: Use local LLMs (via Ollama, vLLM, etc.) or other OpenAI-compatible services by specifying a custom `api_url` in the configuration.
@@ -325,60 +326,16 @@ Modern LLMs support "reasoning" or "extended thinking" modes where the model per
 
 ### Configuration
 
-Reasoning settings are configured in two places:
-
-1. **`defaults.toml`** (Package defaults): Located at `llm_cli/apps/defaults.toml`. Contains default settings for all providers.
-
-2. **`~/.config/llm_cli/config.toml`** (User config): Your personal settings that override the defaults.
-
-#### Gemini Configuration
-
-```toml
-[google]
-include_thoughts = true  # Display thinking content in responses
-
-[google.models]
-# Gemini 3.x: use thinking_level ("none", "low", "medium", "high")
-default = { model = "gemini-3-flash-preview", thinking_key = "thinking_level", thinking_budget = "medium" }
-# Gemini 2.5: use thinking_budget (token count)
-lite = { model = "gemini-2.5-flash-lite", thinking_key = "thinking_budget", thinking_budget = 1024 }
-```
-
-#### Claude Configuration
-
-```toml
-[anthropic]
-thinking_budget = 1024  # Maximum tokens for extended thinking
-
-[anthropic.models]
-default = "claude-opus-4-5-20251101"
-```
-
-#### OpenAI Configuration
-
-```toml
-[openai]
-reasoning_effort = "medium"  # "minimal", "low", "medium", "high", "xhigh"
-reasoning_summary = "auto"   # "auto", "concise", "detailed"
-
-[openai.models]
-default = "gpt-5.2"
-```
-
-> **Note**: OpenAI reasoning tokens are NOT directly visible. Only a summary is available via `reasoning_summary`. Reasoning tokens are still billed as output tokens.
-
-#### xAI (Grok) - Not Supported
-
-Grok 4 performs internal reasoning but does **not** expose reasoning content via the API. There is no configuration needed, but be aware that reasoning tokens are still billed.
+Reasoning settings were previously configured in `defaults.toml` and `config.toml`. However, to save tokens, **reasoning is now disabled by default**.
 
 ### Toggling Reasoning Display
 
-Use the `/reasoning` command in chat to toggle reasoning display:
+Use the `/thought` command (or `/reasoning`) in chat to toggle reasoning:
 
 ```bash
-> /reasoning on   # Enable reasoning display
-> /reasoning off  # Disable reasoning display
-> /reasoning      # Show current status
+> /thought on   # Enable reasoning (and display thinking content if supported)
+> /thought off  # Disable reasoning
+> /thought      # Show current status
 ```
 
 ## Utility Scripts
@@ -601,8 +558,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/template` (または `/t`): 定型プロンプトを呼び出し、入力欄にセット (例: `/t proofread`)。
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツール等）を表示。
 -   `/tools [on|off]`: ツールの有効・無効を切り替え。
--   `/reasoning [on|off]`: 推論モデルの思考プロセスの表示切り替え。
--   `/checkpoint` (or `/cp`): 進捗を要約し、会話履歴をクリア。
+-   `/thought [on|off]`: 推論（thought）モードの有効・無効を切り替え。
 -   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動添付。
 -   `/save <path>`: 会話履歴をJSONファイルに保存。
 -   `/load <path>`: 会話履歴をJSONファイルから読み込み。
@@ -695,67 +651,19 @@ llm --mcp
 
 | プロバイダ | 思考内容の表示 | 設定 |
 | :--- | :--- | :--- |
-| **Gemini** | ✅ 完全表示 | `include_thoughts = true`, `thinking_level` |
-| **Claude** | ✅ 要約版（Claude 4）/ 完全版（3.7） | `thinking_budget`（トークン数） |
-| **OpenAI** | ⚠️ 要約のみ | `reasoning_effort`, `reasoning_summary` |
+| **Gemini** | ✅ 完全表示 | `/thought on` で有効化 |
+| **Claude** | ✅ 要約版（Claude 4）/ 完全版（3.7） | `/thought on` で有効化 |
+| **OpenAI** | ⚠️ 要約のみ | `/thought on` で有効化 |
 | **xAI (Grok)** | ❌ 非対応 | N/A（推論トークンは課金される） |
 
-### 設定方法
+### 推論（thought）の切り替え
 
-Reasoning設定は2箇所で構成されています：
-
-1. **`defaults.toml`**（パッケージデフォルト）: `llm_cli/apps/defaults.toml` にあります。すべてのプロバイダのデフォルト設定が含まれています。
-
-2. **`~/.config/llm_cli/config.toml`**（ユーザー設定）: デフォルトを上書きする個人設定ファイルです。
-
-#### Gemini の設定
-
-```toml
-[google]
-include_thoughts = true  # 思考内容を応答に表示
-
-[google.models]
-# Gemini 3.x: thinking_level を使用 ("none", "low", "medium", "high")
-default = { model = "gemini-3-flash-preview", thinking_key = "thinking_level", thinking_budget = "medium" }
-# Gemini 2.5: thinking_budget を使用（トークン数）
-lite = { model = "gemini-2.5-flash-lite", thinking_key = "thinking_budget", thinking_budget = 1024 }
-```
-
-#### Claude の設定
-
-```toml
-[anthropic]
-thinking_budget = 1024  # 拡張思考の最大トークン数
-
-[anthropic.models]
-default = "claude-opus-4-5-20251101"
-```
-
-#### OpenAI の設定
-
-```toml
-[openai]
-reasoning_effort = "medium"  # "minimal", "low", "medium", "high", "xhigh"
-reasoning_summary = "auto"   # "auto", "concise", "detailed"
-
-[openai.models]
-default = "gpt-5.2"
-```
-
-> **注意**: OpenAIの推論トークンは直接表示されません。`reasoning_summary` で要約のみ取得可能です。推論トークンは出力トークンとして課金されます。
-
-#### xAI (Grok) - 非対応
-
-Grok 4は内部で推論を行いますが、APIを通じて推論内容を**公開していません**。設定は不要ですが、推論トークンは課金されることに注意してください。
-
-### 推論表示の切り替え
-
-チャット内で `/reasoning` コマンドを使用して推論表示を切り替えます：
+以前は `config.toml` での常時設定が必要でしたが、**トークン節約のため現在はデフォルトで無効**になっています。チャット内で `/thought` コマンドを使用していつでも切り替えが可能です。
 
 ```bash
-> /reasoning on   # 推論表示を有効化
-> /reasoning off  # 推論表示を無効化
-> /reasoning      # 現在の状態を表示
+> /thought on   # 推論（thought）を有効化（対応モデルで思考プロセスを表示・取得）
+> /thought off  # 推論を無効化
+> /thought      # 現在の状態を表示
 ```
 
 ## ユーティリティ・スクリプト

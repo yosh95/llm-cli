@@ -285,13 +285,15 @@ class GeminiClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
-        if self.thinking_key or self.include_thoughts:
+        if self.reasoning_enabled:
             thinking_config = {}
             if self.include_thoughts:
                 thinking_config["include_thoughts"] = True
 
-            if self.thinking_key and self.thinking_budget:
-                thinking_config[self.thinking_key] = self.thinking_budget
+            # Use defaults if thinking_key/budget are not set (e.g. from config)
+            key = self.thinking_key or "thinkingLevel"
+            budget = self.thinking_budget or "medium"
+            thinking_config[key] = budget
 
             payload["generationConfig"] = {"thinking_config": thinking_config}
 

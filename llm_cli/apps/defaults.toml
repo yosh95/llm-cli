@@ -9,13 +9,12 @@
 # Gemini 3.x models use "thinking_level" with values: "none", "low", "medium", "high"
 # Gemini 2.5 models use "thinking_budget" with token count (e.g., 1024)
 [google]
-include_thoughts = true
 
 [google.models]
-default = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "medium" }
-lite = { model = "gemini-2.5-flash-lite", thinking_key = "thinking_budget", thinking_budget = 1024 }
-flash = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "medium" }
-pro = { model = "gemini-3-pro-preview", thinking_key = "thinkingLevel", thinking_budget = "high" }
+default = "gemini-3-flash-preview"
+lite = "gemini-2.5-flash-lite"
+flash = "gemini-3-flash-preview"
+pro = "gemini-3-pro-preview"
 image = "gemini-3-pro-image-preview"
 
 # =============================================================================
@@ -30,8 +29,6 @@ image = "gemini-3-pro-image-preview"
 #
 # Note: Reasoning tokens are billed as output tokens even though not visible.
 [openai]
-reasoning_effort = "medium"
-reasoning_summary = "auto"
 
 [openai.models]
 default = "gpt-5.2"
@@ -47,7 +44,6 @@ mini = "gpt-5-mini"
 # Claude 4 models return summarized thinking content.
 # Claude Sonnet 3.7 returns full thinking output.
 [anthropic]
-thinking_budget = 1024
 
 [anthropic.models]
 default = "claude-opus-4-5-20251101"

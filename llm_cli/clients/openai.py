@@ -38,10 +38,6 @@ class OpenAIClient(BaseLlmClient):
         config_url = get_setting("api_url", "openai")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
-        # Load reasoning configuration from config
-        self.reasoning_effort = get_setting("reasoning_effort", "openai") or "medium"
-        self.reasoning_summary = get_setting("reasoning_summary", "openai") or "auto"
-
     def _load_model_aliases(self):
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
@@ -93,10 +89,10 @@ class OpenAIClient(BaseLlmClient):
             payload["tools"] = transformed_tools
 
         # Configure reasoning for reasoning models (GPT-5, o-series)
-        if self.include_thoughts:
+        if self.reasoning_enabled:
             payload["reasoning"] = {
-                "effort": self.reasoning_effort,
-                "summary": self.reasoning_summary,
+                "effort": getattr(self, "reasoning_effort", "medium"),
+                "summary": getattr(self, "reasoning_summary", "auto"),
             }
 
         headers = {

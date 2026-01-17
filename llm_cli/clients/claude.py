@@ -3,7 +3,6 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from llm_cli.clients.base import BaseLlmClient
-from llm_cli.clients.config import get_setting
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
@@ -30,10 +29,6 @@ class ClaudeClient(BaseLlmClient):
             pdf_as_base64=True,
             **kwargs,
         )
-        # Load thinking budget from config (default: 1024)
-        self.default_thinking_budget = (
-            get_setting("thinking_budget", "anthropic") or 1024
-        )
 
     def _load_model_aliases(self):
         """Loads model aliases from the configuration."""
@@ -57,12 +52,12 @@ class ClaudeClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
-        # Enable extended thinking if include_thoughts is set
-        if self.include_thoughts:
+        # Enable extended thinking if reasoning_enabled is set
+        if self.reasoning_enabled:
             budget = (
                 self.thinking_budget
                 if self.thinking_budget
-                else self.default_thinking_budget
+                else 1024
             )
             if isinstance(budget, str):
                 budget = int(budget)

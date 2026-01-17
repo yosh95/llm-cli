@@ -186,10 +186,6 @@ def configure_general(config: Dict[str, Any]):
     )
 
     print("\nBehavior Settings:")
-    g_config["enable_reasoning"] = prompt_bool(
-        "Enable Reasoning/Thinking display by default?",
-        g_config.get("enable_reasoning", True),
-    )
     g_config["request_timeout"] = int(
         prompt_input("Request Timeout (seconds)", g_config.get("request_timeout", 180))
     )

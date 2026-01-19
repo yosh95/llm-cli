@@ -270,11 +270,13 @@ class ChatSession:
             display_name = self.client.get_display_name()
 
             # Use status context for spinner (clears automatically after exit)
+            start_time = datetime.datetime.now()
             with console.status(
                 f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan]",
                 spinner="dots",
             ):
                 res = self.client._send(data)
+            duration = (datetime.datetime.now() - start_time).total_seconds()
 
             # Response is now expected to be a tuple ((text, thought), usage)
             response_tuple, _ = res if res else ((None, None), None)
@@ -297,21 +299,18 @@ class ChatSession:
                 else:
                     # Wrap the textual response in a Panel for clarity
                     # if we are in a ReAct loop. Otherwise, use a simple Rule.
+                    duration_str = f" ({duration:.1f}s)"
+                    title_str = f"[bold cyan]{display_name}{duration_str}[/bold cyan]"
                     if self.client._has_pending_tool_calls():
                         console.print(
                             Panel(
                                 CustomMarkdown(response_text),
-                                title=f"[bold cyan]{display_name}[/bold cyan]",
+                                title=title_str,
                                 border_style="cyan",
                             )
                         )
                     else:
-                        console.print(
-                            Rule(
-                                title=f"[bold cyan]{display_name}[/bold cyan]",
-                                style="cyan",
-                            )
-                        )
+                        console.print(Rule(title=title_str, style="cyan"))
                         console.print(CustomMarkdown(response_text))
                         console.print(Rule(style="cyan"))
 

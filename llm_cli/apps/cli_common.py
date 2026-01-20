@@ -70,6 +70,16 @@ def run_client_cli(config: ClientConfig) -> None:
     parser = create_standard_parser(config)
     args = parser.parse_args()
 
+    if args.stdout and args.mcp:
+        console.print("[red]Error: --stdout and --mcp cannot be used together.[/red]")
+        sys.exit(1)
+
+    if args.stdout and args.mcp_server:
+        console.print(
+            "[red]Error: --stdout and --mcp-server cannot be used together.[/red]"
+        )
+        sys.exit(1)
+
     if args.mcp_server:
         try:
             from llm_cli.apps.mcp_server import main as run_mcp_server
@@ -81,13 +91,21 @@ def run_client_cli(config: ClientConfig) -> None:
             sys.exit(1)
 
     stdout = args.stdout or not sys.stdin.isatty()
+
+    initial_tools = None
+    enable_mcp = args.mcp
+
+    if stdout:
+        enable_mcp = False
+        initial_tools = []
+
     client_kwargs = {
         "initial_model_alias": args.model,
         "stdout": stdout,
         "render_markdown": not args.raw,
-        "initial_tools": None,
+        "initial_tools": initial_tools,
         "disable_system_prompt": False,
-        "enable_mcp": args.mcp,
+        "enable_mcp": enable_mcp,
         "live_debug": False,
     }
 
@@ -110,6 +128,11 @@ def run_client_cli(config: ClientConfig) -> None:
         elif args.sources:
             client.process_sources(args.sources)
         else:
+            if stdout:
+                console.print(
+                    "[red]Error: --stdout requires input (from stdin or arguments).[/red]"
+                )
+                sys.exit(1)
             client.talk()
     except ProviderSwitchRequest as e:
         console.print(

@@ -149,8 +149,26 @@ class CommandValidator:
         self._check_dangerous_arguments(base_command, parts)
 
     def _check_dangerous_patterns(self, command: str) -> None:
+        # Mask quoted strings to avoid false positives for dangerous patterns inside quotes.
+        # This allows things like: git commit -m "first\nsecond" or grep "foo; bar"
+        masked_command = command
+
+        # Mask double-quoted strings (handling escaped quotes)
+        # Regex explanation:
+        # "        Match opening quote
+        # (?:      Non-capturing group for content
+        #   [^"\\] Match any character except quote or backslash
+        #   |      OR
+        #   \\.    Match any escaped character
+        # )*       Repeat content zero or more times
+        # "        Match closing quote
+        masked_command = re.sub(r'"(?:[^"\\]|\\.)*"', '""', masked_command)
+
+        # Mask single-quoted strings (handling escaped quotes)
+        masked_command = re.sub(r"'(?:[^'\\]|\\.)*'", "''", masked_command)
+
         for pattern in self.DANGEROUS_PATTERNS:
-            if re.search(pattern, command):
+            if re.search(pattern, masked_command):
                 # Use repr() to make invisible characters like \n visible
                 readable_pattern = repr(pattern).strip("'\"")
                 if pattern == r"\n":
@@ -160,7 +178,7 @@ class CommandValidator:
                     f"Command contains dangerous pattern '{readable_pattern}'."
                 )
 
-        if re.search(r"[<>]", command):
+        if re.search(r"[<>]", masked_command):
             raise CommandValidationError("I/O redirection (> or <) is forbidden.")
 
     def _check_paths(self, parts: List[str]) -> None:

@@ -149,7 +149,8 @@ class CommandValidator:
         self._check_dangerous_arguments(base_command, parts)
 
     def _check_dangerous_patterns(self, command: str) -> None:
-        # Mask quoted strings to avoid false positives for dangerous patterns inside quotes.
+        # Mask quoted strings to avoid false positives for dangerous patterns
+        # inside quotes.
         # This allows things like: git commit -m "first\nsecond" or grep "foo; bar"
         masked_command = command
 

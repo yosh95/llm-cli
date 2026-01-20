@@ -513,10 +513,11 @@ class ChatSession:
             # Use consistent display name for reasoning
             display_name = self.client.get_display_name()
             duration_str = f" ({duration:.1f}s)" if duration is not None else ""
+            title = f"[bold cyan]{display_name} (Reasoning){duration_str}[/bold cyan]"
             console.print(
                 Panel(
                     explanation,
-                    title=f"[bold cyan]{display_name} (Reasoning){duration_str}[/bold cyan]",
+                    title=title,
                     border_style="cyan",
                 )
             )

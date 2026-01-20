@@ -284,10 +284,11 @@ class ChatSession:
 
             # Display thought content in a separate panel if available
             if thought_text and self.client.reasoning_enabled:
+                duration_str = f" ({duration:.1f}s)"
                 console.print(
                     Panel(
                         CustomMarkdown(thought_text),
-                        title="[bold dim]Thought[/bold dim]",
+                        title=f"[bold dim]Thought{duration_str}[/bold dim]",
                         border_style="dim",
                     )
                 )
@@ -330,7 +331,7 @@ class ChatSession:
 
             for part in last_msg.parts:
                 if isinstance(part, ContentPart) and part.function_call:
-                    res_tool = self._execute_tool_call(part)
+                    res_tool = self._execute_tool_call(part, duration=duration)
                     if not res_tool:
                         return
                     tool_result, injected = res_tool
@@ -490,7 +491,9 @@ class ChatSession:
     def _confirm(self, message: str) -> bool:
         return self._get_input(message, exit_on_escape=True).lower() == "y"
 
-    def _execute_tool_call(self, part: ContentPart) -> Optional[Any]:
+    def _execute_tool_call(
+        self, part: ContentPart, duration: Optional[float] = None
+    ) -> Optional[Any]:
         call = part.function_call
         tool_id, name, args = (
             call.get("id", "unknown"),
@@ -509,10 +512,11 @@ class ChatSession:
         if explanation:
             # Use consistent display name for reasoning
             display_name = self.client.get_display_name()
+            duration_str = f" ({duration:.1f}s)" if duration is not None else ""
             console.print(
                 Panel(
                     explanation,
-                    title=f"[bold cyan]{display_name} (Reasoning)[/bold cyan]",
+                    title=f"[bold cyan]{display_name} (Reasoning){duration_str}[/bold cyan]",
                     border_style="cyan",
                 )
             )

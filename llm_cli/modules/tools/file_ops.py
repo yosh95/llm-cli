@@ -113,13 +113,26 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
         if not p.is_file():
             return f"Error: '{path}' is not a file."
 
-        lines = p.read_text(encoding="utf-8").splitlines()
-        start = max(1, start_line) - 1
-        end = min(len(lines), end_line) if end_line else len(lines)
-        content = "\n".join(lines[start:end])
+        try:
+            lines = p.read_text(encoding="utf-8").splitlines()
+            start = max(1, start_line) - 1
+            end = min(len(lines), end_line) if end_line else len(lines)
+            content = "\n".join(lines[start:end])
 
-        max_output = int(get_setting("max_read_file_len", "general") or 50000)
-        return content[:max_output]
+            max_output = int(get_setting("max_read_file_len", "general") or 50000)
+            return content[:max_output]
+        except UnicodeDecodeError:
+            # Fallback to attach_file for binary files
+            from llm_cli.modules.tools.media import attach_file
+
+            result = attach_file(path)
+            if isinstance(result, dict) and "result" in result:
+                result["result"] = (
+                    f"Notice: '{path}' is a binary file. "
+                    f"Automatically attached instead of reading as text.\n"
+                    f"{result['result']}"
+                )
+            return result
     except PathValidationError as e:
         return f"Security Error: {e}"
     except Exception as e:

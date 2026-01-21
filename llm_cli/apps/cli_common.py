@@ -80,6 +80,17 @@ def run_client_cli(config: ClientConfig) -> None:
         )
         sys.exit(1)
 
+    # Check if MCP module is installed when --mcp or --mcp-server is used
+    if args.mcp or args.mcp_server:
+        try:
+            import mcp  # noqa: F401
+        except ImportError:
+            console.print("[red]Error: MCP module is not installed.[/red]")
+            console.print(
+                '[yellow]Please install it using: [bold]pip install "llm-cli[mcp]"[/bold][/yellow]'
+            )
+            sys.exit(1)
+
     if args.mcp_server:
         try:
             from llm_cli.apps.mcp_server import main as run_mcp_server

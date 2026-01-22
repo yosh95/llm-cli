@@ -1,4 +1,12 @@
-# llm-cli: A Unified Command-Line Interface for Multiple LLMs
+# llm-cli: A Unified Command-Line Interface for Multiple LLMs (v0.1.0)
+
+## TL;DR (Quick Start)
+- **Install**: `pip install .` then `llm-cli-config` for API keys.
+- **Chat**: `llm` (agent mode ON by default).
+- **One-shot**: `llm "Summarize this" file.pdf`.
+- **Switch**: `/p gemini` or `/m gpt4o`.
+- **Tools**: Auto file ops, search, MCP remote.
+- **Safe**: Whitelist + approval.
 
 [English] | [日本語](#japanese-description)
 
@@ -6,6 +14,16 @@
 > **注**: 日本語での説明は、このページの後半に記載されています。
 
 `llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
+
+### Quick config.toml Example
+```toml
+[security]
+allowed_commands = ["my_safe_script"]  # Add custom (user responsibility)
+
+[templates]
+proofread = "Proofread this text:"
+```
+
 
 <p align="center">
   <img src="images/llm_cli_overview_en.jpg" width="800" alt="llm-cli overview" />

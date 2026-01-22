@@ -86,9 +86,8 @@ def run_client_cli(config: ClientConfig) -> None:
             import mcp  # noqa: F401
         except ImportError:
             console.print("[red]Error: MCP module is not installed.[/red]")
-            console.print(
-                '[yellow]Please install it using: [bold]pip install "llm-cli[mcp]"[/bold][/yellow]'
-            )
+            console.print("[yellow]Please install it using:[/yellow]")
+            console.print('    [bold]pip install "llm-cli[mcp]"[/bold]')
             sys.exit(1)
 
     if args.mcp_server:
@@ -140,9 +139,8 @@ def run_client_cli(config: ClientConfig) -> None:
             client.process_sources(args.sources)
         else:
             if stdout:
-                console.print(
-                    "[red]Error: --stdout requires input (from stdin or arguments).[/red]"
-                )
+                console.print("[red]Error: --stdout requires input[/red]")
+                console.print("[red](from stdin or arguments).[/red]")
                 sys.exit(1)
             client.talk()
     except ProviderSwitchRequest as e:

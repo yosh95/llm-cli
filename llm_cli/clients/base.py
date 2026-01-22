@@ -713,9 +713,7 @@ class BaseLlmClient(ABC):
             )
             info_table.add_row("Tools Status", tool_status)
 
-            debug_status = (
-                "[green]ON[/green]" if self.live_debug else "[red]OFF[/red]"
-            )
+            debug_status = "[green]ON[/green]" if self.live_debug else "[red]OFF[/red]"
             info_table.add_row("Live Debug", debug_status)
 
             if self.tools_enabled:

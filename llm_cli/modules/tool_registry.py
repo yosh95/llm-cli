@@ -134,20 +134,24 @@ class ToolRegistry:
 
     def register_remote_tools(self, mcp_manager) -> List[str]:
         remote_names = []
-        for tool in mcp_manager.list_tools():
+        try:
+            for tool in mcp_manager.list_tools():
 
-            def make_tool_func(server_name, original_name):
-                return lambda **kwargs: mcp_manager.call_tool(
-                    server_name, original_name, kwargs
+                def make_tool_func(server_name, original_name):
+                    return lambda **kwargs: mcp_manager.call_tool(
+                        server_name, original_name, kwargs
+                    )
+
+                self.register(
+                    name=tool["name"],
+                    func=make_tool_func(tool["server_name"], tool["original_name"]),
+                    description=tool["description"],
+                    parameters=tool["parameters"],
                 )
-
-            self.register(
-                name=tool["name"],
-                func=make_tool_func(tool["server_name"], tool["original_name"]),
-                description=tool["description"],
-                parameters=tool["parameters"],
-            )
-            remote_names.append(tool["name"])
+                remote_names.append(tool["name"])
+        except Exception as e:
+            print(f"Warning: Failed to register remote tools: {e}")
+            log_audit("remote_tools_register", {}, None, error=str(e))  # Fallback log
         return remote_names
 
     def discover_local_tools(self):

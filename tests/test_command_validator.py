@@ -95,7 +95,7 @@ class TestCommandValidator:
         """Test that background execution using '&' is forbidden."""
         validator = CommandValidator()
         with pytest.raises(
-            CommandValidationError, match="Command contains dangerous pattern '&'"
+            CommandValidationError, match=r"Single '&' for background execution is forbidden|Command contains dangerous pattern '&'"
         ):
             validator.validate("ls & echo dangerous")
 

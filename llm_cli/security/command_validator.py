@@ -69,7 +69,6 @@ class CommandValidator:
         r"`",
         r"\$\(",
         r"\$\{",
-        r"&",
         r"\n",
     ]
 
@@ -113,6 +112,10 @@ class CommandValidator:
                 if current_segment:
                     self._validate_parts(current_segment)
                     current_segment = []
+            elif token == "&":
+                raise CommandValidationError(
+                    "Single '&' for background execution is forbidden."
+                )
             else:
                 current_segment.append(token)
 
@@ -203,7 +206,8 @@ class CommandValidator:
                         # unauthorized file access (file not found).
                         import os
 
-                        if not os.path.exists(part):
+                        expanded_path = os.path.expanduser(part)
+                        if not os.path.exists(expanded_path):
                             continue
 
                     # Bubble up the specific traversal error message

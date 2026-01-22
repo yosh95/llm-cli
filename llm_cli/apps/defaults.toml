@@ -63,9 +63,9 @@ opus = "claude-opus-4-5-20251101"
 # No thinking configuration - Grok 4 does not return reasoning_content
 
 [xai.models]
-default = "grok-4-fast-reasoning"
+default = "grok-4-1-fast-reasoning"
 non-reasoning = "grok-4-fast-non-reasoning"
-reasoning = "grok-4-fast-reasoning"
+reasoning = "grok-4-1-fast-reasoning"
 
 # =============================================================================
 # Ollama (Local LLMs)

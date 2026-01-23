@@ -1,0 +1,124 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  frame=single,
+  breaklines=true,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+}
+
+\begin{document}
+
+\title{llm-cli: A Unified and Agentic Command-Line Interface for Multi-Modal Large Language Models}
+
+\author{\IEEEauthorblockN{Yoshihiro Ando}
+\IEEEauthorblockA{\textit{Independent Researcher} \\
+yosh5295@gmail.com \\
+Tokyo, Japan}
+}
+
+\maketitle
+
+\begin{abstract}
+As Large Language Models (LLMs) proliferate, the fragmentation of interfaces across multiple providers (Google, OpenAI, Anthropic, xAI, and local providers like Ollama) has created a significant friction for developers and power users. This paper presents \texttt{llm-cli}, a unified command-line interface (CLI) designed to harmonize interactions with various LLM providers through a single terminal entry point. \texttt{llm-cli} distinguishes itself by integrating autonomous agent capabilities, multi-modal input/output support, and the Model Context Protocol (MCP) for remote server management. Furthermore, it implements robust security guardrails, including human-in-the-loop verification and command whitelisting, to ensure safe execution of AI-generated actions. We discuss the architecture, key features, and security considerations of \texttt{llm-cli}, demonstrating its utility as a productivity tool for research and software development.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Large Language Models, Command-Line Interface, AI Agents, Model Context Protocol, Multi-Modal AI, Security.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Large Language Models (LLMs) have transformed from simple text predictors into sophisticated agents capable of code execution, tool use, and multi-modal reasoning. However, the ecosystem remains highly fragmented. Each provider offers its own web interface, API structure, and unique features (e.g., Gemini's large context window, Claude's artifact handling, or OpenAI's reasoning capabilities).
+
+For developers and power users who spend most of their time in the terminal, switching between browser tabs and manually copying-pasting content creates a significant bottleneck. While some CLI tools exist, many are restricted to a single provider or lack the agentic "tool-use" capabilities necessary for complex tasks like project-wide code refactoring or real-time research.
+
+\texttt{llm-cli} addresses these challenges by providing a unified, extensible, and secure CLI that supports multiple LLM backends. It treats the LLM not just as a chatbot, but as an agent capable of interacting with the local system and remote environments via standardized protocols.
+
+\section{System Architecture}
+
+\subsection{Unified Provider Abstraction}
+The core of \texttt{llm-cli} is a provider abstraction layer that translates a common internal request format into provider-specific API calls. Currently, it supports:
+\begin{itemize}
+    \item \textbf{Google Gemini}: Leveraging Vertex AI or AI Studio for large context and native multi-modality.
+    \item \textbf{OpenAI}: Support for GPT-4o and DALL-E image generation.
+    \item \textbf{Anthropic Claude}: Optimized for Claude 3.5/3.7 with thinking/reasoning modes.
+    \item \textbf{xAI Grok}: Integration for the latest Grok models.
+    \item \textbf{Ollama}: Support for locally hosted models (e.g., Llama 3, DeepSeek-R1) to ensure privacy and offline availability.
+\end{itemize}
+
+\subsection{Plugin-Based Tool Registry}
+\texttt{llm-cli} features a decorator-based tool registry that allows for easy extension. Every tool registered in the system is automatically converted into the JSON Schema format required by different providers (e.g., Function Calling for OpenAI/Gemini, Tool Use for Anthropic).
+
+A unique architectural choice in \texttt{llm-cli} is the mandatory \texttt{explanation} parameter for every tool. Before an agent can execute a function, it must generate a human-readable explanation of \textit{why} the tool is being called and \textit{what} the expected outcome is. This information is presented to the user during the approval process, significantly improving transparency.
+
+\subsection{Model Context Protocol (MCP) Integration}
+To extend the agent's reach beyond the local machine, \texttt{llm-cli} implements the Model Context Protocol (MCP). This allows the CLI to:
+\begin{enumerate}
+    \item Act as an \textbf{MCP Client}, connecting to remote servers or services (like GitHub or a remote Linux box) to perform operations.
+    \item Act as an \textbf{MCP Server}, exposing local files and tools to other LLM-based applications.
+\end{enumerate}
+
+\section{Key Features}
+
+\subsection{Autonomous Agent Mode}
+By default, \texttt{llm-cli} operates in an agentic mode. When a user provides a high-level goal (e.g., "Search for the latest research on DPO and summarize the findings in a new file"), the agent can autonomously:
+\begin{itemize}
+    \item Perform web searches using Google Search.
+    \item Fetch and parse HTML or PDF content from URLs.
+    \item Execute shell commands to list or read local files.
+    \item Write or edit files using precise search-and-replace tools.
+\end{itemize}
+
+\subsection{Multi-Modal Interaction}
+Unlike many text-only CLI tools, \texttt{llm-cli} supports multi-modal input and output. Users can attach images, PDFs, audio, and video files to the conversation using the \texttt{/attach} command or by passing a URL. For providers that support it (OpenAI, Grok), the tool also allows mid-conversation image generation, saving the results directly to the local disk.
+
+\subsection{Reasoning and Thinking Modes}
+With the advent of "reasoning" models like DeepSeek-R1 and Claude 3.7 Thinking, \texttt{llm-cli} provides explicit controls for "internal monologue" visibility. Users can toggle reasoning display using the \texttt{/thought} command, allowing them to see the AI's step-by-step logic before the final answer is produced.
+
+\subsection{Session Persistence and Logging}
+\texttt{llm-cli} automatically manages conversation history and logs. It supports saving and loading sessions as JSON files, enabling users to resume complex tasks across different timeframes. Furthermore, an internal audit log tracks every tool execution, providing a searchable history of agent actions.
+
+\section{Security and Safety}
+
+Executing AI-generated code or commands on a local system poses significant security risks. \texttt{llm-cli} implements a multi-layered security strategy:
+
+\begin{enumerate}
+    \item \textbf{Human-in-the-Loop (HITL)}: No destructive tool (e.g., \texttt{execute\_command}, \texttt{write\_file}, \texttt{edit\_file}) is executed without explicit user confirmation. For file edits, a \texttt{diff} preview is shown to the user.
+    \item \textbf{Command Whitelisting}: The \texttt{execute\_command} tool validates every command against a strict whitelist. Commands like \texttt{rm -rf}, \texttt{git push}, or access to \texttt{/etc} are blocked by default. Chained commands (pipes) are only allowed if every individual command in the chain is whitelisted.
+    \item \textbf{Resource Constraints}: Commands are executed with CPU time limits, memory caps, and file size restrictions to prevent accidental resource exhaustion or "fork bombs."
+\end{enumerate}
+
+\section{Use Cases}
+
+\subsection{Research Automation}
+Researchers can use \texttt{llm-cli} to automate literature reviews. A single prompt can trigger a sequence of searching for papers, fetching PDFs, summarizing them, and compiling a bibliography.
+
+\subsection{Remote Infrastructure Management}
+Via MCP over SSH, a developer can use \texttt{llm-cli} on their local machine to debug a remote production server. The AI can check logs, list directories, and suggest fixes, while the user maintains full control through the HITL approval process.
+
+\section{Conclusion}
+\texttt{llm-cli} bridge the gap between powerful multi-modal LLMs and the productivity of the command-line environment. By unifying multiple providers, integrating remote management protocols like MCP, and prioritizing security through human-supervised tool use, it provides a robust framework for agentic workflows. Future work will focus on expanding the tool ecosystem and improving the agent's planning capabilities for long-running multi-step tasks.
+
+\section*{Availability}
+The source code and documentation for \texttt{llm-cli} are available at \url{https://github.com/yosh95/llm-cli}.
+
+\begin{thebibliography}{00}
+\bibitem{b1} Google DeepMind, ``Gemini: A Family of Highly Capable Multi-modal Models,'' 2023.
+\bibitem{b2} OpenAI, ``GPT-4 Technical Report,'' 2023.
+\bibitem{b3} Anthropic, ``The Claude 3 Model Family: Opus, Sonnet, Haiku,'' 2024.
+\bibitem{b4} Model Context Protocol (MCP) Specification, \url{https://modelcontextprotocol.io}.
+\end{thebibliography}
+
+\end{document}

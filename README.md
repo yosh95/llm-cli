@@ -161,6 +161,27 @@ allow_dangerous_patterns = false
 
 While most tools require explicit user approval (Human-in-the-Loop), certain non-destructive and interactive tools may execute without a confirmation prompt to ensure a seamless user experience. This is only permitted for tools specifically flagged as safe and interactive by the developer in the local codebase. External tools (like those from MCP servers) **always** require approval.
 
+### Advanced Security & MCP Hardening
+
+`llm-cli` incorporates advanced security concepts derived from CISSP ISSAP domains to ensure integrity and access control, especially when operating as an MCP server.
+
+-   **Root of Trust**: Automatically verifies the integrity of critical application files at startup to detect tampering.
+-   **Workload Identity**: Uses JWT-based identity propagation for secure client-server communication.
+-   **Zero Trust Policy Engine**: Implements Role-Based Access Control (RBAC).
+-   **Dual Authentication Mode**:
+    -   **Strict Mode**: Requires a valid auth token (for internal `llm-cli` connections).
+    -   **Guest Mode**: Allows unauthenticated clients (like Claude Desktop) restricted, read-only access.
+
+**Configuring MCP Server Access**:
+You can control how unauthenticated clients are treated in `config.toml`:
+
+```toml
+[security]
+# "guest" (Default): Read-only access (Safe for Claude Desktop)
+# "deny": Reject all unauthenticated connections (Zero Trust strict mode)
+missing_token_policy = "guest"
+```
+
 ## Installation
 
 Ensure you have Python 3.11 or newer.
@@ -506,6 +527,27 @@ allow_dangerous_patterns = false
 ### リスクベースの承認スキップ
 
 ほとんどのツールは実行前にユーザーの明示的な承認（Human-in-the-Loop）を必要としますが、非破壊的かつインタラクティブなツールについては、ユーザー体験を損なわないよう承認プロンプトなしで実行される場合があります。これは、開発者によってローカルコード内で安全かつインタラクティブであると明示的にフラグを立てられたツールにのみ許可されます。MCPサーバーなどの外部ツールについては、**常に**承認が必要です。
+
+### 高度なセキュリティ機能とMCPの堅牢化
+
+`llm-cli` は、CISSP ISSAPドメインの知識に基づいた高度なセキュリティ実装を取り入れ、特にMCPサーバーとして動作する際の堅牢性を高めています。
+
+-   **Root of Trust (信頼の基点)**: 起動時に重要ファイルのハッシュ値を検証し、改ざんを検知します。
+-   **Workload Identity (ワークロード認証)**: クライアント-サーバー間でJWTを用いたIDプロパゲーションを行い、正規のクライアントのみを認証します。
+-   **Zero Trust Policy Engine**: ロールベースアクセス制御 (RBAC) により、デフォルトですべての操作を拒否し、許可された操作のみを通します。
+-   **デュアル認証モード**:
+    -   **Strictモード**: 正規のトークンを持つ `llm-cli` クライアントのみ許可します。
+    -   **Guestモード**: Claude Desktopなどのトークンを持たないクライアントに対し、読み取り専用（Guest）権限での接続を許可します。
+
+**MCPサーバー接続設定**:
+`config.toml` で、認証トークンを持たないクライアントの扱いを設定できます。
+
+```toml
+[security]
+# "guest" (デフォルト): 読み取り専用アクセス（Claude Desktop等との互換性重視）
+# "deny": 未認証の接続を全て拒否（厳格なゼロトラスト環境向け）
+missing_token_policy = "guest"
+```
 
 ## インストール
 

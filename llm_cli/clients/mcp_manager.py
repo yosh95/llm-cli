@@ -10,6 +10,7 @@ from mcp.client.stdio import stdio_client
 from rich.console import Console
 
 from llm_cli.clients.config import get_mcp_servers
+from llm_cli.security.identity import IdentityManager
 
 # Set up logging for MCP client
 logging.basicConfig(level=logging.WARN, stream=sys.stderr)
@@ -67,6 +68,10 @@ class MCPManager:
             # Users are responsible for the commands in their config.toml.
             # We trust the user configuration for MCP servers.
 
+            # Identity Propagation: Inject Auth Token into environment
+            env = env or {}
+            env["MCP_AUTH_TOKEN"] = IdentityManager.generate_token(user_id="cli_user", roles=["admin"])
+            
             # Static status message instead of spinner
             console.print(
                 f"[bold green]Connecting to MCP server '{name}'...[/bold green]"

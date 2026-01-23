@@ -64,7 +64,12 @@ class IntegrityVerifier:
 def verify_installation():
     """Helper function to run verification from current working directory."""
     # Assuming we run from the project root
-    verifier = IntegrityVerifier(Path(os.getcwd()))
+    # Use the location of this file to determine the root project directory
+    # integrity.py is located at llm_cli/security/integrity.py
+    # so we need to go up 3 levels to reach the project root.
+    root_path = Path(__file__).resolve().parent.parent.parent
+    
+    verifier = IntegrityVerifier(root_path)
     if not verifier.verify():
         logger.critical("🚨 SECURITY ALERT: System integrity compromise detected! Aborting startup.")
         sys.exit(1)

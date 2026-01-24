@@ -215,7 +215,7 @@ class OpenAIClient(BaseLlmClient):
                     mime_type = fetched_mime
 
             if not img_data:
-                return "Failed to retrieve image data from the response.", None
+                return ("Failed to retrieve image data from the response.", ""), None
 
             # Use shared media saving logic from BaseLlmClient
             display_text, _ = self._save_inline_image_and_get_log_entry(
@@ -239,10 +239,10 @@ class OpenAIClient(BaseLlmClient):
             )
             self._update_history(data, model_msg)
 
-            return display_text.strip(), None
+            return (display_text.strip(), ""), None
         except Exception as e:
             self._report_error("OpenAI Image", e)
-            return None, None
+            return (None, None), None
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates the internal conversation history with new messages."""

@@ -64,7 +64,7 @@ The source code and documentation are available at \url{https://github.com/yosh9
 Several command-line tools have emerged to bridge the terminal-LLM gap. Tools like \texttt{llm} by Simon Willison and \texttt{Chatblade} provide excellent interfaces for piping text into LLMs. However, these tools generally operate as "stateless pipes" rather than autonomous agents. They lack built-in support for complex, multi-step tool use protocols like MCP or persistent state management across distributed sessions.
 
 \subsection{Agentic Frameworks}
-Frameworks like LangChain \cite{langchain} and AutoGen \cite{autogen} enable the creation of powerful autonomous agents. While feature-rich, these frameworks often prioritize capability over security, leaving the implementation of guardrails to the developer. In contrast, \texttt{llm-cli} integrates a "secure-by-default" architecture where access restrictions and runtime validation are core components of the runtime, not afterthoughts.
+Frameworks like LangChain \cite{langchain} and AutoGen \cite{autogen} enable the creation of powerful autonomous agents. While feature-rich, these frameworks often prioritize capability over security, leaving the implementation of guardrails to the developer. Recent research such as Gorilla \cite{gorilla} has focused on fine-tuning LLMs specifically for accurate API calls, further highlighting the critical need for robust execution environments as models become more proficient at tool use. In contrast, \texttt{llm-cli} integrates a "secure-by-default" architecture where access restrictions and runtime validation are core components of the runtime, not afterthoughts.
 
 \subsection{Zero-Trust in AI}
 NIST SP 800-207 \cite{nist} outlines the principles of Zero Trust Architecture (ZTA). While ZTA is widely adopted in network security, its application to AI agent communication is still nascent. Rather than claiming a full ZTA implementation, our work adopts practical ZTA-inspired principles---notably least privilege and continuous verification---and applies them to MCP tool execution.
@@ -239,19 +239,21 @@ Via MCP over SSH, a developer can use \texttt{llm-cli} on their local machine to
 
 \begin{thebibliography}{00}
 
-\bibitem{gpt4} J. Achiam \textit{et al.}, ``GPT-4 Technical Report,'' \textit{arXiv preprint arXiv:2303.08774}, 2023.
+\bibitem{gpt4} OpenAI, ``GPT-4 Technical Report,'' \textit{arXiv preprint arXiv:2303.08774}, 2023.
 
 \bibitem{autogen} Q. Wu \textit{et al.}, ``AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation,'' \textit{arXiv preprint arXiv:2308.08155}, 2023.
 
+\bibitem{gorilla} S. Patil \textit{et al.}, ``Gorilla: Large Language Model Connected with Massive APIs,'' \textit{arXiv preprint arXiv:2305.15334}, 2023.
+
 \bibitem{langchain} H. Chase, ``LangChain,'' 2022. [Online]. Available: https://github.com/langchain-ai/langchain.
 
-\bibitem{injection} K. Greshake \textit{et al.}, ``Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection,'' in \textit{Proc. of the 16th ACM Workshop on Artificial Intelligence and Security}, 2023.
+\bibitem{injection} K. Greshake, S. Abdelnabi, S. Mishra, C. Endres, T. Holz, and M. Fritz, ``Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection,'' in \textit{Proceedings of the 16th ACM Workshop on Artificial Intelligence and Security}, 2023, pp. 79--90.
 
-\bibitem{owasp} OWASP, ``OWASP Top 10 for Large Language Model Applications,'' 2023. [Online]. Available: https://owasp.org/www-project-top-10-for-large-language-model-applications/.
+\bibitem{owasp} OWASP, ``OWASP Top 10 for Large Language Model Applications,'' Version 1.1, 2023. [Online]. Available: https://owasp.org/www-project-top-10-for-large-language-model-applications/.
 
 \bibitem{nist} S. Rose, O. Borchert, S. Mitchell, and S. Connelly, ``Zero Trust Architecture,'' \textit{NIST Special Publication 800-207}, 2020.
 
-\bibitem{mcp} Anthropic, ``Model Context Protocol,'' 2024. [Online]. Available: https://www.anthropic.com.
+\bibitem{mcp} Anthropic, ``Model Context Protocol,'' 2024. [Online]. Available: https://modelcontextprotocol.io/.
 
 \end{thebibliography}
 

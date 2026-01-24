@@ -167,6 +167,8 @@ class GeminiClient(BaseLlmClient):
             # Extract display text and thoughts
             display_text = ""
             thought_text = ""
+            last_saved_image_path = None
+
             for p in model_msg.parts:
                 if isinstance(p, ContentPart):
                     if p.text:
@@ -187,11 +189,24 @@ class GeminiClient(BaseLlmClient):
                                 if hint:
                                     break
 
-                        log = self._save_inline_image_and_get_log_entry(
+                        log, saved_path = self._save_inline_image_and_get_log_entry(
                             p.inline_data, hint_text=hint
                         )
                         if log:
                             display_text += log
+                        if saved_path:
+                            last_saved_image_path = saved_path
+
+            # If an image was generated, check for attach_file calls and fix path
+            # if needed
+            if last_saved_image_path:
+                for p in model_msg.parts:
+                    if isinstance(p, ContentPart) and p.function_call:
+                        if p.function_call.get("name") == "attach_file":
+                            # Fix the path to point to the actually saved file
+                            # This corrects model hallucination where it invents a
+                            # filename different from what we saved
+                            p.function_call["args"]["path"] = str(last_saved_image_path)
 
             return (display_text.strip(), thought_text.strip()), self.last_usage
         except Exception as e:

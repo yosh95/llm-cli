@@ -783,11 +783,10 @@ class BaseLlmClient(ABC):
 
     def _save_inline_image_and_get_log_entry(
         self, inline_data: Dict[str, Any], hint_text: str = ""
-    ) -> Optional[str]:
+    ) -> Tuple[Optional[str], Optional[Path]]:
         """
-        Saves inline image data (base64) to a file and returns a formatted display
-        string. Uses the shared images/generated directory and safe filenames based
-        on hint_text.
+        Saves inline image data (base64) to a file and returns a tuple of
+        (formatted display string, saved file path).
         """
         if inline_data.get("mimeType", "").startswith("image/"):
             import mimetypes
@@ -805,10 +804,11 @@ class BaseLlmClient(ABC):
             try:
                 target_path.write_bytes(base64.b64decode(inline_data["data"]))
                 # Inform user that image was saved
-                return f"\n\n🎨 Image generated and saved to: **{target_path}**\n"
+                msg = f"\n\n🎨 Image generated and saved to: **{target_path}**\n"
+                return msg, target_path
             except Exception as e:
                 console.print(f"[red]Failed to save image: {e}[/red]")
-        return None
+        return None, None
 
     def _log_debug(
         self,

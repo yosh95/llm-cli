@@ -62,7 +62,7 @@ class TestGrokImageGeneration:
         with patch.object(
             mock_grok_client, "_save_inline_image_and_get_log_entry"
         ) as mock_save:
-            mock_save.return_value = "Image saved at images/img.png"
+            mock_save.return_value = ("Image saved at images/img.png", None)
 
             data = [DataSource(content="Draw a cat", content_type="text/plain")]
             response_text, usage = mock_grok_client._send(data)
@@ -110,7 +110,7 @@ class TestGrokImageGeneration:
             with patch.object(
                 mock_grok_client, "_save_inline_image_and_get_log_entry"
             ) as mock_save:
-                mock_save.return_value = "Image saved at images/dog.png"
+                mock_save.return_value = ("Image saved at images/dog.png", None)
 
                 data = [DataSource(content="Draw a dog", content_type="text/plain")]
                 response_text, usage = mock_grok_client._send(data)

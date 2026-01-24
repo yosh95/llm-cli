@@ -27,7 +27,8 @@ try:
     security_config = user_config.get("security", {})
     policy_engine = PolicyEngine(config=security_config)
 
-    # Get Missing Token Policy (Default to 'guest' for usability, or 'deny' for security)
+    # Get Missing Token Policy (Default to 'guest' for usability,
+    # or 'deny' for security)
     # User can set security.missing_token_policy = "deny" in config.toml
     MISSING_TOKEN_POLICY = security_config.get("missing_token_policy", "guest")
 

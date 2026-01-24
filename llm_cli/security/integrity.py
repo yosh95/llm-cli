@@ -46,7 +46,9 @@ class IntegrityVerifier:
         for rel_path in self.CRITICAL_FILES:
             full_path = self.base_path / rel_path
             if not full_path.exists():
-                logger.error(f"❌ Integrity Violated: Critical file missing: {rel_path}")
+                logger.error(
+                    f"❌ Integrity Violated: Critical file missing: {rel_path}"
+                )
                 all_ok = False
                 continue
 
@@ -70,5 +72,7 @@ def verify_installation():
 
     verifier = IntegrityVerifier(root_path)
     if not verifier.verify():
-        logger.critical("🚨 SECURITY ALERT: System integrity compromise detected! Aborting startup.")
+        logger.critical(
+            "🚨 SECURITY ALERT: System integrity compromise detected! Aborting startup."
+        )
         sys.exit(1)

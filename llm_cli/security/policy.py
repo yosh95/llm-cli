@@ -23,7 +23,12 @@ class PolicyEngine:
             "guest": {
                 "description": "Read-only access for unauthenticated clients",
                 "allow_all": False,
-                "allowed_tools": ["list_files", "read_file", "fetch_web_text", "google_search"]
+                "allowed_tools": [
+                    "list_files",
+                    "read_file",
+                    "fetch_web_text",
+                    "google_search",
+                ],
             },
             "deny": {
                 "description": "No access allowed",
@@ -36,7 +41,12 @@ class PolicyEngine:
         if "roles" in self.config:
             self.roles.update(self.config["roles"])
 
-    def evaluate(self, tool_name: str, arguments: Dict[str, Any], context: Dict[str, Any]) -> bool:
+    def evaluate(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> bool:
         """
         Evaluate if the current user (based on context roles) can execute the tool.
         """
@@ -72,7 +82,10 @@ class PolicyEngine:
         # Even admins shouldn't write to /etc casually unless explicitly overridden
         if is_allowed and tool_name in ["write_file", "edit_file", "execute_command"]:
             if not self._validate_dangerous_args(tool_name, arguments):
-                logger.warning(f"⛔ Safety Guardrail: Suspicious arguments detected for '{tool_name}'")
+                logger.warning(
+                    "⛔ Safety Guardrail: Suspicious arguments detected for "
+                    f"'{tool_name}'"
+                )
                 return False
 
         if is_allowed:
@@ -82,9 +95,12 @@ class PolicyEngine:
 
         return is_allowed
 
-    def _validate_dangerous_args(self, tool_name: str, arguments: Dict[str, Any]) -> bool:
+    def _validate_dangerous_args(
+        self, tool_name: str, arguments: Dict[str, Any]
+    ) -> bool:
         """
-        Last line of defense: Check for obviously dangerous paths/commands regardless of role.
+        Last line of defense: Check for obviously dangerous paths/commands
+        regardless of role.
         This can be configured to be disabled by admins if needed.
         """
         path = arguments.get("path", "")

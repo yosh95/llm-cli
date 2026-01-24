@@ -5,11 +5,10 @@ import logging
 import sys
 from typing import Any, Dict, List
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
 from rich.console import Console
 
 from llm_cli.clients.config import get_mcp_servers
+from llm_cli.mcp_lib import ClientSession, StdioServerParameters, stdio_client
 from llm_cli.security.identity import IdentityManager
 
 # Set up logging for MCP client

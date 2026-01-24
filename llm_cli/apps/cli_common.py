@@ -82,13 +82,8 @@ def run_client_cli(config: ClientConfig) -> None:
 
     # Check if MCP module is installed when --mcp or --mcp-server is used
     if args.mcp or args.mcp_server:
-        try:
-            import mcp  # noqa: F401
-        except ImportError:
-            console.print("[red]Error: MCP module is not installed.[/red]")
-            console.print("[yellow]Please install it using:[/yellow]")
-            console.print('    [bold]pip install "llm-cli[mcp]"[/bold]')
-            sys.exit(1)
+        # Custom MCP implementation used on Termux
+        pass
 
     if args.mcp_server:
         try:

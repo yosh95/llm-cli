@@ -75,17 +75,36 @@ class MCPManager:
             # If command is ssh, inject token into the remote command args
             if command == "ssh" or command.endswith("/ssh"):
                 token = env["MCP_AUTH_TOKEN"]
-                # Assume args format: [user@host, remote_command]
-                # We want to change remote_command to "MCP_AUTH_TOKEN=... remote_command"
-                if args and len(args) > 0:
-                    # Find the remote command argument (usually the last one)
-                    remote_cmd_index = len(args) - 1
-                    remote_cmd = args[remote_cmd_index]
-                    
-                    # Avoid double injection
-                    if "MCP_AUTH_TOKEN=" not in remote_cmd:
-                         new_remote_cmd = f"MCP_AUTH_TOKEN={token} {remote_cmd}"
-                         args[remote_cmd_index] = new_remote_cmd
+                env_str = f"MCP_AUTH_TOKEN={token}"
+                
+                # Strategy 1: Find python command and insert ENV before it
+                inserted = False
+                for i, arg in enumerate(args):
+                    if arg == "python" or arg == "python3" or arg.endswith("/python") or arg.endswith("/python3"):
+                         # Check if already injected
+                         if i > 0 and args[i-1].startswith("MCP_AUTH_TOKEN="):
+                             inserted = True
+                             break
+                         args.insert(i, env_str)
+                         inserted = True
+                         break
+                
+                # Strategy 2: If python not found, insert after the first non-option argument (destination)
+                if not inserted:
+                    for i, arg in enumerate(args):
+                        if not arg.startswith("-"):
+                            # Found destination, insert after it if there are more args
+                            if i + 1 < len(args):
+                                if not args[i+1].startswith("MCP_AUTH_TOKEN="):
+                                    args.insert(i + 1, env_str)
+                                inserted = True
+                            break
+                
+                # Strategy 3: If still not inserted (e.g. single string command at end), try to prepend to last arg
+                if not inserted and args:
+                    last_arg = args[-1]
+                    if "MCP_AUTH_TOKEN=" not in last_arg:
+                         args[-1] = f"{env_str} {last_arg}"
             
             # Static status message instead of spinner
             console.print(

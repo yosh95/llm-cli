@@ -7,6 +7,7 @@ import functools
 import logging
 import os
 import sys
+import inspect
 from typing import Any, Dict
 
 from mcp.server.fastmcp import FastMCP, Context
@@ -82,7 +83,10 @@ def secure_tool_wrapper(func, tool_name: str):
 
         # 4. Actual Execution
         try:
-            return await func(*args, **kwargs)
+            if inspect.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
         except Exception as e:
             logger.error(f"Execution failed: {e}")
             raise e

@@ -71,6 +71,21 @@ class MCPManager:
             # Identity Propagation: Inject Auth Token into environment
             env = env or {}
             env["MCP_AUTH_TOKEN"] = IdentityManager.generate_token(user_id="cli_user", roles=["admin"])
+
+            # If command is ssh, inject token into the remote command args
+            if command == "ssh" or command.endswith("/ssh"):
+                token = env["MCP_AUTH_TOKEN"]
+                # Assume args format: [user@host, remote_command]
+                # We want to change remote_command to "MCP_AUTH_TOKEN=... remote_command"
+                if args and len(args) > 0:
+                    # Find the remote command argument (usually the last one)
+                    remote_cmd_index = len(args) - 1
+                    remote_cmd = args[remote_cmd_index]
+                    
+                    # Avoid double injection
+                    if "MCP_AUTH_TOKEN=" not in remote_cmd:
+                         new_remote_cmd = f"MCP_AUTH_TOKEN={token} {remote_cmd}"
+                         args[remote_cmd_index] = new_remote_cmd
             
             # Static status message instead of spinner
             console.print(

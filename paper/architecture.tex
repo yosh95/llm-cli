@@ -1,0 +1,20 @@
+\begin{tikzpicture}[node distance=2cm, auto,
+    block/.style={rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em},
+    line/.style={draw, -latex', thick},
+    cloud/.style={draw, ellipse,fill=red!10, node distance=3cm, minimum height=2em}]
+
+    % Nodes
+    \node [block] (cli) {llm-cli (Client)};
+    \node [block, right of=cli, node distance=5cm] (mcp) {MCP Server};
+    \node [block, below of=mcp, node distance=3cm] (pdp) {Policy Engine (PDP)};
+    \node [block, right of=mcp, node distance=5cm] (resource) {Resource};
+
+    % Paths
+    \path [line] (cli) -- node [above] {Request + Token} (mcp);
+    \path [line] (mcp) -- node [right] {Verify \& Evaluate} (pdp);
+    \path [line, dashed] (pdp) -- node [left] {Decision} (mcp);
+    \path [line] (mcp) -- node [above] {Action} (resource);
+    \path [line, dashed] (resource) -- node [below] {Result} (mcp);
+    \path [line, dashed] (mcp) -- node [below] {Response} (cli);
+
+\end{tikzpicture}

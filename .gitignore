@@ -210,3 +210,4 @@ __marimo__/
 *.log
 *.aux
 *.pdf
+images/generated/

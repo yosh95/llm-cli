@@ -1,9 +1,10 @@
+import logging
+import os
 import time
 import uuid
-import jwt
-import os
-import logging
 from typing import Dict, Optional
+
+import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ class IdentityManager:
     Manages Workload Identity and Authentication Tokens.
     Implements Identity Propagation for MCP.
     """
-    
+
     # In a production environment, these keys would be managed by a KMS or Vault.
     # For this implementation, we use a session-specific secret or env var.
     _SECRET_KEY = os.getenv("LLM_CLI_SECRET_KEY", str(uuid.uuid4()))
@@ -34,7 +35,7 @@ class IdentityManager:
             "jti": str(uuid.uuid4()),
             "roles": roles or ["user"]
         }
-        
+
         token = jwt.encode(payload, cls._SECRET_KEY, algorithm=cls._ALGORITHM)
         logger.debug(f"Generated identity token for user: {user_id}")
         return token
@@ -47,8 +48,8 @@ class IdentityManager:
         """
         try:
             payload = jwt.decode(
-                token, 
-                cls._SECRET_KEY, 
+                token,
+                cls._SECRET_KEY,
                 algorithms=[cls._ALGORITHM],
                 issuer=cls._ISSUER
             )

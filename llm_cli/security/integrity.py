@@ -1,7 +1,6 @@
 import hashlib
-import os
-import sys
 import logging
+import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -11,7 +10,7 @@ class IntegrityVerifier:
     Implements a Root of Trust mechanism by verifying the integrity
     of critical application files at startup.
     """
-    
+
     # Critical files to monitor for tampering
     CRITICAL_FILES = [
         "llm_cli/apps/mcp_server.py",
@@ -42,7 +41,7 @@ class IntegrityVerifier:
         or a secure hardware enclave (TPM). Here we simulate the check.
         """
         logger.info("🛡️  Root of Trust: Verifying system integrity...")
-        
+
         all_ok = True
         for rel_path in self.CRITICAL_FILES:
             full_path = self.base_path / rel_path
@@ -50,15 +49,15 @@ class IntegrityVerifier:
                 logger.error(f"❌ Integrity Violated: Critical file missing: {rel_path}")
                 all_ok = False
                 continue
-                
+
             # In a real implementation, we would compare against a signed manifest.
             # For this demo, we just compute and log the hash to show the mechanism.
             file_hash = self._calculate_hash(full_path)
             logger.debug(f"File: {rel_path}, Hash: {file_hash[:12]}...")
-            
+
         if all_ok:
             logger.info("✅ System Integrity Verified.")
-        
+
         return all_ok
 
 def verify_installation():
@@ -68,7 +67,7 @@ def verify_installation():
     # integrity.py is located at llm_cli/security/integrity.py
     # so we need to go up 3 levels to reach the project root.
     root_path = Path(__file__).resolve().parent.parent.parent
-    
+
     verifier = IntegrityVerifier(root_path)
     if not verifier.verify():
         logger.critical("🚨 SECURITY ALERT: System integrity compromise detected! Aborting startup.")

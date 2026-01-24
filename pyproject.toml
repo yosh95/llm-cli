@@ -12,6 +12,7 @@ dependencies = [
     "beautifulsoup4",
     "cloudscraper",
     "filetype",
+    "mcp",
     "prompt-toolkit",
     "pypdf",
     "requests",
@@ -21,10 +22,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-mcp = [
-    "mcp>=1.0.0",
-    "PyJWT"
-]
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",

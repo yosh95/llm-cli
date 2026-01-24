@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -12,13 +12,13 @@ class PolicyEngine:
 
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
-        
+
         # Default Role Definitions (Fallback if config is missing)
         self.roles = {
             "admin": {
                 "description": "Full access to all tools",
                 "allow_all": True,
-                "allowed_tools": [] 
+                "allowed_tools": []
             },
             "guest": {
                 "description": "Read-only access for unauthenticated clients",
@@ -31,7 +31,7 @@ class PolicyEngine:
                 "allowed_tools": []
             }
         }
-        
+
         # Merge user config into roles if provided
         if "roles" in self.config:
             self.roles.update(self.config["roles"])

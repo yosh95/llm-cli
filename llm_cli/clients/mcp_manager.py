@@ -77,7 +77,9 @@ class MCPManager:
             # If command is ssh, inject token into the remote command args
             if command == "ssh" or command.endswith("/ssh"):
                 token = env["MCP_AUTH_TOKEN"]
-                env_str = f"MCP_AUTH_TOKEN={token}"
+                secret_key = IdentityManager.get_secret_key()
+                # Inject both Token and Secret Key
+                env_str = f"MCP_AUTH_TOKEN={token} LLM_CLI_SECRET_KEY={secret_key}"
 
                 # Strategy 1: Find python command and insert ENV before it
                 inserted = False

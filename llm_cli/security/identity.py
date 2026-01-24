@@ -70,3 +70,8 @@ class IdentityManager:
             "authorization": f"Bearer {cls.generate_token()}",
             "trace_id": str(uuid.uuid4())
         }
+
+    @classmethod
+    def get_secret_key(cls) -> str:
+        """Expose the secret key for session propagation over SSH."""
+        return cls._SECRET_KEY

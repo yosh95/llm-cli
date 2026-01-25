@@ -88,6 +88,12 @@ class BaseLlmClient(ABC):
         live_debug: bool = False,
     ):
         """Initializes the LLM client with configuration and state."""
+        self._slash_commands = {
+            'attach', 'save', 'load', 'dump', 'raw', 'clear', 'c',
+            'quit', 'q', 'info', 'i', 'debug', 'd', 'model', 'm',
+            'provider', 'p', 'template', 't', 'checkpoint', 'cp',
+            'tools', 'thought', 'budget', 'thinking', 'help', 'h'
+        }
         self.config_section = config_section
         self.api_key = get_setting(api_key_name, config_section)
         self.pdf_as_base64 = pdf_as_base64
@@ -238,6 +244,11 @@ class BaseLlmClient(ABC):
                     raise last_exception
 
         raise last_exception if last_exception else Exception("Request failed")
+
+    @property
+    def slash_commands(self):
+        """Dynamic slash commands for completer."""
+        return self._slash_commands
 
     @property
     def reasoning_enabled(self) -> bool:

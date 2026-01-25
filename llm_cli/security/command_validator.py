@@ -54,7 +54,6 @@ class CommandValidator:
         "sleep",
         "git",
         "diff",
-        "ruff",
         "python",
         "python3",
         "pytest",

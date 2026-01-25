@@ -49,19 +49,12 @@ class LlmCliCompleter(Completer):
         self.client = client
         self.path_completer = PathCompleter(expanduser=True)
 
-        self.path_cmds = ("/attach", "/save", "/load")
-        self.provider_cmds = ("/p", "/provider")
-        self.model_cmds = ("/m", "/model")
-        self.template_cmds = ("/t", "/template")
-        self.other_cmds = ("/checkpoint", "/cp", "/help", "/exit", "/clear")
-
-        self.all_cmds = (
-            self.path_cmds
-            + self.provider_cmds
-            + self.model_cmds
-            + self.template_cmds
-            + self.other_cmds
-        )
+        # Dynamic command list from client
+        self.all_cmds = ['/' + cmd for cmd in self.client.slash_commands]
+        self.path_cmds = ('/attach', '/save', '/load')
+        self.provider_cmds = ('/p', '/provider')
+        self.model_cmds = ('/m', '/model')
+        self.template_cmds = ('/t', '/template')
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor

@@ -150,6 +150,7 @@ class TestCommandValidator:
             "curl",
             "wget",
             "nc",
+            "ruff",
         ]
 
         for cmd in removed_commands:

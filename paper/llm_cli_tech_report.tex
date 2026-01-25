@@ -52,7 +52,7 @@ For developers and power users who spend most of their time in the terminal, swi
 Our key contributions are:
 \begin{enumerate}
     \item A unified interface abstracting five major LLM providers.
-    \item Practical security guardrails for MCP-based tool execution, including restricted guest access and runtime validation that achieves a 100\% block rate on our security benchmark.
+    \item Practical security guardrails for MCP-based tool execution, including restricted guest access and runtime validation that blocked all 32 attack vectors in our preliminary benchmark.
     \item A multi-layered security model combining automated policy enforcement with human oversight.
 \end{enumerate}
 
@@ -166,6 +166,9 @@ The system successfully blocked 100\% of the malicious payloads. Crucially, the 
 \subsection{Performance Overhead}
 The validation logic introduces negligible latency (sub-millisecond) per tool call, which is unnoticeable compared to the network latency of LLM API requests.
 
+\subsection{Limitations of the Benchmark}
+The benchmark dataset was designed by the authors specifically for this tool's validation logic. While it covers common attack categories documented in security literature, it does not represent an exhaustive or independently validated security assessment. The 100\% block rate reflects the alignment between our whitelist design and the test vectors, rather than a guarantee of security against novel or adaptive attacks. Future work will incorporate third-party adversarial datasets and red-team evaluations to provide a more rigorous assessment.
+
 \section{Discussion and Limitations}
 
 \subsection{Scalability of Human-in-the-Loop}
@@ -235,7 +238,9 @@ Researchers can use \texttt{llm-cli} to automate literature reviews. A single pr
 Via MCP over SSH, a developer can use \texttt{llm-cli} on their local machine to debug a remote production server. The AI can check logs, list directories, and suggest fixes, while the user maintains full control through the HITL approval process.
 
 \section{Conclusion}
-\texttt{llm-cli} bridges the gap between powerful multi-modal LLMs and the productivity of the command-line environment. By unifying multiple providers, integrating remote management protocols like MCP, and prioritizing security through human-supervised tool use, it provides a practical foundation for agentic workflows. Future work will focus on three key areas: (1) \textbf{Federated Identity}: Extending the JWT-based auth to support federated identity providers for enterprise integration. (2) \textbf{Formal Verification}: Applying formal methods to verify the policy engine's correctness against defined security properties. (3) \textbf{Multi-Agent Orchestration}: Enhancing the planning capabilities for long-running tasks involving multiple specialized agents collaborating over MCP.
+This paper presents an early-stage implementation and evaluation of \texttt{llm-cli}, a unified CLI for multi-provider LLM interaction with secure-by-default guardrails. By unifying multiple providers, integrating remote management protocols like MCP, and prioritizing security through human-supervised tool use, it provides a practical foundation for agentic workflows. We acknowledge that the current evaluation is preliminary; we welcome community feedback and plan to extend the security assessment with external benchmarks and independent red-team evaluations in future versions.
+
+Future work will focus on three key areas: (1) \textbf{Federated Identity}: Extending the JWT-based auth to support federated identity providers for enterprise integration. (2) \textbf{Formal Verification}: Applying formal methods to verify the policy engine's correctness against defined security properties. (3) \textbf{Multi-Agent Orchestration}: Enhancing the planning capabilities for long-running tasks involving multiple specialized agents collaborating over MCP.
 
 \begin{thebibliography}{00}
 

@@ -1,6 +1,7 @@
 # tests/test_command_validator.py
 
 import pytest
+
 from llm_cli.security.command_validator import CommandValidationError, CommandValidator
 
 
@@ -83,7 +84,7 @@ class TestCommandValidator:
         # Unquoted - Blocked
         with pytest.raises(CommandValidationError, match="dangerous pattern '`'"):
             validator.validate("echo `whoami`")
-        
+
         # Double Quotes - Blocked (Previously VULNERABLE)
         with pytest.raises(CommandValidationError, match="dangerous pattern '`'"):
              validator.validate('git commit -m "msg `whoami`"')
@@ -96,7 +97,7 @@ class TestCommandValidator:
         # Unquoted - Blocked
         with pytest.raises(CommandValidationError, match=r"dangerous pattern '\$\('"):
             validator.validate("echo $(whoami)")
-            
+
         # Double Quotes - Blocked (Previously VULNERABLE)
         with pytest.raises(CommandValidationError, match=r"dangerous pattern '\$\('"):
             validator.validate('git commit -m "msg $(whoami)"')
@@ -109,7 +110,7 @@ class TestCommandValidator:
         # Unquoted - Blocked
         with pytest.raises(CommandValidationError, match=r"dangerous pattern '\$\{'"):
             validator.validate("echo ${HOME}")
-            
+
         # Double Quotes - Blocked
         with pytest.raises(CommandValidationError, match=r"dangerous pattern '\$\{'"):
             validator.validate('echo "${HOME}"')

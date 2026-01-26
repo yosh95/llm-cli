@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from llm_cli.clients.base import BaseLlmClient
-from llm_cli.modules.tools.media import read_image_file, read_pdf_file, read_media_file
+from llm_cli.modules.tools.media import read_image_file, read_pdf_file
 
 
 class MockClient(BaseLlmClient):

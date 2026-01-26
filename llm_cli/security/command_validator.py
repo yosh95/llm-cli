@@ -165,8 +165,9 @@ class CommandValidator:
             if re.search(pattern, masked_command):
                 readable = pattern.replace("\\", "")
                 raise CommandValidationError(
-                    f"Command contains dangerous pattern '{readable}' (Command Substitution/Variable Expansion). "
-                    "If you need to use these characters literally, please use single quotes."
+                    f"Command contains dangerous pattern '{readable}' "
+                    "(Substitution/Expansion). If you need to use these "
+                    "characters literally, please use single quotes."
                 )
 
         # 3. Mask double-quoted strings

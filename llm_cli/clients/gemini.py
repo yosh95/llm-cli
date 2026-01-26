@@ -202,7 +202,7 @@ class GeminiClient(BaseLlmClient):
             if last_saved_image_path:
                 for p in model_msg.parts:
                     if isinstance(p, ContentPart) and p.function_call:
-                        if p.function_call.get("name") == "attach_file":
+                        if p.function_call.get("name") == "read_image_file":
                             # Fix the path to point to the actually saved file
                             # This corrects model hallucination where it invents a
                             # filename different from what we saved

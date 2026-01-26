@@ -88,8 +88,9 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
 
 
 @tool(
-    name="read_file",
-    desc="Read content from a text file with optional line range.",
+    name="read_text_file",
+    desc="Read content from a text file with optional line range. "
+    "Do NOT use this for binary files (PDF, images, etc).",
     params={
         "type": "object",
         "properties": {
@@ -104,7 +105,7 @@ def list_files(directory: str = ".", depth: int = 1, max_files: int = 500) -> st
         "required": ["path"],
     },
 )
-def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
+def read_text_file(path: str, start_line: int = 1, end_line: int = None) -> str:
     try:
         # Validate path for sandboxing
         validate_path(path)
@@ -122,17 +123,11 @@ def read_file(path: str, start_line: int = 1, end_line: int = None) -> str:
             max_output = int(get_setting("max_read_file_len", "general") or 50000)
             return content[:max_output]
         except UnicodeDecodeError:
-            # Fallback to attach_file for binary files
-            from llm_cli.modules.tools.media import attach_file
-
-            result = attach_file(path)
-            if isinstance(result, dict) and "result" in result:
-                result["result"] = (
-                    f"Notice: '{path}' is a binary file. "
-                    f"Automatically attached instead of reading as text.\n"
-                    f"{result['result']}"
-                )
-            return result
+            return (
+                f"Error: '{path}' appears to be a binary file. "
+                "Please use 'read_pdf_file', 'read_image_file', "
+                "or 'read_media_file' instead."
+            )
     except PathValidationError as e:
         return f"Security Error: {e}"
     except Exception as e:

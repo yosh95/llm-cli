@@ -188,7 +188,7 @@ class TestCommandValidator:
         # Should be blocked if any part is unsafe
         with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
             validator.validate("ls && rm file.txt")
-        
+
         with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
              validator.validate("whoami || echo 'whoops'")
 

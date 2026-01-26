@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from llm_cli.clients.base import BaseLlmClient
-from llm_cli.modules.tools.media import attach_file
+from llm_cli.modules.tools.media import read_image_file, read_pdf_file, read_media_file
 
 
 class MockClient(BaseLlmClient):
@@ -16,33 +16,51 @@ class MockClient(BaseLlmClient):
 
 @patch("llm_cli.modules.tools.media.process_file")
 @patch("llm_cli.modules.tools.media.Path")
-def test_attach_file_tool_success(mock_path, mock_process):
+def test_read_image_file_success(mock_path, mock_process):
     mock_path.return_value.exists.return_value = True
     mock_process.return_value = {"content": "base64data", "content_type": "image/png"}
 
-    res = attach_file("test.png")
+    res = read_image_file("test.png")
 
-    assert "Successfully attached" in res["result"]
+    assert "Successfully read" in res["result"]
     assert res["__llm_cli_data__"]["content"] == "base64data"
     assert res["__llm_cli_data__"]["content_type"] == "image/png"
 
 
+@patch("llm_cli.modules.tools.media.process_file")
 @patch("llm_cli.modules.tools.media.Path")
-def test_attach_file_tool_not_found(mock_path):
+def test_read_pdf_file_success(mock_path, mock_process):
+    mock_path.return_value.exists.return_value = True
+    mock_process.return_value = {
+        "content": "pdf_base64",
+        "content_type": "application/pdf",
+    }
+
+    res = read_pdf_file("doc.pdf")
+
+    assert "Successfully read" in res["result"]
+    assert res["__llm_cli_data__"]["content"] == "pdf_base64"
+    assert res["__llm_cli_data__"]["content_type"] == "application/pdf"
+
+
+@patch("llm_cli.modules.tools.media.Path")
+def test_media_tool_file_not_found(mock_path):
     mock_path.return_value.exists.return_value = False
-    res = attach_file("missing.png")
-    assert "Error: File not found" in res["result"]
+    res = read_image_file("missing.png")
+    assert "Error: File not found" in res
 
 
 @patch("llm_cli.modules.tools.media.process_file")
 @patch("llm_cli.modules.tools.media.Path")
-def test_attach_file_tool_text_file(mock_path, mock_process):
+def test_read_image_file_invalid_type(mock_path, mock_process):
     mock_path.return_value.exists.return_value = True
-    mock_process.return_value = {"content": "hello world", "content_type": "text/plain"}
+    # Simulate a text file being read as an image
+    mock_process.return_value = {"content": "hello", "content_type": "text/plain"}
 
-    res = attach_file("test.txt")
-    assert "Successfully attached" in res["result"]
-    assert res["__llm_cli_data__"]["content_type"] == "text/plain"
+    res = read_image_file("test.txt")
+    assert "Error" in res
+    assert "has type 'text/plain'" in res
+    assert "expected one of ('image/',)" in res
 
 
 def test_handle_attach_command():

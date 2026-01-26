@@ -1,7 +1,7 @@
 # tests/test_file_ops.py
 
 
-from llm_cli.modules.tools.file_ops import list_files, read_file, write_file
+from llm_cli.modules.tools.file_ops import list_files, read_text_file, write_file
 
 
 def test_write_and_read_file(tmp_path, monkeypatch):
@@ -17,8 +17,8 @@ def test_write_and_read_file(tmp_path, monkeypatch):
     assert "Successfully wrote" in write_result
     assert (tmp_path / test_path).exists()
 
-    # Test read_file
-    read_result = read_file(test_path)
+    # Test read_text_file
+    read_result = read_text_file(test_path)
     assert content in read_result
 
 
@@ -31,7 +31,7 @@ def test_read_file_line_range(tmp_path, monkeypatch):
     (tmp_path / test_path).write_text("\n".join(lines))
 
     # Read lines 2 to 3
-    result = read_file(test_path, start_line=2, end_line=3)
+    result = read_text_file(test_path, start_line=2, end_line=3)
     assert "Line 1" not in result
     assert "Line 2" in result
     assert "Line 3" in result

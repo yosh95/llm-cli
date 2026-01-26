@@ -176,3 +176,19 @@ class TestCommandValidator:
         except CommandValidationError as e:
             # Should show '`' (repr)
             assert "`" in str(e)
+
+    def test_command_chaining_allowed(self):
+        """Test that &&, ||, and | are allowed if parts are safe."""
+        validator = CommandValidator()
+        # Should be allowed
+        validator.validate("ls && echo 'done'")
+        validator.validate("grep 'foo' file.txt || echo 'not found'")
+        validator.validate("cat file.txt | grep 'bar'")
+
+        # Should be blocked if any part is unsafe
+        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+            validator.validate("ls && rm file.txt")
+        
+        with pytest.raises(CommandValidationError, match="not in the allowed whitelist"):
+             validator.validate("whoami || echo 'whoops'")
+

@@ -260,6 +260,8 @@ async def test_stdio_client_context():
     proc_mock.stdin = AsyncMock(spec=asyncio.StreamWriter)
     proc_mock.returncode = None
     proc_mock.wait = AsyncMock()
+    # Fix: terminate is a sync method on Process, so mock it as MagicMock to avoid await warning
+    proc_mock.terminate = MagicMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_exec:
         async with stdio_client(params) as (stdout, stdin):
@@ -308,3 +310,9 @@ def test_fastmcp_run():
     with patch("asyncio.run") as mock_run:
         server.run()
         mock_run.assert_called_once()
+        
+        # Clean up the coroutine created by server.run() passed to asyncio.run
+        # to avoid "coroutine ... was never awaited" warning
+        coro = mock_run.call_args[0][0]
+        if asyncio.iscoroutine(coro):
+            coro.close()

@@ -65,6 +65,8 @@ class OllamaClient(BaseLlmClient):
             res_json = response.json()
 
             raw_content, tool_calls, reasoning = self._parse_response(res_json)
+            # Ensure raw_content is a string even if None
+            raw_content = raw_content or ""
 
             # Handle <think> tags in content (common in DeepSeek-R1 via Ollama)
             if not reasoning and raw_content and "<think>" in raw_content:

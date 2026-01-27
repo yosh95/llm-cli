@@ -16,6 +16,7 @@ lite = { model = "gemini-flash-lite-latest", thinking_key = "thinkingBudget", th
 flash = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thinking_budget = "minimal" }
 pro = { model = "gemini-3-pro-preview", thinking_key = "thinkingLevel", thinking_budget = "low" }
 image = { model = "gemini-3-pro-image-preview", thinking_key = "thinkingLevel", thinking_budget = "low" }
+tts = { model = "gemini-2.5-pro-preview-tts" }
 
 # =============================================================================
 # OpenAI

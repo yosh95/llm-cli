@@ -177,7 +177,7 @@ class GrokClient(BaseLlmClient):
                 return ("Failed to retrieve image data from the response.", ""), None
 
             # Use shared media saving logic from BaseLlmClient
-            display_text, _ = self._save_inline_image_and_get_log_entry(
+            display_text, _ = self._save_inline_media_and_get_log_entry(
                 {"mimeType": mime_type, "data": img_data}, hint_text=full_prompt[:100]
             )
             if not display_text:

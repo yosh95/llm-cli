@@ -792,33 +792,85 @@ class BaseLlmClient(ABC):
         except Exception as e:
             console.print(f"[dim red]Log trimming failed: {e}[/dim red]")
 
-    def _save_inline_image_and_get_log_entry(
+    def _save_inline_media_and_get_log_entry(
         self, inline_data: Dict[str, Any], hint_text: str = ""
     ) -> Tuple[Optional[str], Optional[Path]]:
         """
-        Saves inline image data (base64) to a file and returns a tuple of
+        Saves inline media data (base64) to a file and returns a tuple of
         (formatted display string, saved file path).
+        Supports images and audio.
         """
-        if inline_data.get("mimeType", "").startswith("image/"):
+        mime_type = inline_data.get("mimeType", "")
+        if mime_type.startswith("image/") or mime_type.startswith("audio/"):
             import mimetypes
 
             from llm_cli.modules.media_utils import generate_safe_filename
 
-            save_dir = Path("images/generated")
+            if mime_type.startswith("audio/"):
+                save_dir = Path("audio/generated")
+                default_ext = ".mp3"
+                emoji = "🔊"
+                type_name = "Audio"
+            else:
+                save_dir = Path("images/generated")
+                default_ext = ".png"
+                emoji = "🎨"
+                type_name = "Image"
+
             save_dir.mkdir(parents=True, exist_ok=True)
 
-            mime_type = inline_data["mimeType"]
-            ext = mimetypes.guess_extension(mime_type) or ".png"
+            if "pcm" in mime_type.lower() or "l16" in mime_type.lower():
+                import wave
+
+                # PCM data needs a WAV header to be playable
+                ext = ".wav"
+                filename = generate_safe_filename(hint_text, ext=ext.strip("."))
+                target_path = save_dir / filename
+
+                # Parse sample rate from mime type (e.g. "audio/L16;rate=24000")
+                # Default to 24000 Hz as per Gemini docs
+                rate = 24000
+                if "rate=" in mime_type:
+                    try:
+                        import re
+                        match = re.search(r"rate=(\d+)", mime_type)
+                        if match:
+                            rate = int(match.group(1))
+                    except Exception:
+                        pass
+
+                try:
+                    data_bytes = base64.b64decode(inline_data["data"])
+                    with wave.open(str(target_path), "wb") as wav_file:
+                        wav_file.setnchannels(1)  # Mono
+                        wav_file.setsampwidth(2)  # 16-bit
+                        wav_file.setframerate(rate)
+                        wav_file.writeframes(data_bytes)
+
+                    msg = (
+                        f"\n\n{emoji} {type_name} generated and saved to: "
+                        f"**{target_path}**\n"
+                    )
+                    return msg, target_path
+                except Exception as e:
+                    console.print(f"[red]Failed to save PCM audio as WAV: {e}[/red]")
+                    return None, None
+
+            # Standard saving for other formats (MP3, Images, etc.)
+            ext = mimetypes.guess_extension(mime_type) or default_ext
             filename = generate_safe_filename(hint_text, ext=ext.strip("."))
             target_path = save_dir / filename
 
             try:
                 target_path.write_bytes(base64.b64decode(inline_data["data"]))
-                # Inform user that image was saved
-                msg = f"\n\n🎨 Image generated and saved to: **{target_path}**\n"
+                # Inform user that media was saved
+                msg = (
+                    f"\n\n{emoji} {type_name} generated and saved to: "
+                    f"**{target_path}**\n"
+                )
                 return msg, target_path
             except Exception as e:
-                console.print(f"[red]Failed to save image: {e}[/red]")
+                console.print(f"[red]Failed to save {type_name.lower()}: {e}[/red]")
         return None, None
 
     def _log_debug(

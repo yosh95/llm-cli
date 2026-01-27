@@ -58,9 +58,9 @@ class TestOpenAIImageGeneration:
         }
         mock_post.return_value = mock_response
 
-        # Mock _save_inline_image_and_get_log_entry to avoid file I/O
+        # Mock _save_inline_media_and_get_log_entry to avoid file I/O
         with patch.object(
-            mock_openai_client, "_save_inline_image_and_get_log_entry"
+            mock_openai_client, "_save_inline_media_and_get_log_entry"
         ) as mock_save:
             mock_save.return_value = ("Image saved at images/img.png", None)
 

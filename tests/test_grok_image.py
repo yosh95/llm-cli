@@ -58,9 +58,9 @@ class TestGrokImageGeneration:
         }
         mock_post.return_value = mock_response
 
-        # Mock _save_inline_image_and_get_log_entry to avoid file I/O
+        # Mock _save_inline_media_and_get_log_entry to avoid file I/O
         with patch.object(
-            mock_grok_client, "_save_inline_image_and_get_log_entry"
+            mock_grok_client, "_save_inline_media_and_get_log_entry"
         ) as mock_save:
             mock_save.return_value = ("Image saved at images/img.png", None)
 
@@ -106,9 +106,9 @@ class TestGrokImageGeneration:
         with patch("llm_cli.modules.media_utils.fetch_url_content") as mock_fetch:
             mock_fetch.return_value = ("fetched_base64_data", "image/png")
 
-            # Mock _save_inline_image_and_get_log_entry
+            # Mock _save_inline_media_and_get_log_entry
             with patch.object(
-                mock_grok_client, "_save_inline_image_and_get_log_entry"
+                mock_grok_client, "_save_inline_media_and_get_log_entry"
             ) as mock_save:
                 mock_save.return_value = ("Image saved at images/dog.png", None)
 

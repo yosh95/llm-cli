@@ -37,6 +37,101 @@ class GeminiClient(BaseLlmClient):
             pdf_as_base64=True,
             **kwargs,
         )
+        self._slash_commands.update({"speech", "tts"})
+
+    def _handle_command(
+        self,
+        user_input: str,
+        sources: Optional[List[str]],
+        pending_data: Optional[List[DataSource]] = None,
+    ) -> bool:
+        """Handles Gemini-specific slash commands."""
+        if super()._handle_command(user_input, sources, pending_data):
+            return True
+
+        if not user_input.startswith("/"):
+            return False
+
+        parts = user_input[1:].split(None, 1)
+        cmd = parts[0]
+        args = parts[1].strip() if len(parts) > 1 else ""
+
+        if cmd in ("speech", "tts"):
+            if not args:
+                console.print("[red]Usage: /speech <text to generate audio for>[/red]")
+                return True
+
+            # Use the current model to generate speech content
+            self.generate_speech_content(args)
+            return True
+
+        return False
+
+    def generate_speech_content(self, text: str):
+        """
+        Generates audio from text using the current model with
+        responseModalities=['AUDIO'].
+        """
+        console.print(f"[dim]Generating speech using {self.model}...[/dim]")
+
+        # Construct a one-off payload
+        # Note: TTS models strictly require AUDIO modality.
+        # Including system prompts can confuse the model into text mode.
+        payload = {
+            "contents": [{"parts": [{"text": text}]}],
+            "generationConfig": {
+                "responseModalities": ["AUDIO"],
+                "speechConfig": {
+                    "voiceConfig": {
+                        "prebuiltVoiceConfig": {
+                            "voiceName": "Puck"
+                        }
+                    }
+                }
+            }
+        }
+
+        # Explicitly do NOT add system instructions for TTS generation
+
+        api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
+
+        try:
+            response = self._post_with_retry(
+                api_url,
+                headers={
+                    "x-goog-api-key": self.api_key,
+                    "Content-Type": "application/json",
+                },
+                json_data=payload,
+                timeout=self.request_timeout,
+            )
+            response.raise_for_status()
+            res_json = response.json()
+
+            model_msg = self._parse_response(res_json)
+
+            # Process and save any inline data (which should be the audio)
+            saved_something = False
+            for p in model_msg.parts:
+                if isinstance(p, ContentPart) and p.inline_data:
+                    # Provide a hint text for the filename
+                    hint = text[:50]
+                    log, saved_path = self._save_inline_media_and_get_log_entry(
+                        p.inline_data, hint_text=hint
+                    )
+                    if log:
+                        console.print(log)
+                    saved_something = True
+
+            if not saved_something:
+                console.print(
+                    "[yellow]No audio data received from the model. "
+                    "Ensure the model supports audio generation.[/yellow]"
+                )
+
+        except Exception as e:
+            self._report_error("Speech Generation", e)
+
 
     def _load_model_aliases(self):
         """Loads model aliases from the configuration."""
@@ -189,7 +284,7 @@ class GeminiClient(BaseLlmClient):
                                 if hint:
                                     break
 
-                        log, saved_path = self._save_inline_image_and_get_log_entry(
+                        log, saved_path = self._save_inline_media_and_get_log_entry(
                             p.inline_data, hint_text=hint
                         )
                         if log:
@@ -293,15 +388,20 @@ class GeminiClient(BaseLlmClient):
             filtered_contents.append({"role": "user", "parts": new_parts})
 
         payload = {"contents": filtered_contents}
-        if self.system_prompt and self.system_prompt_enabled:
+
+        # Check if current model is a TTS model
+        # TTS models require AUDIO modality and often fail with system instructions
+        is_tts_model = "tts" in self.model.lower()
+
+        if self.system_prompt and self.system_prompt_enabled and not is_tts_model:
             payload["system_instruction"] = {"parts": [{"text": self.system_prompt}]}
 
-        if self.active_tools and self.tools_enabled:
+        if self.active_tools and self.tools_enabled and not is_tts_model:
             payload["tools"] = registry.get_gemini_spec(
                 self.active_tools, provider=self.config_section
             )
 
-        if self.reasoning_enabled:
+        if self.reasoning_enabled and not is_tts_model:
             thinking_config = {}
             if self.include_thoughts:
                 thinking_config["include_thoughts"] = True
@@ -312,6 +412,22 @@ class GeminiClient(BaseLlmClient):
             thinking_config[key] = budget
 
             payload["generationConfig"] = {"thinkingConfig": thinking_config}
+
+        if is_tts_model:
+            # Enforce AUDIO modality for TTS models
+            gen_config = payload.get("generationConfig", {})
+            gen_config["responseModalities"] = ["AUDIO"]
+
+            # Add default speech config if not present
+            if "speechConfig" not in gen_config:
+                gen_config["speechConfig"] = {
+                    "voiceConfig": {
+                        "prebuiltVoiceConfig": {
+                            "voiceName": "Puck"
+                        }
+                    }
+                }
+            payload["generationConfig"] = gen_config
 
         return payload
 

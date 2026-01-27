@@ -94,7 +94,7 @@ class TestBaseLlmClient:
         inline_data = {"mimeType": "image/png", "data": sample_image_base64}
 
         # Test current dir for image saving
-        log_entry, saved_path = concrete_client._save_inline_image_and_get_log_entry(inline_data)
+        log_entry, saved_path = concrete_client._save_inline_media_and_get_log_entry(inline_data)
         assert log_entry is not None
         assert "Image generated and saved to" in log_entry
         assert saved_path is not None

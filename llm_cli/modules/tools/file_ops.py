@@ -1,8 +1,10 @@
 # llm_cli/modules/tools/file_ops.py
 
 from pathlib import Path
+from typing import Dict, Union
 
 from llm_cli.clients.config import get_setting
+from llm_cli.modules.media_utils import process_file
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
 
@@ -164,61 +166,52 @@ def write_file(path: str, content: str) -> str:
         return f"Error: {e}"
 
 
+def _process_and_return(path: str, expected_types: tuple = None) -> Union[str, Dict]:
+    """Helper to process file and return LLM-compatible structure."""
+    try:
+        p = Path(path)
+        if not p.exists():
+            return f"Error: File not found: {path}"
+
+        # process_file returns {content, content_type, [file_uri]}
+        # pdf_as_base64=True ensures we get base64 content for PDFs
+        res = process_file(p, pdf_as_base64=True)
+        if not res:
+            return f"Error: Failed to process file: {path}"
+
+        content_type = res.get("content_type", "")
+
+        # Validation if specific types are expected
+        if expected_types:
+            if not any(content_type.startswith(t) for t in expected_types):
+                return (
+                    f"Error: File '{path}' has type '{content_type}', "
+                    f"but expected one of {expected_types}. "
+                    "Please use the correct tool for this file type."
+                )
+
+        return {
+            "result": f"Successfully read {path} ({content_type})",
+            "__llm_cli_data__": {
+                "content": res["content"],
+                "content_type": res["content_type"],
+                "is_file_or_url": True,
+            },
+        }
+    except Exception as e:
+        return f"Error: {e}"
+
+
 @tool(
-    name="edit_file",
-    desc="Edit a file by replacing a specific block of text. "
-    "This is safer than write_file for bug fixes as it prevents unintended changes "
-    "to other parts of the file.",
+    name="read_pdf_file",
+    desc="Read a PDF file and add it to the context.",
     params={
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Path to the file to edit."},
-            "search": {
-                "type": "string",
-                "description": (
-                    "The exact block of text to find. "
-                    "Must match exactly including indentation."
-                ),
-            },
-            "replace": {
-                "type": "string",
-                "description": "The new block of text to replace 'search' with.",
-            },
+            "path": {"type": "string", "description": "Path to the PDF file."}
         },
-        "required": ["path", "search", "replace"],
+        "required": ["path"],
     },
 )
-def edit_file(path: str, search: str, replace: str) -> str:
-    """
-    Search and replace a specific block of text in a file.
-    Ensures that only the intended part is modified.
-    """
-    try:
-        validate_path(path)
-        p = Path(path)
-        if not p.is_file():
-            return f"Error: '{path}' is not a file."
-
-        content = p.read_text(encoding="utf-8")
-        if search not in content:
-            return (
-                "Error: The 'search' block was not found in the file. "
-                "Ensure the search block matches the file content exactly, "
-                "including indentation and whitespace."
-            )
-
-        # Count occurrences to avoid ambiguous replacements
-        count = content.count(search)
-        if count > 1:
-            return (
-                f"Error: Found {count} occurrences of the search block. "
-                "Please provide a more unique/specific search block."
-            )
-
-        new_content = content.replace(search, replace)
-        p.write_text(new_content, encoding="utf-8")
-        return f"Successfully updated {path}"
-    except PathValidationError as e:
-        return f"Security Error: {e}"
-    except Exception as e:
-        return f"Error: {e}"
+def read_pdf_file(path: str) -> Union[str, Dict]:
+    return _process_and_return(path, expected_types=("application/pdf",))

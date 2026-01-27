@@ -2,32 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from llm_cli.modules.tools.web import fetch_url, fetch_web_text, google_search
-
-
-def test_fetch_url_html(mock_cloudscraper):
-    """Test fetch_url returns raw HTML."""
-    mock_cloudscraper.get.return_value.headers = {"Content-Type": "text/html"}
-    mock_cloudscraper.get.return_value.text = "<html><body><h1>Hello</h1></body></html>"
-
-    result = fetch_url("https://example.com")
-    assert "<html><body><h1>Hello</h1></body></html>" in result
-
-
-def test_fetch_url_binary(mock_cloudscraper):
-    """Test fetch_url handles binary content like PDF."""
-    mock_response = MagicMock()
-    mock_response.headers = {"Content-Type": "application/pdf"}
-    mock_response.content = b"%PDF-1.4 mock content"
-    mock_cloudscraper.get.return_value = mock_response
-
-    with patch("filetype.guess") as mock_guess:
-        mock_guess.return_value.mime = "application/pdf"
-        result = fetch_url("https://example.com/test.pdf")
-
-        assert isinstance(result, dict)
-        assert "__llm_cli_data__" in result
-        assert result["__llm_cli_data__"]["content_type"] == "application/pdf"
+from llm_cli.modules.tools.web import fetch_web_text, google_search
 
 
 def test_fetch_web_text_basic(mock_cloudscraper):

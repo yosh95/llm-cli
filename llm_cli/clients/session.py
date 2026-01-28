@@ -23,7 +23,6 @@ from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.shortcuts import CompleteStyle
 from rich.markup import escape
-from rich.padding import Padding
 from rich.rule import Rule
 from rich.syntax import Syntax
 
@@ -189,13 +188,10 @@ class ChatSession:
 
     def _print_block(self, renderable, title=None, style=None):
         """Print content with background color (no border) for easier copying."""
-        # Default background color for blocks (dark gray)
-        bg_style = "on #262626"
-
         if title:
             console.print(Rule(title=title, style=style or "white"))
 
-        console.print(Padding(renderable, (1, 2), style=bg_style))
+        console.print(renderable)
 
         if title:
             console.print(Rule(style=style or "white"))

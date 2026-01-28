@@ -15,19 +15,12 @@ from llm_cli.modules.tool_registry import tool
     parameters={
         "type": "object",
         "properties": {
-            "queries": {"type": "array", "items": {"type": "string"}},
-            "num": {
-                "type": "integer",
-                "description": (
-                    "Number of results to return per query (1-10). Default is 10."
-                ),
-                "default": 10,
-            },
+            "query": {"type": "string", "description": "Search query."},
         },
-        "required": ["queries"],
+        "required": ["query"],
     },
 )
-def google_search(queries: list[str], num: int = 10) -> str:
+def google_search(query: str) -> str:
     api_key = get_setting("api_key", "google")
     cse_id = get_setting("cse_id", "google")
     if not api_key or not cse_id:
@@ -37,30 +30,25 @@ def google_search(queries: list[str], num: int = 10) -> str:
             "of your config.toml. You can use 'llm-cli-config' to set them."
         )
 
-    # Clamp num to the valid range for Google Custom Search API (1-10)
-    num = max(1, min(10, num))
+    try:
+        resp = requests.get(
+            "https://www.googleapis.com/customsearch/v1",
+            params={"key": api_key, "cx": cse_id, "q": query, "num": 10},
+            timeout=15,
+        )
+        items = resp.json().get("items", [])
+        if not items:
+            return f"### Results for: {query}\nNo results."
 
-    all_results = []
-    for q in queries:
-        try:
-            resp = requests.get(
-                "https://www.googleapis.com/customsearch/v1",
-                params={"key": api_key, "cx": cse_id, "q": q, "num": num},
-                timeout=15,
-            )
-            items = resp.json().get("items", [])
-            results = [
-                f"Title: {i.get('title')}\n"
-                f"URL: {i.get('link')}\n"
-                f"Snippet: {i.get('snippet')}\n"
-                for i in items
-            ]
-            all_results.append(
-                f"### Results for: {q}\n" + ("\n".join(results) or "No results.")
-            )
-        except Exception as e:
-            all_results.append(f"Error searching '{q}': {e}")
-    return "\n\n---\n\n".join(all_results)
+        results = [
+            f"Title: {i.get('title')}\n"
+            f"URL: {i.get('link')}\n"
+            f"Snippet: {i.get('snippet')}\n"
+            for i in items
+        ]
+        return f"### Results for: {query}\n" + "\n".join(results)
+    except Exception as e:
+        return f"Error searching '{query}': {e}"
 
 
 @tool(

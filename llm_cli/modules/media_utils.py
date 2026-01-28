@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import cloudscraper
 import filetype
-from bs4 import BeautifulSoup
+import markdownify
 from pypdf import PdfReader
 
 scraper = cloudscraper.create_scraper()
@@ -69,8 +69,11 @@ def fetch_url_content(
                 return read_pdf_text(BytesIO(response.content)), "text/plain"
 
         if "text/html" in content_type:
-            soup = BeautifulSoup(response.content, "html.parser")
-            return soup.get_text(" ", strip=True), "text/plain"
+            # Using markdownify to convert HTML to Markdown text
+            html_content = re.sub(r"(?is)<script.*?>.*?</script>", "", response.text)
+            html_content = re.sub(r"(?is)<style.*?>.*?</style>", "", html_content)
+            text = markdownify.markdownify(html_content, heading_style="ATX")
+            return text, "text/plain"
 
         if content_type.startswith("text/"):
             return response.text, "text/plain"

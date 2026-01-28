@@ -3,13 +3,8 @@
 import re
 
 import cloudscraper
+import markdownify
 import requests
-from bs4 import BeautifulSoup, Comment
-
-try:
-    import markdownify
-except ImportError:
-    markdownify = None
 
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import tool
@@ -64,62 +59,6 @@ def web_search(query: str) -> str:
         return f"Error searching '{query}': {e}"
 
 
-def _convert_to_markdown_fallback(html_content: str) -> str:
-    """Fallback Markdown converter using BeautifulSoup if markdownify is missing."""
-    soup = BeautifulSoup(html_content, "html.parser")
-
-    # Remove unwanted tags
-    for tag in soup(["script", "style", "meta", "noscript", "iframe", "svg"]):
-        tag.decompose()
-
-    # Remove comments
-    for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
-        comment.extract()
-
-    # Convert headers
-    for i in range(1, 7):
-        for h in soup.find_all(f"h{i}"):
-            text = h.get_text().strip()
-            if text:
-                h.string = f"\n{'#' * i} {text}\n"
-                h.unwrap()
-
-    # Convert links
-    for a in soup.find_all("a", href=True):
-        text = a.get_text().strip()
-        if text:
-            a.string = f"[{text}]({a['href']})"
-            a.unwrap()
-
-    # Convert code blocks (pre)
-    for pre in soup.find_all("pre"):
-        code = pre.get_text()
-        pre.string = f"\n```\n{code}\n```\n"
-        pre.unwrap()
-
-    # Convert lists (very simple approximation)
-    for ul in soup.find_all("ul"):
-        for li in ul.find_all("li", recursive=False):
-            li.string = f"- {li.get_text().strip()}\n"
-            li.unwrap()
-        ul.unwrap()
-
-    for ol in soup.find_all("ol"):
-        for i, li in enumerate(ol.find_all("li", recursive=False)):
-            li.string = f"{i+1}. {li.get_text().strip()}\n"
-            li.unwrap()
-        ol.unwrap()
-
-    # Get text with separator
-    text = soup.get_text(separator="\n")
-
-    # Clean up excessive newlines
-    lines = [line.strip() for line in text.splitlines()]
-    clean_text = "\n".join(line for line in lines if line)
-
-    return clean_text
-
-
 @tool(
     name="fetch_web_markdown",
     description=(
@@ -147,15 +86,15 @@ def fetch_web_markdown(url: str) -> str:
                 "Use 'read_pdf_file' if it is a PDF."
             )
 
-        if markdownify:
-            # Configure markdownify to strip unwanted tags but keep structure
-            content = markdownify.markdownify(
-                resp.text, heading_style="ATX", strip=["script", "style"]
-            )
-            # Post-processing to remove excessive newlines
-            content = re.sub(r"\n{3,}", "\n\n", content).strip()
-        else:
-            content = _convert_to_markdown_fallback(resp.text)
+        # Remove script and style tags via regex before processing
+        # markdownify's 'strip' option only removes tags but keeps content
+        html_content = re.sub(r"(?is)<script.*?>.*?</script>", "", resp.text)
+        html_content = re.sub(r"(?is)<style.*?>.*?</style>", "", html_content)
+
+        # Configure markdownify to strip unwanted tags but keep structure
+        content = markdownify.markdownify(html_content, heading_style="ATX")
+        # Post-processing to remove excessive newlines
+        content = re.sub(r"\n{3,}", "\n\n", content).strip()
 
         # Truncate if too long (rough safety limit)
         max_len = 20000

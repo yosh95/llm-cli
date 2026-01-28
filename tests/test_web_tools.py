@@ -23,13 +23,11 @@ def test_fetch_web_markdown_basic(mock_cloudscraper):
     }
     mock_cloudscraper.get.return_value.text = html_content
 
-    # We mock markdownify if it exists, but the test should pass with fallback too.
-    # To test the fallback logic explicitly, we could mock markdownify as None,
-    # but here we just check the output structure.
+    # We expect markdownify to handle the conversion.
     result = fetch_web_markdown("https://example.com")
 
     # Check for markdown elements
-    # Note: Exact output depends on markdownify vs fallback,
+    # Both ATX headings and link preservation should be handled by markdownify
     # but both should produce something readable.
     assert "Main Title" in result
     # Check if link is preserved

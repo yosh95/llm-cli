@@ -133,7 +133,7 @@ def test_replace_lines_success(tmp_path, monkeypatch):
 
     new_content = (tmp_path / test_path).read_text(encoding="utf-8")
     new_lines = new_content.splitlines()
-    
+
     assert "Line 1" == new_lines[0]
     assert "Line 2 Mod" == new_lines[1]
     assert "Line 3 Mod" == new_lines[2]

@@ -52,7 +52,11 @@ def set_resource_limits(mem_limit_mb: int):
 
 @tool(
     name="execute_command",
-    description="Execute a shell command.",
+    description=(
+        "Execute a shell command. Use this for running tests, linters, git operations, "
+        "or other development tasks. Do not use this for file editing; use "
+        "'write_file' or 'replace_lines' instead."
+    ),
     parameters={
         "type": "object",
         "properties": {"command": {"type": "string", "description": "Command to run."}},

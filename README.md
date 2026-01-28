@@ -33,7 +33,7 @@ proofread = "Proofread this text:"
 
 ### 🔍 Real-time Research & Tool Use
 
-The AI can use tools like `google_search` to find the latest information. In this example, it searches for the latest AI news and summarizes it. **Agent Mode is enabled by default**, allowing the AI to autonomously use various tools to help with your tasks.
+The AI can use tools like `web_search` to find the latest information. In this example, it searches for the latest AI news and summarizes it. **Agent Mode is enabled by default**, allowing the AI to autonomously use various tools to help with your tasks.
 
 <p align="center">
   <img src="images/google_search.png" width="700" alt="Real-time Research" />
@@ -73,16 +73,17 @@ The AI agent comes equipped with the following tools:
 
 | Tool | Description |
 | :--- | :--- |
-| `execute_command` | Execute shell commands (validated against a security whitelist). |
-| `list_files` | List files in a directory to explore the project structure. |
-| `read_text_file` | Read content from a text file (with optional line range). |
+| `execute_command` | Execute shell commands (Use for testing, linting, git operations). |
+| `list_files` | List files in a directory to explore structure (Supports `ignore_patterns`). |
+| `search_files` | Search for text patterns in files (Grep-like). Essential for finding code definitions. |
+| `read_text_file` | Read text file content. Use `with_line_numbers=True` before editing. |
+| `replace_lines` | Replace a range of lines in a file. Returns a Diff. Safer than string replace. |
+| `write_file` | Create a new file (full content). |
 | `read_pdf_file` | Read a PDF file and add it to the context. |
-| `write_file` | Create or update a file (full overwrite). |
-| `edit_file` | Precise search-and-replace to modify specific code blocks. |
-| `google_search` | Search the web for real-time information. |
-| `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
+| `web_search` | Search the web using Google to find information. |
+| `fetch_web_markdown` | Fetch a URL and convert it to Markdown (preserves structure). |
 
-> **Note**: To use `google_search`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
+> **Note**: To use `web_search`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
 
 ## Power User Tips
 
@@ -400,7 +401,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 ## スクリーンショット
 
 ### 🔍 リアルタイム調査とツール利用
-AIは `google_search` などのツールを活用して最新情報を取得できます。この例では、最新のAIニュースを検索して要約しています。**エージェントモードはデフォルトで有効**になっており、AIが自律的に様々なツールを使いこなしながらタスクをサポートします。
+AIは `web_search` などのツールを活用して最新情報を取得できます。この例では、最新のAIニュースを検索して要約しています。**エージェントモードはデフォルトで有効**になっており、AIが自律的に様々なツールを使いこなしながらタスクをサポートします。
 
 <p align="center">
   <img src="images/google_search.png" width="700" alt="リアルタイム調査" />
@@ -437,62 +438,62 @@ AIは `google_search` などのツールを活用して最新情報を取得で�
 
 AIエージェントは以下のツールを標準で備えています：
 
-| ツール名 | 説明 |
+| ツール | 説明 |
 | :--- | :--- |
-| `execute_command` | シェルコマンドを実行（ホワイトリストによる安全検証付き）。 |
-| `list_files` | ディレクトリ内のファイル一覧を表示し、プロジェクト構造を把握。 |
-| `read_file` | テキストファイルの内容を読み取り（行指定可能）。 |
-| `write_file` | ファイルを新規作成または更新（全体書き換え）。 |
-| `edit_file` | 精密な検索と置換により、特定のコードブロックを修正. |
-| `google_search` | Google検索を使用してリアルタイムの情報を取得. |
-| `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
-| `read_text_file` | テキストファイルの内容を読み取り（行指定可能）。 |
-| `read_pdf_file` | PDFファイルを読み込んでコンテキストに追加。 |
+| `execute_command` | シェルコマンドを実行します（テスト実行、Lint実行、Git操作用）。 |
+| `list_files` | ディレクトリ構造を一覧表示します（`ignore_patterns`対応）。 |
+| `search_files` | ファイル内のテキストパターンを検索します（Grep互換）。コード定義の探索に必須です。 |
+| `read_text_file` | テキストファイルを読み込みます。編集前には `with_line_numbers=True` で行番号を確認してください。 |
+| `replace_lines` | ファイル内の指定行範囲を置換します。Diffを返し、文字列検索置換より安全です。 |
+| `write_file` | 新規ファイルを作成します（全内容上書き）。 |
+| `read_pdf_file` | PDFファイルを読み込み、コンテキストに追加します。 |
+| `web_search` | Google検索を使用して、インターネット上の情報を探します。 |
+| `fetch_web_markdown` | URLを取得し、Markdown形式に変換します（構造を維持）。 |
 
-> **注**: `google_search` を利用するには、**Google Cloud Platform の API キー**と**カスタム検索エンジン ID (CX)** の取得が必要です。これらは `llm-cli-config` で設定できます。
+> **注**: `web_search` を使用するには、**Google Cloud Platform APIキー**と**カスタム検索エンジンID (CX)**が必要です。これらは `llm-cli-config` を使用して設定できます。
 
-## パワーユーザー向けのTips
+## パワーユーザー向けのヒント
 
 環境を完全にコントロールしたいパワーユーザー向け：
 
--   **バックグラウンド実行 (`Ctrl+Z`)**: プロンプトで `Ctrl+Z` を押すことで、いつでも `llm-cli` をサスペンドしてシェルに戻ることができます。`fg` コマンドでセッションに復帰可能です。AIのガードレールに制限されない複雑なシェル操作を行いたい場合に推奨される方法です。
--   **外部エディタ連携 (`Ctrl+X, Ctrl+E`)**: プロンプトで `Ctrl+X` に続いて `Ctrl+E` を押すと、現在の入力内容をデフォルトのテキストエディタ（`vim`, `nano` 等）で開くことができます。エディタの機能（シェルコマンドの実行結果をバッファに読み込むなど）を使い、複雑なプロンプトの作成やデータのフィルタリングを行ってからLLMに送信できます。
+-   **バックグラウンド実行 (`Ctrl+Z`)**: `Ctrl+Z` を使用していつでも `llm-cli` を一時停止し、シェルに戻ることができます。セッションを再開するには `fg` を使用します。AIのガードレールによって制限されている複雑なシェル操作を行う場合に推奨される方法です。
+-   **外部エディタ (`Ctrl+X, Ctrl+E`)**: プロンプトで `Ctrl+X` を押した後に `Ctrl+E` を押すと、現在の入力をデフォルトのテキストエディタ（`vim`、`nano` など）で開くことができます。エディタの機能（シェルコマンドの出力をバッファに直接読み込むなど）を使用して、複雑なプロンプトを作成したり、LLMに送信する前にデータをフィルタリングしたりできます。
 
 ## セキュリティ
 
-`llm-cli` は、AIエージェントによるコマンドインジェクションや危険な操作を防止するため、厳格なセキュリティガードレールを実装しています：
+`llm-cli` は、AIエージェントによるコマンドインジェクションや危険な操作を防ぐため、厳格なセキュリティガードレールを実装しています：
 
 ### コマンド実行ガードレール
 
-AIエージェント (`execute_command` ツール) が実行するシェルコマンドは、実行前に安全なコマンドの**ホワイトリスト**に対して検証されます。
+AIエージェント（`execute_command` ツール）を通じて実行されるすべてのシェルコマンドは、実行前に**ホワイトリスト**と照合され、検証されます。
 
-**デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find` など、読み取り専用または低リスクのコマンド。完全なリストは `llm_cli/security/command_validator.py` を参照してください。
+**デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find` およびその他の読み取り専用または低リスクのコマンド。完全なリストについては、`llm_cli/security/command_validator.py` を参照してください。
 
-**サポートされる操作（検証付き）**:
-- コマンドチェーンおよびパイプ (`&&`, `||`, `|`) は、チェーン内の**すべてのコマンド**がホワイトリストに含まれている場合に限り許可されます。
-- 絶対パスは、実在しないパス（検索パターンなど）であるか、現在のプロジェクトディレクトリ内を指している場合に許可されます。
+**サポートされている操作（検証済み）**:
+- コマンドチェーンとパイプ（`&&`, `||`, `|`）は、チェーン内の**すべてのコマンド**がホワイトリストに含まれている場合に限り許可されます。
+- 絶対パスは、存在しないファイルを指している場合（正規表現/文字列用）、または現在のプロジェクトディレクトリ内にある場合に許可されます。
 
 **ブロックされるパターン**:
-- コマンドセパレータ (`;`, `&`, `\n`)
-- I/O リダイレクト (`>`, `<`)
-- コマンド置換 (`` ` ``, `$()`)
-- 危険な操作 (例: `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`)
-- 危険なサブコマンド (例: `git push`, `pip install`, `tar -x`)
-- 重要なシステムパスへのアクセス (例: `/etc`, `/var`, `/root`)
-- **注**: `awk` は `system()` 関数によるリスクがあるため、ホワイトリストから削除されました。代わりに `grep`, `sed`, `cut` を使用してください。
+- コマンド区切り文字（`;`, `&`, `\n`）
+- I/O リダイレクト（`>`, `<`）
+- コマンド置換（`` ` ``, `$()`)
+- 危険な操作（例: `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`）
+- リスクのあるサブコマンド（例: `git push`, `pip install`）
+- 機密システムパスへのアクセス（例: `/etc`, `/var`, `/root`）
+- **注**: `awk`, `sed`, `tar`, `gzip`, `zip` およびシステム偵察ツール（例: `whoami`, `ps`, `env`）は、攻撃対象領域を最小限に抑えるためにホワイトリストから除外されています。複雑な処理には、Pythonスクリプトまたは組み込みツールを使用してください。
 
-**MCPサーバーの保護**:
-`config.toml` で定義されたMCPサーバーの起動コマンドは、ユーザーの設定を信頼してそのまま実行されます。
-> **警告**: サードパーティ製のMCPサーバーを `config.toml` に追加する場合は、**自己責任**で行ってください。信頼できないソースからのMCPサーバーは、任意のコードを実行したりシステムを侵害したりする可能性があるため、登録しないでください。使用する前に、必ずMCPサーバーの実装の安全性と整合性を確認してください。
+**MCPサーバー保護**:
+`config.toml` で定義されたMCPサーバーコマンドは、ユーザーの設定を信頼してそのまま実行されます。
+> **警告**: `config.toml` にサードパーティのMCPサーバーを追加することは、自己責任で行ってください。信頼できないソースからのMCPサーバーを登録しないでください。任意のコードが実行されたり、システムが侵害されたりする可能性があります。使用前に必ずMCPサーバー実装の安全性と完全性を確認してください。
 
 ### リソース制限
 
-リソースの枯渇を防ぐため、エージェントが実行するコマンドには以下の制限が適用されます。
+リソースの枯渇を防ぐため、エージェントによって実行されるコマンドには以下の制限が適用されます：
 - **CPU時間**: 30秒
 - **最大ファイル書き込み**: 50 MB
 - **メモリ (RLIMIT_AS)**: 1024 MB (1GB) (デフォルト)
 
-`ruff` やコンパイラなどのメモリ消費の激しいツールを実行した際に `Exit Code: 134 (Aborted)` で失敗する場合は、設定ファイル（`~/.config/llm_cli/config.toml`）の `[general]` セクションでメモリ制限を増やすことができます。
+ツールが `Exit Code: 134 (Aborted)` で失敗する場合（`ruff` やコンパイラなど、メモリを大量に消費するツールでよく見られます）、設定でメモリ制限を増やすことができます：
 
 ```toml
 [general]
@@ -501,56 +502,56 @@ max_command_memory_mb = 1024
 
 ### 設定
 
-`~/.config/llm_cli/config.toml` で許可するコマンドをカスタマイズできます：
+`~/.config/llm_cli/config.toml` で許可されるコマンドをカスタマイズできます：
 
 ```toml
 [security]
-# デフォルトのホワイトリストに追加で許可するコマンド
+# デフォルトのホワイトリスト以外に追加で許可するコマンド
 allowed_commands = [
     "custom_script",
     "special_tool"
 ]
 
-# MCP サーバー起動で許可する追加のコマンド
+# MCPサーバーの起動に許可される追加コマンド
 allowed_mcp_commands = [
     "custom_mcp_server"
 ]
 
 # 警告: これを true に設定すると、シェルインジェクションに対する保護が無効になります
-# セキュリティへの影響を十分に理解した上でのみ有効にしてください
+# セキュリティへの影響を完全に理解している場合のみ有効にしてください
 allow_dangerous_patterns = false
 ```
 
-**重要**: これらのガードレールは多層防御を提供しますが、ユーザーの注意を置き換えるものではありません。実行を承認する前に常にコマンドを確認してください。
+**重要**: これらのガードレールは多層防御を提供しますが、ユーザーの警戒に代わるものではありません。実行を承認する前に必ずコマンドを確認してください。
 
 ### リスクベースの承認スキップ
 
-ほとんどのツールは実行前にユーザーの明示的な承認（Human-in-the-Loop）を必要としますが、非破壊的かつインタラクティブなツールについては、ユーザー体験を損なわないよう承認プロンプトなしで実行される場合があります。これは、開発者によってローカルコード内で安全かつインタラクティブであると明示的にフラグを立てられたツールにのみ許可されます。MCPサーバーなどの外部ツールについては、**常に**承認が必要です。
+ほとんどのツールは明示的なユーザー承認（Human-in-the-Loop）を必要としますが、非破壊的で対話的な特定のツールは、シームレスなユーザーエクスペリエンスを確保するために確認プロンプトなしで実行される場合があります。これは、開発者がローカルコードベースで安全かつ対話的であると特別にフラグ付けしたツールにのみ許可されます。外部ツール（MCPサーバーからのツールなど）は、**常に**承認が必要です。
 
-### 高度なセキュリティ機能とMCPの堅牢化
+### 高度なセキュリティとMCP強化
 
-`llm-cli` は、CISSP ISSAPドメインの知識に基づいた高度なセキュリティ実装を取り入れ、特にMCPサーバーとして動作する際の堅牢性を高めています。
+`llm-cli` は、特にMCPサーバーとして動作する場合の完全性とアクセス制御を確保するために、CISSP ISSAPドメインに由来する高度なセキュリティ概念を取り入れています。
 
--   **Root of Trust (信頼の基点)**: 起動時に重要ファイルのハッシュ値を検証し、改ざんを検知します。
--   **Workload Identity (ワークロード認証)**: クライアント-サーバー間でJWTを用いたIDプロパゲーションを行い、正規のクライアントのみを認証します。
--   **Zero Trust Policy Engine**: ロールベースアクセス制御 (RBAC) により、デフォルトですべての操作を拒否し、許可された操作のみを通します。
+-   **信頼の基点 (Root of Trust)**: 起動時に重要なアプリケーションファイルの完全性を自動的に検証し、改ざんを検出します。
+-   **ワークロードアイデンティティ**: 安全なクライアントサーバー通信のためにJWTベースのアイデンティティ伝播を使用します。
+-   **ゼロトラストポリシーエンジン**: ロールベースアクセス制御 (RBAC) を実装しています。
 -   **デュアル認証モード**:
-    -   **Strictモード**: 正規のトークンを持つ `llm-cli` クライアントのみ許可します。
-    -   **Guestモード**: Claude Desktopなどのトークンを持たないクライアントに対し、読み取り専用（Guest）権限での接続を許可します。
+    -   **厳格モード**: 有効な認証トークンが必要です（内部 `llm-cli` 接続用）。
+    -   **ゲストモード**: 未認証のクライアント（Claude Desktopなど）に制限付きの読み取り専用アクセスを許可します。
 
-**MCPサーバー接続設定**:
-`config.toml` で、認証トークンを持たないクライアントの扱いを設定できます。
+**MCPサーバーアクセスの設定**:
+`config.toml` で未認証クライアントの扱いを制御できます：
 
 ```toml
 [security]
-# "guest" (デフォルト): 読み取り専用アクセス（Claude Desktop等との互換性重視）
-# "deny": 未認証の接続を全て拒否（厳格なゼロトラスト環境向け）
+# "guest" (デフォルト): 読み取り専用アクセス（Claude Desktopに安全）
+# "deny": すべての未認証接続を拒否（ゼロトラスト厳格モード）
 missing_token_policy = "guest"
 ```
 
 ## インストール
 
-Python 3.11 以上が必要です。
+Python 3.11以上が必要です。
 
 ```bash
 # リポジトリをクローン
@@ -568,80 +569,92 @@ pip install ".[mcp]"
 
 ## クイックスタート
 
-最初に使用する前に、セットアップスクリプトを実行してAPIキーを設定してください：
+ツールを使用する前に、対話型セットアップスクリプトを実行してAPIキーを設定してください：
 
 ```bash
 llm-cli-config
 ```
 
-> **Note**: Google, OpenAI, Anthropic, xAI の LLM を利用するには、各プロバイダの API キーが必要です。これらは `llm-cli-config` で設定できます。
+> **注**: Google, OpenAI, Anthropic, xAI のLLMを使用するには、各プロバイダからAPIキーを取得する必要があります。これらのキーは `llm-cli-config` を使用して設定できます。
 
-## 使い方
+## 使用方法
 
-### 1. テンプレート管理
-事前に定義されたプロンプトテンプレートを挿入できます：
+### 1. テンプレート管理（新機能！）
+頻繁に使用するプロンプトを `config.toml` でテンプレートとして定義し、`/t` コマンドを使って入力バッファに素早く挿入できます。
+
+1.  `~/.config/llm_cli/config.toml` にテンプレートを追加：
+
+    ```toml
+    [templates]
+    proofread = "以下のテキストを文法と明瞭さの観点で校正してください:"
+    summarize = "以下の内容を3つの要点にまとめてください:"
+    code_review = "このコードのバグと改善点をレビューしてください:"
+    ```
+
+2.  チャットでテンプレートを使用：
+    ```bash
+    > /t proofread
+    ```
+
+    テンプレートのテキストがプロンプト入力に挿入され、送信前にテキストを編集したり追加したりできます。
+
+### 2. 調査の自動化（例）
+Googleを使用して論文を検索し、最適なものを見つけ、その貢献を一回のコマンドで要約します：
 ```bash
-> /t proofread
-```
-テンプレートのテキストが入力欄に挿入され、送信前に編集や追記が可能です。
-
-### 2. 研究調査の自動化（例）
-Google検索を用いて特定のトピックに関する論文を探し、内容を要約させることができます。
-```bash
-llm "Googleで 'Direct Preference Optimization' に関する論文を探して、内容を読み、その主要な貢献をまとめて。"
+llm "Googleで 'Direct Preference Optimization' の論文を検索し、その要約を取得して、主な貢献をまとめてください。"
 ```
 
-### 3. インタラクティブ・チャット
-単に `llm` と打つだけでセッションが開始されます：
+### 2. 対話型チャット
+`llm` と入力するだけで対話型セッションが始まります：
 ```bash
 llm
 ```
 
-### 4. ワンショットプロンプトとパイプ利用
+### 3. ワンショットプロンプトとパイプ
 ```bash
-# 直接プロンプトを実行
+# 直接プロンプト
 llm "フランスの首都は？"
 
-# パイプからコードを解析
-cat main.py | llm "このコードを解説して"
+# パイプからのコード分析
+cat main.py | llm "このコードを説明して"
 
-# ローカルファイルやURLを解析
+# ローカルファイルまたはURLの分析
 llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 ```
 
-## コマンドライン・オプション
+## コマンドラインオプション
 
 -   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`)。
--   `-m, --model <alias>`: モデルのエイリアスを指定 (例: `pro`, `flash`, `gpt4o`, `opus`, `gemma`)。
--   `-s, --stdout`: 応答を直接標準出力に表示して終了。
--   `--raw`: Markdownレンダリングを無効化。
--   `--mcp`: MCP（Model Context Protocol）連携を有効化。
--   `--mcp-server`: `llm-cli` を MCP サーバーとして起動。
--   `--session <path>`: 保存されたセッションJSONファイルを起動時に読み込み。
+-   `-m, --model <alias>`: モデルエイリアスを指定 (例: `pro`, `flash`, `gpt4o`, `opus`, `gemma`)。
+-   `-s, --stdout`: レスポンスを標準出力に直接表示して終了。
+-   `--raw`: ターミナルでのMarkdownレンダリングを無効化。
+-   `--mcp`: Model Context Protocol (MCP) 統合を有効化。
+-   `--mcp-server`: `llm-cli` をMCPサーバーとして実行。
+-   `--session <path>`: 保存されたセッションJSONファイルを起動時に読み込む。
 
 ## チャット内コマンド
 
--   `/provider` (または `/p`): 利用可能なプロバイダを表示、またはプロバイダを切り替え (例: `/p openai`)。
--   `/model` (または `/m`): 利用可能なモデルを表示、またはモデルを切り替え (例: `/m gpt4o`)。
--   `/template` (または `/t`): 定型プロンプトを呼び出し、入力欄にセット (例: `/t proofread`)。
--   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツール等）を表示。
--   `/tools [on|off]`: ツールの有効・無効を切り替え、または状態表示。
--   `/thought` (または `/reasoning`) `[on|off]`: 推論（thought）表示の有効・無効を切り替え。
--   `/budget` (または `/thinking`) `<number|minimal>`: 対応モデルの思考トークン予算（Thinking Budget）を設定。
--   `/checkpoint` (または `/cp`): 会話の要約を作成し、履歴をリセット（チェックポイント）。
--   `/attach <path>`: ファイル（画像、PDF、音声、動画）を手動添付。
+-   `/provider` (または `/p`): 利用可能なプロバイダ一覧表示または切り替え (例: `/p openai`)。
+-   `/model` (または `/m`): 利用可能なモデル一覧表示または切り替え (例: `/m gpt4o`)。
+-   `/template` (または `/t`): テンプレートプロンプトを入力バッファに挿入 (例: `/t proofread`)。
+-   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツールなど）を表示。
+-   `/tools [on|off]`: ツールの状態を表示または切り替え。
+-   `/thought` (または `/reasoning`) `[on|off]`: 推論/思考表示の切り替え。
+-   `/budget` (または `/thinking`) `<number|minimal>`: 対応モデルの思考予算（トークン数）を設定。
+-   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
+-   `/attach <path>`: ファイルを手動添付 (画像, PDF, 音声, 動画)。
 -   `/save <path>`: 会話履歴をJSONファイルに保存。
--   `/load <path>`: 会話履歴をJSONファイルから読み込み。
+-   `/load <path>`: JSONファイルから会話履歴を読み込み。
 -   `/dump`: 会話履歴をJSONオブジェクトとしてダンプ。
 -   `/raw`: 生の会話テキストを表示。
--   `/clear` (または `/c`): 会話履歴を消去。
+-   `/clear` (または `/c`): 会話履歴をクリア。
 -   `/debug` (または `/d`): ライブデバッグモードの切り替え。
--   `/help` (または `/h`): コマンドリストを表示。
+-   `/help` (または `/h`): 全コマンドリストを表示。
 -   `/quit` (または `/q`): 終了。
 
-## プラグイン・アーキテクチャ: ツールの追加
+## プラグインアーキテクチャ: 新しいツールの追加
 
-`llm-cli` はデコレータベースのプラグインシステムを採用しています。登録されたすべてのツールには、AIによる実行内容の説明を明示するための `explanation` パラメータが自動的に付与されます。
+`llm-cli` はデコレータベースのプラグインシステムを使用しています。すべてのツールは、AIが何をしているかを説明するために `explanation` パラメータを自動的に要求します。
 
 例 (`llm_cli/modules/tools/weather.py`):
 ```python
@@ -649,11 +662,11 @@ from llm_cli.modules.tool_registry import tool
 
 @tool(
     name="get_weather",
-    description="指定した都市の現在の天気を取得します。",
+    description="Get current weather for a city.",
     parameters={
         "type": "object",
         "properties": {
-            "city": {"type": "string", "description": "都市名。"}
+            "city": {"type": "string", "description": "The city name."}
         },
         "required": ["city"]
     }
@@ -662,9 +675,9 @@ def get_weather(city: str) -> dict:
     return {"weather": "sunny", "temperature": "25C"}
 ```
 
-## MCP (Model Context Protocol) サポート
+## Model Context Protocol (MCP) サポート
 
-`llm-cli` は MCP クライアントとしてもサーバーとしても動作します。
+`llm-cli` は、MCPクライアントとMCPサーバーの両方として機能します。
 
 ### 1. SSH経由のリモート開発
 `~/.config/llm_cli/config.toml` に以下を追加します：
@@ -676,15 +689,15 @@ command = "ssh"
 args = ["user@remote-host", "python3", "-m", "llm_cli.apps.mcp_server"]
 ```
 
-### 2. MCPサーバーとして実行
+### 2. MCPサーバーとしての実行
 ```bash
 llm --mcp-server
 ```
 
-### 3. GitHub MCP Server との連携 (Docker利用)
-GitHub公式のMCPサーバーを連携させることで、AIエージェントにリポジトリの読み書き、Issueの管理、コード解析などの権限を与えることができます。
+### 3. GitHub MCPサーバー統合 (Docker経由)
+公式GitHub MCPサーバーを接続して、AIエージェントにリポジトリの読み取り、Issue管理、コード分析の能力を与えることができます。
 
-`~/.config/llm_cli/config.toml` に以下のエントリを追加します：
+`~/.config/llm_cli/config.toml` に以下を追加します：
 
 ```toml
 [[mcp_servers]]
@@ -694,45 +707,49 @@ args = [
   "run",
   "-i",
   "--rm",
-  "-e", "GITHUB_PERSONAL_ACCESS_TOKEN=あなたのGitHubトークン",
+  "-e", "GITHUB_PERSONAL_ACCESS_TOKEN=YOUR_GITHUB_TOKEN",
   "-e", "GITHUB_LOCKDOWN_MODE=1",
   "ghcr.io/github/github-mcp-server"
 ]
 ```
 
-その後、`--mcp` フラグを付けて `llm-cli-config` で設定したプロバイダで `llm-cli` を起動します：
+その後、`--mcp` フラグを付けて `llm-cli` を実行します：
 ```bash
 llm --mcp
 ```
 
-## Reasoning / 拡張思考機能
+## 推論 / 拡張思考 (Extended Thinking)
 
-最新のLLMは「reasoning」や「extended thinking」モードをサポートしており、応答生成前にモデルが内部で熟考を行います。これにより、複雑なタスクに対する応答品質が向上します。
+最新のLLMは、レスポンスを生成する前に内部で熟考を行う「推論」または「拡張思考」モードをサポートしています。これにより、複雑なタスクに対する回答の品質が向上します。
 
-### プロバイダ別サポート状況
+### プロバイダサポート
 
-| プロバイダ | 思考内容の表示 | 設定 |
+| プロバイダ | 思考内容の可視化 | 設定 |
 | :--- | :--- | :--- |
-| **Gemini** | ✅ 完全表示 | `/thought on` で有効化 |
-| **Claude** | ✅ 要約版（Claude 4）/ 完全版（3.7） | `/thought on` で有効化 |
-| **OpenAI** | ⚠️ 要約のみ | `/thought on` で有効化 |
-| **xAI (Grok)** | ❌ 非対応 | N/A（推論トークンは課金される） |
+| **Gemini** | ✅ 全文表示 | `include_thoughts = true`, `thinking_level` |
+| **Claude** | ✅ 要約 (Claude 4) / 全文 (3.7) | `thinking_budget` (トークン数) |
+| **OpenAI** | ⚠️ 要約のみ | `reasoning_effort`, `reasoning_summary` |
+| **xAI (Grok)** | ❌ 利用不可 | N/A (推論トークンは課金対象) |
 
-### 推論（thought）の切り替え
+### 設定
 
-以前は `config.toml` での常時設定が必要でしたが、**トークン節約のため現在はデフォルトで無効**になっています。チャット内で `/thought` コマンドを使用していつでも切り替えが可能です。
+推論設定は以前は `defaults.toml` や `config.toml` で設定していましたが、トークン節約のため、**現在はデフォルトで無効**になっています。
+
+### 推論表示の切り替え
+
+チャット内で `/thought` コマンド（または `/reasoning`）を使用して推論を切り替えます：
 
 ```bash
-> /thought on   # 推論（thought）を有効化（対応モデルで思考プロセスを表示・取得）
+> /thought on   # 推論を有効化（サポートされている場合は思考内容を表示）
 > /thought off  # 推論を無効化
 > /thought      # 現在の状態を表示
 ```
 
-## ユーティリティ・スクリプト
+## ユーティリティスクリプト
 
 -   `llm-cli-config`: 対話型設定ツール。
--   `*-models`: 各プロバイダの利用可能なモデルリスト (例: `ollama-models`)。
+-   `*-models`: 各プロバイダで利用可能なモデル一覧（例: `ollama-models`）。
 
-## License
+## ライセンス
 
-[Apache License 2.0](LICENSE) で提供されています。
+このプロジェクトは [Apache License 2.0](LICENSE) の下でライセンスされています。

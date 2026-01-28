@@ -77,12 +77,9 @@ The AI agent comes equipped with the following tools:
 | `list_files` | List files in a directory to explore the project structure. |
 | `read_text_file` | Read content from a text file (with optional line range). |
 | `read_pdf_file` | Read a PDF file and add it to the context. |
-| `read_image_file` | Read an image file and add it to the context. |
-| `read_media_file` | Read an audio or video file and add it to the context. |
 | `write_file` | Create or update a file (full overwrite). |
 | `edit_file` | Precise search-and-replace to modify specific code blocks. |
 | `google_search` | Search the web for real-time information. |
-| `fetch_url` | Fetch raw HTML or media files (images/PDFs) from a URL. |
 | `fetch_web_text` | Fetch a URL and extract clean text content (token-efficient). |
 
 > **Note**: To use `google_search`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
@@ -448,12 +445,9 @@ AIエージェントは以下のツールを標準で備えています：
 | `write_file` | ファイルを新規作成または更新（全体書き換え）。 |
 | `edit_file` | 精密な検索と置換により、特定のコードブロックを修正. |
 | `google_search` | Google検索を使用してリアルタイムの情報を取得. |
-| `fetch_url` | 指定したURLから生のHTMLやメディアファイル（画像/PDF等）を取得。 |
 | `fetch_web_text` | URLから本文テキストのみを抽出。トークンを節約しつつ情報を収集。 |
 | `read_text_file` | テキストファイルの内容を読み取り（行指定可能）。 |
 | `read_pdf_file` | PDFファイルを読み込んでコンテキストに追加。 |
-| `read_image_file` | 画像ファイルを読み込んでコンテキストに追加。 |
-| `read_media_file` | 音声/動画ファイルを読み込んでコンテキストに追加。 |
 
 > **注**: `google_search` を利用するには、**Google Cloud Platform の API キー**と**カスタム検索エンジン ID (CX)** の取得が必要です。これらは `llm-cli-config` で設定できます。
 

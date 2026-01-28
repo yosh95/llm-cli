@@ -1,7 +1,12 @@
 # tests/test_file_ops.py
 
 
-from llm_cli.modules.tools.file_ops import list_files, read_text_file, write_file
+from llm_cli.modules.tools.file_ops import (
+    edit_file,
+    list_files,
+    read_text_file,
+    write_file,
+)
 
 
 def test_write_and_read_file(tmp_path, monkeypatch):
@@ -80,3 +85,71 @@ def test_list_files_max_files(tmp_path, monkeypatch):
     result = list_files(max_files=5)
     assert "file_0.txt" in result
     assert "Too many files" in result
+
+
+def test_edit_file_success(tmp_path, monkeypatch):
+    """Test editing a file by replacing a block of text."""
+    monkeypatch.chdir(tmp_path)
+    test_path = "edit_test.txt"
+    content = "Line 1\nLine 2\nLine 3"
+    (tmp_path / test_path).write_text(content, encoding="utf-8")
+
+    search = "Line 2"
+    replace = "Line Two Modified"
+
+    result = edit_file(test_path, search, replace)
+    assert "Successfully updated" in result
+
+    new_content = (tmp_path / test_path).read_text(encoding="utf-8")
+    assert "Line 1" in new_content
+    assert "Line Two Modified" in new_content
+    assert "Line 3" in new_content
+    assert "Line 2" not in new_content
+
+
+def test_edit_file_not_found_error(tmp_path, monkeypatch):
+    """Test error when file does not exist."""
+    monkeypatch.chdir(tmp_path)
+    result = edit_file("nonexistent.txt", "foo", "bar")
+    assert "Error" in result
+    assert "not a file" in result
+
+
+def test_edit_file_content_not_found(tmp_path, monkeypatch):
+    """Test error when search block is not in file."""
+    monkeypatch.chdir(tmp_path)
+    test_path = "edit_test_missing.txt"
+    (tmp_path / test_path).write_text("Hello World", encoding="utf-8")
+
+    result = edit_file(test_path, "Goodbye", "Farewell")
+    assert "Error" in result
+    assert "block was not found" in result
+
+
+def test_edit_file_multiple_occurrences(tmp_path, monkeypatch):
+    """Test error when search block appears multiple times."""
+    monkeypatch.chdir(tmp_path)
+    test_path = "edit_test_multi.txt"
+    content = "Repeat\nUnique\nRepeat"
+    (tmp_path / test_path).write_text(content, encoding="utf-8")
+
+    result = edit_file(test_path, "Repeat", "Fixed")
+    assert "Error" in result
+    assert "occurrences" in result
+
+
+def test_edit_file_indentation(tmp_path, monkeypatch):
+    """Test that indentation is preserved and handled correctly."""
+    monkeypatch.chdir(tmp_path)
+    test_path = "edit_indent.py"
+    content = "def func():\n    return True\n"
+    (tmp_path / test_path).write_text(content, encoding="utf-8")
+
+    search = "    return True"
+    replace = "    return False"
+
+    result = edit_file(test_path, search, replace)
+    assert "Successfully updated" in result
+
+    new_content = (tmp_path / test_path).read_text(encoding="utf-8")
+    assert "def func():\n    return False\n" == new_content

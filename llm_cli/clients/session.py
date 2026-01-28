@@ -23,7 +23,7 @@ from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.shortcuts import CompleteStyle
 from rich.markup import escape
-from rich.panel import Panel
+from rich.padding import Padding
 from rich.rule import Rule
 from rich.syntax import Syntax
 
@@ -187,6 +187,19 @@ class ChatSession:
         self.prompt_session = PromptSession(history=self.prompt_history)
         self.completer = LlmCliCompleter(client)
 
+    def _print_block(self, renderable, title=None, style=None):
+        """Print content with background color (no border) for easier copying."""
+        # Default background color for blocks (dark gray)
+        bg_style = "on #262626"
+
+        if title:
+            console.print(Rule(title=title, style=style or "white"))
+
+        console.print(Padding(renderable, (1, 2), style=bg_style))
+
+        if title:
+            console.print(Rule(style=style or "white"))
+
     def run(
         self,
         initial_data: Optional[List[DataSource]] = None,
@@ -278,12 +291,10 @@ class ChatSession:
             # Display thought content in a separate panel if available
             if thought_text and self.client.reasoning_enabled:
                 duration_str = f" ({duration:.1f}s)"
-                console.print(
-                    Panel(
-                        CustomMarkdown(thought_text),
-                        title=f"[bold dim]Thought{duration_str}[/bold dim]",
-                        border_style="dim",
-                    )
+                self._print_block(
+                    CustomMarkdown(thought_text),
+                    title=f"[bold dim]Thought{duration_str}[/bold dim]",
+                    style="dim",
                 )
 
             # Display the response
@@ -296,12 +307,10 @@ class ChatSession:
                     duration_str = f" ({duration:.1f}s)"
                     title_str = f"[bold cyan]{display_name}{duration_str}[/bold cyan]"
                     if self.client._has_pending_tool_calls():
-                        console.print(
-                            Panel(
-                                CustomMarkdown(response_text),
-                                title=title_str,
-                                border_style="cyan",
-                            )
+                        self._print_block(
+                            CustomMarkdown(response_text),
+                            title=title_str,
+                            style="cyan",
                         )
                     else:
                         console.print(Rule(title=title_str, style="cyan"))
@@ -507,12 +516,10 @@ class ChatSession:
             display_name = self.client.get_display_name()
             duration_str = f" ({duration:.1f}s)" if duration is not None else ""
             title = f"[bold cyan]{display_name} (Reasoning){duration_str}[/bold cyan]"
-            console.print(
-                Panel(
-                    explanation,
-                    title=title,
-                    border_style="cyan",
-                )
+            self._print_block(
+                explanation,
+                title=title,
+                style="cyan",
             )
 
         tool_entry = registry.tools.get(name, {})
@@ -539,13 +546,10 @@ class ChatSession:
                     f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
                 )
 
-            console.print(
-                Panel(
-                    request_content,
-                    title="[bold yellow]🤖 Agent Request[/bold yellow]",
-                    border_style="yellow",
-                    expand=False,
-                )
+            self._print_block(
+                request_content,
+                title="[bold yellow]🤖 Agent Request[/bold yellow]",
+                style="yellow",
             )
 
             if is_write:
@@ -635,23 +639,17 @@ class ChatSession:
 
             # Display Result in a Panel
             if is_exec:
-                console.print(
-                    Panel(
-                        escape(p_str),
-                        title="[bold green]✅ Tool Output[/bold green]",
-                        border_style="green",
-                        expand=False,
-                    )
+                self._print_block(
+                    escape(p_str),
+                    title="[bold green]✅ Tool Output[/bold green]",
+                    style="green",
                 )
             else:
                 preview = p_str[:300] + ("..." if len(p_str) > 300 else "")
-                console.print(
-                    Panel(
-                        escape(preview),
-                        title="[bold green]✅ Tool Result[/bold green]",
-                        border_style="green",
-                        expand=False,
-                    )
+                self._print_block(
+                    escape(preview),
+                    title="[bold green]✅ Tool Result[/bold green]",
+                    style="green",
                 )
 
             response = ContentPart(
@@ -696,13 +694,10 @@ class ChatSession:
                         [line if line.endswith("\n") else line + "\n" for line in diff]
                     )
                     syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
-                    console.print(
-                        Panel(
-                            syn,
-                            title=f"[bold]Diff: {path}[/bold]",
-                            border_style="yellow",
-                            expand=False,
-                        )
+                    self._print_block(
+                        syn,
+                        title=f"[bold]Diff: {path}[/bold]",
+                        style="yellow",
                     )
             else:
                 lexer = Syntax.guess_lexer(str(path), code=new_content)
@@ -713,13 +708,10 @@ class ChatSession:
                     line_numbers=True,
                     word_wrap=True,
                 )
-                console.print(
-                    Panel(
-                        syn,
-                        title=f"[bold green]New File: {path}[/bold green]",
-                        border_style="green",
-                        expand=False,
-                    )
+                self._print_block(
+                    syn,
+                    title=f"[bold green]New File: {path}[/bold green]",
+                    style="green",
                 )
         except Exception:
             pass
@@ -750,22 +742,17 @@ class ChatSession:
                     [line if line.endswith("\n") else line + "\n" for line in diff]
                 )
                 syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
-                console.print(
-                    Panel(
+                self._print_block(
                         syn,
                         title=title,
-                        border_style="yellow",
-                        expand=False,
+                        style="yellow",
                     )
-                )
             else:
-                console.print(
-                    Panel(
+                self._print_block(
                         "[yellow]No changes detected in search/replace block.[/yellow]",
                         title=title,
-                        border_style="yellow",
+                        style="yellow",
                     )
-                )
         except Exception:
             pass
 
@@ -776,13 +763,10 @@ class ChatSession:
                 return
 
             syn = Syntax(command, "bash", theme="monokai", word_wrap=True)
-            console.print(
-                Panel(
+            self._print_block(
                     syn,
                     title="[bold]Execute Command[/bold]",
-                    border_style="magenta",
-                    expand=False,
+                    style="magenta",
                 )
-            )
         except Exception:
             pass

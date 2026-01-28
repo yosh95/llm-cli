@@ -310,7 +310,7 @@ def test_fastmcp_run():
     with patch("asyncio.run") as mock_run:
         server.run()
         mock_run.assert_called_once()
-        
+
         # Clean up the coroutine created by server.run() passed to asyncio.run
         # to avoid "coroutine ... was never awaited" warning
         coro = mock_run.call_args[0][0]

@@ -46,7 +46,9 @@ The AI can use tools like `search_web` to find the latest information. In this e
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Exit anytime**: Use **Escape**, **Ctrl+C**, or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
--   **Multimodal Output (Gemini / OpenAI / Grok)**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`, `/m dall-e-3` or `/m grok-2-image`). Images are automatically saved locally.
+-   **Multimodal Output (Gemini / OpenAI / Grok)**:
+    -   **Image Generation**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`, `/m dall-e-3` or `/m grok-2-image`). Images are automatically saved locally.
+    -   **Video Generation**: Generate videos using supported models like **Gemini (Veo)** or **Grok**. Videos are automatically downloaded and saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Reasoning / Thought Toggle (New!)**: Explicitly control when the AI performs internal reasoning (e.g., DeepSeek-R1 via Ollama, Claude 3.7 Thinking, Gemini 2.0 Thinking). **Disabled by default to save tokens**. Toggle mid-session using `/thought on|off`.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
@@ -414,7 +416,9 @@ AIは `search_web` などのツールを活用して最新情報を取得でき�
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Escape**、**Ctrl+C**、または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
--   **マルチモーダル出力 (Gemini / OpenAI / Grok)**: 会話の途中で画像生成モデルに切り替える（例： `/m image`、`/m dall-e-3`、`/m grok-2-image`）ことで、画像を生成できます。生成された画像は自動的にローカルに保存されます。
+-   **マルチモーダル出力 (Gemini / OpenAI / Grok)**:
+    -   **画像生成**: 画像生成モデル（例：`/m dall-e-3`、`/m grok-2-image`）に切り替えることで画像を生成できます。生成された画像は自動的にローカルに保存されます。
+    -   **動画生成**: **Gemini (Veo)** や **Grok** などの対応モデルを使用して動画を生成できます。生成された動画は自動的にダウンロードされ、ローカルに保存されます。
 -   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
 -   **推論 / 思考トグル**: AIが内部推論を行うタイミングを明示的に制御します（例: Ollama経由のDeepSeek-R1、Claude 3.7 Thinking、Gemini 2.0 Thinking）。**トークン節約のためデフォルトでは無効**です。セッション中に `/thought on|off` で切り替えられます。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。

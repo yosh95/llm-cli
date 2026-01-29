@@ -13,11 +13,11 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 
 
 @tool(
-    name="list_files",
+    name="list_files_in_directory",
     desc=(
         "List files in a directory. Use this to explore the project structure to "
         "find relevant files. If you are looking for specific code definitions, "
-        "use 'search_files' instead."
+        "use 'search_text_in_files' instead."
     ),
     params={
         "type": "object",
@@ -48,7 +48,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
         "required": [],
     },
 )
-def list_files(
+def list_files_in_directory(
     directory: str = ".",
     depth: int = 1,
     ignore_patterns: List[str] = None,
@@ -124,7 +124,7 @@ def list_files(
 
 
 @tool(
-    name="search_files",
+    name="search_text_in_files",
     desc="Search for a text pattern in files within a directory (Grep-like).",
     params={
         "type": "object",
@@ -145,7 +145,9 @@ def list_files(
         "required": ["query"],
     },
 )
-def search_files(query: str, directory: str = ".", file_pattern: str = None) -> str:
+def search_text_in_files(
+    query: str, directory: str = ".", file_pattern: str = None
+) -> str:
     """
     Search for a text pattern in files.
     """
@@ -194,7 +196,7 @@ def search_files(query: str, directory: str = ".", file_pattern: str = None) -> 
 
 
 @tool(
-    name="read_text_file",
+    name="read_file_content",
     desc=(
         "Read content from a text file. Can read specific lines and optionally "
         "include line numbers."
@@ -218,7 +220,7 @@ def search_files(query: str, directory: str = ".", file_pattern: str = None) -> 
         "required": ["path"],
     },
 )
-def read_text_file(
+def read_file_content(
     path: str,
     start_line: int = 1,
     end_line: int = None,
@@ -258,34 +260,43 @@ def read_text_file(
 
 
 @tool(
-    name="replace_lines",
+    name="edit_file",
     desc=(
-        "Replace a range of lines in a file with new content. Returns the "
-        "diff of changes."
+        "Edit a file by replacing a specific block of text. This is safer than "
+        "create_or_overwrite_file for bug fixes as it prevents unintended changes "
+        "to other parts of the file."
     ),
     params={
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Path to the file to edit."},
-            "start_line": {
-                "type": "integer",
-                "description": "The first line number to replace (1-indexed).",
-            },
-            "end_line": {
-                "type": "integer",
-                "description": "The last line number to replace (inclusive).",
-            },
-            "replacement": {
+            "search": {
                 "type": "string",
-                "description": "The new content to insert.",
+                "description": (
+                    "The exact block of text to find. "
+                    "Must match exactly including indentation."
+                ),
+            },
+            "replace": {
+                "type": "string",
+                "description": "The new block of text to replace 'search' with.",
+            },
+            "dry_run": {
+                "type": "boolean",
+                "description": (
+                    "If true, returns the diff without modifying the file. "
+                    "Use this for preview."
+                ),
+                "default": False,
             },
         },
-        "required": ["path", "start_line", "end_line", "replacement"],
+        "required": ["path", "search", "replace"],
     },
 )
-def replace_lines(path: str, start_line: int, end_line: int, replacement: str) -> str:
+def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> str:
     """
-    Replaces lines in a file using 1-based indexing and returns a unified diff.
+    Search and replace a specific block of text in a file.
+    Ensures that only the intended part is modified.
     """
     try:
         validate_path(path)
@@ -293,60 +304,39 @@ def replace_lines(path: str, start_line: int, end_line: int, replacement: str) -
         if not p.is_file():
             return f"Error: '{path}' is not a file."
 
-        lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
-        # Using keepends=True to preserve original newlines for correct diff generation
-
-        total_lines = len(lines)
-
-        # Validate indices
-        if start_line < 1 or start_line > total_lines + 1:
+        content = p.read_text(encoding="utf-8")
+        if search not in content:
             return (
-                f"Error: start_line {start_line} is out of bounds "
-                f"(file has {total_lines} lines)."
+                "Error: The 'search' block was not found in the file. "
+                "Ensure the search block matches the file content exactly, "
+                "including indentation and whitespace."
             )
 
-        start_idx = start_line - 1
-        end_idx = end_line  # inclusive in request, so corresponds to slice end index
-
-        if end_line < start_line:
+        # Count occurrences to avoid ambiguous replacements
+        count = content.count(search)
+        if count > 1:
             return (
-                f"Error: end_line {end_line} is smaller than start_line {start_line}."
+                f"Error: Found {count} occurrences of the search block. "
+                "Please provide a more unique/specific search block."
             )
 
-        # Prepare new content (ensure it has newlines)
-        new_content_lines = [
-            line + "\n" if not line.endswith("\n") else line
-            for line in replacement.splitlines()
-        ]
-
-        # Handle case where replacement is empty but splitlines returns []
-        if not replacement and not new_content_lines:
-            new_content_lines = []
-        elif replacement.endswith("\n") and not replacement.strip():
-            # Special case for just newlines
-            new_content_lines = [
-                line + "\n" if not line.endswith("\n") else line
-                for line in replacement.splitlines(keepends=True)
-            ]
-
-        # Construct new file content
-        final_lines = lines[:start_idx] + new_content_lines + lines[end_idx:]
-
-        # Generate diff
+        # Generate Diff Preview
+        new_content = content.replace(search, replace)
         diff = list(
             difflib.unified_diff(
-                lines,
-                final_lines,
+                content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True),
                 fromfile=f"a/{path}",
                 tofile=f"b/{path}",
-                n=3,  # Context lines
+                n=3,
             )
         )
-
-        # Write back
-        p.write_text("".join(final_lines), encoding="utf-8")
-
         diff_text = "".join(diff)
+
+        if dry_run:
+            return f"Dry run enabled. No changes made.\n\nDiff:\n{diff_text}"
+
+        p.write_text(new_content, encoding="utf-8")
         return f"Successfully updated {path}.\n\nDiff:\n{diff_text}"
 
     except PathValidationError as e:
@@ -356,7 +346,7 @@ def replace_lines(path: str, start_line: int, end_line: int, replacement: str) -
 
 
 @tool(
-    name="write_file",
+    name="create_or_overwrite_file",
     desc="Write full content to a file. Overwrites existing files.",
     params={
         "type": "object",
@@ -370,7 +360,7 @@ def replace_lines(path: str, start_line: int, end_line: int, replacement: str) -
         "required": ["path", "content"],
     },
 )
-def write_file(path: str, content: str) -> str:
+def create_or_overwrite_file(path: str, content: str) -> str:
     try:
         validate_path(path)
         p = Path(path)
@@ -415,7 +405,7 @@ def _process_and_return(path: str, expected_types: tuple = None) -> Union[str, D
 
 
 @tool(
-    name="read_pdf_file",
+    name="read_pdf_content",
     desc="Read a PDF file and add it to the context.",
     params={
         "type": "object",
@@ -425,5 +415,5 @@ def _process_and_return(path: str, expected_types: tuple = None) -> Union[str, D
         "required": ["path"],
     },
 )
-def read_pdf_file(path: str) -> Union[str, Dict]:
+def read_pdf_content(path: str) -> Union[str, Dict]:
     return _process_and_return(path, expected_types=("application/pdf",))

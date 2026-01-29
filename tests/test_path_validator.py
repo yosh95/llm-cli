@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from llm_cli.modules.tools.file_ops import list_files, read_text_file, write_file
+from llm_cli.modules.tools.file_ops import (
+    list_files_in_directory,
+    read_file_content,
+    create_or_overwrite_file,
+)
 from llm_cli.security.path_validator import PathValidationError, validate_path
 
 
@@ -44,22 +48,23 @@ class TestPathValidator:
         # Change CWD to a temp directory for this test
         monkeypatch.chdir(tmp_path)
 
-        # 1. read_text_file restriction
-        result = read_text_file("/etc/passwd")
+        # 1. read_file_content restriction
+        result = read_file_content("/etc/passwd")
         assert "Security Error" in result
 
-        result = read_text_file("../any_file")
+        result = read_file_content("../any_file")
         assert "Security Error" in result
 
-        # 2. write_file restriction
-        result = write_file("/tmp/malicious.sh", "echo hi")
+        # 2. create_or_overwrite_file restriction
+        result = create_or_overwrite_file("/tmp/malicious.sh", "echo hi")
         assert "Security Error" in result
 
-        # 3. list_files restriction
-        result = list_files("/")
+        # 3. list_files_in_directory restriction
+        result = list_files_in_directory("/")
         assert "Security Error" in result
 
         # 4. Success case within sandbox
         (tmp_path / "safe.txt").write_text("hello")
-        result = read_text_file("safe.txt")
+        result = read_file_content("safe.txt")
         assert "hello" in result
+

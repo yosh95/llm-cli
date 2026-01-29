@@ -33,7 +33,7 @@ proofread = "Proofread this text:"
 
 ### 🔍 Real-time Research & Tool Use
 
-The AI can use tools like `web_search` to find the latest information. In this example, it searches for the latest AI news and summarizes it. **Agent Mode is enabled by default**, allowing the AI to autonomously use various tools to help with your tasks.
+The AI can use tools like `search_web` to find the latest information. In this example, it searches for the latest AI news and summarizes it. **Agent Mode is enabled by default**, allowing the AI to autonomously use various tools to help with your tasks.
 
 <p align="center">
   <img src="images/google_search.png" width="700" alt="Real-time Research" />
@@ -55,7 +55,7 @@ The AI can use tools like `web_search` to find the latest information. In this e
 -   **User-Driven Context Management (Checkpointing)**: Manually trigger `/checkpoint` to summarize the conversation and clear history.
 -   **Multimodal Input & Support**:
     -   **Manual Attachment**: Use the `/attach <path>` command mid-session to inject images, PDFs, videos, or audio.
-    -   **Autonomous Attachment**: Agents can use the `read_image_file`, `read_pdf_file` or `fetch_url` tools to bring media files into the context when needed.
+    -   **Autonomous Attachment**: Agents can use the `read_image_file`, `read_pdf_content` or `fetch_web_page` tools to bring media files into the context when needed.
     -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**.
     -   **OpenAI**: Text, local images, and **DALL-E image generation**.
     -   **Claude**: Text and local images (PDFs are processed as text/Base64).
@@ -73,17 +73,17 @@ The AI agent comes equipped with the following tools:
 
 | Tool | Description |
 | :--- | :--- |
-| `execute_command` | Execute shell commands (Use for testing, linting, git operations). |
-| `list_files` | List files in a directory to explore structure (Supports `ignore_patterns`). |
-| `search_files` | Search for text patterns in files (Grep-like). Essential for finding code definitions. |
-| `read_text_file` | Read text file content. Use `with_line_numbers=True` before editing. |
-| `replace_lines` | Replace a range of lines in a file. Returns a Diff. Safer than string replace. |
-| `write_file` | Create a new file (full content). |
-| `read_pdf_file` | Read a PDF file and add it to the context. |
-| `web_search` | Search the web using Google to find information. |
-| `fetch_web_markdown` | Fetch a URL and convert it to Markdown (preserves structure). |
+| `execute_shell_command` | Execute shell commands (Use for testing, linting, git operations). |
+| `list_files_in_directory` | List files in a directory to explore structure (Supports `ignore_patterns`). |
+| `search_text_in_files` | Search for text patterns in files (Grep-like). Essential for finding code definitions. |
+| `read_file_content` | Read text file content. Use `with_line_numbers=True` before editing. |
+| `edit_file` | Edit a file by replacing a specific block of text. Returns a Diff. Safer than string replace. |
+| `create_or_overwrite_file` | Create a new file (full content). |
+| `read_pdf_content` | Read a PDF file and add it to the context. |
+| `search_web` | Search the web using Google to find information. |
+| `fetch_web_page` | Fetch a URL and convert it to Markdown (preserves structure). |
 
-> **Note**: To use `web_search`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
+> **Note**: To use `search_web`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
 
 ## Power User Tips
 
@@ -98,7 +98,7 @@ For power users who need full control over their environment:
 
 ### Command Execution Guardrails
 
-All shell commands executed through the AI agent (`execute_command` tool) are validated against a **whitelist** of safe commands before execution.
+All shell commands executed through the AI agent (`execute_shell_command` tool) are validated against a **whitelist** of safe commands before execution.
 
 **Default Allowed Commands**: `ls`, `cat`, `grep`, `find` and many other read-only or low-risk commands. See `llm_cli/security/command_validator.py` for the complete list.
 
@@ -401,7 +401,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 ## スクリーンショット
 
 ### 🔍 リアルタイム調査とツール利用
-AIは `web_search` などのツールを活用して最新情報を取得できます。この例では、最新のAIニュースを検索して要約しています。**エージェントモードはデフォルトで有効**になっており、AIが自律的に様々なツールを使いこなしながらタスクをサポートします。
+AIは `search_web` などのツールを活用して最新情報を取得できます。この例では、最新のAIニュースを検索して要約しています。**エージェントモードはデフォルトで有効**になっており、AIが自律的に様々なツールを使いこなしながらタスクをサポートします。
 
 <p align="center">
   <img src="images/google_search.png" width="700" alt="リアルタイム調査" />
@@ -423,7 +423,7 @@ AIは `web_search` などのツールを活用して最新情報を取得でき�
 -   **ユーザー主導の履歴管理（チェックポイント機能）**: `/checkpoint` コマンドで会話の要約を作成し、履歴をリセットしてコンテキストを整理。
 -   **マルチモーダル対応**:
     -   **手動添付**: `/attach <path>` コマンドで画像、PDF、音声、動画を会話の途中から注入。
-    -   **自律添付**: エージェントが必要に応じてツールを使い、メディアファイルをコンテキストに読み込みます。
+    -   **自律添付**: エージェントが必要に応じてツールを使い、メディアファイルをコンテキストに読み込みます（`read_image_file`, `read_pdf_content`, `fetch_web_page` など）。
     -   **Gemini**: テキスト、ローカル画像、PDF、**音声**、**動画**をサポート。
     -   **OpenAI**: テキスト、ローカル画像、および **DALL-E による画像生成**をサポート。
     -   **Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
@@ -440,17 +440,17 @@ AIエージェントは以下のツールを標準で備えています：
 
 | ツール | 説明 |
 | :--- | :--- |
-| `execute_command` | シェルコマンドを実行します（テスト実行、Lint実行、Git操作用）。 |
-| `list_files` | ディレクトリ構造を一覧表示します（`ignore_patterns`対応）。 |
-| `search_files` | ファイル内のテキストパターンを検索します（Grep互換）。コード定義の探索に必須です。 |
-| `read_text_file` | テキストファイルを読み込みます。編集前には `with_line_numbers=True` で行番号を確認してください。 |
-| `replace_lines` | ファイル内の指定行範囲を置換します。Diffを返し、文字列検索置換より安全です。 |
-| `write_file` | 新規ファイルを作成します（全内容上書き）。 |
-| `read_pdf_file` | PDFファイルを読み込み、コンテキストに追加します。 |
-| `web_search` | Google検索を使用して、インターネット上の情報を探します。 |
-| `fetch_web_markdown` | URLを取得し、Markdown形式に変換します（構造を維持）。 |
+| `execute_shell_command` | シェルコマンドを実行します（テスト実行、Lint実行、Git操作用）。 |
+| `list_files_in_directory` | ディレクトリ構造を一覧表示します（`ignore_patterns`対応）。 |
+| `search_text_in_files` | ファイル内のテキストパターンを検索します（Grep互換）。コード定義の探索に必須です。 |
+| `read_file_content` | テキストファイルを読み込みます。編集前には `with_line_numbers=True` で行番号を確認してください。 |
+| `edit_file` | ファイル内の特定のテキストブロックを検索して置換します。Diffを返し、文字列検索置換より安全です。 |
+| `create_or_overwrite_file` | 新規ファイルを作成します（全内容上書き）。 |
+| `read_pdf_content` | PDFファイルを読み込み、コンテキストに追加します。 |
+| `search_web` | Google検索を使用して、インターネット上の情報を探します。 |
+| `fetch_web_page` | URLを取得し、Markdown形式に変換します（構造を維持）。 |
 
-> **注**: `web_search` を使用するには、**Google Cloud Platform APIキー**と**カスタム検索エンジンID (CX)**が必要です。これらは `llm-cli-config` を使用して設定できます。
+> **注**: `search_web` を使用するには、**Google Cloud Platform APIキー**と**カスタム検索エンジンID (CX)**が必要です。これらは `llm-cli-config` を使用して設定できます。
 
 ## パワーユーザー向けのヒント
 
@@ -465,7 +465,7 @@ AIエージェントは以下のツールを標準で備えています：
 
 ### コマンド実行ガードレール
 
-AIエージェント（`execute_command` ツール）を通じて実行されるすべてのシェルコマンドは、実行前に**ホワイトリスト**と照合され、検証されます。
+AIエージェント（`execute_shell_command` ツール）を通じて実行されるすべてのシェルコマンドは、実行前に**ホワイトリスト**と照合され、検証されます。
 
 **デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find` およびその他の読み取り専用または低リスクのコマンド。完全なリストについては、`llm_cli/security/command_validator.py` を参照してください。
 

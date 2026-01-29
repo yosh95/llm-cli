@@ -51,11 +51,11 @@ def set_resource_limits(mem_limit_mb: int):
 
 
 @tool(
-    name="execute_command",
+    name="execute_shell_command",
     description=(
         "Execute a shell command. Use this for running tests, linters, git operations, "
         "or other development tasks. Do not use this for file editing; use "
-        "'write_file' or 'replace_lines' instead."
+        "'create_or_overwrite_file' or 'edit_file_by_replacing_lines' instead."
     ),
     parameters={
         "type": "object",
@@ -63,7 +63,7 @@ def set_resource_limits(mem_limit_mb: int):
         "required": ["command"],
     },
 )
-def execute_command(command: str) -> str:
+def execute_shell_command(command: str) -> str:
     # Validate command against security whitelist
     # Note: validation errors are now handled by the registry wrapper auditing
     try:

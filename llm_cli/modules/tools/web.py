@@ -11,7 +11,7 @@ from llm_cli.modules.tool_registry import tool
 
 
 @tool(
-    name="web_search",
+    name="search_web",
     description=(
         "Perform a web search using Google to find information on the internet. "
         "Use this to answer questions about current events, documentation, "
@@ -28,7 +28,7 @@ from llm_cli.modules.tool_registry import tool
         "required": ["query"],
     },
 )
-def web_search(query: str) -> str:
+def search_web(query: str) -> str:
     api_key = get_setting("api_key", "google")
     cse_id = get_setting("cse_id", "google")
     if not api_key or not cse_id:
@@ -60,7 +60,7 @@ def web_search(query: str) -> str:
 
 
 @tool(
-    name="fetch_web_markdown",
+    name="fetch_web_page",
     description=(
         "Fetch a URL and convert the content to Markdown. "
         "Preserves code blocks, headers, and links. "
@@ -75,7 +75,7 @@ def web_search(query: str) -> str:
         "required": ["url"],
     },
 )
-def fetch_web_markdown(url: str) -> str:
+def fetch_web_page(url: str) -> str:
     try:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get("Content-Type", "").lower()
@@ -83,7 +83,7 @@ def fetch_web_markdown(url: str) -> str:
         if "text/html" not in ctype:
             return (
                 f"Error: URL returned {ctype}, expected text/html. "
-                "Use 'read_pdf_file' if it is a PDF."
+                "Use 'read_pdf_content' if it is a PDF."
             )
 
         # Remove script and style tags via regex before processing

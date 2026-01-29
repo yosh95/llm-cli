@@ -1,7 +1,10 @@
 # llm_cli/clients/grok.py
 
 import json
+import time
 from typing import Any, Dict, List, Optional, Tuple
+
+import requests
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
@@ -10,6 +13,8 @@ from llm_cli.modules.tool_registry import registry
 
 DEFAULT_API_URL = "https://api.x.ai/v1/chat/completions"
 IMAGE_API_URL = "https://api.x.ai/v1/images/generations"
+VIDEO_GENERATION_URL = "https://api.x.ai/v1/videos/generations"
+VIDEO_RESULT_URL_TEMPLATE = "https://api.x.ai/v1/videos/{}"
 
 
 class GrokClient(BaseLlmClient):
@@ -44,12 +49,19 @@ class GrokClient(BaseLlmClient):
     def _is_image_model(self) -> bool:
         """Determines if the current model is an image generation model."""
         m = self.model.lower()
-        return "image" in m
+        return "image" in m and "video" not in m
+
+    def _is_video_model(self) -> bool:
+        """Determines if the current model is a video generation model."""
+        m = self.model.lower()
+        return "video" in m
 
     def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
         """Sends the conversation history and new data to Grok."""
         if self._is_image_model():
             return self._send_image_generation(data)
+        if self._is_video_model():
+            return self._send_video_generation(data)
 
         messages = self._build_messages(data)
         payload = {
@@ -202,6 +214,155 @@ class GrokClient(BaseLlmClient):
         except Exception as e:
             self._report_error("Grok Image", e)
             return (None, None), None
+
+    def _send_video_generation(
+        self, data: List[DataSource]
+    ) -> Tuple[Optional[str], Optional[Dict]]:
+        """Handles video generation via Grok API (deferred)."""
+        # Extract prompt from conversation and new data
+        prompt_parts = []
+        for m in self.conversation:
+            for p in m.parts:
+                if isinstance(p, ContentPart) and p.text:
+                    prompt_parts.append(p.text)
+                elif isinstance(p, str):
+                    prompt_parts.append(p)
+        for d in data:
+            if d.content_type == "text/plain":
+                prompt_parts.append(str(d.content))
+
+        full_prompt = "\n".join(prompt_parts)
+        payload = {
+            "model": self.model,
+            "prompt": full_prompt,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            # Step 1: Start generation
+            response = self._post_with_retry(
+                VIDEO_GENERATION_URL,
+                headers=headers,
+                json_data=payload,
+                timeout=self.request_timeout,
+            )
+            self._log_debug(response_obj=response, request_payload=payload)
+            response.raise_for_status()
+            res = response.json()
+
+            request_id = res.get("request_id") or res.get("id")
+            if not request_id:
+                return ("Failed to get request_id for video generation.", ""), None
+
+            # Step 2: Poll for results
+            video_url = None
+            start_time = time.time()
+            timeout_seconds = 600  # 10 minutes timeout for video
+
+            # Notify user that generation started
+            print(
+                "Video generation started. Polling for results... "
+                "(this may take a few minutes)"
+            )
+
+            while time.time() - start_time < timeout_seconds:
+                poll_url = VIDEO_RESULT_URL_TEMPLATE.format(request_id)
+
+                poll_response = self._get_with_retry(
+                    poll_url,
+                    headers=headers,
+                    timeout=self.request_timeout,
+                )
+
+                if poll_response.status_code == 200:
+                    poll_res = poll_response.json()
+                    status = poll_res.get("status")
+
+                    if status == "completed":
+                        video_url = poll_res.get("url")
+                        if not video_url and "data" in poll_res:
+                            if isinstance(poll_res["data"], dict):
+                                video_url = poll_res["data"].get("url")
+                            elif (
+                                isinstance(poll_res["data"], list)
+                                and len(poll_res["data"]) > 0
+                            ):
+                                video_url = poll_res["data"][0].get("url")
+
+                        if video_url:
+                            break
+                    elif status == "failed":
+                        return (
+                            f"Video generation failed: "
+                            f"{poll_res.get('error', 'Unknown error')}",
+                            "",
+                        ), None
+
+                elif poll_response.status_code not in (200, 202):
+                    # Log unexpected status but continue polling unless fatal
+                    pass
+
+                time.sleep(5)  # Poll interval
+
+            if not video_url:
+                return (
+                    "Video generation timed out or failed to retrieve URL.",
+                    "",
+                ), None
+
+            display_text = (
+                f"Successfully generated video based on prompt.\n\n"
+                f"[Download Video]({video_url})\n\n**Video URL:** `{video_url}`"
+            )
+
+            # Update history with text representation
+            model_msg = Message(
+                role=Role.MODEL,
+                parts=[ContentPart(text=display_text)],
+            )
+            self._update_history(data, model_msg)
+
+            return (display_text.strip(), ""), None
+
+        except Exception as e:
+            self._report_error("Grok Video", e)
+            return (None, None), None
+
+    def _get_with_retry(
+        self,
+        url: str,
+        headers: Dict,
+        timeout: int = 600,
+        max_retries: int = 3,
+    ) -> requests.Response:
+        """Performs a GET request with automatic retry."""
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(
+                    url, headers=headers, timeout=timeout
+                )
+                if response.status_code == 429 or 500 <= response.status_code < 600:
+                    response.raise_for_status()
+                return response
+            except (
+                requests.exceptions.RequestException,
+                requests.exceptions.HTTPError,
+            ) as e:
+                last_exception = e
+                if isinstance(e, requests.exceptions.HTTPError):
+                    status_code = e.response.status_code
+                    if status_code != 429 and status_code < 500:
+                        raise e
+                if attempt < max_retries - 1:
+                    time.sleep((2**attempt) + 1)
+                else:
+                    raise last_exception
+        raise last_exception if last_exception else Exception("Request failed")
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates internal history."""

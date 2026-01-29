@@ -39,7 +39,7 @@ class TestJSONRPCProtocol:
         assert err["error"]["code"] == -1
         assert err["error"]["message"] == "error message"
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 class TestClientSession:
     @pytest.fixture
     def mock_streams(self):
@@ -160,7 +160,7 @@ class TestClientSession:
             with pytest.raises(Exception, match="Failed"):
                 await session._send_request("method")
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 class TestFastMCP:
     async def test_handle_message_initialize(self):
         server = FastMCP("test_server")
@@ -250,7 +250,7 @@ class TestFastMCP:
         assert "error" in sent_data
         assert sent_data["error"]["code"] == -32601
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_stdio_client_context():
     params = StdioServerParameters(command="echo", args=["hello"])
 
@@ -271,7 +271,7 @@ async def test_stdio_client_context():
         mock_exec.assert_called_once()
         proc_mock.terminate.assert_called()
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_fastmcp_run_loop():
     server = FastMCP("test")
 

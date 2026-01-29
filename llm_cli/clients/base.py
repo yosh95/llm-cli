@@ -113,7 +113,11 @@ class BaseLlmClient(ABC):
         self.include_thoughts = False
 
         self._load_model_aliases()
-        self.set_model(initial_model_alias) or self.set_model("default")
+        if not self.set_model(initial_model_alias):
+            if initial_model_alias and initial_model_alias != "default":
+                self.set_custom_model(initial_model_alias)
+            else:
+                self.set_model("default")
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
         now = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S (%A) %Z")

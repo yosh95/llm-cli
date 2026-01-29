@@ -3,6 +3,8 @@
 import difflib
 import fnmatch
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Union
 
@@ -150,6 +152,7 @@ def search_text_in_files(
 ) -> str:
     """
     Search for a text pattern in files.
+    Uses 'grep' command if available for performance, otherwise falls back to Python.
     """
     try:
         validate_path(directory or ".")
@@ -157,32 +160,121 @@ def search_text_in_files(
         if not base_path.exists():
             return f"Error: Directory '{directory}' does not exist."
 
-        results = []
+        # Try using system grep for performance
+        if shutil.which("grep"):
+            try:
+                # -r: recursive, -n: line number, -I: ignore binary files
+                cmd = ["grep", "-rnI"]
 
-        # Default ignore patterns for search to avoid huge logs
-        ignore_dirs = {".git", "__pycache__", "node_modules", "venv"}
+                # Exclude common directories
+                exclude_dirs = [
+                    ".git",
+                    "__pycache__",
+                    "node_modules",
+                    "venv",
+                    ".env",
+                    ".DS_Store",
+                    "__MACOSX",
+                ]
+                for d in exclude_dirs:
+                    cmd.extend(["--exclude-dir", d])
+
+                if file_pattern:
+                    cmd.extend(["--include", file_pattern])
+
+                # Search query and target directory
+                cmd.append(query)
+                cmd.append(str(base_path))
+
+                # Run grep
+                # Limit output to avoid hanging on massive results
+                process = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+
+                if process.returncode == 0:
+                    lines = process.stdout.splitlines()
+                    formatted_results = []
+                    for line in lines:
+                        # Normalize output: remove leading ./ and ensure space after colon
+                        # grep output format: path:line:content
+                        parts = line.split(":", 2)
+                        if len(parts) == 3:
+                            path, line_num, content = parts
+                            if path.startswith("./"):
+                                path = path[2:]
+                            formatted_results.append(f"{path}:{line_num}: {content.lstrip()}")
+                        else:
+                            formatted_results.append(line)
+
+                    if len(formatted_results) > 500:
+                        return (
+                            "\n".join(formatted_results[:500])
+                            + "\n... (Too many matches, truncated)"
+                        )
+                    return "\n".join(formatted_results)
+                elif process.returncode == 1:
+                    return f"No matches found for '{query}'."
+                else:
+                    # grep error, fall back to python
+                    pass
+            except Exception:
+                # Fall back to python on any error
+                pass
+
+        # Python Fallback Implementation
+        results = []
+        ignore_dirs = {
+            ".git",
+            "__pycache__",
+            "node_modules",
+            "venv",
+            ".env",
+            ".DS_Store",
+        }
 
         for path in base_path.rglob(file_pattern or "*"):
             if path.is_dir():
                 continue
 
-            # Skip hidden files/dirs and ignored dirs
             if any(part.startswith(".") or part in ignore_dirs for part in path.parts):
                 continue
 
             try:
-                # Simple check for text file
-                content = path.read_text(encoding="utf-8", errors="ignore")
+                # Check for binary file by reading the first chunk
+                # If it contains null bytes, it's likely binary
+                is_binary = False
+                try:
+                    with path.open("rb") as f_bin:
+                        chunk = f_bin.read(8192)
+                        if b"\x00" in chunk:
+                            is_binary = True
+                except Exception:
+                    # If we can't read it as binary, skip it
+                    continue
 
-                lines = content.splitlines()
-                for i, line in enumerate(lines):
-                    if re.search(query, line):
-                        # Format: FilePath:LineNumber: Content
-                        results.append(f"{path}:{i + 1}: {line.strip()}")
+                if is_binary:
+                    continue
 
-                        if len(results) >= 100:
-                            results.append("... (Too many matches, truncated)")
-                            return "\n".join(results)
+                # Use open() to read line by line to save memory
+                with path.open(encoding="utf-8", errors="ignore") as f:
+                    for i, line in enumerate(f):
+                        if re.search(query, line):
+                            # Format: FilePath:LineNumber: Content
+                            # Normalize path to remove ./ if present
+                            clean_path = str(path)
+                            if clean_path.startswith("./"):
+                                clean_path = clean_path[2:]
+                                
+                            results.append(f"{clean_path}:{i + 1}: {line.strip()}")
+
+                            if len(results) >= 100:
+                                results.append("... (Too many matches, truncated)")
+                                return "\n".join(results)
 
             except Exception:
                 continue  # Skip binary or unreadable files

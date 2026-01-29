@@ -17,6 +17,7 @@ flash = { model = "gemini-3-flash-preview", thinking_key = "thinkingLevel", thin
 pro = { model = "gemini-3-pro-preview", thinking_key = "thinkingLevel", thinking_budget = "low" }
 image = { model = "gemini-3-pro-image-preview", thinking_key = "thinkingLevel", thinking_budget = "low" }
 tts = { model = "gemini-2.5-pro-preview-tts" }
+video = { model = "veo-3.1-generate-preview" }
 
 # =============================================================================
 # OpenAI
@@ -37,6 +38,7 @@ nano = "gpt-5-nano"
 mini = "gpt-5-mini"
 chat = "gpt-5.2-chat-latest"
 image = "chatgpt-image-latest"
+video = "sora-2-pro"
 
 # =============================================================================
 # Anthropic (Claude)
@@ -69,7 +71,8 @@ opus = "claude-opus-4-5-20251101"
 default = "grok-4-1-fast-reasoning"
 non-reasoning = "grok-4-fast-non-reasoning"
 reasoning = "grok-4-1-fast-reasoning"
-image = "grok-2-image-1212"
+image = "grok-imagine-image"
+video = "grok-imagine-video"
 
 # =============================================================================
 # Ollama (Local LLMs)

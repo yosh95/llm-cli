@@ -88,7 +88,7 @@ class TestGrokVideoGeneration:
         mock_get.side_effect = [mock_poll_pending, mock_poll_completed]
 
         data = [DataSource(content="Make a video of a cat", content_type="text/plain")]
-        
+
         # Capture stdout to avoid printing during test
         with patch("builtins.print"):
             response_text, usage = mock_grok_client._send(data)

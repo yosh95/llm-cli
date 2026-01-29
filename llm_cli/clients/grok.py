@@ -261,12 +261,14 @@ class GrokClient(BaseLlmClient):
             # Step 2: Poll for results
             video_url = None
             start_time = time.time()
-            timeout_seconds = 600  # 10 minutes timeout for video
+            timeout_seconds = 1800  # 30 minutes timeout for video
 
             # Notify user that generation started
-            print(
-                "Video generation started. Polling for results... "
-                "(this may take a few minutes)"
+            from llm_cli.clients.base import console
+
+            console.print(
+                "[dim]Video generation started. Polling for results... "
+                "(this may take a few minutes)[/dim]"
             )
 
             while time.time() - start_time < timeout_seconds:

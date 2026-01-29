@@ -805,18 +805,38 @@ class BaseLlmClient(ABC):
         Supports images and audio.
         """
         mime_type = inline_data.get("mimeType", "")
-        if mime_type.startswith("image/") or mime_type.startswith("audio/"):
+        if (
+            mime_type.startswith("image/")
+            or mime_type.startswith("audio/")
+            or mime_type.startswith("video/")
+        ):
             import mimetypes
 
             from llm_cli.modules.media_utils import generate_safe_filename
 
+            # Get save directories from config, default to current directory
+            image_save_path = (
+                self._expand(get_setting("image_save_path", "general")) or "."
+            )
+            audio_save_path = (
+                self._expand(get_setting("audio_save_path", "general")) or "."
+            )
+            video_save_path = (
+                self._expand(get_setting("video_save_path", "general")) or "."
+            )
+
             if mime_type.startswith("audio/"):
-                save_dir = Path("audio/generated")
+                save_dir = Path(audio_save_path)
                 default_ext = ".mp3"
                 emoji = "🔊"
                 type_name = "Audio"
+            elif mime_type.startswith("video/"):
+                save_dir = Path(video_save_path)
+                default_ext = ".mp4"
+                emoji = "🎥"
+                type_name = "Video"
             else:
-                save_dir = Path("images/generated")
+                save_dir = Path(image_save_path)
                 default_ext = ".png"
                 emoji = "🎨"
                 type_name = "Image"

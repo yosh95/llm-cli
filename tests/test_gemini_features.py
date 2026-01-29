@@ -50,9 +50,9 @@ def test_gemini_saves_image_and_displays_thought(
                 [DataSource(content="Generate an image", content_type="text/plain")]
             )
 
-            # Check if image file exists in images/generated/
+            # Check if image file exists in the current directory
             # Note: mimetypes.guess_extension("image/jpeg") can return .jpg or .jpeg depending on OS
-            files_jpeg = glob.glob("images/generated/*.jp*g")
+            files_jpeg = glob.glob("*.jp*g")
 
             assert len(files_jpeg) == 1, f"Expected 1 jpeg file, found: {files_jpeg}"
 

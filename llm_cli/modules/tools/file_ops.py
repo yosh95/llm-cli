@@ -331,13 +331,13 @@ def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> st
                 n=3,
             )
         )
-        diff_text = "".join(diff)
+        diff_text = "".join(diff)  # noqa: F841
 
         if dry_run:
-            return f"Dry run enabled. No changes made.\n\nDiff:\n{diff_text}"
+            return "Dry run enabled. No changes made."
 
         p.write_text(new_content, encoding="utf-8")
-        return f"Successfully updated {path}.\n\nDiff:\n{diff_text}"
+        return f"Successfully updated {path}."
 
     except PathValidationError as e:
         return f"Security Error: {e}"

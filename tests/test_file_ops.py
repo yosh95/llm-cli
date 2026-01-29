@@ -127,10 +127,6 @@ def test_edit_file_success(tmp_path, monkeypatch):
     result = edit_file(test_path, search=search_block, replace=replacement)
 
     assert "Successfully updated" in result
-    assert "Diff:" in result
-    # Check Diff content
-    assert "-Line 2" in result
-    assert "+Line 2 Mod" in result
 
     new_content = (tmp_path / test_path).read_text(encoding="utf-8")
     new_lines = new_content.splitlines()

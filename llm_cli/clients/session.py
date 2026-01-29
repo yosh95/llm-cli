@@ -522,9 +522,19 @@ class ChatSession:
         skip_approval = tool_entry.get("skip_approval", False)
 
         # Check if it's one of the core tools, potentially namespaced
-        is_write = name == "write_file" or name.endswith("__write_file")
+        is_write = (
+            name == "write_file"
+            or name == "create_or_overwrite_file"
+            or name.endswith("__write_file")
+            or name.endswith("__create_or_overwrite_file")
+        )
         is_edit = name == "edit_file" or name.endswith("__edit_file")
-        is_exec = name == "execute_command" or name.endswith("__execute_command")
+        is_exec = (
+            name == "execute_command"
+            or name == "execute_shell_command"
+            or name.endswith("__execute_command")
+            or name.endswith("__execute_shell_command")
+        )
 
         if not skip_approval:
             # Display Agent Request in a Panel
@@ -617,9 +627,9 @@ class ChatSession:
             # --- Truncation Logic Start ---
             # Apply a global safety limit on tool output length to prevent
             # token exhaustion.
-            # This acts as a safety net even if individual tools don't implement limits.
             p_str = str(result_data)
-            max_len = int(get_setting("max_tool_output_len", "general") or 20000)
+            # Default limit increased to 1,000,000 to allow full display/context
+            max_len = int(get_setting("max_tool_output_len", "general") or 1000000)
 
             if len(p_str) > max_len:
                 original_len = len(p_str)
@@ -641,9 +651,9 @@ class ChatSession:
                     style="green",
                 )
             else:
-                preview = p_str[:300] + ("..." if len(p_str) > 300 else "")
+                # Display full content without 300 chars limit
                 self._print_block(
-                    escape(preview),
+                    escape(p_str),
                     title="[bold green]✅ Tool Result[/bold green]",
                     style="green",
                 )

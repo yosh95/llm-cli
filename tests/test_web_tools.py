@@ -42,16 +42,34 @@ def test_fetch_web_page_basic(mock_cloudscraper):
 
 def test_fetch_web_page_truncation(mock_cloudscraper):
     """Test fetch_web_page truncates output."""
-    long_text = "word " * 10000
+    long_text = "word " * 10000  # Approx 50000 chars
     html_content = f"<html><body>{long_text}</body></html>"
 
     mock_cloudscraper.get.return_value.headers = {"Content-Type": "text/html"}
     mock_cloudscraper.get.return_value.text = html_content
 
-    result = fetch_web_page("https://example.com")
+    # Use a small limit to ensure truncation occurs
+    result = fetch_web_page("https://example.com", max_length=1000)
 
     assert "... (Truncated" in result
-    assert len(result) <= 20200  # 20000 + extra message chars
+    assert len(result) <= 1200  # 1000 + extra message chars
+
+
+def test_fetch_web_page_no_limit(mock_cloudscraper):
+    """Test fetch_web_page with no limit (max_length=0)."""
+    long_text = "word " * 11000  # Approx 55000 chars
+    html_content = f"<html><body>{long_text}</body></html>"
+
+    mock_cloudscraper.get.return_value.headers = {"Content-Type": "text/html"}
+    mock_cloudscraper.get.return_value.text = html_content
+
+    # Set limit to 0 (no limit)
+    result = fetch_web_page("https://example.com", max_length=0)
+
+    # Should NOT be truncated
+    assert "... (Truncated" not in result
+    # Content should be > 50000 chars
+    assert len(result) >= 50000
 
 
 def test_fetch_web_page_error(mock_cloudscraper):

@@ -70,12 +70,19 @@ def search_web(query: str) -> str:
         "type": "object",
         "properties": {
             "url": {"type": "string", "description": "Target URL."},
+            "max_length": {
+                "type": "integer",
+                "description": (
+                    "Maximum number of characters to return (default: 50000). "
+                    "Set to 0 for no limit."
+                ),
+            },
             "explanation": {"type": "string", "description": "Reason for fetching."},
         },
         "required": ["url"],
     },
 )
-def fetch_web_page(url: str) -> str:
+def fetch_web_page(url: str, max_length: int = 50000) -> str:
     try:
         resp = cloudscraper.create_scraper().get(url, timeout=30)
         ctype = resp.headers.get("Content-Type", "").lower()
@@ -97,11 +104,11 @@ def fetch_web_page(url: str) -> str:
         content = re.sub(r"\n{3,}", "\n\n", content).strip()
 
         # Truncate if too long (rough safety limit)
-        max_len = 20000
-        if len(content) > max_len:
+        if max_length > 0 and len(content) > max_length:
             content = (
-                content[:max_len]
-                + f"\n... (Truncated. Total length: {len(content)} chars)"
+                content[:max_length]
+                + f"\n... (Truncated. Total length: {len(content)} chars. "
+                "Use max_length parameter to retrieve more.)"
             )
 
         return content

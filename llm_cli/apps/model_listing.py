@@ -121,14 +121,17 @@ def list_models(config: ModelListingConfig) -> None:
                 console.print_json(data=model)
         return
 
+    # Sort models by name
+    def get_model_name(m: Dict[str, Any]) -> str:
+        if config.extract_model_name:
+            return config.extract_model_name(m)
+        return str(m.get("id", m.get("name", "")))
+
+    models = sorted(models, key=get_model_name)
+
     # Display all models
     if verbose:
-        console.print_json(data=result)
-    else:
-        # Sort if needed
-        if config.sort_key:
-            models = sorted(models, key=config.sort_key)
-
+        # Display detailed table
         table = Table(title=f"{config.provider_name} Models")
 
         # Determine columns
@@ -155,3 +158,7 @@ def list_models(config: ModelListingConfig) -> None:
             table.add_row(*row_data)
 
         console.print(table)
+    else:
+        # Display model names only
+        for model in models:
+            console.print(get_model_name(model))

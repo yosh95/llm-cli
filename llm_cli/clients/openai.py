@@ -100,7 +100,7 @@ class OpenAIClient(BaseLlmClient):
         # Configure reasoning for reasoning models (GPT-5, o-series)
         if self.reasoning_enabled:
             payload["reasoning"] = {
-                "effort": getattr(self, "reasoning_effort", "medium"),
+                #"effort": getattr(self, "reasoning_effort", "medium"),
                 "summary": getattr(self, "reasoning_summary", "auto"),
             }
 

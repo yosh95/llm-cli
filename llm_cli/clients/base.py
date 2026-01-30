@@ -141,7 +141,11 @@ class BaseLlmClient(ABC):
             initial_tools if initial_tools is not None else list(registry.tools.keys())
         )
 
-        self.request_timeout = int(get_setting("request_timeout", "general") or 600)
+        # Default to None (wait indefinitely) instead of a fixed 600s timeout.
+        # This allows long-running reasoning processes to complete.
+        # Users can manually interrupt with Ctrl+C if desired.
+        raw_timeout = get_setting("request_timeout", "general")
+        self.request_timeout = int(raw_timeout) if raw_timeout else None
 
         if enable_mcp:
             self._init_mcp(initial_tools is None)
@@ -195,7 +199,7 @@ class BaseLlmClient(ABC):
         url: str,
         headers: Dict,
         json_data: Dict,
-        timeout: int = 600,
+        timeout: Optional[int] = None,
         max_retries: int = 3,
     ) -> requests.Response:
         """
@@ -205,7 +209,7 @@ class BaseLlmClient(ABC):
             url: The endpoint URL.
             headers: HTTP headers.
             json_data: The JSON payload.
-            timeout: Request timeout in seconds.
+            timeout: Request timeout in seconds (None for no timeout).
             max_retries: Maximum number of retry attempts.
 
         Returns:

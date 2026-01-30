@@ -273,10 +273,11 @@ class ChatSession:
 
             # Use status context for spinner (clears automatically after exit)
             start_time = datetime.datetime.now()
-            with console.status(
-                f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan]",
-                spinner="dots",
-            ):
+            status_msg = (
+                f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan] "
+                "[dim](Ctrl+C to interrupt)[/dim]"
+            )
+            with console.status(status_msg, spinner="dots"):
                 res = self.client._send(data)
             duration = (datetime.datetime.now() - start_time).total_seconds()
 
@@ -365,10 +366,11 @@ class ChatSession:
         self.client.conversation = temp_conversation
 
         try:
-            with console.status(
-                f"[bold cyan]🤔 Summarizing ({self.client.model})...[/bold cyan]",
-                spinner="dots",
-            ):
+            status_msg = (
+                f"[bold cyan]🤔 Summarizing ({self.client.model})...[/bold cyan] "
+                "[dim](Ctrl+C to interrupt)[/dim]"
+            )
+            with console.status(status_msg, spinner="dots"):
                 res = self.client._send([])
 
             response_tuple, _ = res if res else ((None, None), None)

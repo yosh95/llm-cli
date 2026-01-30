@@ -200,14 +200,15 @@ def search_text_in_files(
                     lines = process.stdout.splitlines()
                     formatted_results = []
                     for line in lines:
-                        # Normalize output: remove leading ./ and ensure space after colon
-                        # grep output format: path:line:content
+                        # Normalize output: remove leading ./ and ensure space after
+                        # colon. grep output format: path:line:content
                         parts = line.split(":", 2)
                         if len(parts) == 3:
                             path, line_num, content = parts
                             if path.startswith("./"):
                                 path = path[2:]
-                            formatted_results.append(f"{path}:{line_num}: {content.lstrip()}")
+                            res_line = f"{path}:{line_num}: {content.lstrip()}"
+                            formatted_results.append(res_line)
                         else:
                             formatted_results.append(line)
 
@@ -269,7 +270,7 @@ def search_text_in_files(
                             clean_path = str(path)
                             if clean_path.startswith("./"):
                                 clean_path = clean_path[2:]
-                                
+
                             results.append(f"{clean_path}:{i + 1}: {line.strip()}")
 
                             if len(results) >= 100:

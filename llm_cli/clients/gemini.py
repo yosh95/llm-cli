@@ -414,12 +414,14 @@ class GeminiClient(BaseLlmClient):
             if self.include_thoughts:
                 thinking_config["include_thoughts"] = True
 
-            # Use defaults if thinking_key/budget are not set (e.g. from config)
-            key = self.thinking_key or "thinkingLevel"
-            budget = self.thinking_budget or "medium"
-            thinking_config[key] = budget
+            if self.thinking_key and self.thinking_budget:
+                key = self.thinking_key or "thinkingLevel"
+                budget = self.thinking_budget or "medium"
+                thinking_config[key] = budget
 
-            payload["generationConfig"] = {"thinkingConfig": thinking_config}
+                payload["generationConfig"] = {
+                    "thinkingConfig": thinking_config
+                }
 
         if is_tts_model:
             # Enforce AUDIO modality for TTS models

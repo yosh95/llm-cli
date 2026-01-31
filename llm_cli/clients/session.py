@@ -124,10 +124,6 @@ def _(event):
     event.current_buffer.insert_text("\n")
 
 
-@kb_exit.add("escape")
-def _(event):
-    event.app.exit(exception=KeyboardInterrupt)
-
 
 @kb.add("c-x", "c-e")
 def _(event):
@@ -201,6 +197,7 @@ class ChatSession:
         initial_data: Optional[List[DataSource]] = None,
         sources: Optional[List[str]] = None,
     ):
+        console.print("[dim]Use Ctrl+c or /q to exit, /h for help.[/dim]")
         data = initial_data or []
         prompt_default = ""
 

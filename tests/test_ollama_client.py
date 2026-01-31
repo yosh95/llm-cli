@@ -40,9 +40,7 @@ class TestOllamaClient:
             "usage": {"total_tokens": 10},
         }
 
-        with patch.object(
-            client, "_post_with_retry", return_value=mock_response
-        ) as mock_post:
+        with patch.object(client, "_post", return_value=mock_response) as mock_post:
             data = [DataSource(content="Hi", content_type="text/plain")]
             (text, thought), usage = client._send(data)
 
@@ -52,7 +50,7 @@ class TestOllamaClient:
 
             # Verify request payload
             mock_post.assert_called_once()
-            # _post_with_retry signature: (url, headers, json_data, timeout, max_retries)
+            # _post signature: (url, headers, json_data, timeout, max_retries)
             # call_args.kwargs might contain json_data if passed by name
             kwargs = mock_post.call_args.kwargs
             payload = kwargs.get("json_data")
@@ -90,7 +88,7 @@ class TestOllamaClient:
             ]
         }
 
-        with patch.object(client, "_post_with_retry", return_value=mock_response):
+        with patch.object(client, "_post", return_value=mock_response):
             data = [DataSource(content="Weather?", content_type="text/plain")]
             (text, thought), _ = client._send(data)
 
@@ -128,7 +126,7 @@ class TestOllamaClient:
             ]
         }
 
-        with patch.object(client, "_post_with_retry", return_value=mock_response):
+        with patch.object(client, "_post", return_value=mock_response):
             data = [DataSource(content="Solve this", content_type="text/plain")]
             (text, thought), _ = client._send(data)
 
@@ -136,9 +134,7 @@ class TestOllamaClient:
             assert thought == "Thinking hard..."
 
     def test_send_api_failure(self, client):
-        with patch.object(
-            client, "_post_with_retry", side_effect=Exception("API Error")
-        ):
+        with patch.object(client, "_post", side_effect=Exception("API Error")):
             data = [DataSource(content="Hi", content_type="text/plain")]
             (text, thought), usage = client._send(data)
 

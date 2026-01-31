@@ -42,7 +42,7 @@ class TestGrokImageGeneration:
         mock_grok_client.model = "grok-beta"
         assert mock_grok_client._is_image_model() is False
 
-    @patch("llm_cli.clients.grok.GrokClient._post_with_retry")
+    @patch("llm_cli.clients.grok.GrokClient._post")
     def test_send_image_generation_success(self, mock_post, mock_grok_client):
         """Test successful image generation with b64_json response."""
         # Ensure model is set to image model
@@ -86,7 +86,7 @@ class TestGrokImageGeneration:
             assert last_msg.role == Role.MODEL
             assert last_msg.parts[1].inline_data["data"] == "base64_image_data_here"
 
-    @patch("llm_cli.clients.grok.GrokClient._post_with_retry")
+    @patch("llm_cli.clients.grok.GrokClient._post")
     def test_send_image_generation_url_response(self, mock_post, mock_grok_client):
         """Test successful image generation with URL response."""
         # Ensure model is set to image model

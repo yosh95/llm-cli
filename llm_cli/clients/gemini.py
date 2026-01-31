@@ -92,7 +92,7 @@ class GeminiClient(BaseLlmClient):
         api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
 
         try:
-            response = self._post_with_retry(
+            response = self._post(
                 api_url,
                 headers={
                     "x-goog-api-key": self.api_key,
@@ -228,7 +228,7 @@ class GeminiClient(BaseLlmClient):
 
         api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
         try:
-            response = self._post_with_retry(
+            response = self._post(
                 api_url,
                 headers={
                     "x-goog-api-key": self.api_key,
@@ -306,7 +306,9 @@ class GeminiClient(BaseLlmClient):
                             # Fix the path to point to the actually saved file
                             # This corrects model hallucination where it invents a
                             # filename different from what we saved
-                            part.function_call["args"]["path"] = str(last_saved_image_path)
+                            part.function_call["args"]["path"] = str(
+                                last_saved_image_path
+                            )
 
             return (display_text.strip(), thought_text.strip()), self.last_usage
         except Exception as e:
@@ -506,7 +508,7 @@ class GeminiClient(BaseLlmClient):
         try:
             # Step 1: Start generation
             console.print(f"[dim]Starting video generation with {self.model}...[/dim]")
-            response = self._post_with_retry(
+            response = self._post(
                 api_url,
                 headers={
                     "x-goog-api-key": self.api_key,

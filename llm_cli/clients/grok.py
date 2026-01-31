@@ -86,7 +86,7 @@ class GrokClient(BaseLlmClient):
         }
 
         try:
-            response = self._post_with_retry(
+            response = self._post(
                 self.api_url,
                 headers=headers,
                 json_data=payload,
@@ -161,7 +161,7 @@ class GrokClient(BaseLlmClient):
         }
 
         try:
-            response = self._post_with_retry(
+            response = self._post(
                 IMAGE_API_URL,
                 headers=headers,
                 json_data=payload,
@@ -246,7 +246,7 @@ class GrokClient(BaseLlmClient):
 
         try:
             # Step 1: Start generation
-            response = self._post_with_retry(
+            response = self._post(
                 VIDEO_GENERATION_URL,
                 headers=headers,
                 json_data=payload,
@@ -276,7 +276,7 @@ class GrokClient(BaseLlmClient):
             while time.time() - start_time < timeout_seconds:
                 poll_url = VIDEO_RESULT_URL_TEMPLATE.format(request_id)
 
-                poll_response = self._get_with_retry(
+                poll_response = self._get(
                     poll_url,
                     headers=headers,
                     timeout=self.request_timeout,
@@ -342,35 +342,14 @@ class GrokClient(BaseLlmClient):
             self._report_error("Grok Video", e)
             return ((None, None), None)
 
-    def _get_with_retry(
+    def _get(
         self,
         url: str,
         headers: Dict,
         timeout: Optional[int] = 600,
-        max_retries: int = 3,
     ) -> requests.Response:
-        """Performs a GET request with automatic retry."""
-        last_exception = None
-        for attempt in range(max_retries):
-            try:
-                response = requests.get(url, headers=headers, timeout=timeout)
-                if response.status_code == 429 or 500 <= response.status_code < 600:
-                    response.raise_for_status()
-                return response
-            except (
-                requests.exceptions.RequestException,
-                requests.exceptions.HTTPError,
-            ) as e:
-                last_exception = e
-                if isinstance(e, requests.exceptions.HTTPError):
-                    status_code = e.response.status_code
-                    if status_code != 429 and status_code < 500:
-                        raise e
-                if attempt < max_retries - 1:
-                    time.sleep((2**attempt) + 1)
-                else:
-                    raise last_exception
-        raise last_exception if last_exception else Exception("Request failed")
+        """Performs a GET request."""
+        return requests.get(url, headers=headers, timeout=timeout)
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates internal history."""
@@ -487,8 +466,6 @@ class GrokClient(BaseLlmClient):
         if user_content:
             from typing import cast
 
-            msgs.append(
-                cast(Dict[str, Any], {"role": "user", "content": user_content})
-            )
+            msgs.append(cast(Dict[str, Any], {"role": "user", "content": user_content}))
 
         return msgs

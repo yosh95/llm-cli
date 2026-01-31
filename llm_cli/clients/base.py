@@ -3,7 +3,6 @@
 import base64
 import datetime
 import json
-import time
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
@@ -219,64 +218,26 @@ class BaseLlmClient(ABC):
         """
         pass
 
-    def _post_with_retry(
+    def _post(
         self,
         url: str,
         headers: Dict,
         json_data: Dict,
         timeout: Optional[int] = None,
-        max_retries: int = 3,
     ) -> requests.Response:
         """
-        Performs a POST request with automatic retry and exponential backoff.
+        Performs a POST request.
 
         Args:
             url: The endpoint URL.
             headers: HTTP headers.
             json_data: The JSON payload.
             timeout: Request timeout in seconds (None for no timeout).
-            max_retries: Maximum number of retry attempts.
 
         Returns:
             The successful requests.Response object.
-
-        Raises:
-            requests.exceptions.RequestException: If all retries fail.
         """
-        last_exception = None
-        for attempt in range(max_retries):
-            try:
-                response = requests.post(
-                    url, headers=headers, json=json_data, timeout=timeout
-                )
-
-                if response.status_code == 429 or 500 <= response.status_code < 600:
-                    response.raise_for_status()
-
-                return response
-            except (
-                requests.exceptions.RequestException,
-                requests.exceptions.HTTPError,
-            ) as e:
-                last_exception = e
-
-                if isinstance(e, requests.exceptions.HTTPError):
-                    status_code = e.response.status_code
-                    if status_code != 429 and status_code < 500:
-                        raise e
-
-                if attempt < max_retries - 1:
-                    wait_time = (2**attempt) + 1
-                    console.print(
-                        f"[yellow]Request failed: {e}. "
-                        f"Retrying in {wait_time}s... "
-                        f"({attempt + 1}/{max_retries})[/yellow]"
-                    )
-                    time.sleep(wait_time)
-                else:
-                    raise last_exception
-
-        raise last_exception if last_exception else Exception("Request failed")
+        return requests.post(url, headers=headers, json=json_data, timeout=timeout)
 
     @property
     def slash_commands(self):

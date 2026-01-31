@@ -112,7 +112,7 @@ class OpenAIClient(BaseLlmClient):
         }
 
         try:
-            response = self._post_with_retry(
+            response = self._post(
                 self.api_url,
                 headers=headers,
                 json_data=payload,
@@ -199,7 +199,7 @@ class OpenAIClient(BaseLlmClient):
         }
 
         try:
-            response = self._post_with_retry(
+            response = self._post(
                 IMAGE_API_URL,
                 headers=headers,
                 json_data=payload,
@@ -292,7 +292,7 @@ class OpenAIClient(BaseLlmClient):
 
         try:
             # Step 1: Start generation
-            response = self._post_with_retry(
+            response = self._post(
                 video_api_url,
                 headers=headers,
                 json_data=payload,

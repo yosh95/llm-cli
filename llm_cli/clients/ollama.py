@@ -56,7 +56,7 @@ class OllamaClient(BaseLlmClient):
             )
 
         try:
-            response = self._post_with_retry(
+            response = self._post(
                 self.api_url,
                 headers={},
                 json_data=payload,

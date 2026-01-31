@@ -76,7 +76,7 @@ class ClaudeClient(BaseLlmClient):
         }
 
         try:
-            response = self._post_with_retry(
+            response = self._post(
                 self.API_URL,
                 headers=headers,
                 json_data=payload,

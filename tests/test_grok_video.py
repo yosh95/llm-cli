@@ -53,8 +53,8 @@ class TestGrokVideoGeneration:
         mock_grok_client.model = "grok-beta"
         assert mock_grok_client._is_video_model() is False
 
-    @patch("llm_cli.clients.grok.GrokClient._post_with_retry")
-    @patch("llm_cli.clients.grok.GrokClient._get_with_retry")
+    @patch("llm_cli.clients.grok.GrokClient._post")
+    @patch("llm_cli.clients.grok.GrokClient._get")
     @patch("time.sleep", return_value=None)  # Skip sleep
     def test_send_video_generation_success(
         self, mock_sleep, mock_get, mock_post, mock_grok_client
@@ -115,8 +115,8 @@ class TestGrokVideoGeneration:
         assert last_msg.role == Role.MODEL
         assert "https://example.com/video.mp4" in last_msg.parts[0].text
 
-    @patch("llm_cli.clients.grok.GrokClient._post_with_retry")
-    @patch("llm_cli.clients.grok.GrokClient._get_with_retry")
+    @patch("llm_cli.clients.grok.GrokClient._post")
+    @patch("llm_cli.clients.grok.GrokClient._get")
     @patch("time.sleep", return_value=None)
     def test_send_video_generation_failure(
         self, mock_sleep, mock_get, mock_post, mock_grok_client

@@ -42,7 +42,7 @@ class TestOpenAIImageGeneration:
         mock_openai_client.model = "gpt-4o"
         assert mock_openai_client._is_image_model() is False
 
-    @patch("llm_cli.clients.openai.OpenAIClient._post_with_retry")
+    @patch("llm_cli.clients.openai.OpenAIClient._post")
     def test_send_image_generation_success(self, mock_post, mock_openai_client):
         """Test successful image generation with b64_json response and return value structure."""
         # Ensure model is set to image model
@@ -100,7 +100,7 @@ class TestOpenAIImageGeneration:
             assert last_msg.role == Role.MODEL
             assert last_msg.parts[1].inline_data["data"] == "base64_image_data_here"
 
-    @patch("llm_cli.clients.openai.OpenAIClient._post_with_retry")
+    @patch("llm_cli.clients.openai.OpenAIClient._post")
     def test_send_image_generation_failure(self, mock_post, mock_openai_client):
         """Test image generation failure handling."""
         mock_openai_client.model = "dall-e-3"

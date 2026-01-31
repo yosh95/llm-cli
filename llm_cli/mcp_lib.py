@@ -12,11 +12,13 @@ logger = logging.getLogger(__name__)
 
 # --- Data Structures (Mocking mcp types) ---
 
+
 @dataclasses.dataclass
 class StdioServerParameters:
     command: str
     args: List[str]
     env: Optional[Dict[str, str]] = None
+
 
 @dataclasses.dataclass
 class Content:
@@ -25,10 +27,12 @@ class Content:
     data: Optional[str] = None
     mimeType: Optional[str] = None
 
+
 @dataclasses.dataclass
 class ToolResult:
     content: List[Content]
     isError: bool = False
+
 
 @dataclasses.dataclass
 class ToolDescription:
@@ -36,11 +40,14 @@ class ToolDescription:
     description: str
     inputSchema: Dict[str, Any]
 
+
 @dataclasses.dataclass
 class ListToolsResult:
     tools: List[ToolDescription]
 
+
 # --- Protocol Helpers ---
+
 
 class JSONRPCProtocol:
     def __init__(self):
@@ -56,24 +63,22 @@ class JSONRPCProtocol:
             "jsonrpc": "2.0",
             "method": method,
             "params": params or {},
-            "id": self._next_id()
+            "id": self._next_id(),
         }
 
     def create_response(self, request_id: int, result: Any) -> Dict:
-        return {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "result": result
-        }
+        return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
     def create_error(self, request_id: int, code: int, message: str) -> Dict:
         return {
             "jsonrpc": "2.0",
             "id": request_id,
-            "error": {"code": code, "message": message}
+            "error": {"code": code, "message": message},
         }
 
+
 # --- Client Implementation ---
+
 
 class ClientSession:
     def __init__(
@@ -113,7 +118,9 @@ class ClientSession:
                         if req_id in self.protocol._pending_requests:
                             future = self.protocol._pending_requests.pop(req_id)
                             if "error" in message:
-                                future.set_exception(Exception(message["error"]["message"]))
+                                future.set_exception(
+                                    Exception(message["error"]["message"])
+                                )
                             else:
                                 future.set_result(message["result"])
                 except json.JSONDecodeError:
@@ -130,36 +137,40 @@ class ClientSession:
         future = asyncio.Future()
         self.protocol._pending_requests[req_id] = future
 
-        data = json.dumps(req).encode('utf-8') + b'\n'
+        data = json.dumps(req).encode("utf-8") + b"\n"
         self.write_stream.write(data)
         await self.write_stream.drain()
 
         return await future
 
     async def initialize(self):
-        return await self._send_request("initialize", {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "llm-cli-client", "version": "0.1.0"}
-        })
+        return await self._send_request(
+            "initialize",
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "llm-cli-client", "version": "0.1.0"},
+            },
+        )
 
     async def list_tools(self) -> ListToolsResult:
         response = await self._send_request("tools/list")
         tools_data = response.get("tools", [])
         tools = []
         for t in tools_data:
-            tools.append(ToolDescription(
-                name=t["name"],
-                description=t.get("description", ""),
-                inputSchema=t.get("inputSchema", {})
-            ))
+            tools.append(
+                ToolDescription(
+                    name=t["name"],
+                    description=t.get("description", ""),
+                    inputSchema=t.get("inputSchema", {}),
+                )
+            )
         return ListToolsResult(tools=tools)
 
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> ToolResult:
-        response = await self._send_request("tools/call", {
-            "name": name,
-            "arguments": arguments
-        })
+        response = await self._send_request(
+            "tools/call", {"name": name, "arguments": arguments}
+        )
 
         content_list = []
         # Support both new and old MCP response formats roughly
@@ -168,6 +179,7 @@ class ClientSession:
                 content_list.append(Content(**c))
 
         return ToolResult(content=content_list)
+
 
 @asynccontextmanager
 async def stdio_client(params: StdioServerParameters):
@@ -182,9 +194,9 @@ async def stdio_client(params: StdioServerParameters):
         *params.args,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
-        stderr=sys.stderr, # Pass stderr through to console
+        stderr=sys.stderr,  # Pass stderr through to console
         env=env,
-        limit=32 * 1024 * 1024 # 32MB limit for large MCP messages
+        limit=32 * 1024 * 1024,  # 32MB limit for large MCP messages
     )
 
     try:
@@ -197,7 +209,9 @@ async def stdio_client(params: StdioServerParameters):
             except asyncio.TimeoutError:
                 proc.kill()
 
+
 # --- Server Implementation ---
+
 
 class FastMCP:
     def __init__(self, name: str):
@@ -210,6 +224,7 @@ class FastMCP:
             tool_name = name or func.__name__
             self.tools[tool_name] = func
             return func
+
         return decorator
 
     def _generate_schema(self, func: Callable) -> Dict:
@@ -234,14 +249,10 @@ class FastMCP:
 
             properties[param_name] = {
                 "type": param_type,
-                "description": f"Parameter {param_name}"
+                "description": f"Parameter {param_name}",
             }
 
-        return {
-            "type": "object",
-            "properties": properties,
-            "required": required
-        }
+        return {"type": "object", "properties": properties, "required": required}
 
     async def _handle_message(self, message: Dict, write_stream: asyncio.StreamWriter):
         if "method" not in message:
@@ -257,10 +268,8 @@ class FastMCP:
             if method == "initialize":
                 response = {
                     "protocolVersion": "2024-11-05",
-                    "capabilities": {
-                        "tools": {"listChanged": False}
-                    },
-                    "serverInfo": {"name": self.name, "version": "0.1.0"}
+                    "capabilities": {"tools": {"listChanged": False}},
+                    "serverInfo": {"name": self.name, "version": "0.1.0"},
                 }
 
             elif method == "notifications/initialized":
@@ -270,11 +279,13 @@ class FastMCP:
             elif method == "tools/list":
                 tools_list = []
                 for name, func in self.tools.items():
-                    tools_list.append({
-                        "name": name,
-                        "description": func.__doc__ or "",
-                        "inputSchema": self._generate_schema(func)
-                    })
+                    tools_list.append(
+                        {
+                            "name": name,
+                            "description": func.__doc__ or "",
+                            "inputSchema": self._generate_schema(func),
+                        }
+                    )
                 response = {"tools": tools_list}
 
             elif method == "tools/call":
@@ -295,10 +306,8 @@ class FastMCP:
                 # Convert result to Content
                 text_content = str(result)
                 response = {
-                    "content": [
-                        {"type": "text", "text": text_content}
-                    ],
-                    "isError": False
+                    "content": [{"type": "text", "text": text_content}],
+                    "isError": False,
                 }
 
             else:
@@ -307,7 +316,7 @@ class FastMCP:
                     error_resp = self.protocol.create_error(
                         msg_id, -32601, "Method not found"
                     )
-                    data = json.dumps(error_resp).encode('utf-8') + b'\n'
+                    data = json.dumps(error_resp).encode("utf-8") + b"\n"
                     write_stream.write(data)
                     await write_stream.drain()
                 return
@@ -315,7 +324,7 @@ class FastMCP:
             # Send success response if id present
             if msg_id is not None:
                 resp_obj = self.protocol.create_response(msg_id, response)
-                data = json.dumps(resp_obj).encode('utf-8') + b'\n'
+                data = json.dumps(resp_obj).encode("utf-8") + b"\n"
                 write_stream.write(data)
                 await write_stream.drain()
 
@@ -323,7 +332,7 @@ class FastMCP:
             logger.error(f"Error handling message: {e}")
             if msg_id is not None:
                 error_resp = self.protocol.create_error(msg_id, -32000, str(e))
-                data = json.dumps(error_resp).encode('utf-8') + b'\n'
+                data = json.dumps(error_resp).encode("utf-8") + b"\n"
                 write_stream.write(data)
                 await write_stream.drain()
 

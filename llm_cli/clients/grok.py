@@ -345,9 +345,7 @@ class GrokClient(BaseLlmClient):
         last_exception = None
         for attempt in range(max_retries):
             try:
-                response = requests.get(
-                    url, headers=headers, timeout=timeout
-                )
+                response = requests.get(url, headers=headers, timeout=timeout)
                 if response.status_code == 429 or 500 <= response.status_code < 600:
                     response.raise_for_status()
                 return response

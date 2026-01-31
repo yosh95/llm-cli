@@ -82,13 +82,9 @@ class GeminiClient(BaseLlmClient):
             "generationConfig": {
                 "responseModalities": ["AUDIO"],
                 "speechConfig": {
-                    "voiceConfig": {
-                        "prebuiltVoiceConfig": {
-                            "voiceName": "Puck"
-                        }
-                    }
-                }
-            }
+                    "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Puck"}}
+                },
+            },
         }
 
         # Explicitly do NOT add system instructions for TTS generation
@@ -131,7 +127,6 @@ class GeminiClient(BaseLlmClient):
 
         except Exception as e:
             self._report_error("Speech Generation", e)
-
 
     def _load_model_aliases(self):
         """Loads model aliases from the configuration."""
@@ -419,9 +414,7 @@ class GeminiClient(BaseLlmClient):
                 budget = self.thinking_budget or "medium"
                 thinking_config[key] = budget
 
-                payload["generationConfig"] = {
-                    "thinkingConfig": thinking_config
-                }
+                payload["generationConfig"] = {"thinkingConfig": thinking_config}
 
         if is_tts_model:
             # Enforce AUDIO modality for TTS models
@@ -431,11 +424,7 @@ class GeminiClient(BaseLlmClient):
             # Add default speech config if not present
             if "speechConfig" not in gen_config:
                 gen_config["speechConfig"] = {
-                    "voiceConfig": {
-                        "prebuiltVoiceConfig": {
-                            "voiceName": "Puck"
-                        }
-                    }
+                    "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Puck"}}
                 }
             payload["generationConfig"] = gen_config
 
@@ -585,6 +574,7 @@ class GeminiClient(BaseLlmClient):
                         else:
                             # Dump response for debugging
                             import json
+
                             debug_dump = json.dumps(
                                 op_res, indent=2, ensure_ascii=False
                             )
@@ -614,11 +604,12 @@ class GeminiClient(BaseLlmClient):
 
             try:
                 import base64
+
                 console.print("[dim]Downloading video content...[/dim]")
                 vid_response = requests.get(
                     video_uri,
                     headers={"x-goog-api-key": self.api_key},
-                    timeout=self.request_timeout
+                    timeout=self.request_timeout,
                 )
                 if vid_response.status_code == 200:
                     video_bytes = vid_response.content

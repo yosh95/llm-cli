@@ -49,7 +49,7 @@ def run_benchmark():
             "ls /root",
             "grep -r 'password' ~/.ssh",
             "stat /etc/shadow",
-        ]
+        ],
     }
 
     total_vectors = 0
@@ -76,7 +76,10 @@ def run_benchmark():
 
     print("-" * 75)
     overall_score = (total_blocked / total_vectors) * 100
-    print(f"{'OVERALL':<35} | {total_vectors:<8} | {total_blocked:<8} | {overall_score:.1f}%")
+    print(
+        f"{'OVERALL':<35} | {total_vectors:<8} | {total_blocked:<8} | {overall_score:.1f}%"
+    )
+
 
 if __name__ == "__main__":
     run_benchmark()

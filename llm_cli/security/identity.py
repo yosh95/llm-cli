@@ -8,6 +8,7 @@ import jwt
 
 logger = logging.getLogger(__name__)
 
+
 class IdentityManager:
     """
     Manages Workload Identity and Authentication Tokens.
@@ -33,7 +34,7 @@ class IdentityManager:
             "iat": now,
             "exp": now + 3600,  # 1 hour expiration
             "jti": str(uuid.uuid4()),
-            "roles": roles or ["user"]
+            "roles": roles or ["user"],
         }
 
         token = jwt.encode(payload, cls._SECRET_KEY, algorithm=cls._ALGORITHM)
@@ -48,10 +49,7 @@ class IdentityManager:
         """
         try:
             payload = jwt.decode(
-                token,
-                cls._SECRET_KEY,
-                algorithms=[cls._ALGORITHM],
-                issuer=cls._ISSUER
+                token, cls._SECRET_KEY, algorithms=[cls._ALGORITHM], issuer=cls._ISSUER
             )
             return payload
         except jwt.ExpiredSignatureError:
@@ -68,7 +66,7 @@ class IdentityManager:
         """
         return {
             "authorization": f"Bearer {cls.generate_token()}",
-            "trace_id": str(uuid.uuid4())
+            "trace_id": str(uuid.uuid4()),
         }
 
     @classmethod

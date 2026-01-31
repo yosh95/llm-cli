@@ -49,11 +49,11 @@ class LlmCliCompleter(Completer):
         self.path_completer = PathCompleter(expanduser=True)
 
         # Dynamic command list from client
-        self.all_cmds = ['/' + cmd for cmd in self.client.slash_commands]
-        self.path_cmds = ('/attach', '/save', '/load')
-        self.provider_cmds = ('/p', '/provider')
-        self.model_cmds = ('/m', '/model')
-        self.template_cmds = ('/t', '/template')
+        self.all_cmds = ["/" + cmd for cmd in self.client.slash_commands]
+        self.path_cmds = ("/attach", "/save", "/load")
+        self.provider_cmds = ("/p", "/provider")
+        self.model_cmds = ("/m", "/model")
+        self.template_cmds = ("/t", "/template")
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
@@ -122,7 +122,6 @@ def _(event):
 @kb.add("c-j")
 def _(event):
     event.current_buffer.insert_text("\n")
-
 
 
 @kb.add("c-x", "c-e")
@@ -748,16 +747,16 @@ class ChatSession:
                 )
                 syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
                 self._print_block(
-                        syn,
-                        title=title,
-                        style="yellow",
-                    )
+                    syn,
+                    title=title,
+                    style="yellow",
+                )
             else:
                 self._print_block(
-                        "[yellow]No changes detected in search/replace block.[/yellow]",
-                        title=title,
-                        style="yellow",
-                    )
+                    "[yellow]No changes detected in search/replace block.[/yellow]",
+                    title=title,
+                    style="yellow",
+                )
         except Exception:
             pass
 
@@ -769,9 +768,9 @@ class ChatSession:
 
             syn = Syntax(command, "bash", theme="monokai", word_wrap=True)
             self._print_block(
-                    syn,
-                    title="[bold]Execute Command[/bold]",
-                    style="magenta",
-                )
+                syn,
+                title="[bold]Execute Command[/bold]",
+                style="magenta",
+            )
         except Exception:
             pass

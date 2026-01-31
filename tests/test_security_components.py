@@ -32,7 +32,7 @@ class TestIdentityManager:
             "sub": "user",
             "iat": time.time() - 7200,
             "exp": time.time() - 3600,
-            "roles": ["user"]
+            "roles": ["user"],
         }
         token = jwt.encode(payload, secret, algorithm="HS256")
         assert IdentityManager.verify_token(token) is None
@@ -42,6 +42,7 @@ class TestIdentityManager:
         assert "authorization" in context
         assert "trace_id" in context
         assert context["authorization"].startswith("Bearer ")
+
 
 class TestIntegrityVerifier:
     def test_verify_success(self, tmp_path):
@@ -65,6 +66,7 @@ class TestIntegrityVerifier:
         # Should fail because other files are missing
         assert verifier.verify() is False
 
+
 class TestPolicyEngine:
     def test_evaluate_admin(self):
         engine = PolicyEngine()
@@ -85,10 +87,7 @@ class TestPolicyEngine:
     def test_evaluate_custom_roles(self):
         config = {
             "roles": {
-                "developer": {
-                    "allow_all": False,
-                    "allowed_tools": ["execute_command"]
-                }
+                "developer": {"allow_all": False, "allowed_tools": ["execute_command"]}
             }
         }
         engine = PolicyEngine(config)
@@ -100,7 +99,11 @@ class TestPolicyEngine:
         # Admin trying to write to /etc
         context = {"roles": ["admin"]}
         assert engine.evaluate("write_file", {"path": "/etc/passwd"}, context) is False
-        assert engine.evaluate("write_file", {"path": "/home/user/test.txt"}, context) is True
+        assert (
+            engine.evaluate("write_file", {"path": "/home/user/test.txt"}, context)
+            is True
+        )
+
 
 class TestAuditLog:
     def test_log_audit_success(self, tmp_path, monkeypatch):
@@ -126,7 +129,10 @@ class TestAuditLog:
 
     def test_log_audit_error(self, tmp_path, monkeypatch):
         audit_file = tmp_path / "audit_error.log"
-        monkeypatch.setattr("llm_cli.security.audit.get_setting", lambda k, s: str(audit_file) if k == "LLM_AUDIT_LOG" else None)
+        monkeypatch.setattr(
+            "llm_cli.security.audit.get_setting",
+            lambda k, s: str(audit_file) if k == "LLM_AUDIT_LOG" else None,
+        )
 
         log_audit("fail_tool", {}, "no output", exit_code=1, error="Some error")
         content = audit_file.read_text()
@@ -135,7 +141,10 @@ class TestAuditLog:
 
     def test_log_audit_exit_code_only(self, tmp_path, monkeypatch):
         audit_file = tmp_path / "audit_exit.log"
-        monkeypatch.setattr("llm_cli.security.audit.get_setting", lambda k, s: str(audit_file) if k == "LLM_AUDIT_LOG" else None)
+        monkeypatch.setattr(
+            "llm_cli.security.audit.get_setting",
+            lambda k, s: str(audit_file) if k == "LLM_AUDIT_LOG" else None,
+        )
 
         log_audit("cmd_tool", {}, "some output", exit_code=127)
         content = audit_file.read_text()
@@ -143,6 +152,7 @@ class TestAuditLog:
 
     def test_trim_log_file(self, tmp_path):
         from llm_cli.security.audit import _trim_log_file
+
         log_file = tmp_path / "trim.log"
         log_file.write_text("line1\nline2\nline3\nline4\n")
 

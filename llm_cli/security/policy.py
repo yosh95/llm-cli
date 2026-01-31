@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
+
 class PolicyEngine:
     """
     Role-Based Access Control (RBAC) Policy Engine.
@@ -18,7 +19,7 @@ class PolicyEngine:
             "admin": {
                 "description": "Full access to all tools",
                 "allow_all": True,
-                "allowed_tools": []
+                "allowed_tools": [],
             },
             "guest": {
                 "description": "Read-only access for unauthenticated clients",
@@ -33,8 +34,8 @@ class PolicyEngine:
             "deny": {
                 "description": "No access allowed",
                 "allow_all": False,
-                "allowed_tools": []
-            }
+                "allowed_tools": [],
+            },
         }
 
         # Merge user config into roles if provided
@@ -108,6 +109,7 @@ class PolicyEngine:
         if path and re.match(r"^(/etc|/var|/usr|/root|C:\\Windows)", path):
             return False
         return True
+
 
 # Singleton instance will be re-initialized with config later
 policy_engine = PolicyEngine()

@@ -28,9 +28,7 @@ class TestCommandValidator:
             validator.validate("git push origin main")
 
     def test_git_add_restrictions(self, validator):
-        with pytest.raises(
-            CommandValidationError, match="Bulk adding.*is forbidden"
-        ):
+        with pytest.raises(CommandValidationError, match="Bulk adding.*is forbidden"):
             validator.validate("git add .")
 
     def test_path_traversal_blocking(self, validator):
@@ -47,15 +45,14 @@ class TestCommandValidator:
 
     def test_background_execution(self, validator):
         with pytest.raises(
-            CommandValidationError, match="Single '&' for background execution is forbidden"
+            CommandValidationError,
+            match="Single '&' for background execution is forbidden",
         ):
             validator.validate("python server.py &")
 
     def test_find_restrictions(self, validator):
         # This will now fail due to the semicolon check first, which is acceptable behavior.
-        with pytest.raises(
-            CommandValidationError, match="dangerous pattern ';'"
-        ):
+        with pytest.raises(CommandValidationError, match="dangerous pattern ';'"):
             validator.validate("find . -name '*.py' -exec rm {} \\;")
 
     def test_removed_commands(self, validator):
@@ -87,7 +84,7 @@ class TestCommandValidator:
 
         # Double Quotes - Blocked (Previously VULNERABLE)
         with pytest.raises(CommandValidationError, match="dangerous pattern '`'"):
-             validator.validate('git commit -m "msg `whoami`"')
+            validator.validate('git commit -m "msg `whoami`"')
 
         # Single Quotes - Allowed (Safe)
         validator.validate("echo 'Use `backticks` for code'")

@@ -36,11 +36,13 @@ except Exception as e:
     MISSING_TOKEN_POLICY = "guest"
     policy_engine = PolicyEngine()
 
+
 def secure_tool_wrapper(func, tool_name: str):
     """
     Decorator-like wrapper to enforce security policies before tool execution.
     Implements Zero Trust and Workload Identity checks.
     """
+
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         # 1. Identity Verification (Workload Auth)
@@ -100,6 +102,7 @@ def secure_tool_wrapper(func, tool_name: str):
             raise e
 
     return wrapper
+
 
 def create_mcp_server():
     """Create and configure the FastMCP server instance with security hooks."""

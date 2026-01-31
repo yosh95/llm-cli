@@ -85,7 +85,9 @@ def test_list_files_ignore(tmp_path, monkeypatch):
 
     # Default ignore should catch node_modules and __pycache__
     # Custom ignore for .env
-    result = list_files_in_directory(ignore_patterns=["node_modules", "__pycache__", "*.env"])
+    result = list_files_in_directory(
+        ignore_patterns=["node_modules", "__pycache__", "*.env"]
+    )
 
     assert "keep.txt" in result
     assert "node_modules" not in result
@@ -135,7 +137,7 @@ def test_edit_file_success(tmp_path, monkeypatch):
     assert "Line 2 Mod" == new_lines[1]
     assert "Line 3 Mod" == new_lines[2]
     assert "Line 4" == new_lines[3]
-    assert "Line 2" not in new_lines # Exact line match check
+    assert "Line 2" not in new_lines  # Exact line match check
 
 
 def test_edit_file_not_found(tmp_path, monkeypatch):
@@ -154,4 +156,3 @@ def test_edit_file_search_block_not_found(tmp_path, monkeypatch):
 
     result = edit_file(test_path, search="Line C", replace="Line D")
     assert "not found in the file" in result
-

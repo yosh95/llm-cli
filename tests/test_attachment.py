@@ -30,7 +30,6 @@ def test_read_pdf_content_success(mock_path, mock_process):
     assert res["__llm_cli_data__"]["content_type"] == "application/pdf"
 
 
-
 def test_handle_attach_command():
     from llm_cli.modules.models import DataSource
 

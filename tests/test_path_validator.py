@@ -67,4 +67,3 @@ class TestPathValidator:
         (tmp_path / "safe.txt").write_text("hello")
         result = read_file_content("safe.txt")
         assert "hello" in result
-

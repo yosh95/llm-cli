@@ -10,9 +10,16 @@ from llm_cli.modules.models import ContentPart
 
 class MockClient(BaseLlmClient):
     def __init__(self):
-        self._slash_commands = {'attach', 'save', 'load', 'provider', 'model', 'template'}
-        self.PROVIDER_CONFIG = {'google': {}, 'openai': {}}
-        self.available_models = {'gemini': 'gemini-pro', 'gpt4': 'gpt-4'}
+        self._slash_commands = {
+            "attach",
+            "save",
+            "load",
+            "provider",
+            "model",
+            "template",
+        }
+        self.PROVIDER_CONFIG = {"google": {}, "openai": {}}
+        self.available_models = {"gemini": "gemini-pro", "gpt4": "gpt-4"}
         self.history_path = None
         self.conversation = []
         self.chat_log_path = None
@@ -40,9 +47,11 @@ class MockClient(BaseLlmClient):
     def _trim_log_file(self, path, max_lines):
         pass
 
+
 @pytest.fixture
 def mock_client():
     return MockClient()
+
 
 class TestLlmCliCompleter:
     def test_command_completion(self, mock_client):
@@ -67,12 +76,16 @@ class TestLlmCliCompleter:
         assert any(c.text == "gemini" for c in completions)
 
     def test_template_completion(self, mock_client):
-        with patch("llm_cli.clients.session.get_templates", return_value={"bug_report": "template"}):
+        with patch(
+            "llm_cli.clients.session.get_templates",
+            return_value={"bug_report": "template"},
+        ):
             completer = LlmCliCompleter(mock_client)
             doc = Document("/template bug", cursor_position=13)
             completions = list(completer.get_completions(doc, None))
             assert len(completions) > 0
             assert any(c.text == "bug_report" for c in completions)
+
 
 class TestChatSession:
     @pytest.fixture
@@ -103,7 +116,7 @@ class TestChatSession:
             tool_entry = {
                 "skip_approval": True,
                 "func": mock_tool_func,
-                "interactive": False
+                "interactive": False,
             }
 
             mock_tools = MagicMock()
@@ -125,7 +138,7 @@ class TestChatSession:
             tool_entry = {
                 "skip_approval": False,
                 "func": mock_tool_func,
-                "interactive": False
+                "interactive": False,
             }
 
             mock_tools = MagicMock()
@@ -147,7 +160,7 @@ class TestChatSession:
             tool_entry = {
                 "skip_approval": False,
                 "func": MagicMock(),
-                "interactive": False
+                "interactive": False,
             }
 
             mock_tools = MagicMock()
@@ -162,7 +175,10 @@ class TestChatSession:
 
                 assert result is not None
                 res_part, _ = result
-                assert "Operation denied" in res_part.function_response["response"]["result"]
+                assert (
+                    "Operation denied"
+                    in res_part.function_response["response"]["result"]
+                )
 
     def test_handle_checkpoint_success(self, session):
         # Mock _send to return a summary

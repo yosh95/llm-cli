@@ -5,6 +5,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 class IntegrityVerifier:
     """
     Implements a Root of Trust mechanism by verifying the integrity
@@ -16,7 +17,7 @@ class IntegrityVerifier:
         "llm_cli/apps/mcp_server.py",
         "llm_cli/security/command_validator.py",
         "llm_cli/security/policy.py",
-        "pyproject.toml"
+        "pyproject.toml",
     ]
 
     def __init__(self, base_path: Path):
@@ -61,6 +62,7 @@ class IntegrityVerifier:
             logger.info("✅ System Integrity Verified.")
 
         return all_ok
+
 
 def verify_installation():
     """Helper function to run verification from current working directory."""

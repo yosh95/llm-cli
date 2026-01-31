@@ -89,10 +89,33 @@ class BaseLlmClient(ABC):
     ):
         """Initializes the LLM client with configuration and state."""
         self._slash_commands = {
-            'attach', 'save', 'load', 'dump', 'raw', 'clear', 'c',
-            'quit', 'q', 'info', 'i', 'debug', 'd', 'model', 'm',
-            'provider', 'p', 'template', 't', 'checkpoint', 'cp',
-            'tools', 'thought', 'budget', 'thinking', 'help', 'h'
+            "attach",
+            "save",
+            "load",
+            "dump",
+            "raw",
+            "clear",
+            "c",
+            "quit",
+            "q",
+            "info",
+            "i",
+            "debug",
+            "d",
+            "model",
+            "m",
+            "provider",
+            "p",
+            "template",
+            "t",
+            "checkpoint",
+            "cp",
+            "tools",
+            "thought",
+            "budget",
+            "thinking",
+            "help",
+            "h",
         }
         self.config_section = config_section
         self.api_key = get_setting(api_key_name, config_section)
@@ -786,8 +809,7 @@ class BaseLlmClient(ABC):
             "  /budget <val>  Set thinking budget (number or 'minimal')\n"
             "\n"
             "[bold]Exit Application:[/bold]\n"
-            "  Use [cyan]escape[/cyan], [cyan]Ctrl+C[/cyan], "
-            "or [cyan]Ctrl+D[/cyan] at any prompt to exit."
+            "  Use [cyan]Ctrl+C[/cyan] or [cyan]Ctrl+D[/cyan] at any prompt to exit."
         )
 
     def _trim_log_file(self, path: Path, max_lines: int):
@@ -861,6 +883,7 @@ class BaseLlmClient(ABC):
                 if "rate=" in mime_type:
                     try:
                         import re
+
                         match = re.search(r"rate=(\d+)", mime_type)
                         if match:
                             rate = int(match.group(1))

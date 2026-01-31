@@ -7,21 +7,18 @@ from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 
 
 class TestOllamaClient:
-
     @pytest.fixture
     def client(self):
         # Mock configuration loading
         # Patch where it is imported in ollama.py
-        with patch("llm_cli.clients.ollama.get_setting") as mock_get_setting, \
-             patch("llm_cli.clients.config.get_model_aliases") as mock_get_aliases:
-
+        with (
+            patch("llm_cli.clients.ollama.get_setting") as mock_get_setting,
+            patch("llm_cli.clients.config.get_model_aliases") as mock_get_aliases,
+        ):
             mock_get_setting.return_value = "http://test-ollama:11434"
             mock_get_aliases.return_value = {"default": "llama3"}
 
-            client = OllamaClient(
-                initial_model_alias="default",
-                stdout=False
-            )
+            client = OllamaClient(initial_model_alias="default", stdout=False)
             return client
 
     def test_initialization(self, client):
@@ -39,15 +36,13 @@ class TestOllamaClient:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "choices": [{
-                "message": {
-                    "content": "Hello world"
-                }
-            }],
-            "usage": {"total_tokens": 10}
+            "choices": [{"message": {"content": "Hello world"}}],
+            "usage": {"total_tokens": 10},
         }
 
-        with patch.object(client, "_post_with_retry", return_value=mock_response) as mock_post:
+        with patch.object(
+            client, "_post_with_retry", return_value=mock_response
+        ) as mock_post:
             data = [DataSource(content="Hi", content_type="text/plain")]
             (text, thought), usage = client._send(data)
 
@@ -76,19 +71,23 @@ class TestOllamaClient:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "choices": [{
-                "message": {
-                    "content": None,  # Content is None when tool_calls are present
-                    "tool_calls": [{
-                        "id": "call_123",
-                        "type": "function",
-                        "function": {
-                            "name": "get_weather",
-                            "arguments": '{"location": "Tokyo"}'
-                        }
-                    }]
+            "choices": [
+                {
+                    "message": {
+                        "content": None,  # Content is None when tool_calls are present
+                        "tool_calls": [
+                            {
+                                "id": "call_123",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_weather",
+                                    "arguments": '{"location": "Tokyo"}',
+                                },
+                            }
+                        ],
+                    }
                 }
-            }]
+            ]
         }
 
         with patch.object(client, "_post_with_retry", return_value=mock_response):
@@ -120,11 +119,13 @@ class TestOllamaClient:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "choices": [{
-                "message": {
-                    "content": "<think>Thinking hard...</think>The answer is 42."
+            "choices": [
+                {
+                    "message": {
+                        "content": "<think>Thinking hard...</think>The answer is 42."
+                    }
                 }
-            }]
+            ]
         }
 
         with patch.object(client, "_post_with_retry", return_value=mock_response):
@@ -135,25 +136,49 @@ class TestOllamaClient:
             assert thought == "Thinking hard..."
 
     def test_send_api_failure(self, client):
-        with patch.object(client, "_post_with_retry", side_effect=Exception("API Error")):
-             data = [DataSource(content="Hi", content_type="text/plain")]
-             (text, thought), usage = client._send(data)
+        with patch.object(
+            client, "_post_with_retry", side_effect=Exception("API Error")
+        ):
+            data = [DataSource(content="Hi", content_type="text/plain")]
+            (text, thought), usage = client._send(data)
 
-             assert text is None
-             assert thought is None
-             assert usage is None
+            assert text is None
+            assert thought is None
+            assert usage is None
 
     def test_build_messages_with_history_and_tools(self, client):
         # Add history: User -> Model (Call) -> Tool (Result)
-        client.conversation.append(Message(role=Role.USER, parts=[ContentPart(text="Check weather")]))
-        client.conversation.append(Message(role=Role.MODEL, parts=[
-            ContentPart(function_call={"id": "call_1", "name": "weather", "args": {}})
-        ]))
-        client.conversation.append(Message(role=Role.TOOL, parts=[
-            ContentPart(function_response={"id": "call_1", "name": "weather", "response": {"result": "Sunny"}})
-        ]))
+        client.conversation.append(
+            Message(role=Role.USER, parts=[ContentPart(text="Check weather")])
+        )
+        client.conversation.append(
+            Message(
+                role=Role.MODEL,
+                parts=[
+                    ContentPart(
+                        function_call={"id": "call_1", "name": "weather", "args": {}}
+                    )
+                ],
+            )
+        )
+        client.conversation.append(
+            Message(
+                role=Role.TOOL,
+                parts=[
+                    ContentPart(
+                        function_response={
+                            "id": "call_1",
+                            "name": "weather",
+                            "response": {"result": "Sunny"},
+                        }
+                    )
+                ],
+            )
+        )
 
-        msgs = client._build_messages([DataSource(content="Next day?", content_type="text/plain")])
+        msgs = client._build_messages(
+            [DataSource(content="Next day?", content_type="text/plain")]
+        )
 
         # Verify structure
         # 0: System (if any, default mock setting)
@@ -170,7 +195,9 @@ class TestOllamaClient:
         assert "tool" in roles
 
         # Check tool call message
-        tool_call_msg = next(m for m in msgs if m["role"] == "assistant" and "tool_calls" in m)
+        tool_call_msg = next(
+            m for m in msgs if m["role"] == "assistant" and "tool_calls" in m
+        )
         assert tool_call_msg["tool_calls"][0]["id"] == "call_1"
 
         # Check tool response message
@@ -184,9 +211,16 @@ class TestOllamaClient:
         # OR implementation allows it but subsequent logic might fail?
         # The implementation of _build_messages tracks responded_tool_ids.
 
-        client.conversation.append(Message(role=Role.MODEL, parts=[
-            ContentPart(function_call={"id": "call_orphan", "name": "test", "args": {}})
-        ]))
+        client.conversation.append(
+            Message(
+                role=Role.MODEL,
+                parts=[
+                    ContentPart(
+                        function_call={"id": "call_orphan", "name": "test", "args": {}}
+                    )
+                ],
+            )
+        )
 
         msgs = client._build_messages([])
 
@@ -195,15 +229,11 @@ class TestOllamaClient:
         assistant_msgs = [m for m in msgs if m["role"] == "assistant"]
         if assistant_msgs:
             # If there's an assistant message, it shouldn't have tool_calls for call_orphan
-             assert "tool_calls" not in assistant_msgs[0]
+            assert "tool_calls" not in assistant_msgs[0]
 
     def test_parse_response_alternative_format(self, client):
         # Some Ollama versions or endpoints return direct 'message' instead of 'choices'
-        res_json = {
-            "message": {
-                "content": "Direct response"
-            }
-        }
+        res_json = {"message": {"content": "Direct response"}}
         content, tools, reasoning = client._parse_response(res_json)
         assert content == "Direct response"
         assert tools == []

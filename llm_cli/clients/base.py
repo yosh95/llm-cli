@@ -132,7 +132,7 @@ class BaseLlmClient(ABC):
         self.current_alias = ""
         self.model = ""
         self.thinking_key = None
-        self.thinking_budget = None
+        self.thinking_budget: Optional[int | str] = None
         self.include_thoughts = False
 
         self._load_model_aliases()
@@ -205,7 +205,9 @@ class BaseLlmClient(ABC):
         pass
 
     @abstractmethod
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource]
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """
         Sends the request to the specific provider API.
 
@@ -213,7 +215,7 @@ class BaseLlmClient(ABC):
             data: A list of DataSource objects containing the user's latest input.
 
         Returns:
-            A tuple of (response_text, usage_dict).
+            A tuple of ((response_text, thought_text), usage_dict).
         """
         pass
 
@@ -373,7 +375,7 @@ class BaseLlmClient(ABC):
             if content:
                 return DataSource(
                     content=content,
-                    content_type=ctype,
+                    content_type=ctype or "application/octet-stream",
                     is_file_or_url=True,
                 )
             return None
@@ -415,7 +417,7 @@ class BaseLlmClient(ABC):
             loaded_conversation = []
             for msg_data in data:
                 role = Role(msg_data["role"])
-                parts = []
+                parts: List[str | ContentPart] = []
                 for p in msg_data["parts"]:
                     if isinstance(p, str):
                         parts.append(p)

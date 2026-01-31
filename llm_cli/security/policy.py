@@ -11,7 +11,7 @@ class PolicyEngine:
     Determines permissions based on user roles defined in configuration.
     """
 
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Dict[str, Any] | None = None):
         self.config = config or {}
 
         # Default Role Definitions (Fallback if config is missing)
@@ -73,6 +73,9 @@ class PolicyEngine:
 
             # Check 2: Explicit Allow List
             allowed_tools = role_def.get("allowed_tools", [])
+            if not isinstance(allowed_tools, list):
+                allowed_tools = []
+
             # Support wildcard matching or exact match
             if tool_name in allowed_tools or "*" in allowed_tools:
                 is_allowed = True

@@ -1,7 +1,7 @@
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 CONFIG_FILE_PATH = Path.home() / ".config" / "llm_cli" / "config.toml"
 _config_cache: Optional[Dict[str, Any]] = None
@@ -152,16 +152,16 @@ def get_all_model_aliases() -> Dict[str, Dict[str, str]]:
 
 def get_provider_tools(section: str) -> Dict[str, str]:
     config = _load_config_from_file()
-    return config.get(section, {}).get("tools", {})
+    return cast(Dict[str, str], config.get(section, {}).get("tools", {}))
 
 
 def get_mcp_servers() -> List[Dict[str, Any]]:
     """Loads MCP server configurations from the config file."""
     config = _load_config_from_file()
-    return config.get("mcp_servers", [])
+    return cast(List[Dict[str, Any]], config.get("mcp_servers", []))
 
 
 def get_templates() -> Dict[str, str]:
     """Loads prompt templates from the [templates] section of the config file."""
     config = _load_config_from_file()
-    return config.get("templates", {})
+    return cast(Dict[str, str], config.get("templates", {}))

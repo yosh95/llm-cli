@@ -1,6 +1,6 @@
 # llm_cli/clients/claude.py
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
@@ -36,10 +36,12 @@ class ClaudeClient(BaseLlmClient):
 
         self.available_models = get_model_aliases("anthropic")
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource]
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Sends the conversation history and new data to Claude."""
         messages = self._build_messages(data)
-        payload = {
+        payload: Dict[str, Any] = {
             "model": self.model,
             "max_tokens": 4096,
             "messages": messages,
@@ -84,7 +86,7 @@ class ClaudeClient(BaseLlmClient):
             response.raise_for_status()
             res = response.json()
 
-            model_parts: List[ContentPart] = []
+            model_parts: List[Union[str, ContentPart]] = []
             full_text = ""
             thought_text = ""
             for block in res.get("content", []):
@@ -120,7 +122,7 @@ class ClaudeClient(BaseLlmClient):
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates the internal conversation history with new messages."""
-        user_parts: List[ContentPart] = []
+        user_parts: List[Union[str, ContentPart]] = []
         for d in data:
             if d.content_type == "text/plain":
                 user_parts.append(ContentPart(text=str(d.content)))
@@ -140,7 +142,7 @@ class ClaudeClient(BaseLlmClient):
 
     def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
         """Converts internal conversation history to Claude API format."""
-        msgs = []
+        msgs: List[Dict[str, Any]] = []
 
         # Track tool_use_ids that have responses
         responded_tool_ids = set()
@@ -154,7 +156,7 @@ class ClaudeClient(BaseLlmClient):
 
         for m in self.conversation:
             if m.role == Role.TOOL:
-                content = []
+                tool_content: List[Dict[str, Any]] = []
                 for p in m.parts:
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
@@ -165,29 +167,29 @@ class ClaudeClient(BaseLlmClient):
                             and tool_id in responded_tool_ids
                         ):
                             result = func_resp.get("response", {}).get("result", "")
-                            content.append(
+                            tool_content.append(
                                 {
                                     "type": "tool_result",
                                     "tool_use_id": tool_id,
                                     "content": str(result),
                                 }
                             )
-                if content:
-                    msgs.append({"role": "user", "content": content})
+                if tool_content:
+                    msgs.append({"role": "user", "content": tool_content})
             else:
                 role = "assistant" if m.role == Role.MODEL else "user"
-                content = []
+                msg_parts: List[Dict[str, Any]] = []
                 for p in m.parts:
                     if isinstance(p, str):
-                        content.append({"type": "text", "text": p})
+                        msg_parts.append({"type": "text", "text": p})
                     elif isinstance(p, ContentPart):
                         if p.thought:
                             thinking_block = {"type": "thinking", "thinking": p.thought}
                             if p.thought_signature:
                                 thinking_block["signature"] = p.thought_signature
-                            content.append(thinking_block)
+                            msg_parts.append(thinking_block)
                         if p.text and p.text.strip():
-                            content.append({"type": "text", "text": p.text})
+                            msg_parts.append({"type": "text", "text": p.text})
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
@@ -196,7 +198,7 @@ class ClaudeClient(BaseLlmClient):
                                 and tool_id != "unknown"
                                 and tool_id in responded_tool_ids
                             ):
-                                content.append(
+                                msg_parts.append(
                                     {
                                         "type": "tool_use",
                                         "id": tool_id,
@@ -204,11 +206,11 @@ class ClaudeClient(BaseLlmClient):
                                         "input": func_call.get("args", {}),
                                     }
                                 )
-                if content:
-                    msgs.append({"role": role, "content": content})
+                if msg_parts:
+                    msgs.append({"role": role, "content": msg_parts})
 
         # Append incoming data for the next user message
-        user_content = []
+        user_content: List[Dict[str, Any]] = []
         for d in data:
             if d.content_type == "text/plain":
                 user_content.append({"type": "text", "text": str(d.content)})

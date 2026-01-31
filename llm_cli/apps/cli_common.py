@@ -5,7 +5,7 @@
 import argparse
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from rich.markup import escape
 
@@ -97,7 +97,7 @@ def run_client_cli(config: ClientConfig) -> None:
 
     stdout = args.stdout or not sys.stdin.isatty()
 
-    initial_tools = None
+    initial_tools: Optional[List[str]] = None
     enable_mcp = args.mcp
 
     if stdout:

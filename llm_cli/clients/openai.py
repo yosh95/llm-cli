@@ -1,7 +1,7 @@
 # llm_cli/clients/openai.py
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
@@ -56,7 +56,9 @@ class OpenAIClient(BaseLlmClient):
         m = self.model.lower()
         return "sora" in m
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource]
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """
         Sends the conversation history and new data to OpenAI Responses API.
         """
@@ -66,7 +68,7 @@ class OpenAIClient(BaseLlmClient):
             return self._send_video_generation(data)
 
         input_items = self._build_input_items(data)
-        payload = {
+        payload: Dict[str, Any] = {
             "model": self.model,
             "input": input_items,
         }
@@ -120,7 +122,7 @@ class OpenAIClient(BaseLlmClient):
             response.raise_for_status()
             res = response.json()
 
-            model_parts: List[ContentPart] = []
+            model_parts: List[Union[str, ContentPart]] = []
             full_text = ""
             thought_text = ""
 
@@ -169,7 +171,7 @@ class OpenAIClient(BaseLlmClient):
 
     def _send_image_generation(
         self, data: List[DataSource]
-    ) -> Tuple[Optional[str], Optional[Dict]]:
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Handles image generation via OpenAI's DALL-E API."""
         # Extract prompt from conversation and new data
         prompt_parts = []
@@ -255,7 +257,7 @@ class OpenAIClient(BaseLlmClient):
 
     def _send_video_generation(
         self, data: List[DataSource]
-    ) -> Tuple[Optional[str], Optional[Dict]]:
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Handles video generation via OpenAI Sora API."""
         import time
 
@@ -401,7 +403,7 @@ class OpenAIClient(BaseLlmClient):
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates the internal conversation history with new messages."""
-        user_parts: List[ContentPart] = []
+        user_parts: List[Union[str, ContentPart]] = []
         for d in data:
             if d.content_type == "text/plain":
                 user_parts.append(ContentPart(text=str(d.content)))

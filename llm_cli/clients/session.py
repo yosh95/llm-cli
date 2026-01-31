@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 try:
     import termios
 except ImportError:
-    termios = None
+    termios = None  # type: ignore
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion, PathCompleter
@@ -172,13 +172,14 @@ class ChatSession:
         self.history_path = client.history_path
         self._checkpoint_hint_shown = False
 
+        self.prompt_history: Any
         if self.history_path:
             Path(self.history_path).parent.mkdir(parents=True, exist_ok=True)
             self.prompt_history = FileHistory(self.history_path)
         else:
             self.prompt_history = InMemoryHistory()
 
-        self.prompt_session = PromptSession(history=self.prompt_history)
+        self.prompt_session: PromptSession = PromptSession(history=self.prompt_history)
         self.completer = LlmCliCompleter(client)
 
     def _print_block(self, renderable, title=None, style=None):
@@ -464,7 +465,7 @@ class ChatSession:
             kwargs.pop(
                 "history", None
             )  # PromptSession.prompt() does not accept history
-            return self.prompt_session.prompt(message, **kwargs).strip()
+            return str(self.prompt_session.prompt(message, **kwargs)).strip()
 
         try:
             tty_path = "/dev/tty" if sys.platform != "win32" else "CON"
@@ -491,6 +492,9 @@ class ChatSession:
         self, part: ContentPart, duration: Optional[float] = None
     ) -> Optional[Any]:
         call = part.function_call
+        if not call:
+            return None
+
         tool_id, name, args = (
             call.get("id", "unknown"),
             call["name"],

@@ -22,7 +22,7 @@ class IdentityManager:
     _ISSUER = "llm-cli-client"
 
     @classmethod
-    def generate_token(cls, user_id: str = "local_user", roles: list = None) -> str:
+    def generate_token(cls, user_id: str = "local_user", roles: list | None = None) -> str:
         """
         Generate a signed JWT token representing the caller's identity.
         This token is propagated to MCP servers to assert identity.

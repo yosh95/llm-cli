@@ -6,7 +6,7 @@ import shlex
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import tomli_w
 from prompt_toolkit import prompt
@@ -99,7 +99,9 @@ def prompt_bool(prompt_text: str, current_value: bool = False) -> bool:
     return val.startswith("y")
 
 
-def prompt_list(prompt_text: str, current_value: List[str] = None) -> List[str]:
+def prompt_list(
+    prompt_text: str, current_value: Optional[List[str]] = None
+) -> List[str]:
     """Prompts for a comma-separated list."""
     current_str = ", ".join(current_value) if current_value else ""
     val = prompt_input(prompt_text + " (comma-separated)", current_str)

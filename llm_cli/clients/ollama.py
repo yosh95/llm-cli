@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
@@ -38,7 +38,9 @@ class OllamaClient(BaseLlmClient):
 
         self.available_models = get_model_aliases("ollama")
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource]
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Sends the conversation history and new data to Ollama."""
         messages = self._build_messages(data)
 
@@ -82,9 +84,10 @@ class OllamaClient(BaseLlmClient):
             # Update history
             user_text = "".join(str(d.content) for d in data)
             if user_text:
-                self.conversation.append(
-                    Message(role=Role.USER, parts=[ContentPart(text=user_text)])
-                )
+                user_parts: List[Union[str, ContentPart]] = [
+                    ContentPart(text=user_text)
+                ]
+                self.conversation.append(Message(role=Role.USER, parts=user_parts))
 
             model_msg = Message(role=Role.MODEL, parts=model_parts)
             self.conversation.append(model_msg)
@@ -189,9 +192,9 @@ class OllamaClient(BaseLlmClient):
 
     def _build_model_parts(
         self, content: str, tool_calls: List, reasoning: Optional[str] = None
-    ) -> List[ContentPart]:
+    ) -> List[Union[str, ContentPart]]:
         """Builds internal ContentPart list."""
-        model_parts = []
+        model_parts: List[Union[str, ContentPart]] = []
         if reasoning:
             model_parts.append(ContentPart(thought=reasoning))
         if content:

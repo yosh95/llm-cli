@@ -53,7 +53,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 def list_files_in_directory(
     directory: str = ".",
     depth: int = 1,
-    ignore_patterns: List[str] = None,
+    ignore_patterns: List[str] | None = None,
     max_files: int = 500,
 ) -> str:
     """
@@ -148,7 +148,7 @@ def list_files_in_directory(
     },
 )
 def search_text_in_files(
-    query: str, directory: str = ".", file_pattern: str = None
+    query: str, directory: str = ".", file_pattern: str | None = None
 ) -> str:
     """
     Search for a text pattern in files.
@@ -238,11 +238,11 @@ def search_text_in_files(
             ".DS_Store",
         }
 
-        for path in base_path.rglob(file_pattern or "*"):
-            if path.is_dir():
+        for file_path in base_path.rglob(file_pattern or "*"):
+            if file_path.is_dir():
                 continue
 
-            if any(part.startswith(".") or part in ignore_dirs for part in path.parts):
+            if any(part.startswith(".") or part in ignore_dirs for part in file_path.parts):
                 continue
 
             try:
@@ -250,7 +250,7 @@ def search_text_in_files(
                 # If it contains null bytes, it's likely binary
                 is_binary = False
                 try:
-                    with path.open("rb") as f_bin:
+                    with file_path.open("rb") as f_bin:
                         chunk = f_bin.read(8192)
                         if b"\x00" in chunk:
                             is_binary = True
@@ -262,12 +262,12 @@ def search_text_in_files(
                     continue
 
                 # Use open() to read line by line to save memory
-                with path.open(encoding="utf-8", errors="ignore") as f:
+                with file_path.open(encoding="utf-8", errors="ignore") as f:
                     for i, line in enumerate(f):
                         if re.search(query, line):
                             # Format: FilePath:LineNumber: Content
                             # Normalize path to remove ./ if present
-                            clean_path = str(path)
+                            clean_path = str(file_path)
                             if clean_path.startswith("./"):
                                 clean_path = clean_path[2:]
 
@@ -316,7 +316,7 @@ def search_text_in_files(
 def read_file_content(
     path: str,
     start_line: int = 1,
-    end_line: int = None,
+    end_line: int | None = None,
     with_line_numbers: bool = False,
 ) -> str:
     try:
@@ -466,7 +466,7 @@ def create_or_overwrite_file(path: str, content: str) -> str:
         return f"Error: {e}"
 
 
-def _process_and_return(path: str, expected_types: tuple = None) -> Union[str, Dict]:
+def _process_and_return(path: str, expected_types: tuple | None = None) -> Union[str, Dict]:
     try:
         p = Path(path)
         if not p.exists():

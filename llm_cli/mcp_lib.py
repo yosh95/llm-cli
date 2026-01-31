@@ -50,7 +50,7 @@ class ListToolsResult:
 
 
 class JSONRPCProtocol:
-    def __init__(self):
+    def __init__(self) -> None:
         self._msg_id = 0
         self._pending_requests: Dict[int, asyncio.Future] = {}
 
@@ -134,7 +134,7 @@ class ClientSession:
         req = self.protocol.create_request(method, params)
         req_id = req["id"]
 
-        future = asyncio.Future()
+        future: asyncio.Future[Any] = asyncio.Future()
         self.protocol._pending_requests[req_id] = future
 
         data = json.dumps(req).encode("utf-8") + b"\n"
@@ -262,7 +262,7 @@ class FastMCP:
         msg_id = message.get("id")
         params = message.get("params", {})
 
-        response = None
+        response: Dict[str, Any] | None = None
 
         try:
             if method == "initialize":

@@ -5,11 +5,12 @@ import os
 import platform
 import signal
 import subprocess
+from typing import Any, Dict
 
 try:
     import resource
 except ImportError:
-    resource = None
+    resource = None  # type: ignore
 
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import tool
@@ -120,7 +121,7 @@ def execute_shell_command(command: str) -> str:
     # 3. Construct the environment for the subprocess
     env = {k: v for k, v in os.environ.items() if k in safe_env_keys}
 
-    kwargs = {
+    kwargs: Dict[str, Any] = {
         "shell": True,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,

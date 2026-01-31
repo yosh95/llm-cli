@@ -47,7 +47,7 @@ class UnifiedClient(BaseLlmClient):
 
             sys.exit(1)
 
-        self.current_provider_name = initial_provider or default_p
+        self.current_provider_name = str(initial_provider or default_p)
         self._activate_provider(self.current_provider_name)
 
         super().__init__(
@@ -203,7 +203,9 @@ class UnifiedClient(BaseLlmClient):
 
         return super()._handle_command(user_input, sources, pending_data)
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource]
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         self.active_client.active_tools = self.active_tools
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug

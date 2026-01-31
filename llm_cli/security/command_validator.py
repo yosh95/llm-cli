@@ -105,7 +105,7 @@ class CommandValidator:
         if not tokens:
             raise CommandValidationError("No command found after parsing")
 
-        current_segment = []
+        current_segment: list[str] = []
         for token in tokens:
             if token in self.CHAINING_OPERATORS:
                 if current_segment:

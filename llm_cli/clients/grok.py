@@ -2,7 +2,7 @@
 
 import json
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
@@ -56,7 +56,9 @@ class GrokClient(BaseLlmClient):
         m = self.model.lower()
         return "video" in m
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource]
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Sends the conversation history and new data to Grok."""
         if self._is_image_model():
             return self._send_image_generation(data)
@@ -97,7 +99,7 @@ class GrokClient(BaseLlmClient):
             choice = res["choices"][0]["message"]
             content = choice.get("content", "")
             thought_text = ""
-            model_parts: List[ContentPart] = []
+            model_parts: List[Union[str, ContentPart]] = []
 
             # Note: reasoning_content is NOT returned by Grok 4 API
             # even though the model performs internal reasoning.
@@ -132,7 +134,7 @@ class GrokClient(BaseLlmClient):
 
     def _send_image_generation(
         self, data: List[DataSource]
-    ) -> Tuple[Optional[str], Optional[Dict]]:
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Handles image generation via Grok API."""
         # Extract prompt from conversation and new data
         prompt_parts = []
@@ -217,7 +219,7 @@ class GrokClient(BaseLlmClient):
 
     def _send_video_generation(
         self, data: List[DataSource]
-    ) -> Tuple[Optional[str], Optional[Dict]]:
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Handles video generation via Grok API (deferred)."""
         # Extract prompt from conversation and new data
         prompt_parts = []
@@ -256,7 +258,7 @@ class GrokClient(BaseLlmClient):
 
             request_id = res.get("request_id") or res.get("id")
             if not request_id:
-                return ("Failed to get request_id for video generation.", ""), None
+                return (("Failed to get request_id for video generation.", ""), None)
 
             # Step 2: Poll for results
             video_url = None
@@ -299,10 +301,13 @@ class GrokClient(BaseLlmClient):
                             break
                     elif status == "failed":
                         return (
-                            f"Video generation failed: "
-                            f"{poll_res.get('error', 'Unknown error')}",
-                            "",
-                        ), None
+                            (
+                                f"Video generation failed: "
+                                f"{poll_res.get('error', 'Unknown error')}",
+                                "",
+                            ),
+                            None,
+                        )
 
                 elif poll_response.status_code not in (200, 202):
                     # Log unexpected status but continue polling unless fatal
@@ -312,9 +317,12 @@ class GrokClient(BaseLlmClient):
 
             if not video_url:
                 return (
-                    "Video generation timed out or failed to retrieve URL.",
-                    "",
-                ), None
+                    (
+                        "Video generation timed out or failed to retrieve URL.",
+                        "",
+                    ),
+                    None,
+                )
 
             display_text = (
                 f"Successfully generated video based on prompt.\n\n"
@@ -328,17 +336,17 @@ class GrokClient(BaseLlmClient):
             )
             self._update_history(data, model_msg)
 
-            return (display_text.strip(), ""), None
+            return ((display_text.strip(), ""), None)
 
         except Exception as e:
             self._report_error("Grok Video", e)
-            return (None, None), None
+            return ((None, None), None)
 
     def _get_with_retry(
         self,
         url: str,
         headers: Dict,
-        timeout: int = 600,
+        timeout: Optional[int] = 600,
         max_retries: int = 3,
     ) -> requests.Response:
         """Performs a GET request with automatic retry."""
@@ -366,7 +374,7 @@ class GrokClient(BaseLlmClient):
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates internal history."""
-        user_parts: List[ContentPart] = []
+        user_parts: List[Union[str, ContentPart]] = []
         for d in data:
             if d.content_type == "text/plain":
                 user_parts.append(ContentPart(text=str(d.content)))
@@ -386,7 +394,7 @@ class GrokClient(BaseLlmClient):
 
     def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
         """Converts internal history to Grok (OpenAI-compatible) format."""
-        msgs = []
+        msgs: List[Dict[str, Any]] = []
         if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
@@ -415,7 +423,7 @@ class GrokClient(BaseLlmClient):
                             msgs.append(
                                 {
                                     "role": "tool",
-                                    "tool_call_id": tool_id,
+                                    "tool_call_id": str(tool_id),
                                     "content": str(result),
                                 }
                             )
@@ -460,21 +468,27 @@ class GrokClient(BaseLlmClient):
                         msg["tool_calls"] = tool_calls
                     msgs.append(msg)
 
-        user_content = []
-        for d in data:
-            if d.content_type == "text/plain":
-                user_content.append({"type": "text", "text": str(d.content)})
-            elif d.content_type.startswith("image/"):
-                user_content.append(
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{d.content_type};base64,{d.content}"
-                        },
-                    }
-                )
+        if msgs:
+            # Append incoming data for the next user message
+            user_content: List[Dict[str, Any]] = []
+            for d in data:
+                if d.content_type == "text/plain":
+                    user_content.append({"type": "text", "text": str(d.content)})
+                elif d.content_type.startswith("image/"):
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{d.content_type};base64,{d.content}"
+                            },
+                        }
+                    )
 
         if user_content:
-            msgs.append({"role": "user", "content": user_content})
+            from typing import cast
+
+            msgs.append(
+                cast(Dict[str, Any], {"role": "user", "content": user_content})
+            )
 
         return msgs

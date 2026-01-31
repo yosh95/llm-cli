@@ -3,7 +3,7 @@
 import mimetypes
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
@@ -77,7 +77,7 @@ class GeminiClient(BaseLlmClient):
         # Construct a one-off payload
         # Note: TTS models strictly require AUDIO modality.
         # Including system prompts can confuse the model into text mode.
-        payload = {
+        payload: Dict[str, Any] = {
             "contents": [{"parts": [{"text": text}]}],
             "generationConfig": {
                 "responseModalities": ["AUDIO"],
@@ -190,12 +190,14 @@ class GeminiClient(BaseLlmClient):
         # Check specifically for Veo models
         return "veo" in self.model.lower() and "generate" in self.model.lower()
 
-    def _send(self, data: List[DataSource]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _send(
+        self, data: List[DataSource]
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Sends the conversation history and new data to Gemini."""
         if self._is_video_model():
             return self._send_video_generation(data)
 
-        new_parts = []
+        new_parts: List[Dict[str, Any]] = []
         for item in data:
             file_uri = item.metadata.get("file_uri")
             if file_uri:
@@ -243,7 +245,7 @@ class GeminiClient(BaseLlmClient):
 
             # Update history
             if new_parts:
-                history_user_parts = []
+                history_user_parts: List[Union[str, ContentPart]] = []
                 for p in new_parts:
                     if "text" in p:
                         history_user_parts.append(ContentPart(text=p["text"]))
@@ -267,14 +269,14 @@ class GeminiClient(BaseLlmClient):
             thought_text = ""
             last_saved_image_path = None
 
-            for p in model_msg.parts:
-                if isinstance(p, ContentPart):
-                    if p.text:
-                        display_text += p.text
-                    if p.thought:
-                        thought_text += p.thought
+            for part in model_msg.parts:
+                if isinstance(part, ContentPart):
+                    if part.text:
+                        display_text += part.text
+                    if part.thought:
+                        thought_text += part.thought
                     # Handle image generation / other inline data if supported
-                    if p.inline_data:
+                    if part.inline_data:
                         # Extract inline_data from ContentPart
                         # Use last user text as hint for filename
                         hint = ""
@@ -288,39 +290,39 @@ class GeminiClient(BaseLlmClient):
                                     break
 
                         log, saved_path = self._save_inline_media_and_get_log_entry(
-                            p.inline_data, hint_text=hint
+                            part.inline_data, hint_text=hint
                         )
                         if log:
-                            display_text += log
+                            display_text += str(log)
                         if saved_path:
                             last_saved_image_path = saved_path
 
             # If an image was generated, check for attach_file calls and fix path
             # if needed
             if last_saved_image_path:
-                for p in model_msg.parts:
-                    if isinstance(p, ContentPart) and p.function_call:
-                        if p.function_call.get("name") == "read_image_file":
+                for part in model_msg.parts:
+                    if isinstance(part, ContentPart) and part.function_call:
+                        if part.function_call.get("name") == "read_image_file":
                             # Fix the path to point to the actually saved file
                             # This corrects model hallucination where it invents a
                             # filename different from what we saved
-                            p.function_call["args"]["path"] = str(last_saved_image_path)
+                            part.function_call["args"]["path"] = str(last_saved_image_path)
 
             return (display_text.strip(), thought_text.strip()), self.last_usage
         except Exception as e:
             self._report_error("Gemini", e)
             return (None, None), None
 
-    def _to_provider_request_format(self, new_parts: List[Dict]) -> Dict:
+    def _to_provider_request_format(self, new_parts: List[Dict]) -> Dict[str, Any]:
         """Converts history and new parts to Gemini API format."""
-        contents = []
+        contents: List[Dict[str, Any]] = []
         for m in self.conversation:
-            parts = []
+            parts: List[Dict[str, Any]] = []
             for p in m.parts:
                 if isinstance(p, str):
                     parts.append({"text": p})
                 elif isinstance(p, ContentPart):
-                    part_dict = {}
+                    part_dict: Dict[str, Any] = {}
                     if p.text:
                         part_dict["text"] = p.text
                     # Note: 'thought' is only in API responses, not requests.
@@ -372,7 +374,7 @@ class GeminiClient(BaseLlmClient):
 
                     if not has_response:
                         # Remove function calls from this message
-                        new_parts_list = [
+                        new_parts_list: List[Dict[str, Any]] = [
                             p for p in msg["parts"] if "functionCall" not in p
                         ]
                         if new_parts_list:
@@ -390,7 +392,7 @@ class GeminiClient(BaseLlmClient):
         if new_parts:
             filtered_contents.append({"role": "user", "parts": new_parts})
 
-        payload = {"contents": filtered_contents}
+        payload: Dict[str, Any] = {"contents": filtered_contents}
 
         # Check if current model is a TTS model
         # TTS models require AUDIO modality and often fail with system instructions
@@ -418,7 +420,11 @@ class GeminiClient(BaseLlmClient):
 
         if is_tts_model:
             # Enforce AUDIO modality for TTS models
-            gen_config = payload.get("generationConfig", {})
+            from typing import cast
+
+            gen_config: Dict[str, Any] = cast(
+                Dict[str, Any], payload.get("generationConfig", {})
+            )
             gen_config["responseModalities"] = ["AUDIO"]
 
             # Add default speech config if not present
@@ -440,7 +446,7 @@ class GeminiClient(BaseLlmClient):
         candidate = response_json["candidates"][0]
         raw_parts = candidate.get("content", {}).get("parts", [])
 
-        model_parts = []
+        model_parts: List[Union[str, ContentPart]] = []
         for p in raw_parts:
             # API returns 'thoughtSignature'
             sig = p.get("thoughtSignature")
@@ -471,7 +477,7 @@ class GeminiClient(BaseLlmClient):
 
     def _send_video_generation(
         self, data: List[DataSource]
-    ) -> Tuple[Optional[str], Optional[Dict]]:
+    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
         """Handles video generation via Gemini/Veo API."""
         prompt_parts = []
         # Gather text prompts

@@ -242,7 +242,9 @@ def search_text_in_files(
             if file_path.is_dir():
                 continue
 
-            if any(part.startswith(".") or part in ignore_dirs for part in file_path.parts):
+            if any(
+                part.startswith(".") or part in ignore_dirs for part in file_path.parts
+            ):
                 continue
 
             try:
@@ -466,7 +468,9 @@ def create_or_overwrite_file(path: str, content: str) -> str:
         return f"Error: {e}"
 
 
-def _process_and_return(path: str, expected_types: tuple | None = None) -> Union[str, Dict]:
+def _process_and_return(
+    path: str, expected_types: tuple | None = None
+) -> Union[str, Dict]:
     try:
         p = Path(path)
         if not p.exists():

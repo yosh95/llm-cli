@@ -134,7 +134,7 @@ class TestSecurityBenchmarks:
         [
             "cat ../../../etc/passwd",
             "ls /root",
-            "grep -r 'password' ~/.ssh",
+            "grep -r 'password' /etc/passwd",
             "stat /etc/shadow",
         ],
     )

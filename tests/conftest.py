@@ -144,6 +144,7 @@ def mock_config(monkeypatch, mock_api_key):
                 "LLM_PROMPT_HISTORY": None,
                 "LLM_CHAT_LOG": None,
                 "LLM_REQUEST_DEBUG_LOG": None,
+                "unified_default_provider": "google",
             },
         }
         return config.get(section, {}).get(key)
@@ -152,11 +153,13 @@ def mock_config(monkeypatch, mock_api_key):
         return {
             "default": "test-model",
             "pro": "test-model-pro",
+            "gemini-flash": "gemini-1.5-flash",
         }
 
     def mock_get_provider_tools(section):
         return {"search": '{"type": "google_search_retrieval_tool"}'}
 
+    # Patch the original definition
     monkeypatch.setattr("llm_cli.clients.config.get_setting", mock_get_setting)
     monkeypatch.setattr(
         "llm_cli.clients.config.get_model_aliases", mock_get_model_aliases
@@ -164,6 +167,20 @@ def mock_config(monkeypatch, mock_api_key):
     monkeypatch.setattr(
         "llm_cli.clients.config.get_provider_tools", mock_get_provider_tools
     )
+
+    # Patch where it is imported and used
+    modules_to_patch = [
+        "llm_cli.clients.base",
+        "llm_cli.modules.tools.web",
+        "llm_cli.apps.unified",
+    ]
+
+    for module in modules_to_patch:
+        try:
+            monkeypatch.setattr(f"{module}.get_setting", mock_get_setting)
+        except AttributeError:
+            # Module might not have imported it or not loaded yet
+            pass
 
 
 @pytest.fixture

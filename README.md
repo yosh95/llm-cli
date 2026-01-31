@@ -1,5 +1,7 @@
 # llm-cli: A Unified Command-Line Interface for Multiple LLMs (v0.1.0)
 
+![CI](https://github.com/yosh95/llm-cli/actions/workflows/ci.yml/badge.svg)
+
 ## TL;DR (Quick Start)
 - **Install**: `pip install .` then `llm-cli-config` for API keys.
 - **Chat**: `llm` (agent mode ON by default).

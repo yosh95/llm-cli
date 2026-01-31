@@ -26,10 +26,13 @@ mcp = [
 ]
 test = [
     "pytest",
-    "pytest",
     "pytest-asyncio",
     "pytest-mock",
-    "ruff"
+    "ruff",
+    "mypy",
+    "pytest-cov",
+    "types-requests",
+    "types-setuptools",
 ]
 
 [project.scripts]
@@ -43,6 +46,17 @@ ollama-models = "llm_cli.apps.ollama_models:main"
 
 [tool.setuptools]
 packages = ["llm_cli"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=llm_cli --cov-report=term-missing"
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 88

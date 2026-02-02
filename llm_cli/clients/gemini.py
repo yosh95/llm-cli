@@ -539,7 +539,7 @@ class GeminiClient(BaseLlmClient):
             while time.time() - start_time < timeout_seconds:
                 poll_url = f"{self.BASE_API_URL}/{operation_name}"
 
-                poll_response = requests.get(
+                poll_response = self._get(
                     poll_url,
                     headers={"x-goog-api-key": self.api_key},
                     timeout=self.request_timeout,
@@ -614,7 +614,7 @@ class GeminiClient(BaseLlmClient):
                 import base64
 
                 console.print("[dim]Downloading video content...[/dim]")
-                vid_response = requests.get(
+                vid_response = self._get(
                     video_uri,
                     headers={"x-goog-api-key": self.api_key},
                     timeout=self.request_timeout,
@@ -687,10 +687,10 @@ class GeminiClient(BaseLlmClient):
                 f"[dim]Initiating upload for {path.name} "
                 f"({file_size / 1024 / 1024:.2f} MB)...[/dim]"
             )
-            start_response = requests.post(
+            start_response = self._post(
                 self.UPLOAD_API_URL,
                 headers=headers,
-                json={"file": {"display_name": path.name}},
+                json_data={"file": {"display_name": path.name}},
                 timeout=self.UPLOAD_START_TIMEOUT,
             )
             start_response.raise_for_status()
@@ -698,10 +698,14 @@ class GeminiClient(BaseLlmClient):
 
             console.print(f"[dim]Uploading {path.name}...[/dim]")
             with path.open("rb") as f:
+                # For large file upload, we still use requests directly or update _post.
+                # To keep it simple and safe for now, I'll use requests.post but
+                # add headers.
                 upload_response = requests.post(
                     upload_url,
                     data=f,
                     headers={
+                        "Connection": "close",
                         "Content-Length": str(file_size),
                         "X-Goog-Upload-Offset": "0",
                         "X-Goog-Upload-Command": "upload,finalize",
@@ -726,7 +730,7 @@ class GeminiClient(BaseLlmClient):
 
         for i in range(120):
             try:
-                r = requests.get(url, timeout=10)
+                r = self._get(url, timeout=10)
                 r.raise_for_status()
                 info = r.json()
                 state = info.get("state")

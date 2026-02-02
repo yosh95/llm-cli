@@ -3,8 +3,6 @@
 import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import requests
-
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
@@ -320,7 +318,7 @@ class OpenAIClient(BaseLlmClient):
             while time.time() - start_time < timeout_seconds:
                 poll_url = f"{video_api_url}/{video_id}"
 
-                poll_response = requests.get(
+                poll_response = self._get(
                     poll_url,
                     headers=headers,
                     timeout=self.request_timeout,

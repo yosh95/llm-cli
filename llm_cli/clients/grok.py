@@ -4,8 +4,6 @@ import json
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import requests
-
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
@@ -341,15 +339,6 @@ class GrokClient(BaseLlmClient):
         except Exception as e:
             self._report_error("Grok Video", e)
             return ((None, None), None)
-
-    def _get(
-        self,
-        url: str,
-        headers: Dict,
-        timeout: Optional[int] = 600,
-    ) -> requests.Response:
-        """Performs a GET request."""
-        return requests.get(url, headers=headers, timeout=timeout)
 
     def _update_history(self, data: List[DataSource], model_msg: Message):
         """Updates internal history."""

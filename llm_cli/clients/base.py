@@ -237,7 +237,36 @@ class BaseLlmClient(ABC):
         Returns:
             The successful requests.Response object.
         """
+        # Ensure we don't reuse connections to avoid potential routing
+        # to overloaded nodes.
+        if headers is None:
+            headers = {}
+        headers["Connection"] = "close"
+
         return requests.post(url, headers=headers, json=json_data, timeout=timeout)
+
+    def _get(
+        self,
+        url: str,
+        headers: Optional[Dict] = None,
+        timeout: Optional[int] = None,
+    ) -> requests.Response:
+        """
+        Performs a GET request.
+
+        Args:
+            url: The endpoint URL.
+            headers: HTTP headers.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            The requests.Response object.
+        """
+        if headers is None:
+            headers = {}
+        headers["Connection"] = "close"
+
+        return requests.get(url, headers=headers, timeout=timeout)
 
     @property
     def slash_commands(self):

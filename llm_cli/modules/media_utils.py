@@ -55,7 +55,7 @@ def fetch_url_content(
     if not validate_url(url):
         return None, None
     try:
-        response = scraper.get(url, timeout=30)
+        response = scraper.get(url, headers={"Connection": "close"}, timeout=30)
         response.raise_for_status()
         content_type = response.headers.get("Content-Type", "").split(";")[0]
 

@@ -12,7 +12,9 @@ def main():
     try:
         # Default host
         host = "http://localhost:11434"
-        response = requests.get(f"{host}/api/tags", timeout=5)
+        response = requests.get(
+            f"{host}/api/tags", headers={"Connection": "close"}, timeout=5
+        )
         response.raise_for_status()
         models = response.json().get("models", [])
 

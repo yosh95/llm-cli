@@ -42,6 +42,7 @@ def search_web(query: str) -> str:
         resp = requests.get(
             "https://www.googleapis.com/customsearch/v1",
             params={"key": api_key, "cx": cse_id, "q": query, "num": 10},
+            headers={"Connection": "close"},
             timeout=15,
         )
         items = resp.json().get("items", [])
@@ -84,7 +85,9 @@ def search_web(query: str) -> str:
 )
 def fetch_web_page(url: str, max_length: int = 50000) -> str:
     try:
-        resp = cloudscraper.create_scraper().get(url, timeout=30)
+        resp = cloudscraper.create_scraper().get(
+            url, headers={"Connection": "close"}, timeout=30
+        )
         ctype = resp.headers.get("Content-Type", "").lower()
 
         if "text/html" not in ctype:

@@ -89,6 +89,7 @@ def list_models(config: ModelListingConfig) -> None:
         headers = config.build_headers(api_key)
     else:
         headers = {}
+    headers["Connection"] = "close"
 
     # Make API request
     try:

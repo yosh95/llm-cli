@@ -24,7 +24,6 @@ class MockClient(BaseLlmClient):
         self.conversation = []
         self.chat_log_path = None
         self.stdout = False
-        self.reasoning_enabled = False
         self.model = "test-model"
         self._handle_command_called = False
 

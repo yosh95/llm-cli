@@ -110,9 +110,6 @@ class BaseLlmClient(ABC):
             "checkpoint",
             "cp",
             "tools",
-            "thought",
-            "budget",
-            "thinking",
             "help",
             "h",
         }
@@ -124,15 +121,11 @@ class BaseLlmClient(ABC):
         self.live_debug = live_debug
 
         self.tools_enabled = True
-        self._reasoning_enabled = False
 
-        # Load model and its specific configuration (including thinking settings)
+        # Load model and its specific configuration
         self.available_models: Dict[str, Any] = {}
         self.current_alias = ""
         self.model = ""
-        self.thinking_key = None
-        self.thinking_budget: Optional[int | str] = None
-        self.include_thoughts = False
 
         self._load_model_aliases()
         if not self.set_model(initial_model_alias):
@@ -273,15 +266,6 @@ class BaseLlmClient(ABC):
         """Dynamic slash commands for completer."""
         return self._slash_commands
 
-    @property
-    def reasoning_enabled(self) -> bool:
-        return getattr(self, "_reasoning_enabled", False)
-
-    @reasoning_enabled.setter
-    def reasoning_enabled(self, value: bool):
-        self._reasoning_enabled = value
-        self.include_thoughts = value
-
     def set_model(self, alias: str) -> bool:
         """
         Sets the active model and its configuration using its alias.
@@ -292,17 +276,12 @@ class BaseLlmClient(ABC):
         Returns:
             True if the model was successfully set, False otherwise.
         """
-        from llm_cli.clients.config import get_model_config
-
         if alias in self.available_models:
             self.current_alias = alias
             self.model = self.available_models[alias]
 
             # Load additional settings for this specific alias/model
-            config = get_model_config(self.config_section, alias)
-            self.thinking_key = config.get("thinking_key")
-            self.thinking_budget = config.get("thinking_budget")
-            self.include_thoughts = config.get("include_thoughts", False)
+            # config = get_model_config(self.config_section, alias)
             return True
         return False
 
@@ -681,64 +660,12 @@ class BaseLlmClient(ABC):
             console.print(f"[magenta]Live debug mode {status}.[/magenta]")
             return True
 
-        if cmd in ("thought", "reasoning"):
-            if args == "on":
-                self.reasoning_enabled = True
-                console.print("[green]Thought display enabled.[/green]")
-            elif args == "off":
-                self.reasoning_enabled = False
-                console.print("[yellow]Thought display disabled.[/yellow]")
-            elif not args:
-                status = (
-                    "[green]ON[/green]" if self.reasoning_enabled else "[red]OFF[/red]"
-                )
-                console.print(f"[bold]Thought Display:[/bold] {status}")
-                console.print("[dim]Usage: /thought on|off[/dim]")
-            else:
-                console.print(
-                    f"[red]Error: Invalid argument '{args}'. "
-                    "Usage: /thought on|off[/red]"
-                )
-            return True
-
-        if cmd in ("budget", "thinking"):
-            if not args:
-                budget_val = (
-                    str(self.thinking_budget) if self.thinking_budget else "Not set"
-                )
-                console.print(f"[bold]Thinking Budget:[/bold] {budget_val}")
-                console.print("[dim]Usage: /budget <number> or /budget minimal[/dim]")
-            else:
-                try:
-                    # Try to convert to int if possible
-                    self.thinking_budget = int(args)
-                except ValueError:
-                    # Otherwise keep as string (e.g., "minimal")
-                    self.thinking_budget = args
-
-                self.reasoning_enabled = True
-                console.print(
-                    f"[green]Thinking budget set to {self.thinking_budget} "
-                    "and display enabled.[/green]"
-                )
-            return True
-
         if cmd in ("info", "i"):
             from rich.table import Table
 
             info_table = Table(show_header=False, box=None)
             info_table.add_row("Model Alias", f"[cyan]{self.current_alias}[/cyan]")
             info_table.add_row("Full Model", f"[dim]{self.model}[/dim]")
-
-            if self.thinking_key:
-                display_status = (
-                    "[green]on[/green]" if self.reasoning_enabled else "[red]off[/red]"
-                )
-                info_table.add_row("Thought Display", display_status)
-                budget_val = (
-                    str(self.thinking_budget) if self.thinking_budget else "Not set"
-                )
-                info_table.add_row("Thinking Budget", budget_val)
 
             tool_status = (
                 "[green]ENABLED[/green]"
@@ -797,8 +724,6 @@ class BaseLlmClient(ABC):
             "  /provider (p)  List available providers or switch provider\n"
             "                 (e.g. /p openai)\n"
             "  /tools on|off  Show or toggle tool status\n"
-            "  /thought on|off Show or toggle reasoning/thought display\n"
-            "  /budget <val>  Set thinking budget (number or 'minimal')\n"
             "\n"
             "[bold]Exit Application:[/bold]\n"
             "  Use [cyan]Ctrl+C[/cyan] or [cyan]Ctrl+D[/cyan] at any prompt to exit."

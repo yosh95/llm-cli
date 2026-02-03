@@ -283,7 +283,7 @@ class ChatSession:
             response_text, thought_text = response_tuple
 
             # Display thought content in a separate panel if available
-            if thought_text and self.client.reasoning_enabled:
+            if thought_text:
                 duration_str = f" ({duration:.1f}s)"
                 self._print_block(
                     CustomMarkdown(thought_text),

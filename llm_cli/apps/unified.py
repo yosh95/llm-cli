@@ -64,8 +64,6 @@ class UnifiedClient(BaseLlmClient):
         )
         self.available_models = self.active_client.available_models
         self.active_client.conversation = self.conversation
-        # Sync thinking settings after super().__init__ which might have reset them
-        self._sync_thinking_settings()
 
     @property
     def conversation(self) -> List[Message]:
@@ -97,23 +95,6 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, "active_client"):
             self.active_client.tools_enabled = value
 
-    @property
-    def reasoning_enabled(self) -> bool:
-        return getattr(self, "_reasoning_enabled", False)
-
-    @reasoning_enabled.setter
-    def reasoning_enabled(self, value: bool):
-        self._reasoning_enabled = value
-        if hasattr(self, "active_client"):
-            self.active_client.reasoning_enabled = value
-
-    def _sync_thinking_settings(self):
-        """Syncs thinking settings from active_client to unified instance."""
-        if hasattr(self, "active_client"):
-            self.thinking_key = self.active_client.thinking_key
-            self.thinking_budget = self.active_client.thinking_budget
-            self.include_thoughts = self.active_client.include_thoughts
-
     def _activate_provider(self, provider_alias: str) -> bool:
         if provider_alias not in self.PROVIDER_CONFIG:
             return False
@@ -125,7 +106,6 @@ class UnifiedClient(BaseLlmClient):
         self.active_client = self.clients[config_section]
         self.active_client.live_debug = self.live_debug
         self.active_client.tools_enabled = self.tools_enabled
-        self.active_client.reasoning_enabled = self.reasoning_enabled
         self.current_provider_name = config_section
         self.config_section = self.active_client.config_section
         self.available_models = self.active_client.available_models
@@ -138,7 +118,6 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, "active_tools"):
             self.active_client.active_tools = self.active_tools
 
-        self._sync_thinking_settings()
         return True
 
     def _load_model_aliases(self):
@@ -149,7 +128,6 @@ class UnifiedClient(BaseLlmClient):
         if self.active_client.set_model(alias):
             self.model = self.active_client.model
             self.current_alias = self.active_client.current_alias
-            self._sync_thinking_settings()
             return True
         return False
 
@@ -210,7 +188,6 @@ class UnifiedClient(BaseLlmClient):
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
         self.active_client.tools_enabled = self.tools_enabled
-        self.active_client.reasoning_enabled = self.reasoning_enabled
         return self.active_client._send(data)
 
     def _has_pending_tool_calls(self) -> bool:

@@ -408,18 +408,6 @@ class GeminiClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
-        if self.reasoning_enabled and not is_tts_model:
-            thinking_config = {}
-            if self.include_thoughts:
-                thinking_config["include_thoughts"] = True
-
-            if self.thinking_key and self.thinking_budget:
-                key = self.thinking_key or "thinkingLevel"
-                budget = self.thinking_budget or "medium"
-                thinking_config[key] = budget
-
-                payload["generationConfig"] = {"thinkingConfig": thinking_config}
-
         if is_tts_model:
             # Enforce AUDIO modality for TTS models
             from typing import cast

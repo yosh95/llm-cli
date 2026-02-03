@@ -97,13 +97,6 @@ class OpenAIClient(BaseLlmClient):
                     transformed_tools.append(t)
             payload["tools"] = transformed_tools
 
-        # Configure reasoning for reasoning models (GPT-5, o-series)
-        if self.reasoning_enabled:
-            payload["reasoning"] = {
-                # "effort": getattr(self, "reasoning_effort", "medium"),
-                "summary": getattr(self, "reasoning_summary", "auto"),
-            }
-
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",

@@ -52,7 +52,6 @@ The AI can use tools like `search_web` to find the latest information. In this e
     -   **Image Generation**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`, `/m dall-e-3` or `/m grok-2-image`). Images are automatically saved locally.
     -   **Video Generation**: Generate videos using supported models like **Gemini (Veo)** or **Grok**. Videos are automatically downloaded and saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
--   **Reasoning / Thought Toggle (New!)**: Explicitly control when the AI performs internal reasoning (e.g., DeepSeek-R1 via Ollama, Claude 3.7 Thinking, Gemini 2.0 Thinking). **Disabled by default to save tokens**. Toggle mid-session using `/thought on|off`.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
 -   **OpenAI-Compatible Custom Endpoints**: Use local LLMs (via Ollama, vLLM, etc.) or other OpenAI-compatible services by specifying a custom `api_url` in the configuration.
@@ -276,8 +275,6 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 -   `/template` (or `/t`): Insert a template prompt into the input buffer (e.g., `/t proofread`).
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
 -   `/tools [on|off]`: Show or toggle tool status.
--   `/thought` (or `/reasoning`) `[on|off]`: Toggle reasoning/thought display.
--   `/budget` (or `/thinking`) `<number|minimal>`: Set thinking budget for supported models.
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
 -   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video).
 -   `/save <path>`: Save conversation history to a JSON file.
@@ -355,33 +352,6 @@ Then run `llm-cli` with the `--mcp` flag:
 llm --mcp
 ```
 
-## Reasoning / Extended Thinking
-
-Modern LLMs support "reasoning" or "extended thinking" modes where the model performs internal deliberation before generating a response. This can improve the quality of responses for complex tasks.
-
-### Provider Support
-
-| Provider | Thinking Content Visible | Configuration |
-| :--- | :--- | :--- |
-| **Gemini** | ✅ Full content | `include_thoughts = true`, `thinking_level` |
-| **Claude** | ✅ Summarized (Claude 4) / Full (3.7) | `thinking_budget` (tokens) |
-| **OpenAI** | ⚠️ Summary only | `reasoning_effort`, `reasoning_summary` |
-| **xAI (Grok)** | ❌ Not available | N/A (reasoning tokens still billed) |
-
-### Configuration
-
-Reasoning settings were previously configured in `defaults.toml` and `config.toml`. However, to save tokens, **reasoning is now disabled by default**.
-
-### Toggling Reasoning Display
-
-Use the `/thought` command (or `/reasoning`) in chat to toggle reasoning:
-
-```bash
-> /thought on   # Enable reasoning (and display thinking content if supported)
-> /thought off  # Disable reasoning
-> /thought      # Show current status
-```
-
 ## Utility Scripts
 
 -   `llm-cli-config`: Interactive configuration tool.
@@ -422,7 +392,6 @@ AIは `search_web` などのツールを活用して最新情報を取得でき�
     -   **画像生成**: 画像生成モデル（例：`/m dall-e-3`、`/m grok-2-image`）に切り替えることで画像を生成できます。生成された画像は自動的にローカルに保存されます。
     -   **動画生成**: **Gemini (Veo)** や **Grok** などの対応モデルを使用して動画を生成できます。生成された動画は自動的にダウンロードされ、ローカルに保存されます。
 -   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
--   **推論 / 思考トグル**: AIが内部推論を行うタイミングを明示的に制御します（例: Ollama経由のDeepSeek-R1、Claude 3.7 Thinking、Gemini 2.0 Thinking）。**トークン節約のためデフォルトでは無効**です。セッション中に `/thought on|off` で切り替えられます。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
 -   **OpenAI互換カスタムエンドポイント**: `api_url` を設定することで、ローカルLLM（Ollama, vLLM 等）やその他のOpenAI互換サービスを利用可能。
@@ -645,8 +614,6 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/template` (または `/t`): テンプレートプロンプトを入力バッファに挿入 (例: `/t proofread`)。
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツールなど）を表示。
 -   `/tools [on|off]`: ツールの状態を表示または切り替え。
--   `/thought` (または `/reasoning`) `[on|off]`: 推論/思考表示の切り替え。
--   `/budget` (または `/thinking`) `<number|minimal>`: 対応モデルの思考予算（トークン数）を設定。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイルを手動添付 (画像, PDF, 音声, 動画)。
 -   `/save <path>`: 会話履歴をJSONファイルに保存。
@@ -722,33 +689,6 @@ args = [
 その後、`--mcp` フラグを付けて `llm-cli` を実行します：
 ```bash
 llm --mcp
-```
-
-## 推論 / 拡張思考 (Extended Thinking)
-
-最新のLLMは、レスポンスを生成する前に内部で熟考を行う「推論」または「拡張思考」モードをサポートしています。これにより、複雑なタスクに対する回答の品質が向上します。
-
-### プロバイダサポート
-
-| プロバイダ | 思考内容の可視化 | 設定 |
-| :--- | :--- | :--- |
-| **Gemini** | ✅ 全文表示 | `include_thoughts = true`, `thinking_level` |
-| **Claude** | ✅ 要約 (Claude 4) / 全文 (3.7) | `thinking_budget` (トークン数) |
-| **OpenAI** | ⚠️ 要約のみ | `reasoning_effort`, `reasoning_summary` |
-| **xAI (Grok)** | ❌ 利用不可 | N/A (推論トークンは課金対象) |
-
-### 設定
-
-推論設定は以前は `defaults.toml` や `config.toml` で設定していましたが、トークン節約のため、**現在はデフォルトで無効**になっています。
-
-### 推論表示の切り替え
-
-チャット内で `/thought` コマンド（または `/reasoning`）を使用して推論を切り替えます：
-
-```bash
-> /thought on   # 推論を有効化（サポートされている場合は思考内容を表示）
-> /thought off  # 推論を無効化
-> /thought      # 現在の状態を表示
 ```
 
 ## ユーティリティスクリプト

@@ -73,5 +73,4 @@ class ClientState:
     provider: str
     conversation: List[Message] = field(default_factory=list)
     tools_enabled: bool = True
-    reasoning_enabled: bool = False
     system_prompt_enabled: bool = True

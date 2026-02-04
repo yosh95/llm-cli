@@ -141,10 +141,21 @@ class BaseLlmClient(ABC):
                 self.set_model("default")
 
         raw_prompt = get_setting("system_prompt", config_section) or ""
-        now = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S (%A) %Z")
-        self.system_prompt = f"Current date and time: {now}"
+        disable_date_prompt = get_setting("disable_date_prompt", config_section)
+
+        self.system_prompt = ""
+        if not disable_date_prompt:
+            now = (
+                datetime.datetime.now()
+                .astimezone()
+                .strftime("%Y-%m-%d %H:%M:%S (%A) %Z")
+            )
+            self.system_prompt = f"Current date and time: {now}"
+
         if raw_prompt:
-            self.system_prompt += f"\n{raw_prompt}"
+            if self.system_prompt:
+                self.system_prompt += "\n"
+            self.system_prompt += raw_prompt
 
         self.system_prompt_enabled = not disable_system_prompt
 

@@ -141,6 +141,13 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
             "Google Custom Search Engine ID (Optional)", p_config.get("cse_id")
         )
 
+    p_config["system_prompt"] = prompt_input(
+        "System Prompt (Optional)", p_config.get("system_prompt")
+    )
+    p_config["disable_date_prompt"] = prompt_bool(
+        "Disable automatic date prompt?", p_config.get("disable_date_prompt", False)
+    )
+
     print(f"\nModel Aliases for {name} (Press Enter to keep default):")
     m_config = p_config.setdefault("models", {})
 

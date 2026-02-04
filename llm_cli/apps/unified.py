@@ -10,6 +10,7 @@ from llm_cli.clients.gemini import GeminiClient
 from llm_cli.clients.grok import GrokClient
 from llm_cli.clients.ollama import OllamaClient
 from llm_cli.clients.openai import OpenAIClient
+from llm_cli.clients.vllm import VLLMClient
 from llm_cli.modules.models import DataSource, Message
 
 
@@ -30,6 +31,7 @@ class UnifiedClient(BaseLlmClient):
         "xai": (GrokClient, "xai"),
         "grok": (GrokClient, "xai"),
         "ollama": (OllamaClient, "ollama"),
+        "vllm": (VLLMClient, "vllm"),
     }
 
     def __init__(self, initial_provider: Optional[str] = None, **kwargs):

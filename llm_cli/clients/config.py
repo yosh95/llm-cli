@@ -144,7 +144,7 @@ def get_all_model_aliases() -> Dict[str, Dict[str, str]]:
     """
     config = _load_config_from_file()
     all_aliases = {}
-    providers = ["google", "openai", "anthropic", "xai", "ollama"]
+    providers = ["google", "openai", "anthropic", "xai", "ollama", "vllm"]
     for provider in providers:
         all_aliases[provider] = config.get(provider, {}).get("models", {})
     return all_aliases

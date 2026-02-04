@@ -15,7 +15,7 @@
 > **Note**: Japanese documentation is available at the bottom of this page.  
 > **注**: 日本語での説明は、このページの後半に記載されています。
 
-`llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
+`llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama or vLLM**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
 
 ### Quick config.toml Example
 ```toml
@@ -43,8 +43,8 @@ The AI can use tools like `search_web` to find the latest information. In this e
 
 ## Features
 
--   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, and **Ollama** through a single `llm` command.
--   **Local LLM Support (Ollama)**: Use models locally without cloud API costs or privacy concerns.
+-   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, **Ollama**, and **vLLM** through a single `llm` command.
+-   **Local LLM Support (Ollama / vLLM)**: Use models locally without cloud API costs or privacy concerns.
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Exit anytime**: Use **Ctrl+C** or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
@@ -54,7 +54,7 @@ The AI can use tools like `search_web` to find the latest information. In this e
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
--   **OpenAI-Compatible Custom Endpoints**: Use local LLMs (via Ollama, vLLM, etc.) or other OpenAI-compatible services by specifying a custom `api_url` in the configuration.
+-   **OpenAI-Compatible Custom Endpoints**: Use other OpenAI-compatible services by specifying a custom `api_url` in the configuration.
 -   **User-Driven Context Management (Checkpointing)**: Manually trigger `/checkpoint` to summarize the conversation and clear history.
 -   **Multimodal Input & Support**:
     -   **Manual Attachment**: Use the `/attach <path>` command mid-session to inject images, PDFs, videos, or audio.
@@ -260,7 +260,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 
 ## Command-Line Options
 
--   `-p, --provider <provider>`: Specify the provider (`google`, `openai`, `anthropic`, `xai`, `ollama`).
+-   `-p, --provider <provider>`: Specify the provider (`google`, `openai`, `anthropic`, `xai`, `ollama`, `vllm`).
 -   `-m, --model <alias>`: Specify the model alias (e.g., `pro`, `flash`, `gpt4o`, `opus`, `gemma`).
 -   `-s, --stdout`: Print the response directly to stdout and exit.
 -   `--raw`: Disable Markdown rendering in the terminal.
@@ -355,7 +355,7 @@ llm --mcp
 ## Utility Scripts
 
 -   `llm-cli-config`: Interactive configuration tool.
--   `*-models`: List available models for each provider (e.g., `ollama-models`).
+-   `*-models`: List available models for each provider (e.g., `ollama-models`, `vllm-models`).
 
 ## License
 
@@ -366,7 +366,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 <a name="japanese-description"></a>
 # llm-cli: 複数LLM対応 統合コマンドラインインターフェース
 
-`llm-cli` は、多様な大規模言語モデル（LLM）と対話するための、強力で汎用性の高いコマンドラインツールです。Google (Gemini)、OpenAI、Anthropic (Claude)、xAI (Grok) に加え、**Ollama を介したローカルLLM** をサポートしており、単一の `llm` コマンドだけでプロバイダをシームレスに切り替えながら、各モデルの機能をターミナルから直接活用できます。
+`llm-cli` は、多様な大規模言語モデル（LLM）と対話するための、強力で汎用性の高いコマンドラインツールです。Google (Gemini)、OpenAI、Anthropic (Claude)、xAI (Grok) に加え、**Ollama や vLLM を介したローカルLLM** をサポートしており、単一の `llm` コマンドだけでプロバイダをシームレスに切り替えながら、各モデルの機能をターミナルから直接活用できます。
 
 <p align="center">
   <img src="images/llm_cli_overview.jpg" width="800" alt="llm-cli 概要図" />
@@ -383,8 +383,8 @@ AIは `search_web` などのツールを活用して最新情報を取得でき�
 
 ## 主な機能
 
--   **統合インターフェース**: `llm` コマンド一つで Gemini, OpenAI, Claude, Grok, **Ollama** にアクセス可能。
--   **ローカルLLM対応 (Ollama)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。
+-   **統合インターフェース**: `llm` コマンド一つで Gemini, OpenAI, Claude, Grok, **Ollama**, **vLLM** にアクセス可能。
+-   **ローカルLLM対応 (Ollama / vLLM)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Ctrl+C** または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
@@ -394,7 +394,7 @@ AIは `search_web` などのツールを活用して最新情報を取得でき�
 -   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
--   **OpenAI互換カスタムエンドポイント**: `api_url` を設定することで、ローカルLLM（Ollama, vLLM 等）やその他のOpenAI互換サービスを利用可能。
+-   **OpenAI互換カスタムエンドポイント**: `api_url` を設定することで、その他のOpenAI互換サービスを利用可能。
 -   **ユーザー主導の履歴管理（チェックポイント機能）**: `/checkpoint` コマンドで会話の要約を作成し、履歴をリセットしてコンテキストを整理。
 -   **マルチモーダル対応**:
     -   **手動添付**: `/attach <path>` コマンドで画像、PDF、音声、動画を会話の途中から注入。
@@ -599,7 +599,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ## コマンドラインオプション
 
--   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`)。
+-   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`, `vllm`)。
 -   `-m, --model <alias>`: モデルエイリアスを指定 (例: `pro`, `flash`, `gpt4o`, `opus`, `gemma`)。
 -   `-s, --stdout`: レスポンスを標準出力に直接表示して終了。
 -   `--raw`: ターミナルでのMarkdownレンダリングを無効化。
@@ -694,7 +694,7 @@ llm --mcp
 ## ユーティリティスクリプト
 
 -   `llm-cli-config`: 対話型設定ツール。
--   `*-models`: 各プロバイダで利用可能なモデル一覧（例: `ollama-models`）。
+-   `*-models`: 各プロバイダで利用可能なモデル一覧（例: `ollama-models`, `vllm-models`）。
 
 ## ライセンス
 

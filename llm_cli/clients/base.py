@@ -48,6 +48,12 @@ class TemplateRequest(Exception):
         self.text = text
 
 
+class ExitRequest(Exception):
+    """Exception raised to request exiting the application."""
+
+    pass
+
+
 class BaseLlmClient(ABC):
     """
     Abstract Base Class for LLM API clients.
@@ -620,7 +626,7 @@ class BaseLlmClient(ABC):
             return True
 
         if cmd in ("q", "quit"):
-            raise EOFError
+            raise ExitRequest
 
         if cmd == "tools":
             if args == "on":

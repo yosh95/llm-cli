@@ -29,6 +29,7 @@ from rich.syntax import Syntax
 from llm_cli.clients.base import (
     BaseLlmClient,
     CheckpointRequest,
+    ExitRequest,
     TemplateRequest,
     console,
 )
@@ -248,13 +249,15 @@ class ChatSession:
                 except TemplateRequest as e:
                     prompt_default = e.text
                     continue
+                except ExitRequest:
+                    break
 
                 data.append(DataSource(content=user_input, content_type="text/plain"))
                 self.process_and_print(data)
                 data = []
             except (KeyboardInterrupt, EOFError):
                 console.print(
-                    "\n[yellow]Interrupted. Returning to main prompt...[/yellow]"
+                    "[yellow]Interrupted. Returning to main prompt...[/yellow]"
                 )
                 data = []
             except Exception as e:

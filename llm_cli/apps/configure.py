@@ -118,14 +118,22 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
 
     p_config = config.setdefault(provider, {})
 
-    if provider != "ollama":
-        p_config["api_key"] = prompt_input(
-            "API Key", p_config.get("api_key"), secret=True
-        )
-    else:
+    if provider == "ollama":
         default_url = DEFAULTS.get("ollama", {}).get("api_url")
         p_config["api_url"] = prompt_input(
             "API URL", p_config.get("api_url", default_url)
+        )
+    elif provider == "vllm":
+        p_config["api_key"] = prompt_input(
+            "API Key (Optional)", p_config.get("api_key"), secret=True
+        )
+        default_url = DEFAULTS.get("vllm", {}).get("api_url")
+        p_config["api_url"] = prompt_input(
+            "API URL", p_config.get("api_url", default_url)
+        )
+    else:
+        p_config["api_key"] = prompt_input(
+            "API Key", p_config.get("api_key"), secret=True
         )
 
     if provider == "google":
@@ -164,7 +172,7 @@ def configure_general(config: Dict[str, Any]):
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
 
-    providers = ["google", "openai", "anthropic", "xai", "ollama"]
+    providers = ["google", "openai", "anthropic", "xai", "ollama", "vllm"]
     current_p = g_config.get("unified_default_provider", "google")
     print(f"Available providers: {', '.join(providers)}")
     g_config["unified_default_provider"] = prompt_input("Default Provider", current_p)
@@ -283,6 +291,7 @@ def main():
         configure_provider(config, "anthropic", "Anthropic Claude")
         configure_provider(config, "xai", "xAI Grok")
         configure_provider(config, "ollama", "Ollama (Local)")
+        configure_provider(config, "vllm", "vLLM")
 
         # General and Security
         configure_general(config)

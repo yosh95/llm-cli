@@ -153,7 +153,7 @@ class VLLMClient(BaseLlmClient):
                         if p.text:
                             content_text += p.text
                         if p.thought:
-                            # Optionally include thought in history if needed by model context
+                            # Optionally include thought in history if needed
                             pass
 
                         if p.function_call:

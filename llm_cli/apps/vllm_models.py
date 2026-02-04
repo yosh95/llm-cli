@@ -20,7 +20,7 @@ def main():
     # Load custom API URL from config or use default
     config_url = get_setting("api_url", "vllm")
     base_url = config_url if config_url else "http://localhost:8000/v1/chat/completions"
-    
+
     # Adjust URL to point to /v1/models instead of /chat/completions
     if "/chat/completions" in base_url:
         models_url = base_url.replace("/chat/completions", "/models")

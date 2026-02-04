@@ -48,9 +48,9 @@ def test_unified_client_custom_model():
     with pytest.MonkeyPatch.context() as m:
         m.setattr(
             "llm_cli.apps.unified.get_setting",
-            lambda key, section: "provider"
-            if key == "unified_default_provider"
-            else "key",
+            lambda key, section: (
+                "provider" if key == "unified_default_provider" else "key"
+            ),
         )
 
         # We also need to mock the PROVIDER_CONFIG to use our MockClient

@@ -21,9 +21,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-mcp = [
-    "mcp"
-]
 test = [
     "pytest",
     "pytest-asyncio",

@@ -5,10 +5,52 @@ import json
 import logging
 import os
 import sys
+import uuid
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# --- Context Propagation ---
+
+TRACE_ID: ContextVar[Optional[str]] = ContextVar("trace_id", default=None)
+
+
+def get_current_trace_id() -> str:
+    """Get current trace id or generate a new one if not present."""
+    tid = TRACE_ID.get()
+    if tid is None:
+        tid = str(uuid.uuid4())
+        TRACE_ID.set(tid)
+    return tid
+
+
+class TraceLogger(logging.Logger):
+    """Logger that includes trace_id in records."""
+    def makeRecord(
+        self,
+        name,
+        level,
+        fn,
+        lno,
+        msg,
+        args,
+        exc_info,
+        func=None,
+        extra=None,
+        sinfo=None,
+    ):
+        if extra is None:
+            extra = {}
+        extra["trace_id"] = TRACE_ID.get() or "-"
+        return super().makeRecord(
+            name, level, fn, lno, msg, args, exc_info, func, extra, sinfo
+        )
+
+# Replace default logger class for this module context (optional, but good for demo)
+# logging.setLoggerClass(TraceLogger)
+
 
 # --- Data Structures (Mocking mcp types) ---
 
@@ -168,8 +210,14 @@ class ClientSession:
         return ListToolsResult(tools=tools)
 
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> ToolResult:
+        # Inject trace id into arguments as _meta
+        trace_id = get_current_trace_id()
+        args_with_meta = arguments.copy()
+        if "_meta" not in args_with_meta:
+            args_with_meta["_meta"] = {"trace_id": trace_id}
+
         response = await self._send_request(
-            "tools/call", {"name": name, "arguments": arguments}
+            "tools/call", {"name": name, "arguments": args_with_meta}
         )
 
         content_list = []
@@ -292,23 +340,37 @@ class FastMCP:
                 tool_name = params.get("name")
                 args = params.get("arguments", {})
 
-                if tool_name not in self.tools:
-                    raise Exception(f"Tool not found: {tool_name}")
+                # Extract trace info
+                token = None
+                if "_meta" in args and isinstance(args["_meta"], dict):
+                    # Remove _meta so it doesn't affect tool signature
+                    meta = args.pop("_meta")
+                    trace_id = meta.get("trace_id")
+                    if trace_id:
+                        token = TRACE_ID.set(trace_id)
 
-                func = self.tools[tool_name]
+                try:
+                    if tool_name not in self.tools:
+                        raise Exception(f"Tool not found: {tool_name}")
 
-                # Check if coroutine
-                if inspect.iscoroutinefunction(func):
-                    result = await func(**args)
-                else:
-                    result = func(**args)
+                    func = self.tools[tool_name]
 
-                # Convert result to Content
-                text_content = str(result)
-                response = {
-                    "content": [{"type": "text", "text": text_content}],
-                    "isError": False,
-                }
+                    # Check if coroutine
+                    if inspect.iscoroutinefunction(func):
+                        result = await func(**args)
+                    else:
+                        result = func(**args)
+
+                    # Convert result to Content
+                    text_content = str(result)
+                    response = {
+                        "content": [{"type": "text", "text": text_content}],
+                        "isError": False,
+                    }
+                finally:
+                    # Reset trace context
+                    if token:
+                        TRACE_ID.reset(token)
 
             else:
                 # Unknown method, ignore or error

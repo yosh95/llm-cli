@@ -25,8 +25,6 @@ test = [
     "pytest",
     "pytest-asyncio",
     "pytest-mock",
-    "ruff",
-    "mypy",
     "pytest-cov",
     "types-requests",
     "types-setuptools",

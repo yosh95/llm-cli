@@ -681,6 +681,10 @@ class BaseLlmClient(ABC):
             from rich.table import Table
 
             info_table = Table(show_header=False, box=None)
+            info_table.add_row(
+                "Provider",
+                f"[bold green]{self.config_section}[/bold green]",
+            )
             info_table.add_row("Model Alias", f"[cyan]{self.current_alias}[/cyan]")
             info_table.add_row("Full Model", f"[dim]{self.model}[/dim]")
 

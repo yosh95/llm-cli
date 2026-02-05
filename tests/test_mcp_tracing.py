@@ -47,6 +47,7 @@ async def test_client_injects_trace_id():
     finally:
         TRACE_ID.reset(token)
 
+
 @pytest.mark.asyncio
 async def test_server_propagates_trace_id():
     server = FastMCP("trace_server")
@@ -69,9 +70,7 @@ async def test_server_propagates_trace_id():
         "method": "tools/call",
         "params": {
             "name": "check_trace",
-            "arguments": {
-                "_meta": {"trace_id": test_trace_id}
-            }
+            "arguments": {"_meta": {"trace_id": test_trace_id}},
         },
     }
 
@@ -79,6 +78,7 @@ async def test_server_propagates_trace_id():
 
     # Verify that the tool function saw the trace id
     assert captured_trace_id == test_trace_id
+
 
 @pytest.mark.asyncio
 async def test_server_generates_trace_id_if_missing():
@@ -98,10 +98,7 @@ async def test_server_generates_trace_id_if_missing():
         "jsonrpc": "2.0",
         "id": 1,
         "method": "tools/call",
-        "params": {
-            "name": "check_trace",
-            "arguments": {}
-        },
+        "params": {"name": "check_trace", "arguments": {}},
     }
 
     await server._handle_message(msg, write_stream)
@@ -110,4 +107,3 @@ async def test_server_generates_trace_id_if_missing():
     assert captured_trace_id is not None
     assert isinstance(captured_trace_id, str)
     assert len(captured_trace_id) > 0
-

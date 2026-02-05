@@ -28,6 +28,7 @@ def get_current_trace_id() -> str:
 
 class TraceLogger(logging.Logger):
     """Logger that includes trace_id in records."""
+
     def makeRecord(
         self,
         name,
@@ -47,6 +48,7 @@ class TraceLogger(logging.Logger):
         return super().makeRecord(
             name, level, fn, lno, msg, args, exc_info, func, extra, sinfo
         )
+
 
 # Replace default logger class for this module context (optional, but good for demo)
 # logging.setLoggerClass(TraceLogger)

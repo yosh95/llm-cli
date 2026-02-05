@@ -741,7 +741,7 @@ class BaseLlmClient(ABC):
             "  /info (i)      Show session info\n"
             "  /debug (d)     Toggle live debug mode\n"
             "  /model (m)     List available models or switch model\n"
-            "                 (e.g. /m gpt4o)\n"
+            "                 (e.g. /m mage)\n"
             "  /provider (p)  List available providers or switch provider\n"
             "                 (e.g. /p openai)\n"
             "  /tools on|off  Show or toggle tool status\n"

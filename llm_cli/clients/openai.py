@@ -18,7 +18,7 @@ class OpenAIClient(BaseLlmClient):
     Client for interacting with OpenAI's Responses API and Images API.
 
     Supports vision, tool calling, reasoning modes with summary output,
-    and DALL-E image generation.
+    and chat gpt image generation.
 
     Note: This client uses the Responses API (not Chat Completions) for better
     support of reasoning models like GPT-5 and o-series. Reasoning tokens are
@@ -163,7 +163,7 @@ class OpenAIClient(BaseLlmClient):
     def _send_image_generation(
         self, data: List[DataSource]
     ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
-        """Handles image generation via OpenAI's DALL-E API."""
+        """Handles image generation via OpenAI's ."""
         # Extract prompt from conversation and new data
         prompt_parts = []
         for m in self.conversation:

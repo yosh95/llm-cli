@@ -6,7 +6,7 @@
 - **Install**: `pip install .` then `llm-cli-config` for API keys.
 - **Chat**: `llm` (agent mode ON by default).
 - **One-shot**: `llm "Summarize this" file.pdf`.
-- **Switch**: `/p gemini` or `/m gpt4o`.
+- **Switch**: `/p gemini` or `/m image`.
 - **Tools**: Auto file ops, search, MCP remote.
 - **Safe**: Whitelist + approval.
 
@@ -60,7 +60,7 @@ The AI can use tools like `search_web` to find the latest information. In this e
     -   **Manual Attachment**: Use the `/attach <path>` command mid-session to inject images, PDFs, videos, or audio.
     -   **Autonomous Attachment**: Agents can use the `read_image_file`, `read_pdf_content` or `fetch_web_page` tools to bring media files into the context when needed.
     -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**.
-    -   **OpenAI**: Text, local images, and **DALL-E image generation**.
+    -   **OpenAI**: Text, local images, and **ChatGPT image generation**.
     -   **Claude**: Text and local images (PDFs are processed as text/Base64).
     -   **Grok**: Text, local images, and **Image Generation**.
 -   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
@@ -261,7 +261,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 ## Command-Line Options
 
 -   `-p, --provider <provider>`: Specify the provider (`google`, `openai`, `anthropic`, `xai`, `ollama`, `vllm`).
--   `-m, --model <alias>`: Specify the model alias (e.g., `pro`, `flash`, `gpt4o`, `opus`, `gemma`).
+-   `-m, --model <alias>`: Specify the model alias (e.g., `pro`, `flash`, `mini`, `opus`, `gemma`).
 -   `-s, --stdout`: Print the response directly to stdout and exit.
 -   `--raw`: Disable Markdown rendering in the terminal.
 -   `--mcp`: Enable Model Context Protocol (MCP) integration.
@@ -271,7 +271,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 ## In-Chat Commands
 
 -   `/provider` (or `/p`): List available providers or switch provider (e.g., `/p openai`).
--   `/model` (or `/m`): List available models or switch model (e.g., `/m gpt4o`).
+-   `/model` (or `/m`): List available models or switch model (e.g., `/m image`).
 -   `/template` (or `/t`): Insert a template prompt into the input buffer (e.g., `/t proofread`).
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
 -   `/tools [on|off]`: Show or toggle tool status.
@@ -400,7 +400,7 @@ AIは `search_web` などのツールを活用して最新情報を取得でき�
     -   **手動添付**: `/attach <path>` コマンドで画像、PDF、音声、動画を会話の途中から注入。
     -   **自律添付**: エージェントが必要に応じてツールを使い、メディアファイルをコンテキストに読み込みます（`read_image_file`, `read_pdf_content`, `fetch_web_page` など）。
     -   **Gemini**: テキスト、ローカル画像、PDF、**音声**、**動画**をサポート。
-    -   **OpenAI**: テキスト、ローカル画像、および **DALL-E による画像生成**をサポート。
+    -   **OpenAI**: テキスト、ローカル画像、および **ChatGPT image による画像生成**をサポート。
     -   **Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。
 -   **安全な実行**: ファイル変更時の **Diffプレビュー** 表示と、ツール実行前のユーザー確認（Human-in-the-Loop）。
@@ -600,7 +600,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 ## コマンドラインオプション
 
 -   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`, `vllm`)。
--   `-m, --model <alias>`: モデルエイリアスを指定 (例: `pro`, `flash`, `gpt4o`, `opus`, `gemma`)。
+-   `-m, --model <alias>`: モデルエイリアスを指定 (例: `pro`, `flash`, `mini`, `opus`, `gemma`)。
 -   `-s, --stdout`: レスポンスを標準出力に直接表示して終了。
 -   `--raw`: ターミナルでのMarkdownレンダリングを無効化。
 -   `--mcp`: Model Context Protocol (MCP) 統合を有効化。
@@ -610,7 +610,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 ## チャット内コマンド
 
 -   `/provider` (または `/p`): 利用可能なプロバイダ一覧表示または切り替え (例: `/p openai`)。
--   `/model` (または `/m`): 利用可能なモデル一覧表示または切り替え (例: `/m gpt4o`)。
+-   `/model` (または `/m`): 利用可能なモデル一覧表示または切り替え (例: `/m mage`)。
 -   `/template` (または `/t`): テンプレートプロンプトを入力バッファに挿入 (例: `/t proofread`)。
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツールなど）を表示。
 -   `/tools [on|off]`: ツールの状態を表示または切り替え。

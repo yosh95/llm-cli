@@ -14,6 +14,8 @@ class TestCommandValidator:
         validator.validate("ls -la")
         validator.validate("grep 'pattern' file.txt")
         validator.validate("python3 test.py")
+        validator.validate("ruff check .")
+        validator.validate("mypy .")
 
     def test_disallowed_sed_and_patch(self, validator):
         with pytest.raises(

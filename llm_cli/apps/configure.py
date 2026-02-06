@@ -231,6 +231,26 @@ def configure_security(config: Dict[str, Any]):
         s_config.get("missing_token_policy", "guest"),
     )
 
+    # Configure Intent Analyzer (New!)
+    print("\n--- Intent Analyzer (Dual-Model Guardrails) ---")
+    current_ia_enabled = s_config.get("intent_analyzer_enabled", False)
+    if prompt_bool("Enable Intent Analyzer?", current_ia_enabled):
+        s_config["intent_analyzer_enabled"] = True
+
+        current_ia_provider = s_config.get("intent_analyzer_provider", "google")
+        s_config["intent_analyzer_provider"] = prompt_input(
+            "Verifier Provider (e.g., google, ollama)", current_ia_provider
+        )
+
+        current_ia_model = s_config.get(
+            "intent_analyzer_model", "gemini-flash-lite-latest"
+        )
+        s_config["intent_analyzer_model"] = prompt_input(
+            "Verifier Model Name", current_ia_model
+        )
+    else:
+        s_config["intent_analyzer_enabled"] = False
+
 
 def configure_mcp(config: Dict[str, Any]):
     """Configures MCP servers."""

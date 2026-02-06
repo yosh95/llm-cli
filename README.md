@@ -123,6 +123,17 @@ This project introduces a robust security layer designed for enterprise-grade to
 - **Startup Verification**: The system verifies the integrity of its own source code and configuration before execution.
 - **Secure Remote Orchestration**: Optimized for SSH transport. Since we use asymmetric keys, **no private keys are ever transmitted over the network**, even when connecting to remote MCP servers.
 
+### 🧠 Intent Analyzer (Dual-LLM Guardrails)
+
+This is a **Context-Aware Dynamic Zero Trust** feature that uses a secondary, lightweight LLM (the "Verifier") to audit the actions of the main agent in real-time.
+
+-   **Concept**: Even if the main agent (e.g., GPT-4) is compromised via prompt injection or hallucinates, the independent Verifier (e.g., Gemini Flash Lite or local Llama 3) checks if the tool call aligns with the user's original intent.
+-   **How it works**:
+    1.  User asks: "Read the README file."
+    2.  Agent tries: `execute_command("rm -rf /")` (Malicious or Buggy).
+    3.  **Intent Analyzer**: Detects semantic mismatch ("User wanted to READ, Agent tried to DELETE") and **BLOCKS** the execution before it reaches the shell.
+-   **Configuration**: Run `llm-cli-config` to enable it. You can choose a low-latency provider (like Google Gemini Flash Lite or Ollama) for the verifier role to minimize overhead.
+
 ### Command Execution Guardrails
 
 All shell commands executed through the AI agent (`execute_shell_command` tool) are validated against a **whitelist** of safe commands before execution.
@@ -474,6 +485,17 @@ AIエージェントは以下のツールを標準で備えています：
 #### 4. ルート・オブ・トラストと整合性 (Integrity)
 - **起動時検証**: 実行前にソースコードや設定ファイルの整合性を自己検証します。
 - **安全なリモート連携**: SSHトランスポートに最適化。非対称鍵を使用するため、リモートMCPサーバー接続時にも**秘密鍵がネットワーク上を流れることはありません**。
+
+### 🧠 Intent Analyzer (Dual-LLM ガードレール)
+
+これは、メインのエージェントとは独立した軽量な「検証用LLM（Verifier）」を使用して、エージェントの行動をリアルタイムで監査する**コンテキスト認識型動的ゼロトラスト**機能です。
+
+-   **コンセプト**: メインのエージェント（例：GPT-4）がプロンプトインジェクション攻撃を受けたり、ハルシネーションを起こしたりしても、独立した検証用LLM（例：Gemini Flash Lite やローカルの Llama 3）が「そのツール実行はユーザーの意図と合致しているか？」をチェックします。
+-   **動作例**:
+    1.  ユーザー: 「READMEファイルを読んで」
+    2.  エージェント: `execute_command("rm -rf /")` を実行しようとする（悪意またはバグ）。
+    3.  **Intent Analyzer**: 「ユーザーは読み取りを求めているのに、エージェントは削除しようとしている」という意味的な不整合を検知し、実行を**ブロック**します。
+-   **設定**: `llm-cli-config` を実行して有効化してください。オーバーヘッドを最小限に抑えるため、検証役には低遅延なモデル（Google Gemini Flash Lite や Ollamaなど）を選択することをお勧めします。
 
 ### コマンド実行ガードレール
 

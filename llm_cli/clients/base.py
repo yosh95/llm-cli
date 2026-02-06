@@ -706,6 +706,20 @@ class BaseLlmClient(ABC):
                     tools_list = ", ".join(active_for_provider)
                     info_table.add_row("Active Tools", f"[dim]{tools_list}[/dim]")
 
+            # Intent Analyzer Status
+            from llm_cli.security.policy import policy_engine
+
+            ia_enabled = policy_engine.config.get("intent_analyzer_enabled", False)
+            if ia_enabled:
+                ia_provider = policy_engine.config.get("intent_analyzer_provider", "?")
+                ia_model = policy_engine.config.get("intent_analyzer_model", "?")
+                info_table.add_row(
+                    "Intent Analyzer",
+                    f"[bold green]ON[/bold green] ({ia_provider}/{ia_model})",
+                )
+            else:
+                info_table.add_row("Intent Analyzer", "[dim]OFF[/dim]")
+
             info_table.add_row("History Length", f"{len(self.conversation)} messages")
 
             if self.last_usage:

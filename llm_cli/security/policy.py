@@ -13,7 +13,20 @@ class PolicyEngine:
     """
 
     def __init__(self, config: Dict[str, Any] | None = None):
+        # Allow passing config directly, or load from global settings
         self.config = config or {}
+
+        # Load security settings from global config if not explicitly provided
+        if not self.config:
+            try:
+                from llm_cli.clients.config import _load_config_from_file
+
+                full_conf = _load_config_from_file()
+                self.config.update(full_conf.get("security", {}))
+            except ImportError:
+                pass
+
+        self.intent_analyzer: Any = None
 
         # Default Policy Definitions
         self.roles: Dict[str, Dict[str, Any]] = {
@@ -57,6 +70,50 @@ class PolicyEngine:
                 else:
                     self.roles[role_name] = role_def
 
+    def _analyze_intent(
+        self, user_prompt: str, tool_name: str, args: Dict[str, Any]
+    ) -> bool:
+        """
+        Uses a secondary LLM to verify if the tool call aligns with user intent.
+        """
+        if not user_prompt:
+            logger.warning("Intent Analysis Skipped: No user prompt context available.")
+            return True
+
+        if not self.intent_analyzer:
+            try:
+                from llm_cli.security.intent_analyzer import IntentAnalyzer
+
+                provider = self.config.get("intent_analyzer_provider", "google")
+                model = self.config.get(
+                    "intent_analyzer_model", "gemini-flash-lite-latest"
+                )
+                self.intent_analyzer = IntentAnalyzer(provider, model)
+            except Exception as e:
+                logger.error(f"Failed to initialize Intent Analyzer: {e}")
+                return True  # Fail open if analyzer is broken
+
+        logger.info(
+            f"🧠 Verifying Intent: Prompt='{user_prompt[:50]}...' Tool='{tool_name}'"
+        )
+        is_safe, reason = self.intent_analyzer.verify_action(
+            user_prompt, tool_name, args
+        )
+
+        if not is_safe:
+            logger.warning(f"⛔ Intent Mismatch Detected: {reason}")
+            # We print to console directly to inform user
+            # Note: Ideally we should use the rich console from clients.base,
+            # but importing it here might cause loops.
+            # We use standard print with some rich markup which might be printed
+            # as raw text if not handled, but usually PolicyEngine runs in the
+            # context where rich is installed.
+            print(f"SECURITY ALERT: Intent Analyzer Blocked Action.\nReason: {reason}")
+            return False
+
+        logger.info("✅ Intent Verified")
+        return True
+
     def evaluate(
         self,
         tool_name: str,
@@ -68,11 +125,17 @@ class PolicyEngine:
         """
         user_id = context.get("user_id", "unknown")
         user_roles = context.get("roles", ["guest"])
+        user_prompt = context.get("user_prompt", "")
 
         logger.info(
             f"🛡️  Policy Evaluation: Tool='{tool_name}', User='{user_id}', "
             f"Roles={user_roles}"
         )
+
+        # 0. Intent Analysis (Dynamic Guardrail)
+        if self.config.get("intent_analyzer_enabled", False):
+            if not self._analyze_intent(user_prompt, tool_name, arguments):
+                return False
 
         # 1. Subject-specific Evaluation (Highest Priority)
         if user_id in self.subjects:

@@ -9,6 +9,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 from llm_cli.security.audit import log_audit
 
+# IntentAnalyzer integration will be handled via PolicyEngine or higher level logic
+# to access conversation context.
+
 
 class ToolRegistry:
     """

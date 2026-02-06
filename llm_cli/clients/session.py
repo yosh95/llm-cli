@@ -507,6 +507,50 @@ class ChatSession:
         # Extract thought_signature if present (required by Gemini API)
         thought_signature = part.thought_signature
 
+        # --- Policy & Security Check Start ---
+        from llm_cli.security.policy import policy_engine
+
+        # Resolve user prompt from conversation history for intent analysis
+        user_prompt = "No user prompt found"
+        for msg in reversed(self.client.conversation):
+            if msg.role == Role.USER:
+                # Extract text parts
+                texts = [
+                    p.text for p in msg.parts if isinstance(p, ContentPart) and p.text
+                ]
+                # Also handle simple string parts if any (though usually ContentPart)
+                texts += [p for p in msg.parts if isinstance(p, str)]
+                if texts:
+                    user_prompt = "\n".join(texts)
+                    break
+
+        # Evaluate policy (includes Role-Based check and Intent Analysis)
+        context = {
+            "user_id": "current_user",  # TODO: wiring identity
+            "roles": [
+                "admin"
+            ],  # TODO: wiring roles, currently defaulting to admin/full
+            "user_prompt": user_prompt,
+        }
+
+        if not policy_engine.evaluate(name, args, context):
+            console.print(
+                f"[red]Policy Violation: Execution of '{name}' "
+                "denied by security policy.[/red]"
+            )
+            response = ContentPart(
+                function_response={
+                    "id": tool_id,
+                    "name": name,
+                    "response": {
+                        "result": "Error: Security Policy Violation. Action denied."
+                    },
+                },
+                thought_signature=thought_signature,
+            )
+            return response, None
+        # --- Policy & Security Check End ---
+
         # Extract explanation for visibility.
         # Check 'explanation' first (new), then fall back to 'thought' or 'reasoning'.
         explanation = (

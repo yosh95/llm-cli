@@ -13,9 +13,10 @@ from prompt_toolkit import prompt
 from prompt_toolkit.completion import PathCompleter
 from prompt_toolkit.shortcuts import CompleteStyle
 
+from llm_cli.consts import CONFIG_DIR, CONFIG_FILE_PATH
+
 # Define the path for the configuration directory and file
-CONFIG_DIR = Path.home() / ".config" / "llm_cli"
-CONFIG_FILE = CONFIG_DIR / "config.toml"
+CONFIG_FILE = CONFIG_FILE_PATH
 
 # Load default values from external TOML
 DEFAULTS_FILE = Path(__file__).parent / "defaults.toml"
@@ -185,20 +186,23 @@ def configure_general(config: Dict[str, Any]):
     g_config["unified_default_provider"] = prompt_input("Default Provider", current_p)
 
     print("\nData Storage Paths (Press Enter to keep default):")
+
+    from llm_cli.consts import AUDIT_LOG_PATH, CHAT_LOG_PATH, HISTORY_LOG_PATH
+
     path_completer = PathCompleter(expanduser=True)
     g_config["LLM_PROMPT_HISTORY"] = prompt_input(
         "Prompt History Path",
-        g_config.get("LLM_PROMPT_HISTORY", "~/.local/share/llm_cli/history.log"),
+        g_config.get("LLM_PROMPT_HISTORY", str(HISTORY_LOG_PATH)),
         completer=path_completer,
     )
     g_config["LLM_CHAT_LOG"] = prompt_input(
         "Chat Log Path",
-        g_config.get("LLM_CHAT_LOG", "~/.local/share/llm_cli/chat.log"),
+        g_config.get("LLM_CHAT_LOG", str(CHAT_LOG_PATH)),
         completer=path_completer,
     )
     g_config["LLM_AUDIT_LOG"] = prompt_input(
         "Audit Log Path (Tool usage)",
-        g_config.get("LLM_AUDIT_LOG", "~/.local/share/llm_cli/audit.log"),
+        g_config.get("LLM_AUDIT_LOG", str(AUDIT_LOG_PATH)),
         completer=path_completer,
     )
 

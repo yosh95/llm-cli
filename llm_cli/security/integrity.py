@@ -38,8 +38,10 @@ class IntegrityVerifier:
 
     def verify_audit_log(self) -> bool:
         """Verify the chained hashes in the audit log to detect tampering."""
+        from llm_cli.consts import AUDIT_LOG_PATH
+
         # Note: In a real app, this would use a proper config loader
-        audit_log_path = Path("~/.local/state/llm_cli/audit.jsonl").expanduser()
+        audit_log_path = AUDIT_LOG_PATH
 
         if not audit_log_path.exists():
             return True

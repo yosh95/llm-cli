@@ -4,13 +4,14 @@ import os
 import socket
 import time
 import uuid
-from pathlib import Path
 from typing import Dict, List, Optional
 
 import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+
+from llm_cli.consts import KEY_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class IdentityManager:
 
     _ALGORITHM = "RS256"
     _ISSUER = "llm-cli-client"
-    _KEY_DIR = Path.home() / ".llm_cli" / "keys"
+    _KEY_DIR = KEY_DIR
     _PRIVATE_KEY_PATH = _KEY_DIR / "id_rsa"
     _PUBLIC_KEY_PATH = _KEY_DIR / "id_rsa.pub"
 

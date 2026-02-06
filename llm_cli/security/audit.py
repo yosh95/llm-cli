@@ -23,7 +23,9 @@ def log_audit(
     """
     audit_log_path = get_setting("LLM_AUDIT_LOG", "general")
     if not audit_log_path:
-        audit_log_path = "~/.local/state/llm_cli/audit.jsonl"
+        from llm_cli.consts import AUDIT_LOG_PATH
+
+        audit_log_path = str(AUDIT_LOG_PATH)
 
     path = Path(audit_log_path).expanduser()
     max_lines = int(get_setting("max_audit_log_lines", "general") or 10000)

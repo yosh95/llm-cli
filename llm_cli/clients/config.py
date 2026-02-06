@@ -3,7 +3,8 @@ import tomllib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
-CONFIG_FILE_PATH = Path.home() / ".config" / "llm_cli" / "config.toml"
+from llm_cli.consts import CONFIG_FILE_PATH
+
 _config_cache: Optional[Dict[str, Any]] = None
 
 

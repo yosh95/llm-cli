@@ -70,7 +70,8 @@ class PolicyEngine:
         user_roles = context.get("roles", ["guest"])
 
         logger.info(
-            f"🛡️  Policy Evaluation: Tool='{tool_name}', User='{user_id}', Roles={user_roles}"
+            f"🛡️  Policy Evaluation: Tool='{tool_name}', User='{user_id}', "
+            f"Roles={user_roles}"
         )
 
         # 1. Subject-specific Evaluation (Highest Priority)
@@ -137,7 +138,8 @@ class PolicyEngine:
                 allowed_patterns = tool_scope["allowed_paths"]
                 if not any(fnmatch.fnmatch(path, p) for p in allowed_patterns):
                     logger.warning(
-                        f"Scope Violation: Path '{path}' not in allowed patterns {allowed_patterns}"
+                        f"Scope Violation: Path '{path}' not in allowed patterns "
+                        f"{allowed_patterns}"
                     )
                     return False
 

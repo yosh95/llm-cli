@@ -81,7 +81,11 @@ class MCPManager:
                 server_name_env = f"MCP_SERVER_NAME={name}"
                 public_key = IdentityManager.get_public_key()
                 # Inject Token, Public Key and Server Name
-                env_str = f"MCP_AUTH_TOKEN={token} LLM_CLI_PUBLIC_KEY='{public_key}' {server_name_env}"
+                env_str = (
+                    f"MCP_AUTH_TOKEN={token} "
+                    f"LLM_CLI_PUBLIC_KEY='{public_key}' "
+                    f"{server_name_env}"
+                )
 
                 # Strategy 1: Find python command and insert ENV before it
                 inserted = False

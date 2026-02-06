@@ -3,6 +3,9 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Dict, Optional
+
+from llm_cli.consts import LLM_CLI_BASE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +14,7 @@ class IntegrityVerifier:
     """
     Implements a Root of Trust mechanism by verifying the integrity
     of critical application files and audit logs at startup.
+    Uses TOFU (Trust On First Use) to establish a baseline.
     """
 
     # Critical files to monitor for tampering
@@ -19,8 +23,11 @@ class IntegrityVerifier:
         "llm_cli/security/identity.py",
         "llm_cli/security/policy.py",
         "llm_cli/security/audit.py",
+        "llm_cli/security/integrity.py",
         "pyproject.toml",
     ]
+
+    MANIFEST_PATH = LLM_CLI_BASE_DIR / "integrity_manifest.json"
 
     def __init__(self, base_path: Path):
         self.base_path = base_path
@@ -35,6 +42,29 @@ class IntegrityVerifier:
             return sha256_hash.hexdigest()
         except FileNotFoundError:
             return "MISSING"
+
+    def _load_manifest(self) -> Optional[Dict[str, str]]:
+        """Load the trusted hash manifest."""
+        if not self.MANIFEST_PATH.exists():
+            return None
+        try:
+            with self.MANIFEST_PATH.open("r", encoding="utf-8") as f:
+                from typing import cast
+
+                return cast(Dict[str, str], json.load(f))
+        except Exception as e:
+            logger.error(f"Failed to load integrity manifest: {e}")
+            return None
+
+    def _save_manifest(self, manifest: Dict[str, str]):
+        """Save the current hashes as the trusted manifest."""
+        try:
+            self.MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with self.MANIFEST_PATH.open("w", encoding="utf-8") as f:
+                json.dump(manifest, f, indent=2, sort_keys=True)
+            logger.info(f"🛡️  Integrity manifest saved to {self.MANIFEST_PATH}")
+        except Exception as e:
+            logger.error(f"Failed to save integrity manifest: {e}")
 
     def verify_audit_log(self) -> bool:
         """Verify the chained hashes in the audit log to detect tampering."""
@@ -77,18 +107,55 @@ class IntegrityVerifier:
         """Verify integrity of critical files and audit log."""
         logger.info("🛡️  Root of Trust: Verifying system integrity...")
 
+        trusted_manifest = self._load_manifest()
+        current_manifest = {}
         all_ok = True
+
+        # Calculate current hashes
         for rel_path in self.CRITICAL_FILES:
             full_path = self.base_path / rel_path
+            # Check existence
             if not full_path.exists():
+                # It might be normal if running from installed package
+                # and source files are not there in same structure
+                # But assuming standard install where files exist.
+                # If file is missing, and it was in manifest, that's an error.
+                if trusted_manifest and rel_path in trusted_manifest:
+                    logger.error(
+                        f"❌ Integrity Violated: Critical file missing: {rel_path}"
+                    )
+                    all_ok = False
+                continue
+
+            file_hash = self._calculate_hash(full_path)
+            current_manifest[rel_path] = file_hash
+
+        # If no manifest exists, establish trust (TOFU)
+        if trusted_manifest is None:
+            logger.warning(
+                "⚠️  No integrity manifest found. Establishing trust baseline (TOFU)..."
+            )
+            self._save_manifest(current_manifest)
+            trusted_manifest = current_manifest
+
+        # Compare against trusted manifest
+        for rel_path, trusted_hash in trusted_manifest.items():
+            current_hash = current_manifest.get(rel_path)
+
+            if current_hash is None:
                 logger.error(
                     f"❌ Integrity Violated: Critical file missing: {rel_path}"
                 )
                 all_ok = False
                 continue
 
-            file_hash = self._calculate_hash(full_path)
-            logger.debug(f"File: {rel_path}, Hash: {file_hash[:12]}...")
+            if current_hash != trusted_hash:
+                logger.error(f"❌ Integrity Violated: Hash mismatch for {rel_path}")
+                logger.error(f"   Expected: {trusted_hash}")
+                logger.error(f"   Actual:   {current_hash}")
+                all_ok = False
+            else:
+                logger.debug(f"✅ Verified: {rel_path}")
 
         # Also verify the audit log chain
         if not self.verify_audit_log():
@@ -98,6 +165,24 @@ class IntegrityVerifier:
             logger.info("✅ System Integrity Verified.")
 
         return all_ok
+
+    def rebuild_manifest(self) -> bool:
+        """
+        Force rebuild of the integrity manifest.
+        This establishes a new root of trust based on the current system state.
+        Use with caution.
+        """
+        logger.warning("🛡️  Rebuilding integrity trust anchor (TOFU)...")
+        if self.MANIFEST_PATH.exists():
+            try:
+                self.MANIFEST_PATH.unlink()
+                logger.info("Deleted existing manifest.")
+            except Exception as e:
+                logger.error(f"Failed to delete manifest: {e}")
+                return False
+
+        # Calling verify() will trigger TOFU logic since manifest is gone
+        return self.verify()
 
 
 def verify_installation():

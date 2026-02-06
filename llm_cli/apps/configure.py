@@ -208,7 +208,27 @@ def configure_general(config: Dict[str, Any]):
 
     print("\nBehavior Settings:")
     g_config["request_timeout"] = int(
-        prompt_input("Request Timeout (seconds)", g_config.get("request_timeout", 180))
+        prompt_input("Request Timeout (seconds)", g_config.get("request_timeout", 1800))
+    )
+
+
+def configure_security(config: Dict[str, Any]):
+    """Configures security settings, including allowed commands."""
+    print("\n--- Security Settings ---")
+    s_config = config.setdefault("security", {})
+
+    # Configure Allowed Commands
+    current_allowed = s_config.get("allowed_commands", [])
+    print(f"Current allowed commands: {current_allowed}")
+
+    if prompt_bool("Modify allowed commands?", False):
+        new_allowed = prompt_list("Allowed Commands", current_allowed)
+        s_config["allowed_commands"] = new_allowed
+
+    # Configure Missing Token Policy
+    s_config["missing_token_policy"] = prompt_input(
+        "Missing Token Policy (guest/deny)",
+        s_config.get("missing_token_policy", "guest"),
     )
 
 
@@ -306,6 +326,7 @@ def main():
 
         # General and Security
         configure_general(config)
+        configure_security(config)
         configure_mcp(config)
 
         print("\nSummary of changes:")

@@ -52,7 +52,10 @@ class TestIntegrityVerifier:
 
         # Override critical files list for testing to avoid creating deep structure
         saved_critical_files = IntegrityVerifier.CRITICAL_FILES
+        saved_manifest_path = IntegrityVerifier.MANIFEST_PATH
+
         IntegrityVerifier.CRITICAL_FILES = ["test_file.py"]
+        IntegrityVerifier.MANIFEST_PATH = tmp_path / "integrity_manifest.json"
 
         try:
             (tmp_path / "test_file.py").write_text("dummy content")
@@ -60,17 +63,32 @@ class TestIntegrityVerifier:
             assert verifier.verify() is True
         finally:
             IntegrityVerifier.CRITICAL_FILES = saved_critical_files
+            IntegrityVerifier.MANIFEST_PATH = saved_manifest_path
 
     def test_verify_missing_file(self, tmp_path):
         saved_critical_files = IntegrityVerifier.CRITICAL_FILES
+        saved_manifest_path = IntegrityVerifier.MANIFEST_PATH
+        
         IntegrityVerifier.CRITICAL_FILES = ["test_file.py", "missing.py"]
+        IntegrityVerifier.MANIFEST_PATH = tmp_path / "integrity_manifest.json"
 
         try:
+            # Create all files initially to establish a baseline
             (tmp_path / "test_file.py").write_text("dummy content")
+            (tmp_path / "missing.py").write_text("will be deleted")
+            
+            # First run: Establish trust (TOFU) with all files present
             verifier = IntegrityVerifier(tmp_path)
+            assert verifier.verify() is True
+            
+            # Now delete one file to simulate tampering/loss
+            (tmp_path / "missing.py").unlink()
+            
+            # Second run: Should fail because file is missing from established manifest
             assert verifier.verify() is False
         finally:
             IntegrityVerifier.CRITICAL_FILES = saved_critical_files
+            IntegrityVerifier.MANIFEST_PATH = saved_manifest_path
 
 
 class TestPolicyEngine:

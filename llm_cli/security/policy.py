@@ -1,3 +1,4 @@
+import fnmatch
 import logging
 import re
 from typing import Any, Dict
@@ -7,40 +8,54 @@ logger = logging.getLogger(__name__)
 
 class PolicyEngine:
     """
-    Role-Based Access Control (RBAC) Policy Engine.
-    Determines permissions based on user roles defined in configuration.
+    Enhanced Role-Based Access Control (RBAC) & Attribute-Based Access Control (ABAC).
+    Determines permissions based on user roles, subjects, and resource scopes.
     """
 
     def __init__(self, config: Dict[str, Any] | None = None):
         self.config = config or {}
 
-        # Default Role Definitions (Fallback if config is missing)
-        self.roles = {
+        # Default Policy Definitions
+        self.roles: Dict[str, Dict[str, Any]] = {
             "admin": {
-                "description": "Full access to all tools",
+                "description": "Full access with guardrails",
                 "allow_all": True,
-                "allowed_tools": [],
             },
-            "guest": {
-                "description": "Read-only access for unauthenticated clients",
-                "allow_all": False,
+            "user": {
+                "description": "Standard user access",
                 "allowed_tools": [
                     "list_files",
                     "read_file",
                     "fetch_web_text",
                     "google_search",
+                    "edit_file",
                 ],
+                "scopes": {
+                    "edit_file": {"allowed_paths": ["/home/*", "./*"]},
+                },
             },
-            "deny": {
-                "description": "No access allowed",
-                "allow_all": False,
-                "allowed_tools": [],
+            "guest": {
+                "description": "Read-only access",
+                "allowed_tools": [
+                    "list_files",
+                    "read_file",
+                ],
+                "scopes": {
+                    "read_file": {"allowed_paths": ["./docs/*", "*.md"]},
+                },
             },
         }
 
+        # Subject-specific overrides (e.g., specific user@host)
+        self.subjects: Dict[str, Dict[str, Any]] = self.config.get("subjects", {})
+
         # Merge user config into roles if provided
         if "roles" in self.config:
-            self.roles.update(self.config["roles"])
+            for role_name, role_def in self.config["roles"].items():
+                if role_name in self.roles:
+                    self.roles[role_name].update(role_def)
+                else:
+                    self.roles[role_name] = role_def
 
     def evaluate(
         self,
@@ -49,68 +64,123 @@ class PolicyEngine:
         context: Dict[str, Any],
     ) -> bool:
         """
-        Evaluate if the current user (based on context roles) can execute the tool.
+        Evaluate if the current user/context can execute the tool with given arguments.
         """
+        user_id = context.get("user_id", "unknown")
         user_roles = context.get("roles", ["guest"])
-        logger.info(f"🛡️  Policy Evaluation: Tool='{tool_name}', UserRoles={user_roles}")
 
-        # Default Deny
+        logger.info(
+            f"🛡️  Policy Evaluation: Tool='{tool_name}', User='{user_id}', Roles={user_roles}"
+        )
+
+        # 1. Subject-specific Evaluation (Highest Priority)
+        if user_id in self.subjects:
+            subject_policy = self.subjects[user_id]
+            if tool_name in subject_policy.get("denied_tools", []):
+                return False
+            if tool_name in subject_policy.get("allowed_tools", []):
+                return self._verify_scope(tool_name, arguments, subject_policy)
+
+        # 2. Role-based Evaluation
         is_allowed = False
-        active_role = None
+        active_policy: Dict[str, Any] = {}
 
-        # Check all roles assigned to the user. If any role allows it, permit.
         for role_name in user_roles:
             role_def = self.roles.get(role_name)
             if not role_def:
-                logger.warning(f"Undefined role encountered: {role_name}")
                 continue
 
-            # Check 1: Allow All (Admin)
             if role_def.get("allow_all", False):
                 is_allowed = True
-                active_role = role_name
+                active_policy = role_def
                 break
 
-            # Check 2: Explicit Allow List
             allowed_tools = role_def.get("allowed_tools", [])
-            if not isinstance(allowed_tools, list):
-                allowed_tools = []
-
-            # Support wildcard matching or exact match
             if tool_name in allowed_tools or "*" in allowed_tools:
                 is_allowed = True
-                active_role = role_name
+                active_policy = role_def
                 break
 
-        # Additional Guardrail: Path validation for write operations
-        # Even admins shouldn't write to /etc casually unless explicitly overridden
-        if is_allowed and tool_name in ["write_file", "edit_file", "execute_command"]:
-            if not self._validate_dangerous_args(tool_name, arguments):
+        if not is_allowed:
+            logger.warning(f"⛔ Access Denied: No role allows tool '{tool_name}'")
+            return False
+
+        # 3. Scope Verification (ABAC)
+        # Check if the policy has specific restrictions for this tool
+        if not self._verify_scope(tool_name, arguments, active_policy):
+            logger.warning(
+                f"⛔ Access Denied: Arguments out of scope for tool '{tool_name}'"
+            )
+            return False
+
+        # 4. Global Safety Guardrails (Last line of defense)
+        if not self._global_guardrails(tool_name, arguments):
+            return False
+
+        logger.info("✅ Access Granted")
+        return True
+
+    def _verify_scope(
+        self, tool_name: str, arguments: Dict[str, Any], policy: Dict[str, Any]
+    ) -> bool:
+        """Verify if arguments match the allowed scopes in the policy."""
+        scopes = policy.get("scopes", {})
+        if tool_name not in scopes:
+            return True  # No specific scope restriction
+
+        tool_scope = scopes[tool_name]
+
+        # Path-based restriction
+        if "allowed_paths" in tool_scope:
+            path = arguments.get("path") or arguments.get("directory")
+            if path:
+                allowed_patterns = tool_scope["allowed_paths"]
+                if not any(fnmatch.fnmatch(path, p) for p in allowed_patterns):
+                    logger.warning(
+                        f"Scope Violation: Path '{path}' not in allowed patterns {allowed_patterns}"
+                    )
+                    return False
+
+        # Command-based restriction
+        if "allowed_commands" in tool_scope and tool_name == "execute_command":
+            command = arguments.get("command", "")
+            allowed_cmds = tool_scope["allowed_commands"]
+            if not any(re.search(p, command) for p in allowed_cmds):
                 logger.warning(
-                    "⛔ Safety Guardrail: Suspicious arguments detected for "
-                    f"'{tool_name}'"
+                    f"Scope Violation: Command '{command}' not in allowed patterns"
                 )
                 return False
 
-        if is_allowed:
-            logger.info(f"✅ Access Granted by role: '{active_role}'")
-        else:
-            logger.warning(f"⛔ Access Denied: No role allows tool '{tool_name}'")
+        return True
 
-        return is_allowed
-
-    def _validate_dangerous_args(
-        self, tool_name: str, arguments: Dict[str, Any]
-    ) -> bool:
-        """
-        Last line of defense: Check for obviously dangerous paths/commands
-        regardless of role.
-        This can be configured to be disabled by admins if needed.
-        """
+    def _global_guardrails(self, tool_name: str, arguments: Dict[str, Any]) -> bool:
+        """Hardcoded safety checks that apply to everyone, including admins."""
         path = arguments.get("path", "")
-        # Block writes to critical system directories
-        if path and re.match(r"^(/etc|/var|/usr|/root|C:\\Windows)", path):
-            return False
+        if path:
+            # Block sensitive system paths
+            if re.match(
+                r"^(/etc|/var|/usr|/root|/bin|/sbin|C:\\Windows|C:\\System32)", path
+            ):
+                logger.warning(
+                    f"Guardrail: Attempt to access sensitive system path '{path}'"
+                )
+                return False
+
+        if tool_name == "execute_command":
+            command = arguments.get("command", "").lower()
+            dangerous_patterns = [
+                r"rm\s+-rf\s+/",
+                r"mkfs",
+                r"dd\s+if=",
+                r"chmod\s+777",
+                r"> /dev/sd",
+            ]
+            if any(re.search(p, command) for p in dangerous_patterns):
+                logger.warning(
+                    f"Guardrail: Dangerous command pattern detected: {command}"
+                )
+                return False
+
         return True
 
 

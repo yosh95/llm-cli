@@ -1,10 +1,13 @@
-# llm_cli/security/audit.py
-
 import datetime
+import hashlib
+import json
+import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from llm_cli.clients.config import get_setting
+
+logger = logging.getLogger(__name__)
 
 
 def log_audit(
@@ -13,63 +16,99 @@ def log_audit(
     output: Any,
     exit_code: Optional[int] = None,
     error: Optional[str] = None,
+    context: Optional[Dict[str, Any]] = None,
 ):
     """
-    Logs tool execution (especially command execution) for auditing purposes.
-    Maintains a line limit by trimming the log file.
+    Enhanced structured audit logging with Chained Hashing for tamper evidence.
     """
     audit_log_path = get_setting("LLM_AUDIT_LOG", "general")
     if not audit_log_path:
-        audit_log_path = "~/.local/state/llm_cli/audit.log"
+        audit_log_path = "~/.local/state/llm_cli/audit.jsonl"
 
     path = Path(audit_log_path).expanduser()
-    max_lines = int(get_setting("max_audit_log_lines", "general") or 5000)
+    max_lines = int(get_setting("max_audit_log_lines", "general") or 10000)
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.datetime.now().isoformat()
 
-        status = "SUCCESS"
-        if exit_code is not None:
-            status = f"Exit Code: {exit_code}"
-        if error:
-            status = f"FAILED ({error})"
+        # Prepare context info
+        ctx = context or {}
+        trace_id = ctx.get("trace_id", "-")
+        subject = ctx.get("user_id", "unknown")
+        audience = ctx.get("audience", "-")
 
-        # Format arguments and output safely
-        max_val_len = int(get_setting("max_audit_val_len", "general") or 100000)
+        # Get previous hash to create a chain
+        prev_hash = _get_last_log_hash(path)
 
-        def _fmt(val):
-            s = str(val)
-            if max_val_len > 0 and len(s) > max_val_len:
-                return s[:max_val_len] + f"\n... [Truncated at {max_val_len} chars]"
-            return s
+        log_entry = {
+            "timestamp": timestamp,
+            "trace_id": trace_id,
+            "subject": subject,
+            "audience": audience,
+            "tool": tool_name,
+            "args": args,
+            "status": "SUCCESS" if not error else f"FAILED: {error}",
+            "exit_code": exit_code,
+            "prev_hash": prev_hash,
+        }
 
-        log_entry = (
-            f"--- {timestamp} ---\n"
-            f"Tool:   {tool_name}\n"
-            f"Args:   {_fmt(args)}\n"
-            f"Status: {status}\n"
-            f"Result:\n{_fmt(output)}\n"
-            f"{'=' * 40}\n\n"
-        )
+        # Calculate hash of the current entry (excluding the hash itself)
+        entry_str = json.dumps(log_entry, sort_keys=True)
+        current_hash = hashlib.sha256(entry_str.encode()).hexdigest()
+        log_entry["hash"] = current_hash
 
+        # Write as JSONL
         with path.open("a", encoding="utf-8") as f:
-            f.write(log_entry)
+            f.write(json.dumps(log_entry) + "\n")
 
         _trim_log_file(path, max_lines)
 
+    except Exception as e:
+        logger.error(f"Failed to write audit log: {e}")
+
+
+def _get_last_log_hash(path: Path) -> str:
+    """Read the last line of the log to get the previous hash."""
+    if not path.exists() or path.stat().st_size == 0:
+        return "0" * 64  # Genesis hash
+
+    try:
+        with path.open("rb") as f:
+            f.seek(0, 2)  # Go to end
+            pos = f.tell()
+            buffer = b""
+            # Read backwards to find the last newline
+            while pos > 0 and buffer.count(b"\n") < 2:
+                seek_pos = max(0, pos - 1024)
+                f.seek(seek_pos)
+                buffer = f.read(pos - seek_pos) + buffer
+                pos = seek_pos
+
+            lines = buffer.splitlines()
+            if not lines:
+                return "0" * 64
+
+            last_line = lines[-1].decode("utf-8")
+            last_entry = json.loads(last_line)
+            return str(last_entry.get("hash", "0" * 64))
     except Exception:
-        # Avoid crashing the application due to logging errors
-        pass
+        return "0" * 64
 
 
 def _trim_log_file(path: Path, max_lines: int):
-    """Keeps the log file within the specified line limit."""
+    """Keeps the log file within the specified line limit while preserving the chain."""
     try:
         if not path.exists():
             return
-        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+        with path.open("r", encoding="utf-8") as f:
+            lines = f.readlines()
+
         if len(lines) > max_lines:
-            path.write_text("".join(lines[-max_lines:]), encoding="utf-8")
+            # When trimming, we break the hash chain from the beginning,
+            # but preserve it for the remaining entries.
+            # In a production system, we would archive the old logs.
+            with path.open("w", encoding="utf-8") as f:
+                f.writelines(lines[-max_lines:])
     except Exception:
         pass

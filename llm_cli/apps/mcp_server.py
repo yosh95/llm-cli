@@ -9,6 +9,7 @@ import sys
 from llm_cli.apps.configure import load_config
 from llm_cli.mcp_lib import FastMCP
 from llm_cli.modules.tool_registry import registry
+from llm_cli.security.audit import log_audit
 from llm_cli.security.identity import IdentityManager
 from llm_cli.security.integrity import verify_installation
 from llm_cli.security.policy import PolicyEngine, policy_engine
@@ -89,15 +90,34 @@ def secure_tool_wrapper(func, tool_name: str):
             return error_msg
 
         # 3. Audit Logging (Non-repudiation)
-        logger.info(f"📝 AUDIT: Executing '{tool_name}' with args: {kwargs.keys()}")
+        from llm_cli.mcp_lib import get_current_trace_id
+
+        audit_context = {
+            "user_id": user_context.get("user_id"),
+            "roles": user_context.get("roles"),
+            "audience": os.environ.get("MCP_SERVER_NAME"),
+            "trace_id": get_current_trace_id(),
+        }
 
         # 4. Actual Execution
         try:
             if inspect.iscoroutinefunction(func):
-                return await func(*args, **kwargs)
+                result = await func(*args, **kwargs)
             else:
-                return func(*args, **kwargs)
+                result = func(*args, **kwargs)
+
+            log_audit(
+                tool_name=tool_name, args=kwargs, output=result, context=audit_context
+            )
+            return result
         except Exception as e:
+            log_audit(
+                tool_name=tool_name,
+                args=kwargs,
+                output=None,
+                error=str(e),
+                context=audit_context,
+            )
             logger.error(f"Execution failed: {e}")
             raise e
 

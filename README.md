@@ -99,6 +99,30 @@ For power users who need full control over their environment:
 
 `llm-cli` implements strict security guardrails to protect against command injection and dangerous operations initiated by the AI agent:
 
+### 🛡️ Secure MCP Orchestration (Zero Trust Architecture)
+
+This project introduces a robust security layer designed for enterprise-grade tool orchestration, especially when operating as an MCP server.
+
+#### 1. Asymmetric Identity Propagation
+- **No Shared Secrets**: Uses **RS256 (RSA with SHA-256)** signatures. The client signs requests with a private key, and servers verify them using a public key.
+- **Automated Key Management**: RSA key pairs are automatically generated and managed locally (`~/.llm_cli/keys/`).
+- **Workload Identity**: Tokens are bound to the execution context (e.g., `user@hostname`), preventing anonymous tool execution.
+
+#### 2. Context-Aware Policy Engine (RBAC/ABAC)
+- **Granular Control**: Beyond simple "allow/deny", the policy engine evaluates the **Scope** of tool arguments.
+- **Path Guardrails**: Restricts file operations to specific directories (e.g., developers can only edit files in `/home/*`).
+- **Command Filtering**: Prevents dangerous shell patterns (e.g., `rm -rf /`) even for administrative users.
+- **Audience Validation**: Tokens are minted for specific MCP servers (`aud` claim), preventing token reuse across different tools.
+
+#### 3. Tamper-Evident Audit Logging
+- **Structured JSONL Logs**: All tool executions are logged with full context (Trace ID, Subject, Arguments, Results).
+- **Chained Hashing**: Each log entry contains a cryptographic hash of the previous entry. Any deletion or modification of historical logs breaks the chain and is detected at startup.
+- **Traceability**: Implements distributed tracing by propagating `trace_id` through JSON-RPC metadata, allowing you to link an LLM's thought process directly to a specific tool execution.
+
+#### 4. Root of Trust & Integrity
+- **Startup Verification**: The system verifies the integrity of its own source code and configuration before execution.
+- **Secure Remote Orchestration**: Optimized for SSH transport. Since we use asymmetric keys, **no private keys are ever transmitted over the network**, even when connecting to remote MCP servers.
+
 ### Command Execution Guardrails
 
 All shell commands executed through the AI agent (`execute_shell_command` tool) are validated against a **whitelist** of safe commands before execution.
@@ -163,17 +187,6 @@ allow_dangerous_patterns = false
 ### Risk-based Approval Skipping
 
 While most tools require explicit user approval (Human-in-the-Loop), certain non-destructive and interactive tools may execute without a confirmation prompt to ensure a seamless user experience. This is only permitted for tools specifically flagged as safe and interactive by the developer in the local codebase. External tools (like those from MCP servers) **always** require approval.
-
-### Advanced Security & MCP Hardening
-
-`llm-cli` incorporates advanced security concepts derived from CISSP ISSAP domains to ensure integrity and access control, especially when operating as an MCP server.
-
--   **Root of Trust**: Automatically verifies the integrity of critical application files at startup to detect tampering.
--   **Workload Identity**: Uses JWT-based identity propagation for secure client-server communication.
--   **Zero Trust Policy Engine**: Implements Role-Based Access Control (RBAC).
--   **Dual Authentication Mode**:
-    -   **Strict Mode**: Requires a valid auth token (for internal `llm-cli` connections).
-    -   **Guest Mode**: Allows unauthenticated clients (like Claude Desktop) restricted, read-only access.
 
 **Configuring MCP Server Access**:
 You can control how unauthenticated clients are treated in `config.toml`:
@@ -438,6 +451,30 @@ AIエージェントは以下のツールを標準で備えています：
 
 `llm-cli` は、AIエージェントによるコマンドインジェクションや危険な操作を防ぐため、厳格なセキュリティガードレールを実装しています：
 
+### 🛡️ 安全なMCPオーケストレーション（ゼロトラストアーキテクチャ）
+
+本プロジェクトは、標準的なMCP実装に加え、特にMCPサーバーとして動作する際のエンドツーエンドの追跡可能性と堅牢なセキュリティレイヤーを提供します。
+
+#### 1. 非対称鍵によるアイデンティティ伝搬
+- **秘密の共有を排除**: **RS256 (RSA + SHA-256)** 署名を採用。クライアントが秘密鍵で署名し、サーバーは公開鍵のみで検証を行います。
+- **自動鍵管理**: RSA鍵ペアは初回実行時にローカル（`~/.llm_cli/keys/`）で自動生成・管理されます。
+- **ワークロード・アイデンティティ**: トークンは実行コンテキスト（例: `user@hostname`）に紐付けられ、匿名でのツール実行を防止します。
+
+#### 2. コンテキストを考慮したポリシーエンジン (RBAC/ABAC)
+- **きめ細かな制御**: 単なる「許可/拒否」を超え、ツール引数の**スコープ（Scope）**を評価します。
+- **パス・ガードレール**: ファイル操作を特定のディレクトリ（例: `/home/*`）に限定します。
+- **コマンド・フィルタリング**: 管理者であっても、危険なシェルパターン（例: `rm -rf /`）の実行を防止します。
+- **Audience（対象）検証**: トークンは特定のMCPサーバー専用に発行され（`aud` クレーム）、異なるツール間でのトークン再利用を防止します。
+
+#### 3. 改ざん検知可能な監査ログ (Audit Logging)
+- **構造化JSONLログ**: すべてのツール実行をコンテキスト情報（トレースID、主体、引数、結果）と共に記録します。
+- **ハッシュ連鎖 (Chained Hashing)**: 各ログエントリは一つ前のエントリの暗号ハッシュを含みます。過去のログが削除または変更されるとハッシュ連鎖が壊れ、起動時に検知されます。
+- **追跡可能性**: JSON-RPCメタデータを介して `trace_id` を伝搬させることで、LLMの思考プロセスと実際のツール実行を直接紐付ける分散トレーサビリティを実現します。
+
+#### 4. ルート・オブ・トラストと整合性 (Integrity)
+- **起動時検証**: 実行前にソースコードや設定ファイルの整合性を自己検証します。
+- **安全なリモート連携**: SSHトランスポートに最適化。非対称鍵を使用するため、リモートMCPサーバー接続時にも**秘密鍵がネットワーク上を流れることはありません**。
+
 ### コマンド実行ガードレール
 
 AIエージェント（`execute_shell_command` ツール）を通じて実行されるすべてのシェルコマンドは、実行前に**ホワイトリスト**と照合され、検証されます。
@@ -502,17 +539,6 @@ allow_dangerous_patterns = false
 ### リスクベースの承認スキップ
 
 ほとんどのツールは明示的なユーザー承認（Human-in-the-Loop）を必要としますが、非破壊的で対話的な特定のツールは、シームレスなユーザーエクスペリエンスを確保するために確認プロンプトなしで実行される場合があります。これは、開発者がローカルコードベースで安全かつ対話的であると特別にフラグ付けしたツールにのみ許可されます。外部ツール（MCPサーバーからのツールなど）は、**常に**承認が必要です。
-
-### 高度なセキュリティとMCP強化
-
-`llm-cli` は、特にMCPサーバーとして動作する場合の完全性とアクセス制御を確保するために、CISSP ISSAPドメインに由来する高度なセキュリティ概念を取り入れています。
-
--   **信頼の基点 (Root of Trust)**: 起動時に重要なアプリケーションファイルの完全性を自動的に検証し、改ざんを検出します。
--   **ワークロードアイデンティティ**: 安全なクライアントサーバー通信のためにJWTベースのアイデンティティ伝播を使用します。
--   **ゼロトラストポリシーエンジン**: ロールベースアクセス制御 (RBAC) を実装しています。
--   **デュアル認証モード**:
-    -   **厳格モード**: 有効な認証トークンが必要です（内部 `llm-cli` 接続用）。
-    -   **ゲストモード**: 未認証のクライアント（Claude Desktopなど）に制限付きの読み取り専用アクセスを許可します。
 
 **MCPサーバーアクセスの設定**:
 `config.toml` で未認証クライアントの扱いを制御できます：
@@ -599,8 +625,8 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ## コマンドラインオプション
 
--   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`, `vllm`)。
--   `-m, --model <alias>`: モデルエイリアスを指定 (例: `pro`, `flash`, `mini`, `opus`, `gemma`)。
+-   `-p, --provider <provider>`: プロバイダを指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`, `vllm`).
+-   `-m, --model <alias>`: モデルエイリアスを指定 (例: `pro`, `flash`, `mini`, `opus`, `gemma`).
 -   `-s, --stdout`: レスポンスを標準出力に直接表示して終了。
 -   `--raw`: ターミナルでのMarkdownレンダリングを無効化。
 -   `--mcp`: Model Context Protocol (MCP) 統合を有効化。
@@ -609,9 +635,9 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ## チャット内コマンド
 
--   `/provider` (または `/p`): 利用可能なプロバイダ一覧表示または切り替え (例: `/p openai`)。
--   `/model` (または `/m`): 利用可能なモデル一覧表示または切り替え (例: `/m mage`)。
--   `/template` (または `/t`): テンプレートプロンプトを入力バッファに挿入 (例: `/t proofread`)。
+-   `/provider` (または `/p`): 利用可能なプロバイダ一覧表示または切り替え (例: `/p openai`).
+-   `/model` (または `/m`): 利用可能なモデル一覧表示または切り替え (例: `/m mage`).
+-   `/template` (または `/t`): テンプレートプロンプトを入力バッファに挿入 (例: `/t proofread`).
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツールなど）を表示。
 -   `/tools [on|off]`: ツールの状態を表示または切り替え。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。

@@ -69,16 +69,19 @@ class MCPManager:
 
             # Identity Propagation: Inject Auth Token into environment
             env = env or {}
+            # Use server name as audience to prevent token reuse
             env["MCP_AUTH_TOKEN"] = IdentityManager.generate_token(
-                user_id="cli_user", roles=["admin"]
+                roles=["admin"], audience=name
             )
+            env["MCP_SERVER_NAME"] = name
 
             # If command is ssh, inject token into the remote command args
             if command == "ssh" or command.endswith("/ssh"):
                 token = env["MCP_AUTH_TOKEN"]
-                secret_key = IdentityManager.get_secret_key()
-                # Inject both Token and Secret Key
-                env_str = f"MCP_AUTH_TOKEN={token} LLM_CLI_SECRET_KEY={secret_key}"
+                server_name_env = f"MCP_SERVER_NAME={name}"
+                public_key = IdentityManager.get_public_key()
+                # Inject Token, Public Key and Server Name
+                env_str = f"MCP_AUTH_TOKEN={token} LLM_CLI_PUBLIC_KEY='{public_key}' {server_name_env}"
 
                 # Strategy 1: Find python command and insert ENV before it
                 inserted = False

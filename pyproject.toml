@@ -17,7 +17,7 @@ dependencies = [
     "requests",
     "rich",
     "tomli-w",
-    "PyJWT",
+    "PyJWT[crypto]",
 ]
 
 [project.optional-dependencies]

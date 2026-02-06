@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import sys
 from pathlib import Path
@@ -9,14 +10,15 @@ logger = logging.getLogger(__name__)
 class IntegrityVerifier:
     """
     Implements a Root of Trust mechanism by verifying the integrity
-    of critical application files at startup.
+    of critical application files and audit logs at startup.
     """
 
     # Critical files to monitor for tampering
     CRITICAL_FILES = [
         "llm_cli/apps/mcp_server.py",
-        "llm_cli/security/command_validator.py",
+        "llm_cli/security/identity.py",
         "llm_cli/security/policy.py",
+        "llm_cli/security/audit.py",
         "pyproject.toml",
     ]
 
@@ -28,19 +30,49 @@ class IntegrityVerifier:
         sha256_hash = hashlib.sha256()
         try:
             with open(file_path, "rb") as f:
-                # Read and update hash string value in blocks of 4K
                 for byte_block in iter(lambda: f.read(4096), b""):
                     sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
         except FileNotFoundError:
             return "MISSING"
 
+    def verify_audit_log(self) -> bool:
+        """Verify the chained hashes in the audit log to detect tampering."""
+        # Note: In a real app, this would use a proper config loader
+        audit_log_path = Path("~/.local/state/llm_cli/audit.jsonl").expanduser()
+
+        if not audit_log_path.exists():
+            return True
+
+        logger.info("🛡️  Verifying audit log integrity...")
+        try:
+            with audit_log_path.open("r", encoding="utf-8") as f:
+                last_hash = "0" * 64
+                for i, line in enumerate(f):
+                    entry = json.loads(line)
+                    provided_hash = entry.pop("hash", None)
+
+                    # Check chain
+                    if entry.get("prev_hash") != last_hash:
+                        logger.error(f"❌ Audit log chain broken at line {i + 1}")
+                        return False
+
+                    # Verify current entry's hash
+                    entry_str = json.dumps(entry, sort_keys=True)
+                    actual_hash = hashlib.sha256(entry_str.encode()).hexdigest()
+
+                    if provided_hash != actual_hash:
+                        logger.error(f"❌ Audit log tampering detected at line {i + 1}")
+                        return False
+
+                    last_hash = provided_hash
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to verify audit log: {e}")
+            return False
+
     def verify(self) -> bool:
-        """
-        Verify integrity of critical files.
-        In a real-world scenario, expected hashes would be stored in a signed manifest
-        or a secure hardware enclave (TPM). Here we simulate the check.
-        """
+        """Verify integrity of critical files and audit log."""
         logger.info("🛡️  Root of Trust: Verifying system integrity...")
 
         all_ok = True
@@ -53,10 +85,12 @@ class IntegrityVerifier:
                 all_ok = False
                 continue
 
-            # In a real implementation, we would compare against a signed manifest.
-            # For this demo, we just compute and log the hash to show the mechanism.
             file_hash = self._calculate_hash(full_path)
             logger.debug(f"File: {rel_path}, Hash: {file_hash[:12]}...")
+
+        # Also verify the audit log chain
+        if not self.verify_audit_log():
+            all_ok = False
 
         if all_ok:
             logger.info("✅ System Integrity Verified.")

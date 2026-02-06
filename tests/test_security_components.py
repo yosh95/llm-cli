@@ -68,7 +68,7 @@ class TestIntegrityVerifier:
     def test_verify_missing_file(self, tmp_path):
         saved_critical_files = IntegrityVerifier.CRITICAL_FILES
         saved_manifest_path = IntegrityVerifier.MANIFEST_PATH
-        
+
         IntegrityVerifier.CRITICAL_FILES = ["test_file.py", "missing.py"]
         IntegrityVerifier.MANIFEST_PATH = tmp_path / "integrity_manifest.json"
 
@@ -76,14 +76,14 @@ class TestIntegrityVerifier:
             # Create all files initially to establish a baseline
             (tmp_path / "test_file.py").write_text("dummy content")
             (tmp_path / "missing.py").write_text("will be deleted")
-            
+
             # First run: Establish trust (TOFU) with all files present
             verifier = IntegrityVerifier(tmp_path)
             assert verifier.verify() is True
-            
+
             # Now delete one file to simulate tampering/loss
             (tmp_path / "missing.py").unlink()
-            
+
             # Second run: Should fail because file is missing from established manifest
             assert verifier.verify() is False
         finally:

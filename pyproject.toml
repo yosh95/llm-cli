@@ -22,10 +22,12 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "mypy",
     "pytest",
     "pytest-asyncio",
     "pytest-mock",
     "pytest-cov",
+    "ruff",
     "types-requests",
     "types-setuptools",
 ]

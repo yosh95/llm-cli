@@ -4,7 +4,7 @@
 [google]
 
 [google.models]
-default = "gemini-3-pro-preview"
+default = "gemini-3-flash-preview"
 lite = "gemini-flash-lite-latest"
 flash = "gemini-3-flash-preview"
 pro = "gemini-3-pro-preview"

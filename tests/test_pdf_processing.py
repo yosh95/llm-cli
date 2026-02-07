@@ -11,7 +11,7 @@ from llm_cli.modules.models import DataSource
 class TestPDFProcessing:
     """Test suite for PDF processing in different providers."""
 
-    def test_gemini_pdf_as_base64(self, mock_config, temp_pdf_file):
+    def test_gemini_pdf_as_base64(self, mock_config, temp_pdf_file):  # noqa: ARG002
         """Test that Gemini processes PDFs as base64."""
         client = GeminiClient(initial_model_alias="default", stdout=True)
         assert client.pdf_as_base64 is True
@@ -24,7 +24,7 @@ class TestPDFProcessing:
         """Placeholder for OpenAI PDF support test."""
         pass
 
-    def test_claude_pdf_as_base64(self, mock_config, temp_pdf_file):
+    def test_claude_pdf_as_base64(self, mock_config, temp_pdf_file):  # noqa: ARG002
         """Test that Claude processes PDFs as base64."""
         client = ClaudeClient(initial_model_alias="default", stdout=True)
         assert client.pdf_as_base64 is True
@@ -33,7 +33,7 @@ class TestPDFProcessing:
         assert isinstance(result, DataSource)
         assert result.content_type == "application/pdf"
 
-    def test_grok_pdf_as_text(self, mock_config, temp_pdf_file):
+    def test_grok_pdf_as_text(self, mock_config, temp_pdf_file):  # noqa: ARG002
         """Test that Grok processes PDFs as text extraction."""
         client = GrokClient(initial_model_alias="default", stdout=True)
         assert client.pdf_as_base64 is False
@@ -43,7 +43,11 @@ class TestPDFProcessing:
             assert isinstance(result, DataSource)
             assert result.content_type == "text/plain"
 
-    def test_gemini_build_message_with_pdf(self, mock_config, sample_pdf_base64):
+    def test_gemini_build_message_with_pdf(
+        self,
+        mock_config,  # noqa: ARG002
+        sample_pdf_base64,
+    ):
         """Test Gemini message building with PDF."""
         client = GeminiClient(initial_model_alias="default", stdout=True)
         # Refactored _to_provider_request_format takes only 1 positional argument (new_parts)
@@ -61,7 +65,10 @@ class TestPDFProcessing:
         )
 
     def test_pdf_url_fetching_gemini(
-        self, mock_config, mock_cloudscraper, sample_pdf_content
+        self,
+        mock_config,  # noqa: ARG002
+        mock_cloudscraper,
+        sample_pdf_content,
     ):
         """Test PDF URL fetching for Gemini (base64)."""
         mock_cloudscraper.get.return_value.headers = {"Content-Type": "application/pdf"}

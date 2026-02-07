@@ -49,8 +49,7 @@ class LlmCliCompleter(Completer):
         self.client = client
         self.path_completer = PathCompleter(expanduser=True)
 
-        # Dynamic command list from client
-        self.all_cmds = ["/" + cmd for cmd in self.client.slash_commands]
+        # self.all_cmds will be generated dynamically
         self.path_cmds = ("/attach", "/save", "/load")
         self.provider_cmds = ("/p", "/provider")
         self.model_cmds = ("/m", "/model")
@@ -59,9 +58,13 @@ class LlmCliCompleter(Completer):
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
 
+        # Dynamic command list from client (re-fetched every time to
+        # support provider switching)
+        all_cmds = ["/" + cmd for cmd in self.client.slash_commands]
+
         # 1. Command completion (if no space yet)
         if " " not in text and text.startswith("/"):
-            for cmd in self.all_cmds:
+            for cmd in all_cmds:
                 if cmd.startswith(text):
                     yield Completion(cmd, start_position=-len(text))
             return

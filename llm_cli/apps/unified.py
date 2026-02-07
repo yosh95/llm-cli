@@ -97,6 +97,11 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, "active_client"):
             self.active_client.tools_enabled = value
 
+    @property
+    def slash_commands(self):
+        """Delegate slash commands to the active client."""
+        return self.active_client.slash_commands
+
     def _activate_provider(self, provider_alias: str) -> bool:
         if provider_alias not in self.PROVIDER_CONFIG:
             return False

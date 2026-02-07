@@ -37,7 +37,11 @@ class GeminiClient(BaseLlmClient):
             pdf_as_base64=True,
             **kwargs,
         )
-        self._slash_commands.update({"speech", "tts"})
+        self._slash_commands.update({"speech", "tts", "cache"})
+
+        # Context Caching state
+        self.cached_content_name: Optional[str] = None
+        self.cached_message_count: int = 0
 
     def _handle_command(
         self,
@@ -63,6 +67,25 @@ class GeminiClient(BaseLlmClient):
 
             # Use the current model to generate speech content
             self.generate_speech_content(args)
+            return True
+
+        if cmd == "cache":
+            if not args or args == "status":
+                if self.cached_content_name:
+                    console.print(
+                        f"Active cache: {self.cached_content_name}", style="green"
+                    )
+                    console.print(f"Cached messages count: {self.cached_message_count}")
+                else:
+                    console.print("No active cache.", style="yellow")
+            elif args == "create":
+                self._create_cache(force=True)
+            elif args == "clear":
+                self.cached_content_name = None
+                self.cached_message_count = 0
+                console.print("Cache cleared (locally).", style="green")
+            else:
+                console.print("Usage: /cache [status|create|clear]")
             return True
 
         return False
@@ -190,6 +213,94 @@ class GeminiClient(BaseLlmClient):
         # Check specifically for Veo models
         return "veo" in self.model.lower() and "generate" in self.model.lower()
 
+    def _count_tokens(self, payload: Dict[str, Any]) -> int:
+        """Counts tokens for the given payload using the API."""
+        api_url = f"{self.BASE_API_URL}/models/{self.model}:countTokens"
+        try:
+            # countTokens endpoint expects just the content part of the payload
+            # but usually accepts the full generateContent payload structure too.
+            # Let's clean it up to be safe.
+            count_payload = {
+                k: v
+                for k, v in payload.items()
+                if k in ["contents", "system_instruction", "tools"]
+            }
+
+            response = self._post(
+                api_url,
+                headers={"x-goog-api-key": self.api_key},
+                json_data=count_payload,
+                timeout=self.request_timeout,
+            )
+            response.raise_for_status()
+            return int(response.json().get("totalTokens", 0))
+        except Exception:
+            # console.print(f"[yellow]Failed to count tokens: {e}[/yellow]")
+            return 0
+
+    def _create_cache(self, force: bool = False):
+        """Creates a context cache for the current conversation."""
+        # Check current token count
+        # We need the full payload as if we were sending it
+        full_payload = self._to_provider_request_format([])
+        token_count = self._count_tokens(full_payload)
+
+        # Minimum tokens for caching is usually around 32k for Gemini 1.5
+        # Set a threshold.
+        CACHE_THRESHOLD = 32768
+
+        if not force and token_count < CACHE_THRESHOLD:
+            return
+
+        if not force:
+            console.print(
+                f"[dim]Token count {token_count} exceeds threshold. "
+                "Creating context cache...[/dim]"
+            )
+        else:
+            console.print(
+                f"[dim]Creating context cache ({token_count} tokens)...[/dim]"
+            )
+
+        # Prepare cache payload
+        # Cache creation requires specific fields: model, contents,
+        # systemInstruction, tools, ttl
+        cache_payload = {
+            "model": f"models/{self.model}",
+            "contents": full_payload.get("contents", []),
+            "ttl": "3600s",  # 1 hour
+        }
+        if "system_instruction" in full_payload:
+            cache_payload["systemInstruction"] = full_payload["system_instruction"]
+        if "tools" in full_payload:
+            cache_payload["tools"] = full_payload["tools"]
+
+        api_url = f"{self.BASE_API_URL}/cachedContents"
+
+        try:
+            response = self._post(
+                api_url,
+                headers={
+                    "x-goog-api-key": self.api_key,
+                    "Content-Type": "application/json",
+                },
+                json_data=cache_payload,
+                timeout=self.request_timeout,
+            )
+            response.raise_for_status()
+            res_json = response.json()
+
+            self.cached_content_name = res_json.get("name")
+            # We cached everything up to now.
+            # contents in cache includes everything in self.conversation
+            self.cached_message_count = len(self.conversation)
+
+            console.print(f"[green]Cache created: {self.cached_content_name}[/green]")
+            console.print(f"[dim]Expires: {res_json.get('expireTime')}[/dim]")
+
+        except Exception as e:
+            console.print(f"[red]Failed to create cache: {e}[/red]")
+
     def _send(
         self, data: List[DataSource]
     ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
@@ -224,7 +335,29 @@ class GeminiClient(BaseLlmClient):
             else:
                 new_parts.append({"text": str(item.content)})
 
-        payload = self._to_provider_request_format(new_parts)
+        # --- Context Caching Logic ---
+        # 1. If no cache, check if we should create one
+        if not self.cached_content_name:
+            self._create_cache(force=False)
+
+        # 2. Prepare payload
+        start_index = 0
+        cached_content = None
+
+        if self.cached_content_name:
+            # If we have a cache, we only send messages AFTER the cached ones.
+            start_index = self.cached_message_count
+            cached_content = self.cached_content_name
+
+        payload = self._to_provider_request_format(new_parts, start_index=start_index)
+
+        if cached_content:
+            payload["cachedContent"] = cached_content
+            # When using cachedContent, remove system_instruction and tools
+            if "system_instruction" in payload:
+                del payload["system_instruction"]
+            if "tools" in payload:
+                del payload["tools"]
 
         api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
         try:
@@ -237,6 +370,27 @@ class GeminiClient(BaseLlmClient):
                 json_data=payload,
                 timeout=self.request_timeout,
             )
+
+            # Handle 404/400 which might indicate cache expired
+            if response.status_code in (400, 404) and self.cached_content_name:
+                # Try to fall back to full context if cache failed
+                console.print(
+                    f"[yellow]Cache request failed ({response.status_code}). "
+                    "Retrying with full context...[/yellow]"
+                )
+                self.cached_content_name = None
+                self.cached_message_count = 0
+                payload = self._to_provider_request_format(new_parts, start_index=0)
+                response = self._post(
+                    api_url,
+                    headers={
+                        "x-goog-api-key": self.api_key,
+                        "Content-Type": "application/json",
+                    },
+                    json_data=payload,
+                    timeout=self.request_timeout,
+                )
+
             self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
             res_json = response.json()
@@ -315,10 +469,16 @@ class GeminiClient(BaseLlmClient):
             self._report_error("Gemini", e)
             return (None, None), None
 
-    def _to_provider_request_format(self, new_parts: List[Dict]) -> Dict[str, Any]:
+    def _to_provider_request_format(
+        self, new_parts: List[Dict], start_index: int = 0
+    ) -> Dict[str, Any]:
         """Converts history and new parts to Gemini API format."""
         contents: List[Dict[str, Any]] = []
-        for m in self.conversation:
+
+        # Only process conversation from start_index
+        conversation_slice = self.conversation[start_index:]
+
+        for m in conversation_slice:
             parts: List[Dict[str, Any]] = []
             for p in m.parts:
                 if isinstance(p, str):
@@ -737,3 +897,13 @@ class GeminiClient(BaseLlmClient):
 
         console.print("[red]File processing timed out.[/red]")
         return False
+
+    def _print_help(self):
+        super()._print_help()
+        console.print(
+            "\n[bold]Gemini Specific Commands:[/bold]\n"
+            "  /speech <text> Generate audio from text (TTS)\n"
+            "  /cache         Check context cache status\n"
+            "  /cache create  Force create a context cache\n"
+            "  /cache clear   Clear local cache reference"
+        )

@@ -63,6 +63,8 @@ The AI can use tools like `search_web` to find the latest information. In this e
     -   **OpenAI**: Text, local images, and **ChatGPT image generation**.
     -   **Claude**: Text and local images (PDFs are processed as text/Base64).
     -   **Grok**: Text, local images, and **Image Generation**.
+-   **Context Caching (Gemini)**: Automatically caches conversation history when it exceeds ~32k tokens, significantly reducing costs and latency for long sessions. Use `/cache` to manage manually.
+-   **Text-to-Speech (Gemini)**: Generate speech from text using the `/speech` or `/tts` command.
 -   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
 -   **Safe Execution**: Includes a **Diff Preview** for file changes and asks for user confirmation before executing any tool (Human-in-the-Loop).
 -   **Security Guardrails**: Whitelist-based command validation protects against command injection and dangerous operations performed by the AI.
@@ -299,6 +301,11 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 -   `/template` (or `/t`): Insert a template prompt into the input buffer (e.g., `/t proofread`).
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
 -   `/tools [on|off]`: Show or toggle tool status.
+-   `/cache`: Manage context caching (Gemini only).
+    -   `status`: Check cache status.
+    -   `create`: Force create a cache.
+    -   `clear`: Clear local cache reference.
+-   `/speech <text>` (or `/tts`): Generate audio from text (Gemini only).
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
 -   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video).
 -   `/save <path>`: Save conversation history to a JSON file.
@@ -426,6 +433,8 @@ AIは `search_web` などのツールを活用して最新情報を取得でき�
     -   **Gemini**: テキスト、ローカル画像、PDF、**音声**、**動画**をサポート。
     -   **OpenAI**: テキスト、ローカル画像、および **ChatGPT image による画像生成**をサポート。
     -   **Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
+-   **コンテキストキャッシング (Gemini)**: 会話履歴が約32kトークンを超えると自動的にキャッシュを作成し、長時間のセッションにおけるコストと遅延を大幅に削減します。`/cache` で手動管理も可能です。
+-   **テキスト読み上げ (Gemini)**: `/speech` または `/tts` コマンドを使用して、テキストから音声を生成します。
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。
 -   **安全な実行**: ファイル変更時の **Diffプレビュー** 表示と、ツール実行前のユーザー確認（Human-in-the-Loop）。
 -   **セキュリティガードレール**: ホワイトリストベースのコマンド検証により、AIによるコマンドインジェクションや危険な操作を防止。
@@ -662,6 +671,11 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/template` (または `/t`): テンプレートプロンプトを入力バッファに挿入 (例: `/t proofread`).
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツールなど）を表示。
 -   `/tools [on|off]`: ツールの状態を表示または切り替え。
+-   `/cache`: コンテキストキャッシュの管理（Geminiのみ）。
+    -   `status`: キャッシュの状態を確認。
+    -   `create`: 強制的にキャッシュを作成。
+    -   `clear`: ローカルのキャッシュ参照をクリア。
+-   `/speech <text>` (または `/tts`): テキストから音声を生成（Geminiのみ）。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイルを手動添付 (画像, PDF, 音声, 動画)。
 -   `/save <path>`: 会話履歴をJSONファイルに保存。

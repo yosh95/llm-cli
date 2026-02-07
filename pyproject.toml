@@ -46,7 +46,7 @@ vllm-models = "llm_cli.apps.vllm_models:main"
 packages = ["llm_cli"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -63,7 +63,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 # Recommended rule sets

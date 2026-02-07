@@ -72,7 +72,7 @@ class TestBaseLlmClient:
 
     def test_process_file_empty(
         self,
-        concrete_client: BaseLlmClient,
+        concrete_client: BaseLlmClient,  # noqa: ARG002
         temp_empty_file: object,  # noqa: ARG002
     ) -> None:
         """Test that empty files are handled by media_utils."""

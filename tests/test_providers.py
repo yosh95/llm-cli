@@ -75,7 +75,7 @@ class TestUnifiedClient:
 
     def test_unified_pdf_delegation_to_gemini(
         self,
-        mock_config,    # noqa: ARG002
+        mock_config,  # noqa: ARG002
         temp_pdf_file,  # noqa: ARG002
     ):
         """Test that UnifiedClient delegates PDF processing to Gemini."""

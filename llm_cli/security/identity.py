@@ -4,7 +4,6 @@ import os
 import socket
 import time
 import uuid
-from typing import Dict, List, Optional
 
 import jwt
 from cryptography.hazmat.backends import default_backend
@@ -29,7 +28,7 @@ class IdentityManager:
     _PUBLIC_KEY_PATH = _KEY_DIR / "id_rsa.pub"
 
     @classmethod
-    def _ensure_keys(cls):
+    def _ensure_keys(cls) -> None:
         """Ensure RSA keys exist, generate them if not."""
         if not cls._KEY_DIR.exists():
             cls._KEY_DIR.mkdir(parents=True, exist_ok=True)
@@ -40,7 +39,7 @@ class IdentityManager:
                 public_exponent=65537, key_size=2048, backend=default_backend()
             )
             # Save Private Key
-            with open(cls._PRIVATE_KEY_PATH, "wb") as f:
+            with cls._PRIVATE_KEY_PATH.open("wb") as f:
                 f.write(
                     private_key.private_bytes(
                         encoding=serialization.Encoding.PEM,
@@ -50,7 +49,7 @@ class IdentityManager:
                 )
             # Save Public Key
             public_key = private_key.public_key()
-            with open(cls._PUBLIC_KEY_PATH, "wb") as f:
+            with cls._PUBLIC_KEY_PATH.open("wb") as f:
                 f.write(
                     public_key.public_bytes(
                         encoding=serialization.Encoding.PEM,
@@ -61,7 +60,7 @@ class IdentityManager:
     @classmethod
     def _get_private_key_content(cls) -> bytes:
         cls._ensure_keys()
-        with open(cls._PRIVATE_KEY_PATH, "rb") as f:
+        with cls._PRIVATE_KEY_PATH.open("rb") as f:
             return f.read()
 
     @classmethod
@@ -74,7 +73,7 @@ class IdentityManager:
             return env_pub_key.encode("utf-8")
 
         if cls._PUBLIC_KEY_PATH.exists():
-            with open(cls._PUBLIC_KEY_PATH, "rb") as f:
+            with cls._PUBLIC_KEY_PATH.open("rb") as f:
                 return f.read()
 
         raise FileNotFoundError(
@@ -95,9 +94,9 @@ class IdentityManager:
     @classmethod
     def generate_token(
         cls,
-        user_id: Optional[str] = None,
-        roles: Optional[List[str]] = None,
-        audience: Optional[str] = None,
+        user_id: str | None = None,
+        roles: list[str] | None = None,
+        audience: str | None = None,
     ) -> str:
         """
         Generate a signed JWT token using the private RSA key.
@@ -126,8 +125,8 @@ class IdentityManager:
 
     @classmethod
     def verify_token(
-        cls, token: str, expected_audience: Optional[str] = None
-    ) -> Optional[Dict]:
+        cls, token: str, expected_audience: str | None = None
+    ) -> dict | None:
         """
         Verify the validity of an incoming identity token using the public RSA key.
         """
@@ -156,7 +155,7 @@ class IdentityManager:
             return None
 
     @classmethod
-    def get_current_context(cls) -> Dict:
+    def get_current_context(cls) -> dict:
         """
         Retrieve current execution context to be sent with MCP requests.
         """

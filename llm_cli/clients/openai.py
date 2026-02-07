@@ -1,7 +1,7 @@
 # llm_cli/clients/openai.py
 
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
@@ -25,7 +25,7 @@ class OpenAIClient(BaseLlmClient):
     not directly visible, but a summary can be retrieved via reasoning.summary.
     """
 
-    def __init__(self, initial_model_alias: str = "default", **kwargs):
+    def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         """Initializes the OpenAI client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
@@ -38,7 +38,7 @@ class OpenAIClient(BaseLlmClient):
         config_url = get_setting("api_url", "openai")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
-    def _load_model_aliases(self):
+    def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
 
@@ -55,8 +55,8 @@ class OpenAIClient(BaseLlmClient):
         return "sora" in m
 
     def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """
         Sends the conversation history and new data to OpenAI Responses API.
         """
@@ -66,7 +66,7 @@ class OpenAIClient(BaseLlmClient):
             return self._send_video_generation(data)
 
         input_items = self._build_input_items(data)
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "input": input_items,
         }
@@ -113,7 +113,7 @@ class OpenAIClient(BaseLlmClient):
             response.raise_for_status()
             res = response.json()
 
-            model_parts: List[Union[str, ContentPart]] = []
+            model_parts: list[str | ContentPart] = []
             full_text = ""
             thought_text = ""
 
@@ -161,8 +161,8 @@ class OpenAIClient(BaseLlmClient):
             return (None, None), None
 
     def _send_image_generation(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Handles image generation via OpenAI's ."""
         # Extract prompt from conversation and new data
         prompt_parts = []
@@ -247,8 +247,8 @@ class OpenAIClient(BaseLlmClient):
             return (None, None), None
 
     def _send_video_generation(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Handles video generation via OpenAI Sora API."""
         import time
 
@@ -392,9 +392,9 @@ class OpenAIClient(BaseLlmClient):
             self._report_error("OpenAI Sora", e)
             return (None, None), None
 
-    def _update_history(self, data: List[DataSource], model_msg: Message):
+    def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
         """Updates the internal conversation history with new messages."""
-        user_parts: List[Union[str, ContentPart]] = []
+        user_parts: list[str | ContentPart] = []
         for d in data:
             if d.content_type == "text/plain":
                 user_parts.append(ContentPart(text=str(d.content)))
@@ -412,7 +412,7 @@ class OpenAIClient(BaseLlmClient):
             self.conversation.append(Message(role=Role.USER, parts=user_parts))
         self.conversation.append(model_msg)
 
-    def _build_input_items(self, data: List[DataSource]) -> List[Dict[str, Any]]:
+    def _build_input_items(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts the internal conversation history to OpenAI Responses API format."""
         items = []
 

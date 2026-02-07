@@ -1,7 +1,7 @@
 import fnmatch
 import logging
 import re
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ class PolicyEngine:
     Determines permissions based on user roles, subjects, and resource scopes.
     """
 
-    def __init__(self, config: Dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         # Allow passing config directly, or load from global settings
         self.config = config or {}
 
@@ -29,7 +29,7 @@ class PolicyEngine:
         self.intent_analyzer: Any = None
 
         # Default Policy Definitions
-        self.roles: Dict[str, Dict[str, Any]] = {
+        self.roles: dict[str, dict[str, Any]] = {
             "admin": {
                 "description": "Full access with guardrails",
                 "allow_all": True,
@@ -60,7 +60,7 @@ class PolicyEngine:
         }
 
         # Subject-specific overrides (e.g., specific user@host)
-        self.subjects: Dict[str, Dict[str, Any]] = self.config.get("subjects", {})
+        self.subjects: dict[str, dict[str, Any]] = self.config.get("subjects", {})
 
         # Merge user config into roles if provided
         if "roles" in self.config:
@@ -71,7 +71,7 @@ class PolicyEngine:
                     self.roles[role_name] = role_def
 
     def _analyze_intent(
-        self, user_prompt: str, tool_name: str, args: Dict[str, Any]
+        self, user_prompt: str, tool_name: str, args: dict[str, Any]
     ) -> bool:
         """
         Uses a secondary LLM to verify if the tool call aligns with user intent.
@@ -117,8 +117,8 @@ class PolicyEngine:
     def evaluate(
         self,
         tool_name: str,
-        arguments: Dict[str, Any],
-        context: Dict[str, Any],
+        arguments: dict[str, Any],
+        context: dict[str, Any],
     ) -> bool:
         """
         Evaluate if the current user/context can execute the tool with given arguments.
@@ -147,7 +147,7 @@ class PolicyEngine:
 
         # 2. Role-based Evaluation
         is_allowed = False
-        active_policy: Dict[str, Any] = {}
+        active_policy: dict[str, Any] = {}
 
         for role_name in user_roles:
             role_def = self.roles.get(role_name)
@@ -185,7 +185,7 @@ class PolicyEngine:
         return True
 
     def _verify_scope(
-        self, tool_name: str, arguments: Dict[str, Any], policy: Dict[str, Any]
+        self, tool_name: str, arguments: dict[str, Any], policy: dict[str, Any]
     ) -> bool:
         """Verify if arguments match the allowed scopes in the policy."""
         scopes = policy.get("scopes", {})
@@ -218,7 +218,7 @@ class PolicyEngine:
 
         return True
 
-    def _global_guardrails(self, tool_name: str, arguments: Dict[str, Any]) -> bool:
+    def _global_guardrails(self, tool_name: str, arguments: dict[str, Any]) -> bool:
         """Hardcoded safety checks that apply to everyone, including admins."""
         path = arguments.get("path", "")
         if path:

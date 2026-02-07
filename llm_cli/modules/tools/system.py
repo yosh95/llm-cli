@@ -5,7 +5,7 @@ import os
 import platform
 import signal
 import subprocess
-from typing import Any, Dict
+from typing import Any
 
 try:
     import resource
@@ -19,7 +19,7 @@ from llm_cli.security import CommandValidationError, validate_command
 logger = logging.getLogger(__name__)
 
 
-def set_resource_limits(mem_limit_mb: int):
+def set_resource_limits(mem_limit_mb: int) -> None:
     """Sets resource limits for the child process. (Linux/Unix only)"""
     if resource is None:
         return
@@ -72,7 +72,7 @@ def execute_shell_command(command: str) -> str:
     except CommandValidationError as e:
         # We raise the error here so the tool registry's wrapper catches it
         # and logs it as FAILED
-        raise RuntimeError(f"Security Error: {e}")
+        raise RuntimeError(f"Security Error: {e}") from e
 
     # Use a default timeout of 60 seconds.
     timeout = int(os.environ.get("LLM_CLI_COMMAND_TIMEOUT", 60))
@@ -121,7 +121,7 @@ def execute_shell_command(command: str) -> str:
     # 3. Construct the environment for the subprocess
     env = {k: v for k, v in os.environ.items() if k in safe_env_keys}
 
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "shell": True,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
@@ -155,7 +155,7 @@ def execute_shell_command(command: str) -> str:
                 # Raising error so registry wrapper logs it
                 raise RuntimeError(
                     f"Command timed out ({timeout}s). Partial STDOUT:\n{stdout}"
-                )
+                ) from None
 
     except Exception as e:
         # Re-raise to let the tool_registry wrapper handle logging

@@ -1,4 +1,3 @@
-import glob
 import os
 from unittest.mock import MagicMock, patch
 
@@ -41,7 +40,9 @@ def test_gemini_saves_image_and_displays_thought(
         client = GeminiClient(stdout=True)
 
         # Change to tmp_path so image is saved there
-        orig_cwd = os.getcwd()
+        from pathlib import Path
+
+        orig_cwd = Path.cwd()
         os.chdir(tmp_path)
         try:
             # Use DataSource list
@@ -51,14 +52,14 @@ def test_gemini_saves_image_and_displays_thought(
 
             # Check if image file exists in the current directory
             # Note: mimetypes.guess_extension("image/jpeg") can return .jpg or .jpeg depending on OS
-            files_jpeg = glob.glob("*.jp*g")
+            files_jpeg = list(Path().glob("*.jp*g"))
 
             assert len(files_jpeg) == 1, f"Expected 1 jpeg file, found: {files_jpeg}"
 
             # Check if text contains thought and image path
             assert "Image generated and saved to:" in full_text
             assert "This is a thought." in thought_text
-            assert str(files_jpeg[0]) in full_text
+            assert files_jpeg[0].name in full_text
 
         finally:
             os.chdir(orig_cwd)

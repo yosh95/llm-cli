@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import sys
-from typing import Any, Dict, List
+from typing import Any
 
 from rich.console import Console
 
@@ -20,19 +20,19 @@ console = Console()
 class MCPManager:
     """Manages connections to multiple MCP servers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.servers_config = get_mcp_servers()
-        self.sessions: Dict[str, ClientSession] = {}
-        self.exit_stack: Dict[str, Any] = {}
+        self.sessions: dict[str, ClientSession] = {}
+        self.exit_stack: dict[str, Any] = {}
         self.loop = asyncio.new_event_loop()
         self._initialized = False
-        self._cached_tools: List[Dict[str, Any]] = []
+        self._cached_tools: list[dict[str, Any]] = []
 
-    def _run_async(self, coro):
+    def _run_async(self, coro: Any) -> Any:
         """Helper to run async coroutines in the manager's event loop."""
         return self.loop.run_until_complete(coro)
 
-    def list_tools(self) -> List[Dict[str, Any]]:
+    def list_tools(self) -> list[dict[str, Any]]:
         """
         Get the list of available tools from all MCP servers.
         If not initialized, initializes servers first.
@@ -40,7 +40,7 @@ class MCPManager:
         """
         return self.initialize_servers()
 
-    def initialize_servers(self) -> List[Dict[str, Any]]:
+    def initialize_servers(self) -> list[dict[str, Any]]:
         """
         Connect to all configured MCP servers and retrieve their tools.
         Returns a list of tools with namespaced names.
@@ -146,13 +146,13 @@ class MCPManager:
 
     async def _connect_and_list_tools(
         self, server_name: str, params: StdioServerParameters
-    ):
+    ) -> list[dict[str, Any]]:
         transport_ctx = stdio_client(params)
 
         try:
-            read, write = await asyncio.wait_for(
-                transport_ctx.__aenter__(), timeout=15.0
-            )
+            # Need to manually manage context to keep connection open
+            # We treat it as an async context manager which returns the tuple
+            read, write = await transport_ctx.__aenter__()  # type: ignore[attr-defined]
             session = ClientSession(read, write)
             await session.__aenter__()
             await asyncio.wait_for(session.initialize(), timeout=10.0)
@@ -176,14 +176,15 @@ class MCPManager:
                 )
 
             return namespaced_tools
-        except asyncio.TimeoutError:
-            raise Exception("Connection timed out.")
+        except TimeoutError:
+            raise Exception("Connection timed out.") from None
         except Exception as e:
-            await transport_ctx.__aexit__(None, None, None)
+            # Clean up if connection failed
+            await transport_ctx.__aexit__(None, None, None)  # type: ignore[attr-defined]
             raise e
 
     def call_tool(
-        self, server_name: str, tool_name: str, arguments: Dict[str, Any]
+        self, server_name: str, tool_name: str, arguments: dict[str, Any]
     ) -> str:
         """Call a tool on a specific MCP server."""
         session = self.sessions.get(server_name)
@@ -202,12 +203,12 @@ class MCPManager:
         except Exception as e:
             return f"Error calling tool '{tool_name}' on '{server_name}': {e}"
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Close all connections."""
-        for server_name, (transport_ctx, session) in self.exit_stack.items():
+        for _server_name, (transport_ctx, session) in self.exit_stack.items():
             try:
                 self._run_async(session.__aexit__(None, None, None))
-                self._run_async(transport_ctx.__aexit__(None, None, None))
+                self._run_async(transport_ctx.__aexit__(None, None, None))  # type: ignore[attr-defined]
             except Exception:
                 pass
         self.loop.close()

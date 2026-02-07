@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 
-def main():
+def main() -> None:
     console = Console()
     try:
         # Default host

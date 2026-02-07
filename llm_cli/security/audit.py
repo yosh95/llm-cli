@@ -3,7 +3,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from llm_cli.clients.config import get_setting
 
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 def log_audit(
     tool_name: str,
     args: Any,
-    output: Any,
-    exit_code: Optional[int] = None,
-    error: Optional[str] = None,
-    context: Optional[Dict[str, Any]] = None,
-):
+    _output: Any,
+    exit_code: int | None = None,
+    error: str | None = None,
+    context: dict[str, Any] | None = None,
+) -> None:
     """
     Enhanced structured audit logging with Chained Hashing for tamper evidence.
     """
@@ -50,6 +50,7 @@ def log_audit(
             "audience": audience,
             "tool": tool_name,
             "args": args,
+            # "output": str(_output)[:256] if _output else None, # Truncate output
             "status": "SUCCESS" if not error else f"FAILED: {error}",
             "exit_code": exit_code,
             "prev_hash": prev_hash,
@@ -98,7 +99,7 @@ def _get_last_log_hash(path: Path) -> str:
         return "0" * 64
 
 
-def _trim_log_file(path: Path, max_lines: int):
+def _trim_log_file(path: Path, max_lines: int) -> None:
     """Keeps the log file within the specified line limit while preserving the chain."""
     try:
         if not path.exists():

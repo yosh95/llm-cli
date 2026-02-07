@@ -6,7 +6,7 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import requests
 from prompt_toolkit import prompt
@@ -87,7 +87,7 @@ class BaseLlmClient(ABC):
         pdf_as_base64: bool,
         stdout: bool,
         render_markdown: bool = True,
-        initial_tools: Optional[List[str]] = None,
+        initial_tools: list[str] | None = None,
         disable_system_prompt: bool = False,
         enable_mcp: bool = False,
         live_debug: bool = False,
@@ -129,7 +129,7 @@ class BaseLlmClient(ABC):
         self.tools_enabled = True
 
         # Load model and its specific configuration
-        self.available_models: Dict[str, Any] = {}
+        self.available_models: dict[str, Any] = {}
         self.current_alias = ""
         self.model = ""
 
@@ -159,9 +159,9 @@ class BaseLlmClient(ABC):
 
         self.system_prompt_enabled = not disable_system_prompt
 
-        self.conversation: List[Message] = []
-        self.last_usage: Optional[Dict[str, int]] = None
-        self.last_request_duration: Optional[float] = None
+        self.conversation: list[Message] = []
+        self.last_usage: dict[str, int] | None = None
+        self.last_request_duration: float | None = None
 
         self.history_path = self._expand(get_setting("LLM_PROMPT_HISTORY", "general"))
         self.chat_log_path = self._expand(get_setting("LLM_CHAT_LOG", "general"))
@@ -169,7 +169,7 @@ class BaseLlmClient(ABC):
             get_setting("max_chat_log_lines", "general") or 10000
         )
 
-        self.active_tools: List[str] = (
+        self.active_tools: list[str] = (
             initial_tools if initial_tools is not None else list(registry.tools.keys())
         )
 
@@ -182,7 +182,7 @@ class BaseLlmClient(ABC):
         if enable_mcp:
             self._init_mcp(initial_tools is None)
 
-    def _init_mcp(self, update_active_tools: bool):
+    def _init_mcp(self, update_active_tools: bool) -> None:
         """Initializes Model Context Protocol (MCP) tools."""
         try:
             from llm_cli.clients.mcp_manager import mcp_manager
@@ -204,19 +204,19 @@ class BaseLlmClient(ABC):
         except Exception as e:
             console.print(f"[yellow]Note: MCP initialization failed: {e}[/yellow]")
 
-    def _expand(self, p: Optional[str]) -> Optional[str]:
+    def _expand(self, p: str | None) -> str | None:
         """Expands user path symbols."""
         return str(Path(p).expanduser()) if p else None
 
     @abstractmethod
-    def _load_model_aliases(self):
+    def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         pass
 
     @abstractmethod
     def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict | None]:
         """
         Sends the request to the specific provider API.
 
@@ -231,9 +231,9 @@ class BaseLlmClient(ABC):
     def _post(
         self,
         url: str,
-        headers: Dict,
-        json_data: Dict,
-        timeout: Optional[int] = None,
+        headers: dict,
+        json_data: dict,
+        timeout: int | None = None,
     ) -> requests.Response:
         """
         Performs a POST request.
@@ -258,8 +258,8 @@ class BaseLlmClient(ABC):
     def _get(
         self,
         url: str,
-        headers: Optional[Dict] = None,
-        timeout: Optional[int] = None,
+        headers: dict | None = None,
+        timeout: int | None = None,
     ) -> requests.Response:
         """
         Performs a GET request.
@@ -279,7 +279,7 @@ class BaseLlmClient(ABC):
         return requests.get(url, headers=headers, timeout=timeout)
 
     @property
-    def slash_commands(self):
+    def slash_commands(self) -> set[str]:
         """Dynamic slash commands for completer."""
         return self._slash_commands
 
@@ -302,16 +302,16 @@ class BaseLlmClient(ABC):
             return True
         return False
 
-    def set_custom_model(self, model_name: str):
+    def set_custom_model(self, model_name: str) -> None:
         """Sets a custom model that is not in the configuration."""
         self.current_alias = "custom"
         self.model = model_name
 
     def talk(
         self,
-        initial_data: Optional[List[DataSource]] = None,
-        sources: Optional[List[str]] = None,
-    ):
+        initial_data: list[DataSource] | None = None,
+        sources: list[str] | None = None,
+    ) -> None:
         """Starts an interactive chat session."""
         if not self.api_key and self.config_section != "ollama":
             console.print(
@@ -333,7 +333,7 @@ class BaseLlmClient(ABC):
 
         ChatSession(self).run(initial_data, sources)
 
-    def process_sources(self, sources: List[str]):
+    def process_sources(self, sources: list[str]) -> None:
         """Processes a list of input sources (files, URLs, text)."""
         data = [
             processed for s in sources if (processed := self._process_single_source(s))
@@ -354,7 +354,7 @@ class BaseLlmClient(ABC):
         else:
             session.run(sources=sources)
 
-    def _process_single_source(self, source: str) -> Optional[DataSource]:
+    def _process_single_source(self, source: str) -> DataSource | None:
         """Processes a single source string into a DataSource object."""
         if source.startswith("http"):
             content, ctype = fetch_url_content(source, self.pdf_as_base64)
@@ -403,7 +403,7 @@ class BaseLlmClient(ABC):
             loaded_conversation = []
             for msg_data in data:
                 role = Role(msg_data["role"])
-                parts: List[str | ContentPart] = []
+                parts: list[str | ContentPart] = []
                 for p in msg_data["parts"]:
                     if isinstance(p, str):
                         parts.append(p)
@@ -424,8 +424,8 @@ class BaseLlmClient(ABC):
     def _handle_command(
         self,
         user_input: str,
-        sources: Optional[List[str]],
-        pending_data: Optional[List[DataSource]] = None,
+        _sources: list[str] | None,
+        pending_data: list[DataSource] | None = None,
     ) -> bool:
         """Handles in-chat slash commands."""
         if not user_input.startswith("/"):
@@ -741,7 +741,7 @@ class BaseLlmClient(ABC):
 
         return False
 
-    def _print_help(self):
+    def _print_help(self) -> None:
         console.print(
             "[bold]Available Commands:[/bold]\n"
             "  /attach <path> Attach media/file to context\n"
@@ -764,7 +764,7 @@ class BaseLlmClient(ABC):
             "  Use [cyan]Ctrl+C[/cyan] or [cyan]Ctrl+D[/cyan] at any prompt to exit."
         )
 
-    def _trim_log_file(self, path: Path, max_lines: int):
+    def _trim_log_file(self, path: Path, max_lines: int) -> None:
         try:
             if not path.exists():
                 return
@@ -775,8 +775,8 @@ class BaseLlmClient(ABC):
             console.print(f"[dim red]Log trimming failed: {e}[/dim red]")
 
     def _save_inline_media_and_get_log_entry(
-        self, inline_data: Dict[str, Any], hint_text: str = ""
-    ) -> Tuple[Optional[str], Optional[Path]]:
+        self, inline_data: dict[str, Any], hint_text: str = ""
+    ) -> tuple[str | None, Path | None]:
         """
         Saves inline media data (base64) to a file and returns a tuple of
         (formatted display string, saved file path).
@@ -881,7 +881,7 @@ class BaseLlmClient(ABC):
         response_obj: Any = None,
         request_payload: Any = None,
         response_content: Any = None,
-    ):
+    ) -> None:
         if not self.live_debug:
             return
 
@@ -900,8 +900,8 @@ class BaseLlmClient(ABC):
         response_obj: Any = None,
         request_payload: Any = None,
         response_content: Any = None,
-    ):
-        def _format_json(data):
+    ) -> None:
+        def _format_json(data: Any) -> str | Syntax:
             if isinstance(data, (dict, list)):
                 try:
                     return Syntax(
@@ -945,7 +945,9 @@ class BaseLlmClient(ABC):
                     )
                 )
 
-            res_info = [f"[bold]Status:[/bold] {response_obj.status_code}"]
+            res_info: list[str | Syntax] = [
+                f"[bold]Status:[/bold] {response_obj.status_code}"
+            ]
             if response_content:
                 res_info.append(_format_json(response_content))
             else:
@@ -985,7 +987,7 @@ class BaseLlmClient(ABC):
                     )
                 )
 
-    def _report_error(self, provider_name: str, e: Exception):
+    def _report_error(self, provider_name: str, e: Exception) -> None:
         error_msg = str(e)
         if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
             try:
@@ -1017,7 +1019,7 @@ class BaseLlmClient(ABC):
         icon = self.get_model_icon()
         return f"{icon} ({self.model})"
 
-    def _format_response_text(self, text: Optional[str]) -> Optional[str]:
+    def _format_response_text(self, text: str | None) -> str | None:
         if text is None:
             return None
         display_name = self.get_display_name()

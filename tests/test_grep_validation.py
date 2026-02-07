@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from llm_cli.security.command_validator import CommandValidationError, validate_command
@@ -15,9 +13,11 @@ def test_grep_with_slash_pattern():
 
 
 def test_grep_with_existing_system_file():
+    from pathlib import Path
+
     # '/etc/passwd' exists (on most *nix), so it should fail validation
     # even if used as a grep pattern, to be safe.
-    if os.path.exists("/etc/passwd"):
+    if Path("/etc/passwd").exists():
         with pytest.raises(CommandValidationError):
             validate_command("grep -rn '/etc/passwd' .")
 

@@ -6,7 +6,6 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Union
 
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.media_utils import process_file
@@ -53,7 +52,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 def list_files_in_directory(
     directory: str = ".",
     depth: int = 1,
-    ignore_patterns: List[str] | None = None,
+    ignore_patterns: list[str] | None = None,
     max_files: int = 500,
 ) -> str:
     """
@@ -72,6 +71,10 @@ def list_files_in_directory(
                 "__pycache__",
                 "node_modules",
                 "venv",
+                ".venv",
+                ".mypy_cache",
+                ".pytest_cache",
+                ".ruff_cache",
                 ".env",
                 ".DS_Store",
             ]
@@ -81,7 +84,7 @@ def list_files_in_directory(
         def should_ignore(name: str) -> bool:
             return any(fnmatch.fnmatch(name, pattern) for pattern in ignore_patterns)
 
-        def walk(current_path, current_depth):
+        def walk(current_path: Path, current_depth: int) -> None:
             nonlocal file_count
             if depth is not None and current_depth > depth:
                 return
@@ -172,6 +175,10 @@ def search_text_in_files(
                     "__pycache__",
                     "node_modules",
                     "venv",
+                    ".venv",
+                    ".mypy_cache",
+                    ".pytest_cache",
+                    ".ruff_cache",
                     ".env",
                     ".DS_Store",
                     "__MACOSX",
@@ -234,6 +241,10 @@ def search_text_in_files(
             "__pycache__",
             "node_modules",
             "venv",
+            ".venv",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
             ".env",
             ".DS_Store",
         }
@@ -426,7 +437,7 @@ def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> st
                 n=3,
             )
         )
-        diff_text = "".join(diff)  # noqa: F841
+        _ = "".join(diff)
 
         if dry_run:
             return "Dry run enabled. No changes made."
@@ -468,9 +479,7 @@ def create_or_overwrite_file(path: str, content: str) -> str:
         return f"Error: {e}"
 
 
-def _process_and_return(
-    path: str, expected_types: tuple | None = None
-) -> Union[str, Dict]:
+def _process_and_return(path: str, expected_types: tuple | None = None) -> str | dict:
     try:
         p = Path(path)
         if not p.exists():
@@ -512,5 +521,5 @@ def _process_and_return(
         "required": ["path"],
     },
 )
-def read_pdf_content(path: str) -> Union[str, Dict]:
+def read_pdf_content(path: str) -> str | dict:
     return _process_and_return(path, expected_types=("application/pdf",))

@@ -1,11 +1,11 @@
 # llm_cli/modules/models.py
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from enum import StrEnum
+from typing import Any
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -20,12 +20,12 @@ class ContentPart:
     Aligns with Gemini/OpenAI/Anthropic mixed content formats.
     """
 
-    text: Optional[str] = None
-    inline_data: Optional[Dict[str, Any]] = None
-    function_call: Optional[Dict[str, Any]] = None
-    function_response: Optional[Dict[str, Any]] = None
-    thought: Optional[str] = None
-    thought_signature: Optional[str] = None
+    text: str | None = None
+    inline_data: dict[str, Any] | None = None
+    function_call: dict[str, Any] | None = None
+    function_response: dict[str, Any] | None = None
+    thought: str | None = None
+    thought_signature: str | None = None
 
 
 @dataclass
@@ -33,7 +33,7 @@ class Message:
     """A single message in a conversation."""
 
     role: Role
-    parts: List[Union[str, ContentPart]]
+    parts: list[str | ContentPart]
 
     def get_text(self) -> str:
         """Helper to extract all text content from parts."""
@@ -53,7 +53,7 @@ class DataSource:
     content: Any
     content_type: str = "text/plain"
     is_file_or_url: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -71,6 +71,6 @@ class ClientState:
 
     model: str
     provider: str
-    conversation: List[Message] = field(default_factory=list)
+    conversation: list[Message] = field(default_factory=list)
     tools_enabled: bool = True
     system_prompt_enabled: bool = True

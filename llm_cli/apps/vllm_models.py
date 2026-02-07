@@ -6,10 +6,10 @@ from llm_cli.apps.model_listing import ModelListingConfig, list_models
 from llm_cli.clients.config import get_setting
 
 
-def main():
+def main() -> None:
     """List available vLLM models."""
 
-    def format_epoch(model):
+    def format_epoch(model: dict) -> str:
         created = model.get("created")
         if created:
             return datetime.datetime.fromtimestamp(created).strftime(

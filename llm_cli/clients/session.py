@@ -8,8 +8,9 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import termios
@@ -17,7 +18,12 @@ except ImportError:
     termios = None  # type: ignore
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import Completer, Completion, PathCompleter
+from prompt_toolkit.completion import (
+    CompleteEvent,
+    Completer,
+    Completion,
+    PathCompleter,
+)
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
@@ -45,7 +51,7 @@ kb_exit = KeyBindings()
 class LlmCliCompleter(Completer):
     """Provides completion for slash commands and their arguments."""
 
-    def __init__(self, client: BaseLlmClient):
+    def __init__(self, client: BaseLlmClient) -> None:
         self.client = client
         self.path_completer = PathCompleter(expanduser=True)
 
@@ -55,7 +61,9 @@ class LlmCliCompleter(Completer):
         self.model_cmds = ("/m", "/model")
         self.template_cmds = ("/t", "/template")
 
-    def get_completions(self, document, complete_event):
+    def get_completions(
+        self, document: Document, complete_event: CompleteEvent
+    ) -> Iterable[Completion]:
         text = document.text_before_cursor
 
         # Dynamic command list from client (re-fetched every time to
@@ -119,17 +127,17 @@ class LlmCliCompleter(Completer):
 
 
 @kb.add("c-delete")
-def _(event):
+def _(_event: Any) -> None:
     raise KeyboardInterrupt
 
 
 @kb.add("c-j")
-def _(event):
+def _(event: Any) -> None:
     event.current_buffer.insert_text("\n")
 
 
 @kb.add("c-x", "c-e")
-def _(event):
+def _(event: Any) -> None:
     """
     Open the current buffer in an external editor safely.
     Uses shlex to prevent command injection from EDITOR environment variable.
@@ -140,18 +148,18 @@ def _(event):
 
     with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tf:
         tf.write(original_text.encode("utf-8"))
-        tf_path = tf.name
+        tf_path = Path(tf.name)
 
     try:
         # Use shlex.split to safely parse the editor command and arguments.
         # This prevents command injection like EDITOR="vim; rm -rf /"
-        cmd_args = shlex.split(editor_raw) + [tf_path]
+        cmd_args = shlex.split(editor_raw) + [str(tf_path)]
 
         # Execute without shell=True for security.
         return_code = subprocess.call(cmd_args)
 
         if return_code == 0:
-            with open(tf_path, "r", encoding="utf-8") as f:
+            with tf_path.open(encoding="utf-8") as f:
                 new_text = f.read()
                 buffer.text = new_text
         else:
@@ -164,14 +172,14 @@ def _(event):
         console.print(f"\n[red]Failed to open editor: {e}[/red]")
         buffer.text = original_text
     finally:
-        if os.path.exists(tf_path):
-            os.unlink(tf_path)
+        if tf_path.exists():
+            tf_path.unlink()
 
 
 class ChatSession:
     """Manages the interactive CLI session and the ReAct loop."""
 
-    def __init__(self, client: BaseLlmClient):
+    def __init__(self, client: BaseLlmClient) -> None:
         self.client = client
         self.history_path = client.history_path
         self._checkpoint_hint_shown = False
@@ -186,7 +194,9 @@ class ChatSession:
         self.prompt_session: PromptSession = PromptSession(history=self.prompt_history)
         self.completer = LlmCliCompleter(client)
 
-    def _print_block(self, renderable, title=None, style=None):
+    def _print_block(
+        self, renderable: Any, title: str | None = None, style: str | None = None
+    ) -> None:
         """Print content with background color (no border) for easier copying."""
         if title:
             console.print(Rule(title=title, style=style or "white"))
@@ -198,9 +208,9 @@ class ChatSession:
 
     def run(
         self,
-        initial_data: Optional[List[DataSource]] = None,
-        sources: Optional[List[str]] = None,
-    ):
+        initial_data: list[DataSource] | None = None,
+        sources: list[str] | None = None,
+    ) -> None:
         console.print("[dim]Use Ctrl+c or /q to exit, /h for help.[/dim]")
         data = initial_data or []
         prompt_default = ""
@@ -267,7 +277,7 @@ class ChatSession:
                 console.print(f"[bold red]Error: {e}[/bold red]")
                 data = []
 
-    def process_and_print(self, data: List[DataSource]):
+    def process_and_print(self, data: list[DataSource]) -> None:
         self._log_chat(data, role="User")
 
         while True:
@@ -328,7 +338,7 @@ class ChatSession:
 
             # If there are pending tool calls, process them and continue the loop
             last_msg = self.client.conversation[-1]
-            tool_results_parts = []
+            tool_results_parts: list[str | ContentPart] = []
             injected_datas = []
 
             for part in last_msg.parts:
@@ -353,7 +363,7 @@ class ChatSession:
             else:
                 break
 
-    def _handle_checkpoint(self):
+    def _handle_checkpoint(self) -> None:
         summarize_prompt = (
             "Summarize the conversation so far, preserving key context, "
             "decisions, code changes, and remaining tasks. "
@@ -417,7 +427,7 @@ class ChatSession:
             console.print(f"[bold red]Checkpoint failed: {e}[/bold red]")
             self.client.conversation = original_conversation
 
-    def _log_chat(self, content: Any, role: str):
+    def _log_chat(self, content: Any, role: str) -> None:
         if not self.client.chat_log_path:
             return
 
@@ -451,7 +461,9 @@ class ChatSession:
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
-    def _get_input(self, message: str, exit_on_escape: bool = False, **kwargs) -> str:
+    def _get_input(
+        self, message: str, exit_on_escape: bool = False, **kwargs: Any
+    ) -> str:
         """Helper for console input, supporting both TTY and prompt_toolkit."""
         if sys.stdin.isatty():
             if termios:
@@ -474,8 +486,8 @@ class ChatSession:
             return str(self.prompt_session.prompt(message, **kwargs)).strip()
 
         try:
-            tty_path = "/dev/tty" if sys.platform != "win32" else "CON"
-            with open(tty_path, "r") as tty:
+            tty_path = Path("/dev/tty") if sys.platform != "win32" else Path("CON")
+            with tty_path.open() as tty:
                 sys.stderr.write(message)
                 sys.stderr.flush()
                 line = tty.readline()
@@ -495,8 +507,8 @@ class ChatSession:
         return self._get_input(message, exit_on_escape=True).lower() == "y"
 
     def _execute_tool_call(
-        self, part: ContentPart, duration: Optional[float] = None
-    ) -> Optional[Any]:
+        self, part: ContentPart, duration: float | None = None
+    ) -> tuple[ContentPart, DataSource | None] | None:
         call = part.function_call
         if not call:
             return None
@@ -731,7 +743,7 @@ class ChatSession:
             )
             return response, None
 
-    def _preview_diff(self, args: Dict[str, Any]):
+    def _preview_diff(self, args: dict[str, Any]) -> None:
         try:
             path, new_content = (Path(args.get("path", "")), args.get("content", ""))
             if not path or not new_content:
@@ -774,7 +786,7 @@ class ChatSession:
         except Exception:
             pass
 
-    def _preview_edit_diff(self, args: Dict[str, Any]):
+    def _preview_edit_diff(self, args: dict[str, Any]) -> None:
         """Generate a unified diff preview for edit_file (search/replace)."""
         try:
             path_str = args.get("path", "")
@@ -814,7 +826,7 @@ class ChatSession:
         except Exception:
             pass
 
-    def _preview_command(self, args: Dict[str, Any]):
+    def _preview_command(self, args: dict[str, Any]) -> None:
         try:
             command = args.get("command", "")
             if not command:

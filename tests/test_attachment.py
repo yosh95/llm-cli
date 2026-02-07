@@ -10,7 +10,7 @@ class MockClient(BaseLlmClient):
     def _load_model_aliases(self):
         self.available_models = {"default": "model-v1"}
 
-    def _send(self, data):
+    def _send(self, _data):
         return "response", {}
 
 

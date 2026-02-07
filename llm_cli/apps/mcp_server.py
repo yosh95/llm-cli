@@ -5,6 +5,8 @@ import inspect
 import logging
 import os
 import sys
+from collections.abc import Callable
+from typing import Any
 
 from llm_cli.apps.configure import load_config
 from llm_cli.mcp_lib import FastMCP
@@ -38,14 +40,14 @@ except Exception as e:
     policy_engine = PolicyEngine()
 
 
-def secure_tool_wrapper(func, tool_name: str):
+def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..., Any]:
     """
     Decorator-like wrapper to enforce security policies before tool execution.
     Implements Zero Trust and Workload Identity checks.
     """
 
     @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         # 1. Identity Verification (Workload Auth)
         # Attempt to retrieve token from Environment (injected by client or SSH wrapper)
         token = os.environ.get("MCP_AUTH_TOKEN")
@@ -107,14 +109,14 @@ def secure_tool_wrapper(func, tool_name: str):
                 result = func(*args, **kwargs)
 
             log_audit(
-                tool_name=tool_name, args=kwargs, output=result, context=audit_context
+                tool_name=tool_name, args=kwargs, _output=result, context=audit_context
             )
             return result
         except Exception as e:
             log_audit(
                 tool_name=tool_name,
                 args=kwargs,
-                output=None,
+                _output=None,
                 error=str(e),
                 context=audit_context,
             )
@@ -124,7 +126,7 @@ def secure_tool_wrapper(func, tool_name: str):
     return wrapper
 
 
-def create_mcp_server():
+def create_mcp_server() -> FastMCP:
     """Create and configure the FastMCP server instance with security hooks."""
 
     # 0. Root of Trust: Integrity Verification
@@ -146,7 +148,7 @@ def create_mcp_server():
     return mcp
 
 
-def main():
+def main() -> None:
     """Run the MCP server in stdio mode."""
     mcp = create_mcp_server()
     logger.info("Starting LLM-CLI MCP Server (stdio)...")

@@ -1,6 +1,6 @@
 # llm_cli/clients/claude.py
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
@@ -20,7 +20,7 @@ class ClaudeClient(BaseLlmClient):
 
     API_URL = "https://api.anthropic.com/v1/messages"
 
-    def __init__(self, initial_model_alias: str = "default", **kwargs):
+    def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         """Initializes the Claude client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
@@ -30,18 +30,18 @@ class ClaudeClient(BaseLlmClient):
             **kwargs,
         )
 
-    def _load_model_aliases(self):
+    def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
 
         self.available_models = get_model_aliases("anthropic")
 
     def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Sends the conversation history and new data to Claude."""
         messages = self._build_messages(data)
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "max_tokens": 4096,
             "messages": messages,
@@ -81,7 +81,7 @@ class ClaudeClient(BaseLlmClient):
             response.raise_for_status()
             res = response.json()
 
-            model_parts: List[Union[str, ContentPart]] = []
+            model_parts: list[str | ContentPart] = []
             full_text = ""
             thought_text = ""
             for block in res.get("content", []):
@@ -115,9 +115,9 @@ class ClaudeClient(BaseLlmClient):
             self._report_error("Claude", e)
             return (None, None), None
 
-    def _update_history(self, data: List[DataSource], model_msg: Message):
+    def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
         """Updates the internal conversation history with new messages."""
-        user_parts: List[Union[str, ContentPart]] = []
+        user_parts: list[str | ContentPart] = []
         for d in data:
             if d.content_type == "text/plain":
                 user_parts.append(ContentPart(text=str(d.content)))
@@ -135,9 +135,9 @@ class ClaudeClient(BaseLlmClient):
             self.conversation.append(Message(role=Role.USER, parts=user_parts))
         self.conversation.append(model_msg)
 
-    def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
+    def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal conversation history to Claude API format."""
-        msgs: List[Dict[str, Any]] = []
+        msgs: list[dict[str, Any]] = []
 
         # Track tool_use_ids that have responses
         responded_tool_ids = set()
@@ -151,7 +151,7 @@ class ClaudeClient(BaseLlmClient):
 
         for m in self.conversation:
             if m.role == Role.TOOL:
-                tool_content: List[Dict[str, Any]] = []
+                tool_content: list[dict[str, Any]] = []
                 for p in m.parts:
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
@@ -173,7 +173,7 @@ class ClaudeClient(BaseLlmClient):
                     msgs.append({"role": "user", "content": tool_content})
             else:
                 role = "assistant" if m.role == Role.MODEL else "user"
-                msg_parts: List[Dict[str, Any]] = []
+                msg_parts: list[dict[str, Any]] = []
                 for p in m.parts:
                     if isinstance(p, str):
                         msg_parts.append({"type": "text", "text": p})
@@ -205,7 +205,7 @@ class ClaudeClient(BaseLlmClient):
                     msgs.append({"role": role, "content": msg_parts})
 
         # Append incoming data for the next user message
-        user_content: List[Dict[str, Any]] = []
+        user_content: list[dict[str, Any]] = []
         for d in data:
             if d.content_type == "text/plain":
                 user_content.append({"type": "text", "text": str(d.content)})

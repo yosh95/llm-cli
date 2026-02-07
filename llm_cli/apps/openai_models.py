@@ -5,10 +5,10 @@ import datetime
 from llm_cli.apps.model_listing import ModelListingConfig, list_models
 
 
-def main():
+def main() -> None:
     """List available OpenAI models."""
 
-    def format_epoch(model):
+    def format_epoch(model: dict) -> str:
         created = model.get("created")
         if created:
             return datetime.datetime.fromtimestamp(created).strftime(

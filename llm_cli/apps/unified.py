@@ -1,6 +1,6 @@
 # llm_cli/apps/unified.py
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any
 
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
 from llm_cli.clients.base import BaseLlmClient, console
@@ -34,8 +34,8 @@ class UnifiedClient(BaseLlmClient):
         "vllm": (VLLMClient, "vllm"),
     }
 
-    def __init__(self, initial_provider: Optional[str] = None, **kwargs):
-        self.clients: Dict[str, BaseLlmClient] = {}
+    def __init__(self, initial_provider: str | None = None, **kwargs: Any):
+        self.clients: dict[str, BaseLlmClient] = {}
         self.client_kwargs = kwargs
 
         default_p = get_setting("unified_default_provider", "general")
@@ -68,11 +68,11 @@ class UnifiedClient(BaseLlmClient):
         self.active_client.conversation = self.conversation
 
     @property
-    def conversation(self) -> List[Message]:
+    def conversation(self) -> list[Message]:
         return getattr(self, "_conversation", [])
 
     @conversation.setter
-    def conversation(self, value: List[Message]):
+    def conversation(self, value: list[Message]) -> None:
         self._conversation = value
         if hasattr(self, "active_client"):
             self.active_client.conversation = value
@@ -82,7 +82,7 @@ class UnifiedClient(BaseLlmClient):
         return getattr(self, "_live_debug", False)
 
     @live_debug.setter
-    def live_debug(self, value: bool):
+    def live_debug(self, value: bool) -> None:
         self._live_debug = value
         if hasattr(self, "active_client"):
             self.active_client.live_debug = value
@@ -92,13 +92,13 @@ class UnifiedClient(BaseLlmClient):
         return getattr(self, "_tools_enabled", True)
 
     @tools_enabled.setter
-    def tools_enabled(self, value: bool):
+    def tools_enabled(self, value: bool) -> None:
         self._tools_enabled = value
         if hasattr(self, "active_client"):
             self.active_client.tools_enabled = value
 
     @property
-    def slash_commands(self):
+    def slash_commands(self) -> set[str]:
         """Delegate slash commands to the active client."""
         return self.active_client.slash_commands
 
@@ -127,7 +127,7 @@ class UnifiedClient(BaseLlmClient):
 
         return True
 
-    def _load_model_aliases(self):
+    def _load_model_aliases(self) -> None:
         """Handled by sub-clients."""
         pass
 
@@ -138,21 +138,21 @@ class UnifiedClient(BaseLlmClient):
             return True
         return False
 
-    def set_custom_model(self, model_name: str):
+    def set_custom_model(self, model_name: str) -> None:
         """Sets a custom model for the active client."""
         self.active_client.set_custom_model(model_name)
         self.model = self.active_client.model
         self.current_alias = self.active_client.current_alias
 
-    def _process_single_source(self, source: str) -> Optional[DataSource]:
+    def _process_single_source(self, source: str) -> DataSource | None:
         """Delegate source processing to the active provider client."""
         return self.active_client._process_single_source(source)
 
     def _handle_command(
         self,
         user_input: str,
-        sources: Optional[List[str]],
-        pending_data: Optional[List[DataSource]] = None,
+        sources: list[str] | None,
+        pending_data: list[DataSource] | None = None,
     ) -> bool:
         if not user_input.startswith("/"):
             return False
@@ -189,8 +189,8 @@ class UnifiedClient(BaseLlmClient):
         return super()._handle_command(user_input, sources, pending_data)
 
     def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict | None]:
         self.active_client.active_tools = self.active_tools
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
@@ -201,7 +201,7 @@ class UnifiedClient(BaseLlmClient):
         return self.active_client._has_pending_tool_calls()
 
 
-def main():
+def main() -> None:
     config = ClientConfig(
         client_class=UnifiedClient,
         description="Unified LLM CLI with multi-provider support",

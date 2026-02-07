@@ -1,14 +1,14 @@
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 from llm_cli.consts import CONFIG_FILE_PATH
 
-_config_cache: Optional[Dict[str, Any]] = None
+_config_cache: dict[str, Any] | None = None
 
 
-def _load_config_from_file() -> Dict[str, Any]:
+def _load_config_from_file() -> dict[str, Any]:
     """Loads configuration from the TOML file and caches it."""
     global _config_cache
     if _config_cache is not None:
@@ -18,7 +18,7 @@ def _load_config_from_file() -> Dict[str, Any]:
     defaults_path = Path(__file__).parent.parent / "apps" / "defaults.toml"
     defaults = {}
     if defaults_path.exists():
-        with open(defaults_path, "rb") as f:
+        with defaults_path.open("rb") as f:
             try:
                 defaults = tomllib.load(f)
             except Exception:
@@ -27,7 +27,7 @@ def _load_config_from_file() -> Dict[str, Any]:
     # 2. Load user config
     user_config = {}
     if CONFIG_FILE_PATH.exists():
-        with open(CONFIG_FILE_PATH, "rb") as f:
+        with CONFIG_FILE_PATH.open("rb") as f:
             try:
                 user_config = tomllib.load(f)
             except tomllib.TOMLDecodeError as e:
@@ -64,7 +64,7 @@ def _load_config_from_file() -> Dict[str, Any]:
     return _config_cache
 
 
-def get_setting(key: str, section: str) -> Optional[Any]:
+def get_setting(key: str, section: str) -> Any | None:
     """Gets a specific setting value from a section in the config file."""
     config = _load_config_from_file()
     return config.get(section, {}).get(key)
@@ -82,7 +82,7 @@ def get_bool_setting(key: str, section: str, default: bool = False) -> bool:
     return bool(val)
 
 
-def get_model_aliases(section: str) -> Dict[str, str]:
+def get_model_aliases(section: str) -> dict[str, str]:
     """
     Loads all model aliases from a specific section in the config file.
     Returns a mapping of alias -> model name (string).
@@ -113,7 +113,7 @@ def get_model_aliases(section: str) -> Dict[str, str]:
     return normalized
 
 
-def get_model_config(section: str, alias: str) -> Dict[str, Any]:
+def get_model_config(section: str, alias: str) -> dict[str, Any]:
     """
     Retrieves the full configuration for a specific model alias.
     Merges provider-level defaults with model-specific overrides.
@@ -138,7 +138,7 @@ def get_model_config(section: str, alias: str) -> Dict[str, Any]:
     return result
 
 
-def get_all_model_aliases() -> Dict[str, Dict[str, str]]:
+def get_all_model_aliases() -> dict[str, dict[str, str]]:
     """
     Loads model alias configurations for all supported providers.
     Returns a dictionary where keys are provider names (e.g., 'google').
@@ -151,18 +151,18 @@ def get_all_model_aliases() -> Dict[str, Dict[str, str]]:
     return all_aliases
 
 
-def get_provider_tools(section: str) -> Dict[str, str]:
+def get_provider_tools(section: str) -> dict[str, str]:
     config = _load_config_from_file()
-    return cast(Dict[str, str], config.get(section, {}).get("tools", {}))
+    return cast(dict[str, str], config.get(section, {}).get("tools", {}))
 
 
-def get_mcp_servers() -> List[Dict[str, Any]]:
+def get_mcp_servers() -> list[dict[str, Any]]:
     """Loads MCP server configurations from the config file."""
     config = _load_config_from_file()
-    return cast(List[Dict[str, Any]], config.get("mcp_servers", []))
+    return cast(list[dict[str, Any]], config.get("mcp_servers", []))
 
 
-def get_templates() -> Dict[str, str]:
+def get_templates() -> dict[str, str]:
     """Loads prompt templates from the [templates] section of the config file."""
     config = _load_config_from_file()
-    return cast(Dict[str, str], config.get("templates", {}))
+    return cast(dict[str, str], config.get("templates", {}))

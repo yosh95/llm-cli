@@ -5,7 +5,7 @@
 import argparse
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any
 
 from rich.markup import escape
 
@@ -17,10 +17,10 @@ from llm_cli.modules.tool_registry import registry
 class ClientConfig:
     """Configuration for CLI entry point."""
 
-    client_class: Type[BaseLlmClient]
+    client_class: type[BaseLlmClient]
     description: str
     supports_provider_selection: bool = False
-    extra_args: List[Tuple[str, Dict[str, Any]]] = field(default_factory=list)
+    extra_args: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
 
 def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
@@ -122,7 +122,7 @@ def run_client_cli(config: ClientConfig) -> None:
 
     stdout = args.stdout or not sys.stdin.isatty()
 
-    initial_tools: Optional[List[str]] = None
+    initial_tools: list[str] | None = None
     enable_mcp = args.mcp
 
     if stdout:

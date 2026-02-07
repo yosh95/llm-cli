@@ -1,10 +1,16 @@
+from typing import Any
+
 from rich import box
+from rich.console import Console, ConsoleOptions, RenderResult
 from rich.markdown import Markdown, TableElement
 from rich.table import Table
+from rich.text import Text
 
 
 class CustomTableElement(TableElement):
-    def __rich_console__(self, console, options):
+    def __rich_console__(
+        self, console: Console, options: ConsoleOptions
+    ) -> RenderResult:
         table = Table(box=box.SIMPLE_HEAVY)
 
         if self.header is not None and self.header.row is not None:
@@ -13,7 +19,7 @@ class CustomTableElement(TableElement):
 
         if self.body is not None:
             for row in self.body.rows:
-                row_content = []
+                row_content: list[Markdown | Text | str] = []
                 for element in row.cells:
                     content = element.content
                     if isinstance(content, str):
@@ -35,6 +41,6 @@ class CustomMarkdown(Markdown):
     elements = Markdown.elements.copy()
     elements["table_open"] = CustomTableElement
 
-    def __init__(self, markup, *args, **kwargs):
+    def __init__(self, markup: str, *args: Any, **kwargs: Any) -> None:
         """Initialize CustomMarkdown with custom table element."""
         super().__init__(markup, *args, **kwargs)

@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
@@ -19,7 +19,7 @@ class VLLMClient(BaseLlmClient):
     Supports OpenAI-compatible chat completion endpoint.
     """
 
-    def __init__(self, initial_model_alias: str = "default", **kwargs):
+    def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         """Initializes the vLLM client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
@@ -35,15 +35,15 @@ class VLLMClient(BaseLlmClient):
         if not self.api_key:
             self.api_key = "EMPTY"
 
-    def _load_model_aliases(self):
+    def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
 
         self.available_models = get_model_aliases("vllm")
 
     def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict | None]:
         """Sends the conversation history and new data to vLLM."""
         messages = self._build_messages(data)
 
@@ -93,9 +93,7 @@ class VLLMClient(BaseLlmClient):
             # Update history
             user_text = "".join(str(d.content) for d in data)
             if user_text:
-                user_parts: List[Union[str, ContentPart]] = [
-                    ContentPart(text=user_text)
-                ]
+                user_parts: list[str | ContentPart] = [ContentPart(text=user_text)]
                 self.conversation.append(Message(role=Role.USER, parts=user_parts))
 
             model_msg = Message(role=Role.MODEL, parts=model_parts)
@@ -108,9 +106,9 @@ class VLLMClient(BaseLlmClient):
             self._report_error("vLLM", e)
             return (None, None), None
 
-    def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
+    def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts history and new data to OpenAI/vLLM API format."""
-        msgs = []
+        msgs: list[dict[str, Any]] = []
         if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
@@ -173,7 +171,7 @@ class VLLMClient(BaseLlmClient):
                                 )
 
                 if content_text or tool_calls:
-                    msg_obj = {"role": role, "content": content_text}
+                    msg_obj: dict[str, Any] = {"role": role, "content": content_text}
                     if tool_calls:
                         msg_obj["tool_calls"] = tool_calls
                     msgs.append(msg_obj)
@@ -184,7 +182,7 @@ class VLLMClient(BaseLlmClient):
 
         return msgs
 
-    def _parse_response(self, res_json: Dict) -> Tuple[str, List, Optional[str]]:
+    def _parse_response(self, res_json: dict) -> tuple[str, list, str | None]:
         """Parses vLLM API response."""
         reasoning = None
         if "choices" in res_json and len(res_json["choices"]) > 0:
@@ -198,10 +196,10 @@ class VLLMClient(BaseLlmClient):
         return content, tool_calls, reasoning
 
     def _build_model_parts(
-        self, content: str, tool_calls: List, reasoning: Optional[str] = None
-    ) -> List[Union[str, ContentPart]]:
+        self, content: str, tool_calls: list, reasoning: str | None = None
+    ) -> list[str | ContentPart]:
         """Builds internal ContentPart list."""
-        model_parts: List[Union[str, ContentPart]] = []
+        model_parts: list[str | ContentPart] = []
         if reasoning:
             model_parts.append(ContentPart(thought=reasoning))
         if content:

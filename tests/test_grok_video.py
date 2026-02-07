@@ -57,7 +57,7 @@ class TestGrokVideoGeneration:
     @patch("llm_cli.clients.grok.GrokClient._get")
     @patch("time.sleep", return_value=None)  # Skip sleep
     def test_send_video_generation_success(
-        self, mock_sleep, mock_get, mock_post, mock_grok_client
+        self, _mock_sleep, mock_get, mock_post, mock_grok_client
     ):
         """Test successful video generation workflow."""
         # Ensure model is set to video model
@@ -91,7 +91,7 @@ class TestGrokVideoGeneration:
 
         # Capture stdout to avoid printing during test
         with patch("builtins.print"):
-            response_text, usage = mock_grok_client._send(data)
+            response_text, _usage = mock_grok_client._send(data)
 
         # Verify Post call (Start Generation)
         mock_post.assert_called_once()
@@ -119,7 +119,7 @@ class TestGrokVideoGeneration:
     @patch("llm_cli.clients.grok.GrokClient._get")
     @patch("time.sleep", return_value=None)
     def test_send_video_generation_failure(
-        self, mock_sleep, mock_get, mock_post, mock_grok_client
+        self, _mock_sleep, mock_get, mock_post, mock_grok_client
     ):
         """Test video generation failure handling."""
         mock_grok_client.model = "grok-imagine-video"
@@ -135,7 +135,7 @@ class TestGrokVideoGeneration:
         }
 
         with patch("builtins.print"):
-            response_text, usage = mock_grok_client._send(
+            response_text, _usage = mock_grok_client._send(
                 [DataSource(content="Bad video", content_type="text/plain")]
             )
 

@@ -164,7 +164,7 @@ class TestAuditLog:
         audit_file = tmp_path / "audit_error.log"
         monkeypatch.setattr(
             "llm_cli.security.audit.get_setting",
-            lambda k, s: str(audit_file) if k == "LLM_AUDIT_LOG" else None,
+            lambda k, _s: str(audit_file) if k == "LLM_AUDIT_LOG" else None,
         )
 
         log_audit("fail_tool", {}, "no output", exit_code=1, error="Some error")
@@ -182,7 +182,7 @@ class TestAuditLog:
         audit_file = tmp_path / "audit_exit.log"
         monkeypatch.setattr(
             "llm_cli.security.audit.get_setting",
-            lambda k, s: str(audit_file) if k == "LLM_AUDIT_LOG" else None,
+            lambda k, _s: str(audit_file) if k == "LLM_AUDIT_LOG" else None,
         )
 
         log_audit("cmd_tool", {}, "some output", exit_code=127)

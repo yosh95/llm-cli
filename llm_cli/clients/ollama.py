@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
@@ -20,7 +20,7 @@ class OllamaClient(BaseLlmClient):
     Specially handles <think> tags for models like DeepSeek-R1.
     """
 
-    def __init__(self, initial_model_alias: str = "default", **kwargs):
+    def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         """Initializes the Ollama client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
@@ -32,15 +32,15 @@ class OllamaClient(BaseLlmClient):
         config_url = get_setting("api_url", "ollama")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
-    def _load_model_aliases(self):
+    def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
 
         self.available_models = get_model_aliases("ollama")
 
     def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Sends the conversation history and new data to Ollama."""
         messages = self._build_messages(data)
 
@@ -84,9 +84,7 @@ class OllamaClient(BaseLlmClient):
             # Update history
             user_text = "".join(str(d.content) for d in data)
             if user_text:
-                user_parts: List[Union[str, ContentPart]] = [
-                    ContentPart(text=user_text)
-                ]
+                user_parts: list[str | ContentPart] = [ContentPart(text=user_text)]
                 self.conversation.append(Message(role=Role.USER, parts=user_parts))
 
             model_msg = Message(role=Role.MODEL, parts=model_parts)
@@ -99,7 +97,7 @@ class OllamaClient(BaseLlmClient):
             self._report_error("Ollama", e)
             return (None, None), None
 
-    def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
+    def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts history and new data to Ollama API format."""
         msgs = []
         if self.system_prompt and self.system_prompt_enabled:
@@ -164,7 +162,7 @@ class OllamaClient(BaseLlmClient):
                                 )
 
                 if content_text or tool_calls:
-                    msg_obj = {"role": role, "content": content_text}
+                    msg_obj: dict[str, Any] = {"role": role, "content": content_text}
                     if tool_calls:
                         msg_obj["tool_calls"] = tool_calls
                     msgs.append(msg_obj)
@@ -176,7 +174,9 @@ class OllamaClient(BaseLlmClient):
 
         return msgs
 
-    def _parse_response(self, res_json: Dict) -> Tuple[str, List, Optional[str]]:
+    def _parse_response(
+        self, res_json: dict[str, Any]
+    ) -> tuple[str, list[dict[str, Any]], str | None]:
         """Parses Ollama API response."""
         reasoning = None
         if "choices" in res_json:
@@ -191,10 +191,13 @@ class OllamaClient(BaseLlmClient):
         return content, tool_calls, reasoning
 
     def _build_model_parts(
-        self, content: str, tool_calls: List, reasoning: Optional[str] = None
-    ) -> List[Union[str, ContentPart]]:
+        self,
+        content: str,
+        tool_calls: list[dict[str, Any]],
+        reasoning: str | None = None,
+    ) -> list[str | ContentPart]:
         """Builds internal ContentPart list."""
-        model_parts: List[Union[str, ContentPart]] = []
+        model_parts: list[str | ContentPart] = []
         if reasoning:
             model_parts.append(ContentPart(thought=reasoning))
         if content:

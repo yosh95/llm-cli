@@ -1,7 +1,6 @@
 # llm_cli/security/path_validator.py
 
 from pathlib import Path
-from typing import Optional
 
 from llm_cli.clients.config import _load_config_from_file
 
@@ -12,7 +11,7 @@ class PathValidationError(Exception):
     pass
 
 
-def validate_path(path: str, allow_outside_cwd: Optional[bool] = None) -> Path:
+def validate_path(path: str, allow_outside_cwd: bool | None = None) -> Path:
     """
     Validates a path against security policies:
     1. Prevents directory traversal (..).
@@ -65,4 +64,4 @@ def validate_path(path: str, allow_outside_cwd: Optional[bool] = None) -> Path:
         return path_obj
 
     except (ValueError, OSError) as e:
-        raise PathValidationError(f"Invalid path format: {e}")
+        raise PathValidationError(f"Invalid path format: {e}") from e

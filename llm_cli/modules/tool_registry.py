@@ -5,7 +5,8 @@ import functools
 import importlib
 import inspect
 import pkgutil
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from llm_cli.security.audit import log_audit
 
@@ -21,16 +22,16 @@ class ToolRegistry:
     provider-specific tool specifications (OpenAI, Gemini, Anthropic).
     """
 
-    def __init__(self):
-        self.tools: Dict[str, Dict[str, Any]] = {}
-        self.shutdown_hooks: List[Callable] = []
+    def __init__(self) -> None:
+        self.tools: dict[str, dict[str, Any]] = {}
+        self.shutdown_hooks: list[Callable[[], Any]] = []
 
-    def register_shutdown_hook(self, func: Callable):
+    def register_shutdown_hook(self, func: Callable[[], Any]) -> None:
         """Registers a function to be called when the application exits."""
         if func not in self.shutdown_hooks:
             self.shutdown_hooks.append(func)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Executes all registered shutdown hooks."""
         for hook in self.shutdown_hooks:
             try:
@@ -44,13 +45,13 @@ class ToolRegistry:
     def register(
         self,
         name: str,
-        func: Callable,
+        func: Callable[..., Any],
         description: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        supported_providers: Optional[List[str]] = None,
+        parameters: dict[str, Any] | None = None,
+        supported_providers: list[str] | None = None,
         interactive: bool = False,
         skip_approval: bool = False,
-    ):
+    ) -> None:
         """
         Registers a tool in the registry.
 
@@ -86,7 +87,7 @@ class ToolRegistry:
             parameters["required"].append("explanation")
 
         @functools.wraps(func)
-        def wrapper(**kwargs):
+        def wrapper(**kwargs: Any) -> Any:
             # Extract explanation for logging (internal audit)
             _ = kwargs.get("explanation", "No explanation provided.")
 
@@ -116,13 +117,13 @@ class ToolRegistry:
                 log_audit(
                     tool_name=name,
                     args=kwargs,
-                    output=result,
+                    _output=result,
                     exit_code=exit_code,
                     error=None,
                 )
                 return result
             except Exception as e:
-                log_audit(tool_name=name, args=kwargs, output="", error=str(e))
+                log_audit(tool_name=name, args=kwargs, _output="", error=str(e))
                 raise e
 
         self.tools[name] = {
@@ -135,12 +136,14 @@ class ToolRegistry:
             "skip_approval": skip_approval,
         }
 
-    def register_remote_tools(self, mcp_manager) -> List[str]:
+    def register_remote_tools(self, mcp_manager: Any) -> list[str]:
         remote_names = []
         try:
             for tool in mcp_manager.list_tools():
 
-                def make_tool_func(server_name, original_name):
+                def make_tool_func(
+                    server_name: str, original_name: str
+                ) -> Callable[..., Any]:
                     return lambda **kwargs: mcp_manager.call_tool(
                         server_name, original_name, kwargs
                     )
@@ -157,15 +160,15 @@ class ToolRegistry:
             log_audit("remote_tools_register", {}, None, error=str(e))  # Fallback log
         return remote_names
 
-    def discover_local_tools(self):
+    def discover_local_tools(self) -> None:
         import llm_cli.modules.tools as tools_pkg
 
         for _, name, _ in pkgutil.iter_modules(tools_pkg.__path__):
             importlib.import_module(f"llm_cli.modules.tools.{name}")
 
     def get_tool_schemas(
-        self, active_tools: List[str], provider: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, active_tools: list[str], provider: str | None = None
+    ) -> list[dict[str, Any]]:
         schemas = []
         for t in self._get_active(active_tools, provider=provider):
             schemas.append(
@@ -178,13 +181,13 @@ class ToolRegistry:
         return schemas
 
     def get_active_names(
-        self, names: List[str], provider: Optional[str] = None
-    ) -> List[str]:
+        self, names: list[str], provider: str | None = None
+    ) -> list[str]:
         return [t["name"] for t in self._get_active(names, provider=provider)]
 
     def _get_active(
-        self, names: List[str], provider: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, names: list[str], provider: str | None = None
+    ) -> list[dict[str, Any]]:
         active = []
         for n in names:
             if n in self.tools:
@@ -196,8 +199,8 @@ class ToolRegistry:
         return active
 
     def get_gemini_spec(
-        self, names: List[str], provider: str = "google"
-    ) -> List[Dict[str, Any]]:
+        self, names: list[str], provider: str = "google"
+    ) -> list[dict[str, Any]]:
         tools = [
             {
                 "name": t["name"],
@@ -209,8 +212,8 @@ class ToolRegistry:
         return [{"function_declarations": tools}] if tools else []
 
     def get_openai_spec(
-        self, names: List[str], provider: str = "openai"
-    ) -> List[Dict[str, Any]]:
+        self, names: list[str], provider: str = "openai"
+    ) -> list[dict[str, Any]]:
         return [
             {
                 "type": "function",
@@ -224,8 +227,8 @@ class ToolRegistry:
         ]
 
     def get_anthropic_spec(
-        self, names: List[str], provider: str = "anthropic"
-    ) -> List[Dict[str, Any]]:
+        self, names: list[str], provider: str = "anthropic"
+    ) -> list[dict[str, Any]]:
         return [
             {
                 "name": t["name"],
@@ -241,25 +244,25 @@ registry = ToolRegistry()
 
 def tool(
     name: str,
-    description: Optional[str] = None,
-    parameters: Optional[Dict] = None,
-    supported_providers: Optional[List[str]] = None,
-    desc: Optional[str] = None,
-    params: Optional[Dict] = None,
+    description: str | None = None,
+    parameters: dict[str, Any] | None = None,
+    supported_providers: list[str] | None = None,
+    desc: str | None = None,
+    params: dict[str, Any] | None = None,
     interactive: bool = False,
     skip_approval: bool = False,
-):
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     final_desc = description or desc
     final_params = parameters or params
 
     if not final_desc:
         raise ValueError("Either 'description' or 'desc' must be provided")
 
-    def decorator(f: Callable):
+    def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         registry.register(
             name,
             f,
-            final_desc,
+            final_desc,  # type: ignore[arg-type]
             final_params,
             supported_providers,
             interactive,

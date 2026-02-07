@@ -6,7 +6,7 @@ import shlex
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import tomli_w
 from prompt_toolkit import prompt
@@ -21,17 +21,17 @@ CONFIG_FILE = CONFIG_FILE_PATH
 # Load default values from external TOML
 DEFAULTS_FILE = Path(__file__).parent / "defaults.toml"
 if DEFAULTS_FILE.exists():
-    with open(DEFAULTS_FILE, "rb") as f:
+    with DEFAULTS_FILE.open("rb") as f:
         DEFAULTS = tomllib.load(f)
 else:
     DEFAULTS = {}
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     """Loads the configuration file and returns it as a dictionary."""
     if not CONFIG_FILE.exists():
         return {}
-    with open(CONFIG_FILE, "rb") as f:
+    with CONFIG_FILE.open("rb") as f:
         try:
             return tomllib.load(f)
         except Exception:
@@ -41,12 +41,12 @@ def load_config() -> Dict[str, Any]:
             return {}
 
 
-def save_config(config: Dict[str, Any]):
+def save_config(config: dict[str, Any]) -> None:
     """Saves the configuration dictionary to the file."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     # Ensure secure permissions
     CONFIG_FILE.touch(mode=0o600, exist_ok=True)
-    with open(CONFIG_FILE, "wb") as f:
+    with CONFIG_FILE.open("wb") as f:
         tomli_w.dump(config, f)
 
 
@@ -100,9 +100,7 @@ def prompt_bool(prompt_text: str, current_value: bool = False) -> bool:
     return val.startswith("y")
 
 
-def prompt_list(
-    prompt_text: str, current_value: Optional[List[str]] = None
-) -> List[str]:
+def prompt_list(prompt_text: str, current_value: list[str] | None = None) -> list[str]:
     """Prompts for a comma-separated list."""
     current_str = ", ".join(current_value) if current_value else ""
     val = prompt_input(prompt_text + " (comma-separated)", current_str)
@@ -111,7 +109,7 @@ def prompt_list(
     return [item.strip() for item in val.split(",") if item.strip()]
 
 
-def configure_provider(config: Dict[str, Any], provider: str, name: str):
+def configure_provider(config: dict[str, Any], provider: str, name: str) -> None:
     """Interactively configures a specific LLM provider."""
     print(f"\n--- {name} Configuration ---")
     if not prompt_bool(f"Configure {name}?", provider in config):
@@ -175,7 +173,7 @@ def configure_provider(config: Dict[str, Any], provider: str, name: str):
             m_config[alias] = user_input
 
 
-def configure_general(config: Dict[str, Any]):
+def configure_general(config: dict[str, Any]) -> None:
     """Configures general application settings, including data paths."""
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
@@ -212,7 +210,7 @@ def configure_general(config: Dict[str, Any]):
     )
 
 
-def configure_security(config: Dict[str, Any]):
+def configure_security(config: dict[str, Any]) -> None:
     """Configures security settings, including allowed commands."""
     print("\n--- Security Settings ---")
     s_config = config.setdefault("security", {})
@@ -252,7 +250,7 @@ def configure_security(config: Dict[str, Any]):
         s_config["intent_analyzer_enabled"] = False
 
 
-def configure_mcp(config: Dict[str, Any]):
+def configure_mcp(config: dict[str, Any]) -> None:
     """Configures MCP servers."""
     print("\n--- MCP (Model Context Protocol) Servers ---")
     if not prompt_bool("Configure MCP servers?", "mcp_servers" in config):
@@ -327,7 +325,7 @@ def mask_secrets(data: Any) -> Any:
     return data
 
 
-def main():
+def main() -> None:
     try:
         print("========================================")
         print("   llm-cli Interactive Configuration    ")

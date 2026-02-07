@@ -30,10 +30,10 @@ class MockClient(BaseLlmClient):
     def _load_model_aliases(self):
         pass
 
-    def _send(self, data):
+    def _send(self, _data):
         return ("Response", None), {}
 
-    def _handle_command(self, user_input, sources, pending_data):
+    def _handle_command(self, _user_input, _sources, _pending_data):
         self._handle_command_called = True
         return False
 

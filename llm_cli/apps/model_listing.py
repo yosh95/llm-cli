@@ -4,8 +4,9 @@
 
 import argparse
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import requests
 from rich.console import Console
@@ -27,22 +28,22 @@ class ModelListingConfig:
     response_data_key: str  # Key in response JSON ('models' or 'data')
 
     # Optional: Function to build headers from API key
-    build_headers: Optional[Callable[[str], Dict[str, str]]] = None
+    build_headers: Callable[[str], dict[str, str]] | None = None
 
     # Optional: Function to build URL from API key (for key-in-URL patterns)
-    build_url: Optional[Callable[[str, str], str]] = None
+    build_url: Callable[[str, str], str] | None = None
 
     # Optional: Function to extract model name from model object
-    extract_model_name: Optional[Callable[[Dict[str, Any]], str]] = None
+    extract_model_name: Callable[[dict[str, Any]], str] | None = None
 
     # Optional: Function to format non-verbose output line (deprecated)
-    format_model_line: Optional[Callable[[Dict[str, Any]], str]] = None
+    format_model_line: Callable[[dict[str, Any]], str] | None = None
 
     # Optional: Define columns for the table [(Header, Key/Callable)]
-    columns: Optional[List[tuple[str, Any]]] = None
+    columns: list[tuple[str, Any]] | None = None
 
     # Optional: Function to get sort key from model object
-    sort_key: Optional[Callable[[Dict[str, Any]], Any]] = None
+    sort_key: Callable[[dict[str, Any]], Any] | None = None
 
     # Optional: Timeout for API request
     timeout: int = 10
@@ -123,7 +124,7 @@ def list_models(config: ModelListingConfig) -> None:
         return
 
     # Sort models by name
-    def get_model_name(m: Dict[str, Any]) -> str:
+    def get_model_name(m: dict[str, Any]) -> str:
         if config.extract_model_name:
             return config.extract_model_name(m)
         return str(m.get("id", m.get("name", "")))
@@ -148,7 +149,7 @@ def list_models(config: ModelListingConfig) -> None:
 
         for model in models:
             row_data = []
-            for header, key_or_func in display_columns:
+            for _header, key_or_func in display_columns:
                 if callable(key_or_func):
                     val = key_or_func(model)
                 elif isinstance(key_or_func, str):

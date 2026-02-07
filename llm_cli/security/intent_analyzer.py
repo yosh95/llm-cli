@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.modules.models import DataSource
@@ -33,7 +33,7 @@ class IntentAnalyzer:
 
         # Add other clients as needed
 
-        client_kwargs: Dict[str, Any] = {
+        client_kwargs: dict[str, Any] = {
             "initial_model_alias": "default",
             # We will override the model name manually if needed
             "stdout": True,  # Silent mode for the client itself
@@ -64,8 +64,8 @@ class IntentAnalyzer:
             raise ValueError(f"Unsupported provider for IntentAnalyzer: {provider}")
 
     def verify_action(
-        self, user_prompt: str, tool_name: str, tool_args: Dict[str, Any]
-    ) -> Tuple[bool, str]:
+        self, user_prompt: str, tool_name: str, tool_args: dict[str, Any]
+    ) -> tuple[bool, str]:
         """
         Verifies if the tool call aligns with the user's prompt.
         Returns (is_safe, reason).

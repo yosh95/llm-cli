@@ -16,7 +16,7 @@ from llm_cli.mcp_lib import (
 
 
 class TestJSONRPCProtocol:
-    def test_create_request(self):
+    def test_create_request(self) -> None:
         protocol = JSONRPCProtocol()
         req = protocol.create_request("test_method", {"param": 1})
         assert req["jsonrpc"] == "2.0"
@@ -24,14 +24,14 @@ class TestJSONRPCProtocol:
         assert req["params"] == {"param": 1}
         assert isinstance(req["id"], int)
 
-    def test_create_response(self):
+    def test_create_response(self) -> None:
         protocol = JSONRPCProtocol()
         resp = protocol.create_response(123, "result_value")
         assert resp["jsonrpc"] == "2.0"
         assert resp["id"] == 123
         assert resp["result"] == "result_value"
 
-    def test_create_error(self):
+    def test_create_error(self) -> None:
         protocol = JSONRPCProtocol()
         err = protocol.create_error(123, -1, "error message")
         assert err["jsonrpc"] == "2.0"
@@ -43,18 +43,18 @@ class TestJSONRPCProtocol:
 @pytest.mark.asyncio
 class TestClientSession:
     @pytest.fixture
-    def mock_streams(self):
+    def mock_streams(self) -> tuple[AsyncMock, AsyncMock]:
         read_stream = AsyncMock(spec=asyncio.StreamReader)
         write_stream = AsyncMock(spec=asyncio.StreamWriter)
         return read_stream, write_stream
 
-    async def test_listen_loop(self, mock_streams):
+    async def test_listen_loop(self, mock_streams: tuple[AsyncMock, AsyncMock]) -> None:
         read_stream, write_stream = mock_streams
         # Create a pending request
         session = ClientSession(read_stream, write_stream)
         session._connected = True
 
-        future = asyncio.Future()
+        future = asyncio.Future()  # type: ignore
         session.protocol._pending_requests[1] = future
 
         # Responses: successful result, error result, empty string (EOF)
@@ -70,12 +70,14 @@ class TestClientSession:
         assert future.done()
         assert future.result() == "success"
 
-    async def test_listen_loop_error(self, mock_streams):
+    async def test_listen_loop_error(
+        self, mock_streams: tuple[AsyncMock, AsyncMock]
+    ) -> None:
         read_stream, write_stream = mock_streams
         session = ClientSession(read_stream, write_stream)
         session._connected = True
 
-        future = asyncio.Future()
+        future = asyncio.Future()  # type: ignore
         session.protocol._pending_requests[2] = future
 
         responses = [
@@ -93,7 +95,7 @@ class TestClientSession:
         with pytest.raises(Exception, match="fail"):
             future.result()
 
-    async def test_initialize(self, mock_streams):
+    async def test_initialize(self, mock_streams: tuple[AsyncMock, AsyncMock]) -> None:
         read_stream, write_stream = mock_streams
 
         # Setup read_stream to return response for initialize
@@ -116,7 +118,7 @@ class TestClientSession:
             sent_req = json.loads(args)
             assert sent_req["method"] == "initialize"
 
-    async def test_list_tools(self, mock_streams):
+    async def test_list_tools(self, mock_streams: tuple[AsyncMock, AsyncMock]) -> None:
         read_stream, write_stream = mock_streams
         response = {
             "jsonrpc": "2.0",
@@ -132,7 +134,7 @@ class TestClientSession:
             assert len(result.tools) == 1
             assert result.tools[0].name == "tool1"
 
-    async def test_call_tool(self, mock_streams):
+    async def test_call_tool(self, mock_streams: tuple[AsyncMock, AsyncMock]) -> None:
         read_stream, write_stream = mock_streams
         response = {
             "jsonrpc": "2.0",
@@ -147,7 +149,9 @@ class TestClientSession:
             assert isinstance(result, ToolResult)
             assert result.content[0].text == "tool output"
 
-    async def test_error_response(self, mock_streams):
+    async def test_error_response(
+        self, mock_streams: tuple[AsyncMock, AsyncMock]
+    ) -> None:
         read_stream, write_stream = mock_streams
         response = {
             "jsonrpc": "2.0",
@@ -164,7 +168,7 @@ class TestClientSession:
 
 @pytest.mark.asyncio
 class TestFastMCP:
-    async def test_handle_message_initialize(self):
+    async def test_handle_message_initialize(self) -> None:
         server = FastMCP("test_server")
         write_stream = AsyncMock(spec=asyncio.StreamWriter)
 
@@ -175,11 +179,11 @@ class TestFastMCP:
         sent_data = json.loads(write_stream.write.call_args[0][0])
         assert sent_data["result"]["serverInfo"]["name"] == "test_server"
 
-    async def test_handle_message_list_tools(self):
+    async def test_handle_message_list_tools(self) -> None:
         server = FastMCP("test_server")
 
         @server.tool()
-        def my_tool(arg: int):
+        def my_tool(arg: int) -> None:
             """My Tool Doc"""
             pass
 
@@ -194,11 +198,11 @@ class TestFastMCP:
         assert tools[0]["description"] == "My Tool Doc"
         assert "arg" in tools[0]["inputSchema"]["properties"]
 
-    async def test_handle_message_call_tool(self):
+    async def test_handle_message_call_tool(self) -> None:
         server = FastMCP("test_server")
 
         @server.tool()
-        def echo(text: str):
+        def echo(text: str) -> str:
             return f"Echo: {text}"
 
         write_stream = AsyncMock(spec=asyncio.StreamWriter)
@@ -214,7 +218,7 @@ class TestFastMCP:
         content = sent_data["result"]["content"]
         assert content[0]["text"] == "Echo: hello"
 
-    async def test_handle_message_call_unknown_tool(self):
+    async def test_handle_message_call_unknown_tool(self) -> None:
         server = FastMCP("test_server")
         write_stream = AsyncMock(spec=asyncio.StreamWriter)
         msg = {
@@ -229,7 +233,7 @@ class TestFastMCP:
         assert "error" in sent_data
         assert "Tool not found" in sent_data["error"]["message"]
 
-    async def test_handle_message_unknown_method(self):
+    async def test_handle_message_unknown_method(self) -> None:
         server = FastMCP("test_server")
         write_stream = AsyncMock(spec=asyncio.StreamWriter)
         msg = {"jsonrpc": "2.0", "id": 1, "method": "unknown/method"}
@@ -241,7 +245,7 @@ class TestFastMCP:
 
 
 @pytest.mark.asyncio
-async def test_stdio_client_context():
+async def test_stdio_client_context() -> None:
     params = StdioServerParameters(command="echo", args=["hello"])
 
     # Mock asyncio.create_subprocess_exec
@@ -263,7 +267,7 @@ async def test_stdio_client_context():
 
 
 @pytest.mark.asyncio
-async def test_fastmcp_run_loop():
+async def test_fastmcp_run_loop() -> None:
     server = FastMCP("test")
 
     # Mock loop and streams
@@ -301,7 +305,7 @@ async def test_fastmcp_run_loop():
         mock_writer.write.assert_called()
 
 
-def test_fastmcp_run():
+def test_fastmcp_run() -> None:
     server = FastMCP("test")
     with patch("asyncio.run") as mock_run:
         server.run()

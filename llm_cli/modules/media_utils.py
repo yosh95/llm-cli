@@ -8,7 +8,7 @@ import urllib.parse
 import uuid
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any
 
 import cloudscraper
 import filetype
@@ -35,7 +35,7 @@ def validate_url(url: str) -> bool:
         return False
 
 
-def read_pdf_text(source: Union[Path, BytesIO]) -> str:
+def read_pdf_text(source: Path | BytesIO) -> str:
     try:
         reader = PdfReader(source)
         return "\n".join(
@@ -51,7 +51,7 @@ def encode_file_base64(path: Path) -> str:
 
 def fetch_url_content(
     url: str, pdf_as_base64: bool = True
-) -> Tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     if not validate_url(url):
         return None, None
     try:
@@ -86,7 +86,7 @@ def fetch_url_content(
         return None, None
 
 
-def process_file(path: Path, pdf_as_base64: bool = True) -> Optional[Dict[str, Any]]:
+def process_file(path: Path, pdf_as_base64: bool = True) -> dict[str, Any] | None:
     if not path.exists() or path.stat().st_size == 0:
         return None
 

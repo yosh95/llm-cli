@@ -2,7 +2,6 @@
 
 import re
 import shlex
-from typing import List, Optional, Set
 
 from llm_cli.clients.config import _load_config_from_file
 from llm_cli.security.path_validator import PathValidationError, validate_path
@@ -77,7 +76,7 @@ class CommandValidator:
 
     def __init__(
         self,
-        custom_whitelist: Optional[Set[str]] = None,
+        custom_whitelist: set[str] | None = None,
         allow_dangerous_patterns: bool = False,
     ):
         self.whitelist = self.DEFAULT_WHITELIST.copy()
@@ -102,7 +101,7 @@ class CommandValidator:
         try:
             tokens = shlex.split(command)
         except ValueError as e:
-            raise CommandValidationError(f"Failed to parse command: {e}")
+            raise CommandValidationError(f"Failed to parse command: {e}") from e
 
         if not tokens:
             raise CommandValidationError("No command found after parsing")
@@ -135,7 +134,7 @@ class CommandValidator:
                 "and then execute it (e.g., 'python3 your_file.py')."
             )
 
-    def _validate_parts(self, parts: List[str]) -> None:
+    def _validate_parts(self, parts: list[str]) -> None:
         if not parts:
             return
 
@@ -190,7 +189,7 @@ class CommandValidator:
         if re.search(r"[<>]", masked_command):
             raise CommandValidationError("I/O redirection (> or <) is forbidden.")
 
-    def _check_paths(self, parts: List[str]) -> None:
+    def _check_paths(self, parts: list[str]) -> None:
         base_command = parts[0]
         if "/" in base_command:
             base_command = base_command.split("/")[-1]
@@ -209,16 +208,16 @@ class CommandValidator:
                         # search query. For these read-only/search commands, we
                         # allow non-existent paths because they won't lead to
                         # unauthorized file access (file not found).
-                        import os
+                        from pathlib import Path
 
-                        expanded_path = os.path.expanduser(part)
-                        if not os.path.exists(expanded_path):
+                        expanded_path = Path(part).expanduser()
+                        if not expanded_path.exists():
                             continue
 
                     # Bubble up the specific traversal error message
-                    raise CommandValidationError(str(e))
+                    raise CommandValidationError(str(e)) from e
 
-    def _check_dangerous_arguments(self, base_command: str, parts: List[str]) -> None:
+    def _check_dangerous_arguments(self, base_command: str, parts: list[str]) -> None:
         config = _load_config_from_file()
         security_config = config.get("security", {})
 
@@ -297,7 +296,7 @@ class CommandValidator:
                     )
 
 
-def validate_command(command: str, custom_whitelist: Optional[Set[str]] = None) -> None:
+def validate_command(command: str, custom_whitelist: set[str] | None = None) -> None:
     config = _load_config_from_file()
     security_config = config.get("security", {})
     config_whitelist = set(security_config.get("allowed_commands", []))

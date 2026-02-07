@@ -6,15 +6,16 @@ import logging
 import os
 import sys
 import uuid
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # --- Context Propagation ---
 
-TRACE_ID: ContextVar[Optional[str]] = ContextVar("trace_id", default=None)
+TRACE_ID: ContextVar[str | None] = ContextVar("trace_id", default=None)
 
 
 def get_current_trace_id() -> str:
@@ -31,22 +32,24 @@ class TraceLogger(logging.Logger):
 
     def makeRecord(
         self,
-        name,
-        level,
-        fn,
-        lno,
-        msg,
-        args,
-        exc_info,
-        func=None,
-        extra=None,
-        sinfo=None,
-    ):
+        name: str,
+        level: int,
+        fn: str,
+        lno: int,
+        msg: object,
+        args: Any,
+        exc_info: Any,
+        func: str | None = None,
+        extra: Mapping[str, object] | None = None,
+        sinfo: str | None = None,
+    ) -> logging.LogRecord:
         if extra is None:
             extra = {}
-        extra["trace_id"] = TRACE_ID.get() or "-"
+        # We need to copy extra because we modify it and it might be immutable
+        extra_dict = dict(extra)
+        extra_dict["trace_id"] = TRACE_ID.get() or "-"
         return super().makeRecord(
-            name, level, fn, lno, msg, args, exc_info, func, extra, sinfo
+            name, level, fn, lno, msg, args, exc_info, func, extra_dict, sinfo
         )
 
 
@@ -60,21 +63,21 @@ class TraceLogger(logging.Logger):
 @dataclasses.dataclass
 class StdioServerParameters:
     command: str
-    args: List[str]
-    env: Optional[Dict[str, str]] = None
+    args: list[str]
+    env: dict[str, str] | None = None
 
 
 @dataclasses.dataclass
 class Content:
     type: str
-    text: Optional[str] = None
-    data: Optional[str] = None
-    mimeType: Optional[str] = None
+    text: str | None = None
+    data: str | None = None
+    mimeType: str | None = None
 
 
 @dataclasses.dataclass
 class ToolResult:
-    content: List[Content]
+    content: list[Content]
     isError: bool = False
 
 
@@ -82,12 +85,12 @@ class ToolResult:
 class ToolDescription:
     name: str
     description: str
-    inputSchema: Dict[str, Any]
+    inputSchema: dict[str, Any]
 
 
 @dataclasses.dataclass
 class ListToolsResult:
-    tools: List[ToolDescription]
+    tools: list[ToolDescription]
 
 
 # --- Protocol Helpers ---
@@ -96,13 +99,15 @@ class ListToolsResult:
 class JSONRPCProtocol:
     def __init__(self) -> None:
         self._msg_id = 0
-        self._pending_requests: Dict[int, asyncio.Future] = {}
+        self._pending_requests: dict[int, asyncio.Future] = {}
 
     def _next_id(self) -> int:
         self._msg_id += 1
         return self._msg_id
 
-    def create_request(self, method: str, params: Optional[Dict] = None) -> Dict:
+    def create_request(
+        self, method: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         return {
             "jsonrpc": "2.0",
             "method": method,
@@ -110,10 +115,10 @@ class JSONRPCProtocol:
             "id": self._next_id(),
         }
 
-    def create_response(self, request_id: int, result: Any) -> Dict:
+    def create_response(self, request_id: int, result: Any) -> dict[str, Any]:
         return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
-    def create_error(self, request_id: int, code: int, message: str) -> Dict:
+    def create_error(self, request_id: int, code: int, message: str) -> dict[str, Any]:
         return {
             "jsonrpc": "2.0",
             "id": request_id,
@@ -131,15 +136,20 @@ class ClientSession:
         self.read_stream = read_stream
         self.write_stream = write_stream
         self.protocol = JSONRPCProtocol()
-        self._listener_task: Optional[asyncio.Task] = None
+        self._listener_task: asyncio.Task | None = None
         self._connected = False
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "ClientSession":
         self._connected = True
         self._listener_task = asyncio.create_task(self._listen_loop())
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
+    ) -> None:
         self._connected = False
         if self._listener_task:
             self._listener_task.cancel()
@@ -148,7 +158,7 @@ class ClientSession:
             except asyncio.CancelledError:
                 pass
 
-    async def _listen_loop(self):
+    async def _listen_loop(self) -> None:
         try:
             while self._connected:
                 line = await self.read_stream.readline()
@@ -174,7 +184,7 @@ class ClientSession:
         except asyncio.CancelledError:
             pass
 
-    async def _send_request(self, method: str, params: Optional[Dict] = None) -> Any:
+    async def _send_request(self, method: str, params: dict | None = None) -> Any:
         req = self.protocol.create_request(method, params)
         req_id = req["id"]
 
@@ -187,7 +197,7 @@ class ClientSession:
 
         return await future
 
-    async def initialize(self):
+    async def initialize(self) -> Any:
         return await self._send_request(
             "initialize",
             {
@@ -211,7 +221,7 @@ class ClientSession:
             )
         return ListToolsResult(tools=tools)
 
-    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> ToolResult:
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> ToolResult:
         # Inject trace id into arguments as _meta
         trace_id = get_current_trace_id()
         args_with_meta = arguments.copy()
@@ -232,7 +242,9 @@ class ClientSession:
 
 
 @asynccontextmanager
-async def stdio_client(params: StdioServerParameters):
+async def stdio_client(
+    params: StdioServerParameters,
+) -> AsyncIterator[tuple[asyncio.StreamReader, asyncio.StreamWriter]]:
     # Prepare environment
     env = os.environ.copy()
     if params.env:
@@ -249,6 +261,9 @@ async def stdio_client(params: StdioServerParameters):
         limit=32 * 1024 * 1024,  # 32MB limit for large MCP messages
     )
 
+    if proc.stdout is None or proc.stdin is None:
+        raise RuntimeError("Failed to open stdin/stdout for MCP server process")
+
     try:
         yield proc.stdout, proc.stdin
     finally:
@@ -256,7 +271,7 @@ async def stdio_client(params: StdioServerParameters):
             proc.terminate()
             try:
                 await asyncio.wait_for(proc.wait(), timeout=2.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
 
 
@@ -266,18 +281,18 @@ async def stdio_client(params: StdioServerParameters):
 class FastMCP:
     def __init__(self, name: str):
         self.name = name
-        self.tools: Dict[str, Callable] = {}
+        self.tools: dict[str, Callable] = {}
         self.protocol = JSONRPCProtocol()
 
-    def tool(self, name: Optional[str] = None):
-        def decorator(func):
+    def tool(self, name: str | None = None) -> Callable[[Callable], Callable]:
+        def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
             self.tools[tool_name] = func
             return func
 
         return decorator
 
-    def _generate_schema(self, func: Callable) -> Dict:
+    def _generate_schema(self, func: Callable) -> dict[str, Any]:
         # Very basic schema generation using inspect
         sig = inspect.signature(func)
         properties = {}
@@ -304,7 +319,9 @@ class FastMCP:
 
         return {"type": "object", "properties": properties, "required": required}
 
-    async def _handle_message(self, message: Dict, write_stream: asyncio.StreamWriter):
+    async def _handle_message(
+        self, message: dict[str, Any], write_stream: asyncio.StreamWriter
+    ) -> None:
         if "method" not in message:
             return
 
@@ -312,7 +329,7 @@ class FastMCP:
         msg_id = message.get("id")
         params = message.get("params", {})
 
-        response: Dict[str, Any] | None = None
+        response: dict[str, Any] | None = None
 
         try:
             if method == "initialize":
@@ -400,7 +417,7 @@ class FastMCP:
                 write_stream.write(data)
                 await write_stream.drain()
 
-    async def _run_loop(self):
+    async def _run_loop(self) -> None:
         loop = asyncio.get_running_loop()
 
         # Setup stdin/stdout for async IO
@@ -429,7 +446,7 @@ class FastMCP:
         except Exception as e:
             logger.error(f"Fatal server error: {e}")
 
-    def run(self):
+    def run(self) -> None:
         try:
             asyncio.run(self._run_loop())
         except KeyboardInterrupt:

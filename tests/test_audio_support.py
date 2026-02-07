@@ -84,7 +84,7 @@ def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
             self.current_alias = "default"
             self.model = "test-model"
 
-        def _send(self, data):
+        def _send(self, _data):
             return "res", {}
 
     with patch("llm_cli.modules.media_utils.filetype.guess") as mock_guess:

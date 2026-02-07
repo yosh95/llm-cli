@@ -3,7 +3,6 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, Optional
 
 from llm_cli.consts import LLM_CLI_BASE_DIR
 
@@ -36,14 +35,14 @@ class IntegrityVerifier:
         """Calculate SHA-256 hash of a file."""
         sha256_hash = hashlib.sha256()
         try:
-            with open(file_path, "rb") as f:
+            with file_path.open("rb") as f:
                 for byte_block in iter(lambda: f.read(4096), b""):
                     sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
         except FileNotFoundError:
             return "MISSING"
 
-    def _load_manifest(self) -> Optional[Dict[str, str]]:
+    def _load_manifest(self) -> dict[str, str] | None:
         """Load the trusted hash manifest."""
         if not self.MANIFEST_PATH.exists():
             return None
@@ -51,12 +50,12 @@ class IntegrityVerifier:
             with self.MANIFEST_PATH.open("r", encoding="utf-8") as f:
                 from typing import cast
 
-                return cast(Dict[str, str], json.load(f))
+                return cast(dict[str, str], json.load(f))
         except Exception as e:
             logger.error(f"Failed to load integrity manifest: {e}")
             return None
 
-    def _save_manifest(self, manifest: Dict[str, str]):
+    def _save_manifest(self, manifest: dict[str, str]) -> None:
         """Save the current hashes as the trusted manifest."""
         try:
             self.MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -185,7 +184,7 @@ class IntegrityVerifier:
         return self.verify()
 
 
-def verify_installation():
+def verify_installation() -> None:
     """Helper function to run verification from current working directory."""
     # Assuming we run from the project root
     # Use the location of this file to determine the root project directory

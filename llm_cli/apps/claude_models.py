@@ -3,7 +3,7 @@
 from llm_cli.apps.model_listing import ModelListingConfig, list_models
 
 
-def main():
+def main() -> None:
     """List available Claude models."""
 
     config = ModelListingConfig(

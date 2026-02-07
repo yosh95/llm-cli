@@ -3,7 +3,7 @@
 import mimetypes
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import requests
 
@@ -28,7 +28,7 @@ class GeminiClient(BaseLlmClient):
     # PDF size threshold for using File API instead of inline base64
     PDF_FILE_API_THRESHOLD = 10 * 1024 * 1024  # 10MB
 
-    def __init__(self, initial_model_alias: str = "default", **kwargs):
+    def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         """Initializes the Gemini client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
@@ -37,121 +37,20 @@ class GeminiClient(BaseLlmClient):
             pdf_as_base64=True,
             **kwargs,
         )
-        self._slash_commands.update({"speech", "tts", "cache"})
-
-        # Context Caching state
-        self.cached_content_name: Optional[str] = None
-        self.cached_message_count: int = 0
 
     def _handle_command(
         self,
         user_input: str,
-        sources: Optional[List[str]],
-        pending_data: Optional[List[DataSource]] = None,
+        sources: list[str] | None,
+        pending_data: list[DataSource] | None = None,
     ) -> bool:
         """Handles Gemini-specific slash commands."""
         if super()._handle_command(user_input, sources, pending_data):
             return True
 
-        if not user_input.startswith("/"):
-            return False
-
-        parts = user_input[1:].split(None, 1)
-        cmd = parts[0]
-        args = parts[1].strip() if len(parts) > 1 else ""
-
-        if cmd in ("speech", "tts"):
-            if not args:
-                console.print("[red]Usage: /speech <text to generate audio for>[/red]")
-                return True
-
-            # Use the current model to generate speech content
-            self.generate_speech_content(args)
-            return True
-
-        if cmd == "cache":
-            if not args or args == "status":
-                if self.cached_content_name:
-                    console.print(
-                        f"Active cache: {self.cached_content_name}", style="green"
-                    )
-                    console.print(f"Cached messages count: {self.cached_message_count}")
-                else:
-                    console.print("No active cache.", style="yellow")
-            elif args == "create":
-                self._create_cache(force=True)
-            elif args == "clear":
-                self.cached_content_name = None
-                self.cached_message_count = 0
-                console.print("Cache cleared (locally).", style="green")
-            else:
-                console.print("Usage: /cache [status|create|clear]")
-            return True
-
         return False
 
-    def generate_speech_content(self, text: str):
-        """
-        Generates audio from text using the current model with
-        responseModalities=['AUDIO'].
-        """
-        console.print(f"[dim]Generating speech using {self.model}...[/dim]")
-
-        # Construct a one-off payload
-        # Note: TTS models strictly require AUDIO modality.
-        # Including system prompts can confuse the model into text mode.
-        payload: Dict[str, Any] = {
-            "contents": [{"parts": [{"text": text}]}],
-            "generationConfig": {
-                "responseModalities": ["AUDIO"],
-                "speechConfig": {
-                    "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Puck"}}
-                },
-            },
-        }
-
-        # Explicitly do NOT add system instructions for TTS generation
-
-        api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
-
-        try:
-            response = self._post(
-                api_url,
-                headers={
-                    "x-goog-api-key": self.api_key,
-                    "Content-Type": "application/json",
-                },
-                json_data=payload,
-                timeout=self.request_timeout,
-            )
-            response.raise_for_status()
-            res_json = response.json()
-
-            model_msg = self._parse_response(res_json)
-
-            # Process and save any inline data (which should be the audio)
-            saved_something = False
-            for p in model_msg.parts:
-                if isinstance(p, ContentPart) and p.inline_data:
-                    # Provide a hint text for the filename
-                    hint = text[:50]
-                    log, saved_path = self._save_inline_media_and_get_log_entry(
-                        p.inline_data, hint_text=hint
-                    )
-                    if log:
-                        console.print(log)
-                    saved_something = True
-
-            if not saved_something:
-                console.print(
-                    "[yellow]No audio data received from the model. "
-                    "Ensure the model supports audio generation.[/yellow]"
-                )
-
-        except Exception as e:
-            self._report_error("Speech Generation", e)
-
-    def _load_model_aliases(self):
+    def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
 
@@ -162,7 +61,7 @@ class GeminiClient(BaseLlmClient):
                 f"'{self.config_section}'.[/yellow]"
             )
 
-    def _process_single_source(self, source: str) -> Optional[DataSource]:
+    def _process_single_source(self, source: str) -> DataSource | None:
         """Override to handle Gemini-specific File API uploads for media."""
         # 1. Handle Gemini File API URIs directly
         if source.startswith("https://generativelanguage.googleapis.com/"):
@@ -213,102 +112,14 @@ class GeminiClient(BaseLlmClient):
         # Check specifically for Veo models
         return "veo" in self.model.lower() and "generate" in self.model.lower()
 
-    def _count_tokens(self, payload: Dict[str, Any]) -> int:
-        """Counts tokens for the given payload using the API."""
-        api_url = f"{self.BASE_API_URL}/models/{self.model}:countTokens"
-        try:
-            # countTokens endpoint expects just the content part of the payload
-            # but usually accepts the full generateContent payload structure too.
-            # Let's clean it up to be safe.
-            count_payload = {
-                k: v
-                for k, v in payload.items()
-                if k in ["contents", "system_instruction", "tools"]
-            }
-
-            response = self._post(
-                api_url,
-                headers={"x-goog-api-key": self.api_key},
-                json_data=count_payload,
-                timeout=self.request_timeout,
-            )
-            response.raise_for_status()
-            return int(response.json().get("totalTokens", 0))
-        except Exception:
-            # console.print(f"[yellow]Failed to count tokens: {e}[/yellow]")
-            return 0
-
-    def _create_cache(self, force: bool = False):
-        """Creates a context cache for the current conversation."""
-        # Check current token count
-        # We need the full payload as if we were sending it
-        full_payload = self._to_provider_request_format([])
-        token_count = self._count_tokens(full_payload)
-
-        # Minimum tokens for caching is usually around 32k for Gemini 1.5
-        # Set a threshold.
-        CACHE_THRESHOLD = 32768
-
-        if not force and token_count < CACHE_THRESHOLD:
-            return
-
-        if not force:
-            console.print(
-                f"[dim]Token count {token_count} exceeds threshold. "
-                "Creating context cache...[/dim]"
-            )
-        else:
-            console.print(
-                f"[dim]Creating context cache ({token_count} tokens)...[/dim]"
-            )
-
-        # Prepare cache payload
-        # Cache creation requires specific fields: model, contents,
-        # systemInstruction, tools, ttl
-        cache_payload = {
-            "model": f"models/{self.model}",
-            "contents": full_payload.get("contents", []),
-            "ttl": "3600s",  # 1 hour
-        }
-        if "system_instruction" in full_payload:
-            cache_payload["systemInstruction"] = full_payload["system_instruction"]
-        if "tools" in full_payload:
-            cache_payload["tools"] = full_payload["tools"]
-
-        api_url = f"{self.BASE_API_URL}/cachedContents"
-
-        try:
-            response = self._post(
-                api_url,
-                headers={
-                    "x-goog-api-key": self.api_key,
-                    "Content-Type": "application/json",
-                },
-                json_data=cache_payload,
-                timeout=self.request_timeout,
-            )
-            response.raise_for_status()
-            res_json = response.json()
-
-            self.cached_content_name = res_json.get("name")
-            # We cached everything up to now.
-            # contents in cache includes everything in self.conversation
-            self.cached_message_count = len(self.conversation)
-
-            console.print(f"[green]Cache created: {self.cached_content_name}[/green]")
-            console.print(f"[dim]Expires: {res_json.get('expireTime')}[/dim]")
-
-        except Exception as e:
-            console.print(f"[red]Failed to create cache: {e}[/red]")
-
     def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Sends the conversation history and new data to Gemini."""
         if self._is_video_model():
             return self._send_video_generation(data)
 
-        new_parts: List[Dict[str, Any]] = []
+        new_parts: list[dict[str, Any]] = []
         for item in data:
             file_uri = item.metadata.get("file_uri")
             if file_uri:
@@ -335,29 +146,7 @@ class GeminiClient(BaseLlmClient):
             else:
                 new_parts.append({"text": str(item.content)})
 
-        # --- Context Caching Logic ---
-        # 1. If no cache, check if we should create one
-        if not self.cached_content_name:
-            self._create_cache(force=False)
-
-        # 2. Prepare payload
-        start_index = 0
-        cached_content = None
-
-        if self.cached_content_name:
-            # If we have a cache, we only send messages AFTER the cached ones.
-            start_index = self.cached_message_count
-            cached_content = self.cached_content_name
-
-        payload = self._to_provider_request_format(new_parts, start_index=start_index)
-
-        if cached_content:
-            payload["cachedContent"] = cached_content
-            # When using cachedContent, remove system_instruction and tools
-            if "system_instruction" in payload:
-                del payload["system_instruction"]
-            if "tools" in payload:
-                del payload["tools"]
+        payload = self._to_provider_request_format(new_parts, start_index=0)
 
         api_url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
         try:
@@ -371,26 +160,6 @@ class GeminiClient(BaseLlmClient):
                 timeout=self.request_timeout,
             )
 
-            # Handle 404/400 which might indicate cache expired
-            if response.status_code in (400, 404) and self.cached_content_name:
-                # Try to fall back to full context if cache failed
-                console.print(
-                    f"[yellow]Cache request failed ({response.status_code}). "
-                    "Retrying with full context...[/yellow]"
-                )
-                self.cached_content_name = None
-                self.cached_message_count = 0
-                payload = self._to_provider_request_format(new_parts, start_index=0)
-                response = self._post(
-                    api_url,
-                    headers={
-                        "x-goog-api-key": self.api_key,
-                        "Content-Type": "application/json",
-                    },
-                    json_data=payload,
-                    timeout=self.request_timeout,
-                )
-
             self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
             res_json = response.json()
@@ -399,7 +168,7 @@ class GeminiClient(BaseLlmClient):
 
             # Update history
             if new_parts:
-                history_user_parts: List[Union[str, ContentPart]] = []
+                history_user_parts: list[str | ContentPart] = []
                 for p in new_parts:
                     if "text" in p:
                         history_user_parts.append(ContentPart(text=p["text"]))
@@ -470,21 +239,21 @@ class GeminiClient(BaseLlmClient):
             return (None, None), None
 
     def _to_provider_request_format(
-        self, new_parts: List[Dict], start_index: int = 0
-    ) -> Dict[str, Any]:
+        self, new_parts: list[dict[str, Any]], start_index: int = 0
+    ) -> dict[str, Any]:
         """Converts history and new parts to Gemini API format."""
-        contents: List[Dict[str, Any]] = []
+        contents: list[dict[str, Any]] = []
 
         # Only process conversation from start_index
         conversation_slice = self.conversation[start_index:]
 
         for m in conversation_slice:
-            parts: List[Dict[str, Any]] = []
+            parts: list[dict[str, Any]] = []
             for p in m.parts:
                 if isinstance(p, str):
                     parts.append({"text": p})
                 elif isinstance(p, ContentPart):
-                    part_dict: Dict[str, Any] = {}
+                    part_dict: dict[str, Any] = {}
                     if p.text:
                         part_dict["text"] = p.text
                     # Note: 'thought' is only in API responses, not requests.
@@ -536,7 +305,7 @@ class GeminiClient(BaseLlmClient):
 
                     if not has_response:
                         # Remove function calls from this message
-                        new_parts_list: List[Dict[str, Any]] = [
+                        new_parts_list: list[dict[str, Any]] = [
                             p for p in msg["parts"] if "functionCall" not in p
                         ]
                         if new_parts_list:
@@ -554,7 +323,7 @@ class GeminiClient(BaseLlmClient):
         if new_parts:
             filtered_contents.append({"role": "user", "parts": new_parts})
 
-        payload: Dict[str, Any] = {"contents": filtered_contents}
+        payload: dict[str, Any] = {"contents": filtered_contents}
 
         # Check if current model is a TTS model
         # TTS models require AUDIO modality and often fail with system instructions
@@ -572,8 +341,8 @@ class GeminiClient(BaseLlmClient):
             # Enforce AUDIO modality for TTS models
             from typing import cast
 
-            gen_config: Dict[str, Any] = cast(
-                Dict[str, Any], payload.get("generationConfig", {})
+            gen_config: dict[str, Any] = cast(
+                dict[str, Any], payload.get("generationConfig", {})
             )
             gen_config["responseModalities"] = ["AUDIO"]
 
@@ -586,7 +355,7 @@ class GeminiClient(BaseLlmClient):
 
         return payload
 
-    def _parse_response(self, response_json: Dict) -> Message:
+    def _parse_response(self, response_json: dict[str, Any]) -> Message:
         """Parses Gemini response into internal Message format."""
         if not response_json.get("candidates"):
             return Message(
@@ -596,7 +365,7 @@ class GeminiClient(BaseLlmClient):
         candidate = response_json["candidates"][0]
         raw_parts = candidate.get("content", {}).get("parts", [])
 
-        model_parts: List[Union[str, ContentPart]] = []
+        model_parts: list[str | ContentPart] = []
         for p in raw_parts:
             # API returns 'thoughtSignature'
             sig = p.get("thoughtSignature")
@@ -626,8 +395,8 @@ class GeminiClient(BaseLlmClient):
         return Message(role=Role.MODEL, parts=model_parts)
 
     def _send_video_generation(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Handles video generation via Gemini/Veo API."""
         prompt_parts = []
         # Gather text prompts
@@ -812,8 +581,8 @@ class GeminiClient(BaseLlmClient):
             return (None, None), None
 
     def _upload_file(
-        self, path: Path, mime_type: Optional[str] = None
-    ) -> Optional[Tuple[str, str]]:
+        self, path: Path, mime_type: str | None = None
+    ) -> tuple[str, str] | None:
         """Handles resumable upload to Gemini File API."""
         if not mime_type:
             mime_type, _ = mimetypes.guess_type(path)
@@ -876,7 +645,7 @@ class GeminiClient(BaseLlmClient):
         console.print("[dim]Waiting for remote file processing...[/dim]")
         url = f"{self.BASE_API_URL}/{file_name}?key={self.api_key}"
 
-        for i in range(120):
+        for _i in range(120):
             try:
                 r = self._get(url, timeout=10)
                 r.raise_for_status()
@@ -898,12 +667,5 @@ class GeminiClient(BaseLlmClient):
         console.print("[red]File processing timed out.[/red]")
         return False
 
-    def _print_help(self):
+    def _print_help(self) -> None:
         super()._print_help()
-        console.print(
-            "\n[bold]Gemini Specific Commands:[/bold]\n"
-            "  /speech <text> Generate audio from text (TTS)\n"
-            "  /cache         Check context cache status\n"
-            "  /cache create  Force create a context cache\n"
-            "  /cache clear   Clear local cache reference"
-        )

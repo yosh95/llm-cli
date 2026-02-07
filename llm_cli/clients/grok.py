@@ -2,7 +2,7 @@
 
 import json
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import get_setting
@@ -26,7 +26,7 @@ class GrokClient(BaseLlmClient):
     though reasoning tokens are billed. This is a limitation of the xAI API.
     """
 
-    def __init__(self, initial_model_alias: str = "default", **kwargs):
+    def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         """Initializes the Grok client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
@@ -38,7 +38,7 @@ class GrokClient(BaseLlmClient):
         config_url = get_setting("api_url", "xai")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
-    def _load_model_aliases(self):
+    def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases
 
@@ -55,8 +55,8 @@ class GrokClient(BaseLlmClient):
         return "video" in m
 
     def _send(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict | None]:
         """Sends the conversation history and new data to Grok."""
         if self._is_image_model():
             return self._send_image_generation(data)
@@ -97,7 +97,7 @@ class GrokClient(BaseLlmClient):
             choice = res["choices"][0]["message"]
             content = choice.get("content", "")
             thought_text = ""
-            model_parts: List[Union[str, ContentPart]] = []
+            model_parts: list[str | ContentPart] = []
 
             # Note: reasoning_content is NOT returned by Grok 4 API
             # even though the model performs internal reasoning.
@@ -131,8 +131,8 @@ class GrokClient(BaseLlmClient):
             return (None, None), None
 
     def _send_image_generation(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict | None]:
         """Handles image generation via Grok API."""
         # Extract prompt from conversation and new data
         prompt_parts = []
@@ -216,8 +216,8 @@ class GrokClient(BaseLlmClient):
             return (None, None), None
 
     def _send_video_generation(
-        self, data: List[DataSource]
-    ) -> Tuple[Tuple[Optional[str], Optional[str]], Optional[Dict]]:
+        self, data: list[DataSource]
+    ) -> tuple[tuple[str | None, str | None], dict | None]:
         """Handles video generation via Grok API (deferred)."""
         # Extract prompt from conversation and new data
         prompt_parts = []
@@ -340,9 +340,9 @@ class GrokClient(BaseLlmClient):
             self._report_error("Grok Video", e)
             return ((None, None), None)
 
-    def _update_history(self, data: List[DataSource], model_msg: Message):
+    def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
         """Updates internal history."""
-        user_parts: List[Union[str, ContentPart]] = []
+        user_parts: list[str | ContentPart] = []
         for d in data:
             if d.content_type == "text/plain":
                 user_parts.append(ContentPart(text=str(d.content)))
@@ -360,9 +360,9 @@ class GrokClient(BaseLlmClient):
             self.conversation.append(Message(role=Role.USER, parts=user_parts))
         self.conversation.append(model_msg)
 
-    def _build_messages(self, data: List[DataSource]) -> List[Dict[str, Any]]:
+    def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal history to Grok (OpenAI-compatible) format."""
-        msgs: List[Dict[str, Any]] = []
+        msgs: list[dict[str, Any]] = []
         if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
@@ -431,14 +431,14 @@ class GrokClient(BaseLlmClient):
                                 )
 
                 if msg_content or tool_calls:
-                    msg = {"role": role, "content": msg_content or None}
+                    msg: dict[str, Any] = {"role": role, "content": msg_content or None}
                     if tool_calls:
                         msg["tool_calls"] = tool_calls
                     msgs.append(msg)
 
         if msgs:
             # Append incoming data for the next user message
-            user_content: List[Dict[str, Any]] = []
+            user_content: list[dict[str, Any]] = []
             for d in data:
                 if d.content_type == "text/plain":
                     user_content.append({"type": "text", "text": str(d.content)})
@@ -455,6 +455,6 @@ class GrokClient(BaseLlmClient):
         if user_content:
             from typing import cast
 
-            msgs.append(cast(Dict[str, Any], {"role": "user", "content": user_content}))
+            msgs.append(cast(dict[str, Any], {"role": "user", "content": user_content}))
 
         return msgs

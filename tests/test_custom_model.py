@@ -8,7 +8,7 @@ class MockClient(BaseLlmClient):
     def _load_model_aliases(self):
         self.available_models = {"default": "default-model"}
 
-    def _send(self, data):
+    def _send(self, _data):
         return "response", {}
 
 
@@ -48,7 +48,7 @@ def test_unified_client_custom_model():
     with pytest.MonkeyPatch.context() as m:
         m.setattr(
             "llm_cli.apps.unified.get_setting",
-            lambda key, section: (
+            lambda key, _section: (
                 "provider" if key == "unified_default_provider" else "key"
             ),
         )

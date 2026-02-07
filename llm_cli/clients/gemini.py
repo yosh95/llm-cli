@@ -247,7 +247,14 @@ class GeminiClient(BaseLlmClient):
         # Only process conversation from start_index
         conversation_slice = self.conversation[start_index:]
 
-        for m in conversation_slice:
+        # Find the index of the last model message in conversation_slice
+        # This is used to only include thoughtSignature from the most recent model turn
+        last_model_idx = -1
+        for i, m in enumerate(conversation_slice):
+            if m.role == Role.MODEL:
+                last_model_idx = i
+
+        for i, m in enumerate(conversation_slice):
             parts: list[dict[str, Any]] = []
             for p in m.parts:
                 if isinstance(p, str):
@@ -270,7 +277,9 @@ class GeminiClient(BaseLlmClient):
                         }
 
                     # Gemini API expects 'thoughtSignature' (camelCase)
-                    if p.thought_signature:
+                    # Only send thoughtSignature for the last model message to avoid
+                    # sending old signatures
+                    if p.thought_signature and i == last_model_idx:
                         part_dict["thoughtSignature"] = p.thought_signature
 
                     if part_dict:

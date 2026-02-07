@@ -141,9 +141,6 @@ def mock_config(monkeypatch, mock_api_key):
                 "system_prompt": "You are a helpful AI assistant.",
             },
             "general": {
-                "LLM_PROMPT_HISTORY": None,
-                "LLM_CHAT_LOG": None,
-                "LLM_REQUEST_DEBUG_LOG": None,
                 "unified_default_provider": "google",
             },
         }

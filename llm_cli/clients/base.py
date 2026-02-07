@@ -163,8 +163,10 @@ class BaseLlmClient(ABC):
         self.last_usage: dict[str, int] | None = None
         self.last_request_duration: float | None = None
 
-        self.history_path = self._expand(get_setting("LLM_PROMPT_HISTORY", "general"))
-        self.chat_log_path = self._expand(get_setting("LLM_CHAT_LOG", "general"))
+        from llm_cli.consts import CHAT_LOG_PATH, HISTORY_LOG_PATH
+
+        self.history_path = str(HISTORY_LOG_PATH)
+        self.chat_log_path = str(CHAT_LOG_PATH)
         self.max_chat_log_lines = int(
             get_setting("max_chat_log_lines", "general") or 10000
         )

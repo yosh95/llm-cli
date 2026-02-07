@@ -1,6 +1,7 @@
 import fnmatch
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ class PolicyEngine:
                     "edit_file",
                 ],
                 "scopes": {
-                    "edit_file": {"allowed_paths": ["/home/*", "./*"]},
+                    "edit_file": {"allowed_paths": [str(Path.home() / "*"), "./*"]},
                 },
             },
             "guest": {

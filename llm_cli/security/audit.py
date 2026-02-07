@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from llm_cli.clients.config import get_setting
+from llm_cli.consts import AUDIT_LOG_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +22,7 @@ def log_audit(
     """
     Enhanced structured audit logging with Chained Hashing for tamper evidence.
     """
-    audit_log_path = get_setting("LLM_AUDIT_LOG", "general")
-    if not audit_log_path:
-        from llm_cli.consts import AUDIT_LOG_PATH
-
-        audit_log_path = str(AUDIT_LOG_PATH)
-
-    path = Path(audit_log_path).expanduser()
+    path = AUDIT_LOG_PATH
     max_lines = int(get_setting("max_audit_log_lines", "general") or 10000)
 
     try:

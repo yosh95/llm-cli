@@ -134,16 +134,15 @@ class TestAuditLog:
     def test_log_audit_success(self, tmp_path, monkeypatch):
         audit_file = tmp_path / "audit.log"
 
+        # Patch the constant path used in log_audit
+        monkeypatch.setattr("llm_cli.security.audit.AUDIT_LOG_PATH", audit_file)
+
         def mock_get_setting(key, section):
-            if key == "LLM_AUDIT_LOG":
-                return str(audit_file)
             if key == "max_audit_log_lines":
                 return 100
             return None
 
         monkeypatch.setattr("llm_cli.security.audit.get_setting", mock_get_setting)
-        # Also patch the constant in the module if it's used as fallback
-        # But log_audit checks get_setting first.
 
         log_audit("test_tool", {"arg1": "val1"}, "output content")
 
@@ -157,15 +156,11 @@ class TestAuditLog:
         assert entry["tool"] == "test_tool"
         assert entry["args"] == {"arg1": "val1"}
         assert entry["status"] == "SUCCESS"
-        # Output is not stored in the log to save space/privacy, check implementation if needed
-        # Looking at audit.py, output is passed to log_audit but NOT added to log_entry.
 
     def test_log_audit_error(self, tmp_path, monkeypatch):
         audit_file = tmp_path / "audit_error.log"
-        monkeypatch.setattr(
-            "llm_cli.security.audit.get_setting",
-            lambda k, _s: str(audit_file) if k == "LLM_AUDIT_LOG" else None,
-        )
+        monkeypatch.setattr("llm_cli.security.audit.AUDIT_LOG_PATH", audit_file)
+        monkeypatch.setattr("llm_cli.security.audit.get_setting", lambda _k, _s: None)
 
         log_audit("fail_tool", {}, "no output", exit_code=1, error="Some error")
         content = audit_file.read_text()
@@ -180,10 +175,8 @@ class TestAuditLog:
 
     def test_log_audit_exit_code_only(self, tmp_path, monkeypatch):
         audit_file = tmp_path / "audit_exit.log"
-        monkeypatch.setattr(
-            "llm_cli.security.audit.get_setting",
-            lambda k, _s: str(audit_file) if k == "LLM_AUDIT_LOG" else None,
-        )
+        monkeypatch.setattr("llm_cli.security.audit.AUDIT_LOG_PATH", audit_file)
+        monkeypatch.setattr("llm_cli.security.audit.get_setting", lambda _k, _s: None)
 
         log_audit("cmd_tool", {}, "some output", exit_code=127)
         content = audit_file.read_text()
@@ -194,9 +187,7 @@ class TestAuditLog:
 
         assert entry["tool"] == "cmd_tool"
         assert entry["exit_code"] == 127
-        assert (
-            entry["status"] == "SUCCESS"
-        )  # Assuming exit_code doesn't auto-set failure unless error msg is present
+        assert entry["status"] == "SUCCESS"
 
     def test_trim_log_file(self, tmp_path):
         from llm_cli.security.audit import _trim_log_file

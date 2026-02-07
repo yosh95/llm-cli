@@ -120,14 +120,7 @@ def test_audit_log_hashing(tmp_path):
     """Test that audit logs are chained with hashes."""
     log_file = tmp_path / "audit.jsonl"
 
-    def mock_get_setting(key, section=None):
-        if key == "LLM_AUDIT_LOG":
-            return str(log_file)
-        if key == "max_audit_log_lines":
-            return 1000
-        return None
-
-    with patch("llm_cli.security.audit.get_setting", side_effect=mock_get_setting):
+    with patch("llm_cli.security.audit.AUDIT_LOG_PATH", log_file):
         # Log entry 1
         log_audit("tool1", {"arg": 1}, "result1")
         # Log entry 2
@@ -150,15 +143,8 @@ def test_integrity_audit_verification(tmp_path):
     """Test that IntegrityVerifier detects log tampering."""
     log_file = tmp_path / "audit.jsonl"
 
-    def mock_get_setting(key, section=None):
-        if key == "LLM_AUDIT_LOG":
-            return str(log_file)
-        if key == "max_audit_log_lines":
-            return 1000
-        return None
-
     # Create valid logs
-    with patch("llm_cli.security.audit.get_setting", side_effect=mock_get_setting):
+    with patch("llm_cli.security.audit.AUDIT_LOG_PATH", log_file):
         log_audit("tool1", {}, "ok")
         log_audit("tool2", {}, "ok")
 

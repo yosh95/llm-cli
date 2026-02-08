@@ -389,8 +389,9 @@ class ChatSession:
                 # append them AGAIN as a new User message, creating a
                 # duplicate and potentially confusing the LLM
                 # (especially Gemini, which enforces strict alternating roles).
-                # So we pass an empty list for the next request.
-                data = []
+                # However, if there is injected data (like file content), we MUST
+                # pass it so it gets added as a User message.
+                data = injected_datas if injected_datas else []
             else:
                 break
 

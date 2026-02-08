@@ -136,7 +136,7 @@ def list_files_in_directory(
         "properties": {
             "query": {
                 "type": "string",
-                "description": "Text or regex pattern to search for.",
+                "description": "Text or regex pattern (ERE/PCRE) to search for.",
             },
             "directory": {
                 "type": "string",
@@ -155,7 +155,7 @@ def search_text_in_files(
 ) -> str:
     """
     Search for a text pattern in files.
-    Uses 'grep' command if available for performance, otherwise falls back to Python.
+    Uses 'rg' or 'grep -E' if available for performance, otherwise falls back to Python.
     """
     try:
         validate_path(directory or ".")
@@ -163,44 +163,50 @@ def search_text_in_files(
         if not base_path.exists():
             return f"Error: Directory '{directory}' does not exist."
 
-        # Try using system grep for performance
-        if shutil.which("grep"):
+        exclude_dirs = [
+            ".git",
+            "__pycache__",
+            "node_modules",
+            "venv",
+            ".venv",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
+            ".env",
+            ".DS_Store",
+            "__MACOSX",
+        ]
+
+        # Try using system tools for performance
+        search_tool = None
+        if shutil.which("rg"):
+            search_tool = "rg"
+            cmd = ["rg", "-nH", "--no-heading", "--smart-case", "-I"]
+            for d in exclude_dirs:
+                cmd.extend(["-g", f"!{d}/*"])
+            if file_pattern:
+                cmd.extend(["-g", file_pattern])
+        elif shutil.which("grep"):
+            search_tool = "grep"
+            cmd = ["grep", "-rnIE"]  # -E for Extended Regular Expressions
+            for d in exclude_dirs:
+                cmd.extend(["--exclude-dir", d])
+            if file_pattern:
+                cmd.extend(["--include", file_pattern])
+
+        if search_tool:
             try:
-                # -r: recursive, -n: line number, -I: ignore binary files
-                cmd = ["grep", "-rnI"]
+                # Use '--' to prevent query from being interpreted as an option
+                cmd.extend(["--", query, str(base_path)])
 
-                # Exclude common directories
-                exclude_dirs = [
-                    ".git",
-                    "__pycache__",
-                    "node_modules",
-                    "venv",
-                    ".venv",
-                    ".mypy_cache",
-                    ".pytest_cache",
-                    ".ruff_cache",
-                    ".env",
-                    ".DS_Store",
-                    "__MACOSX",
-                ]
-                for d in exclude_dirs:
-                    cmd.extend(["--exclude-dir", d])
-
-                if file_pattern:
-                    cmd.extend(["--include", file_pattern])
-
-                # Search query and target directory
-                cmd.append(query)
-                cmd.append(str(base_path))
-
-                # Run grep
-                # Limit output to avoid hanging on massive results
+                # Run tool with timeout for safety (ReDoS protection)
                 process = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,
                     encoding="utf-8",
                     errors="replace",
+                    timeout=30,
                 )
 
                 if process.returncode == 0:
@@ -208,7 +214,7 @@ def search_text_in_files(
                     formatted_results = []
                     for line in lines:
                         # Normalize output: remove leading ./ and ensure space after
-                        # colon. grep output format: path:line:content
+                        # colon. format: path:line:content
                         parts = line.split(":", 2)
                         if len(parts) == 3:
                             path, line_num, content = parts
@@ -228,26 +234,17 @@ def search_text_in_files(
                 elif process.returncode == 1:
                     return f"No matches found for '{query}'."
                 else:
-                    # grep error, fall back to python
+                    # tool error, fall back to python
                     pass
+            except subprocess.TimeoutExpired:
+                return "Error: Search timed out after 30 seconds."
             except Exception:
                 # Fall back to python on any error
                 pass
 
         # Python Fallback Implementation
         results = []
-        ignore_dirs = {
-            ".git",
-            "__pycache__",
-            "node_modules",
-            "venv",
-            ".venv",
-            ".mypy_cache",
-            ".pytest_cache",
-            ".ruff_cache",
-            ".env",
-            ".DS_Store",
-        }
+        ignore_dirs = set(exclude_dirs)
 
         for file_path in base_path.rglob(file_pattern or "*"):
             if file_path.is_dir():
@@ -259,8 +256,7 @@ def search_text_in_files(
                 continue
 
             try:
-                # Check for binary file by reading the first chunk
-                # If it contains null bytes, it's likely binary
+                # Check for binary file
                 is_binary = False
                 try:
                     with file_path.open("rb") as f_bin:
@@ -268,18 +264,14 @@ def search_text_in_files(
                         if b"\x00" in chunk:
                             is_binary = True
                 except Exception:
-                    # If we can't read it as binary, skip it
                     continue
 
                 if is_binary:
                     continue
 
-                # Use open() to read line by line to save memory
                 with file_path.open(encoding="utf-8", errors="ignore") as f:
                     for i, line in enumerate(f):
                         if re.search(query, line):
-                            # Format: FilePath:LineNumber: Content
-                            # Normalize path to remove ./ if present
                             clean_path = str(file_path)
                             if clean_path.startswith("./"):
                                 clean_path = clean_path[2:]
@@ -291,7 +283,7 @@ def search_text_in_files(
                                 return "\n".join(results)
 
             except Exception:
-                continue  # Skip binary or unreadable files
+                continue
 
         return "\n".join(results) or f"No matches found for '{query}'."
 

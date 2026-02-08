@@ -45,7 +45,7 @@ opus = "claude-opus-4-5-20251101"
 default = "grok-4-1-fast-reasoning"
 non-reasoning = "grok-4-fast-non-reasoning"
 reasoning = "grok-4-1-fast-reasoning"
-image = "grok-imagine-image"
+image = "grok-imagine-image-pro"
 video = "grok-imagine-video"
 
 # =============================================================================

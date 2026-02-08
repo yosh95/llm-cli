@@ -224,10 +224,10 @@ class ChatSession:
                     or len(self.client.conversation) >= 40
                 ):
                     msg = (
-                        f"[yellow]Context is large "
-                        f"({self.client.cumulative_total_tokens} tokens, "
+                        f"Context is large "
+                        f"({self.client.cumulative_total_tokens:,} tokens, "
                         f"{len(self.client.conversation)} messages). "
-                        "Summarize and compress? (y/N): [/yellow]"
+                        "Summarize and compress? (y/N): "
                     )
                     if self._confirm(msg):
                         self._handle_checkpoint()

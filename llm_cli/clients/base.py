@@ -725,6 +725,9 @@ class BaseLlmClient(ABC):
                 info_table.add_row("Intent Analyzer", "[dim]OFF[/dim]")
 
             info_table.add_row("History Length", f"{len(self.conversation)} messages")
+            info_table.add_row(
+                "Total Tokens", f"[yellow]{self.cumulative_total_tokens:,}[/yellow]"
+            )
 
             if self.last_usage:
                 usage_str = ", ".join(f"{k}: {v}" for k, v in self.last_usage.items())

@@ -182,7 +182,6 @@ class ChatSession:
     def __init__(self, client: BaseLlmClient) -> None:
         self.client = client
         self.history_path = client.history_path
-        self._checkpoint_hint_shown = False
 
         self.prompt_history: Any
         if self.history_path:
@@ -217,14 +216,24 @@ class ChatSession:
 
         while True:
             try:
+                # Suggest checkpoint if conversation is getting long.
+                # Threshold: 20,000 tokens or 40 messages.
+                # We ask every time the threshold is exceeded if the user says No.
                 if (
-                    len(self.client.conversation) >= 30
-                    and not self._checkpoint_hint_shown
+                    self.client.cumulative_total_tokens >= 20000
+                    or len(self.client.conversation) >= 40
                 ):
-                    console.print(
-                        "[dim]Tip: Use /checkpoint to compress context.[/dim]"
+                    msg = (
+                        f"[yellow]Context is large "
+                        f"({self.client.cumulative_total_tokens} tokens, "
+                        f"{len(self.client.conversation)} messages). "
+                        "Summarize and compress? (y/N): [/yellow]"
                     )
-                    self._checkpoint_hint_shown = True
+                    if self._confirm(msg):
+                        self._handle_checkpoint()
+                        # If history was cleared, continue to next prompt
+                        if len(self.client.conversation) <= 1:
+                            continue
 
                 # Clear any pending input to prevent ghost KeyboardInterrupt/EOFError.
                 if termios and sys.stdin.isatty():
@@ -295,8 +304,23 @@ class ChatSession:
             duration = (datetime.datetime.now() - start_time).total_seconds()
 
             # Response is now expected to be a tuple ((text, thought), usage)
-            response_tuple, _ = res if res else ((None, None), None)
+            response_tuple, usage = res if res else ((None, None), None)
             response_text, thought_text = response_tuple
+
+            if usage:
+                # Update cumulative tokens across providers.
+                # OpenAI: 'total_tokens'
+                # Claude: 'input_tokens' + 'output_tokens' or 'total_tokens'
+                # Gemini: 'totalTokenCount'
+                total = (
+                    usage.get("total_tokens")
+                    or usage.get("totalTokenCount")
+                    or (usage.get("input_tokens", 0) + usage.get("output_tokens", 0))
+                    or 0
+                )
+                if total > 0:
+                    self.client.cumulative_total_tokens = total
+                self.client.last_usage = usage
 
             # Display thought content in a separate panel if available
             if thought_text:
@@ -416,7 +440,7 @@ class ChatSession:
                     )
                 ]
                 console.print("[green]✅ Context refreshed.[/green]")
-                self._checkpoint_hint_shown = False
+                self.client.cumulative_total_tokens = 0
             else:
                 console.print("[yellow]Checkpoint canceled.[/yellow]")
                 self.client.conversation = original_conversation

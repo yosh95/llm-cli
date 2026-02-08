@@ -25,6 +25,7 @@ class MockClient(BaseLlmClient):
         self.chat_log_path = None
         self.stdout = False
         self.model = "test-model"
+        self.cumulative_total_tokens = 0
         self._handle_command_called = False
 
     def _load_model_aliases(self):

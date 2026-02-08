@@ -161,6 +161,7 @@ class BaseLlmClient(ABC):
 
         self.conversation: list[Message] = []
         self.last_usage: dict[str, int] | None = None
+        self.cumulative_total_tokens = 0
         self.last_request_duration: float | None = None
 
         from llm_cli.consts import CHAT_LOG_PATH, HISTORY_LOG_PATH
@@ -635,6 +636,7 @@ class BaseLlmClient(ABC):
 
         if cmd in ("c", "clear"):
             self.conversation.clear()
+            self.cumulative_total_tokens = 0
             console.print("[yellow]Conversation history cleared.[/yellow]")
             return True
 

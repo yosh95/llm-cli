@@ -383,7 +383,14 @@ class ChatSession:
                 if injected_datas:
                     self._log_chat(injected_datas, role="Tool Output")
                 # Prepare for the next round of generation
-                data = injected_datas
+                # The tool results are already appended to the conversation
+                # history as Role.TOOL.
+                # Passing them as 'data' to _send would cause the client to
+                # append them AGAIN as a new User message, creating a
+                # duplicate and potentially confusing the LLM
+                # (especially Gemini, which enforces strict alternating roles).
+                # So we pass an empty list for the next request.
+                data = []
             else:
                 break
 

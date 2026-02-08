@@ -250,11 +250,8 @@ class BaseLlmClient(ABC):
         Returns:
             The successful requests.Response object.
         """
-        # Ensure we don't reuse connections to avoid potential routing
-        # to overloaded nodes.
         if headers is None:
             headers = {}
-        headers["Connection"] = "close"
 
         return requests.post(url, headers=headers, json=json_data, timeout=timeout)
 
@@ -277,7 +274,6 @@ class BaseLlmClient(ABC):
         """
         if headers is None:
             headers = {}
-        headers["Connection"] = "close"
 
         return requests.get(url, headers=headers, timeout=timeout)
 

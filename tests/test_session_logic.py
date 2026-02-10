@@ -217,4 +217,3 @@ class TestChatSession:
 
         # Conversation should be restored
         assert len(session.client.conversation) == original_len
-

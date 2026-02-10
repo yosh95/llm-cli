@@ -211,3 +211,4 @@ __marimo__/
 *.aux
 *.pdf
 images/generated/
+./*.json

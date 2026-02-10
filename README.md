@@ -58,7 +58,7 @@ The AI can use tools like `search_web` to find the latest information. In this e
 -   **User-Driven Context Management (Checkpointing)**: Manually trigger `/checkpoint` to summarize the conversation and clear history.
 -   **Multimodal Input & Support**:
     -   **Manual Attachment**: Use the `/attach <path>` command mid-session to inject images, PDFs, videos, or audio.
-    -   **Autonomous Attachment**: Agents can use the `read_image_file`, `read_pdf_content` or `fetch_web_page` tools to bring media files into the context when needed.
+    -   **Autonomous Attachment**: Agents can use the `read_image_from_url`, `read_pdf_from_url` or `read_html_from_url` tools to bring media files into the context when needed.
     -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**.
     -   **OpenAI**: Text, local images, and **ChatGPT image generation**.
     -   **Claude**: Text and local images (PDFs are processed as text/Base64).
@@ -86,7 +86,9 @@ The AI agent comes equipped with the following tools:
 | `create_or_overwrite_file` | Create a new file (full content). |
 | `read_pdf_content` | Read a PDF file and add it to the context. |
 | `search_web` | Search the web using Google to find information (Requires Google Cloud Platform API Key and Custom Search Engine ID). |
-| `fetch_web_page` | Fetch a URL and convert it to Markdown (preserves structure). |
+| `read_html_from_url` | Fetch a URL and convert it to Markdown (preserves structure). Use for HTML pages. |
+| `read_pdf_from_url` | Download and extract text from a PDF URL. Use for online research papers. |
+| `read_image_from_url` | Fetch an image from a URL for visual processing. |
 
 > **Note**: To use `search_web`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
 
@@ -429,7 +431,7 @@ AIは `search_web` などのツールを活用して最新情報を取得でき�
 -   **ユーザー主導の履歴管理（チェックポイント機能）**: `/checkpoint` コマンドで会話の要約を作成し、履歴をリセットしてコンテキストを整理。
 -   **マルチモーダル対応**:
     -   **手動添付**: `/attach <path>` コマンドで画像、PDF、音声、動画を会話の途中から注入。
-    -   **自律添付**: エージェントが必要に応じてツールを使い、メディアファイルをコンテキストに読み込みます（`read_image_file`, `read_pdf_content`, `fetch_web_page` など）。
+    -   **自律添付**: エージェントが必要に応じてツールを使い、メディアファイルをコンテキストに読み込みます（`read_image_from_url`, `read_pdf_from_url`, `read_html_from_url` など）。
     -   **Gemini**: テキスト、ローカル画像、PDF、**音声**、**動画**をサポート。
     -   **OpenAI**: テキスト、ローカル画像、および **ChatGPT image による画像生成**をサポート。
     -   **Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
@@ -456,7 +458,9 @@ AIエージェントは以下のツールを標準で備えています：
 | `create_or_overwrite_file` | 新規ファイルを作成します（全内容上書き）。 |
 | `read_pdf_content` | PDFファイルを読み込み、コンテキストに追加します。 |
 | `search_web` | Google検索を使用して、インターネット上の情報を探します（Google Cloud Platform APIキーとカスタム検索エンジンIDが設定されている場合のみ）。 |
-| `fetch_web_page` | URLを取得し、Markdown形式に変換します（構造を維持）。 |
+| `read_html_from_url` | URLを取得し、Markdown形式に変換します（構造を維持）。HTMLページに使用します。 |
+| `read_pdf_from_url` | Web上のPDFをダウンロードし、テキストを抽出します。論文やマニュアルの調査に使用します。 |
+| `read_image_from_url` | Web上の画像を取得し、視覚処理のためにコンテキストに追加します。 |
 
 > **注**: `search_web` を使用するには、**Google Cloud Platform APIキー**と**カスタム検索エンジンID (CX)**が必要です。
 

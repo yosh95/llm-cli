@@ -2,11 +2,11 @@
 
 from unittest.mock import MagicMock, patch
 
-from llm_cli.modules.tools.web import fetch_web_page, search_web
+from llm_cli.modules.tools.web import read_html_from_url, search_web
 
 
-def test_fetch_web_page_basic(mock_cloudscraper):
-    """Test fetch_web_page extracts content and converts to markdown."""
+def test_read_html_from_url_basic(mock_cloudscraper):
+    """Test read_html_from_url extracts content and converts to markdown."""
     html_content = """
     <html>
         <head><style>.css { color: red; }</style></head>
@@ -24,7 +24,7 @@ def test_fetch_web_page_basic(mock_cloudscraper):
     mock_cloudscraper.get.return_value.text = html_content
 
     # We expect markdownify to handle the conversion.
-    result = fetch_web_page("https://example.com")
+    result = read_html_from_url("https://example.com")
 
     # Check for markdown elements
     # Both ATX headings and link preservation should be handled by markdownify
@@ -40,8 +40,8 @@ def test_fetch_web_page_basic(mock_cloudscraper):
     assert "<html>" not in result
 
 
-def test_fetch_web_page_truncation(mock_cloudscraper):
-    """Test fetch_web_page truncates output."""
+def test_read_html_from_url_truncation(mock_cloudscraper):
+    """Test read_html_from_url truncates output."""
     long_text = "word " * 10000  # Approx 50000 chars
     html_content = f"<html><body>{long_text}</body></html>"
 
@@ -49,14 +49,14 @@ def test_fetch_web_page_truncation(mock_cloudscraper):
     mock_cloudscraper.get.return_value.text = html_content
 
     # Use a small limit to ensure truncation occurs
-    result = fetch_web_page("https://example.com", max_length=1000)
+    result = read_html_from_url("https://example.com", max_length=1000)
 
     assert "... (Truncated" in result
     assert len(result) <= 1200  # 1000 + extra message chars
 
 
-def test_fetch_web_page_no_limit(mock_cloudscraper):
-    """Test fetch_web_page with no limit (max_length=0)."""
+def test_read_html_from_url_no_limit(mock_cloudscraper):
+    """Test read_html_from_url with no limit (max_length=0)."""
     long_text = "word " * 11000  # Approx 55000 chars
     html_content = f"<html><body>{long_text}</body></html>"
 
@@ -64,7 +64,7 @@ def test_fetch_web_page_no_limit(mock_cloudscraper):
     mock_cloudscraper.get.return_value.text = html_content
 
     # Set limit to 0 (no limit)
-    result = fetch_web_page("https://example.com", max_length=0)
+    result = read_html_from_url("https://example.com", max_length=0)
 
     # Should NOT be truncated
     assert "... (Truncated" not in result
@@ -72,11 +72,11 @@ def test_fetch_web_page_no_limit(mock_cloudscraper):
     assert len(result) >= 50000
 
 
-def test_fetch_web_page_error(mock_cloudscraper):
-    """Test error handling in fetch_web_page."""
+def test_read_html_from_url_error(mock_cloudscraper):
+    """Test error handling in read_html_from_url."""
     mock_cloudscraper.get.side_effect = Exception("Connection error")
 
-    result = fetch_web_page("https://example.com")
+    result = read_html_from_url("https://example.com")
     assert "Error fetching or parsing" in result
     assert "Connection error" in result
 

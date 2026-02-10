@@ -7,6 +7,7 @@ import markdownify
 import requests
 
 from llm_cli.clients.config import get_setting
+from llm_cli.modules.media_utils import fetch_url_content
 from llm_cli.modules.tool_registry import tool
 
 # Check for Google Search configuration
@@ -66,11 +67,11 @@ if _google_api_key and _google_cse_id:
 
 
 @tool(
-    name="fetch_web_page",
+    name="read_html_from_url",
     description=(
-        "Fetch a URL and convert the content to Markdown. "
-        "Preserves code blocks, headers, and links. "
-        "Preferred over raw text for technical documentation."
+        "Fetch a web page URL and convert the HTML content to Markdown text. "
+        "Use this for reading articles, blog posts, or documentation pages. "
+        "If the URL points to a PDF, use 'read_pdf_from_url' instead."
     ),
     parameters={
         "type": "object",
@@ -88,7 +89,7 @@ if _google_api_key and _google_cse_id:
         "required": ["url"],
     },
 )
-def fetch_web_page(url: str, max_length: int = 50000) -> str:
+def read_html_from_url(url: str, max_length: int = 50000) -> str:
     try:
         resp = cloudscraper.create_scraper().get(
             url, headers={"Connection": "close"}, timeout=30
@@ -98,7 +99,7 @@ def fetch_web_page(url: str, max_length: int = 50000) -> str:
         if "text/html" not in ctype:
             return (
                 f"Error: URL returned {ctype}, expected text/html. "
-                "Use 'read_pdf_content' if it is a PDF."
+                "Use 'read_pdf_from_url' for PDFs or 'read_image_from_url' for images."
             )
 
         # Remove script and style tags via regex before processing
@@ -122,3 +123,63 @@ def fetch_web_page(url: str, max_length: int = 50000) -> str:
         return content
     except Exception as e:
         return f"Error fetching or parsing {url}: {e}"
+
+
+@tool(
+    name="read_pdf_from_url",
+    description=(
+        "Download and extract text from a PDF URL. "
+        "Use this specifically for online PDF documents, research papers, or manuals."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {"url": {"type": "string", "description": "Target PDF URL."}},
+        "required": ["url"],
+    },
+)
+def read_pdf_from_url(url: str) -> str:
+    # Use fetch_url_content with pdf_as_base64=False to get text
+    content, ctype = fetch_url_content(url, pdf_as_base64=False)
+
+    if content is None or ctype is None:
+        return "Error: Failed to fetch content or invalid URL."
+
+    if "application/pdf" not in ctype and "text/plain" not in ctype:
+        return f"Error: Expected PDF but got {ctype}. Content might not be a PDF."
+
+    if not content.strip():
+        return (
+            "Error: Extracted text is empty. The PDF might be scanned images "
+            "without text (OCR is not supported)."
+        )
+
+    return content
+
+
+@tool(
+    name="read_image_from_url",
+    description="Fetch an image from a URL and return it for visual processing.",
+    parameters={
+        "type": "object",
+        "properties": {"url": {"type": "string", "description": "Target Image URL."}},
+        "required": ["url"],
+    },
+)
+def read_image_from_url(url: str) -> str | dict:
+    # Use fetch_url_content with pdf_as_base64=True (default) to get base64
+    content, ctype = fetch_url_content(url, pdf_as_base64=True)
+
+    if content is None or ctype is None:
+        return "Error: Failed to fetch content or invalid URL."
+
+    if not ctype.startswith("image/"):
+        return f"Error: URL returned {ctype}, expected an image type."
+
+    return {
+        "result": f"Successfully fetched image from {url}",
+        "__llm_cli_data__": {
+            "content": content,
+            "content_type": ctype,
+            "is_file_or_url": True,
+        },
+    }

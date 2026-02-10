@@ -5,6 +5,20 @@ from unittest.mock import Mock
 
 import pytest
 
+import llm_cli.clients.config
+
+# Inject dummy configuration to allow module-level checks in tools/web.py to pass
+# during test collection.
+llm_cli.clients.config._config_cache = {
+    "google": {
+        "api_key": "dummy_test_key",
+        "cse_id": "dummy_test_cse_id",
+    },
+    "openai": {"api_key": "dummy_openai_key"},
+    "anthropic": {"api_key": "dummy_anthropic_key"},
+    "xai": {"api_key": "dummy_xai_key"},
+}
+
 
 @pytest.fixture
 def mock_api_key():

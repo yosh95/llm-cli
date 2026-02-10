@@ -85,7 +85,7 @@ The AI agent comes equipped with the following tools:
 | `edit_file` | Edit a file by replacing a specific block of text. Returns a Diff. Safer than string replace. |
 | `create_or_overwrite_file` | Create a new file (full content). |
 | `read_pdf_content` | Read a PDF file and add it to the context. |
-| `search_web` | Search the web using Google to find information. |
+| `search_web` | Search the web using Google to find information (Requires Google Cloud Platform API Key and Custom Search Engine ID). |
 | `fetch_web_page` | Fetch a URL and convert it to Markdown (preserves structure). |
 
 > **Note**: To use `search_web`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
@@ -455,10 +455,10 @@ AIエージェントは以下のツールを標準で備えています：
 | `edit_file` | ファイル内の特定のテキストブロックを検索して置換します。Diffを返し、文字列検索置換より安全です。 |
 | `create_or_overwrite_file` | 新規ファイルを作成します（全内容上書き）。 |
 | `read_pdf_content` | PDFファイルを読み込み、コンテキストに追加します。 |
-| `search_web` | Google検索を使用して、インターネット上の情報を探します。 |
+| `search_web` | Google検索を使用して、インターネット上の情報を探します（Google Cloud Platform APIキーとカスタム検索エンジンIDが設定されている場合のみ）。 |
 | `fetch_web_page` | URLを取得し、Markdown形式に変換します（構造を維持）。 |
 
-> **注**: `search_web` を使用するには、**Google Cloud Platform APIキー**と**カスタム検索エンジンID (CX)**が必要です。これらは `llm-cli-config` を使用して設定できます。
+> **注**: `search_web` を使用するには、**Google Cloud Platform APIキー**と**カスタム検索エンジンID (CX)**が必要です。
 
 ## パワーユーザー向けのヒント
 

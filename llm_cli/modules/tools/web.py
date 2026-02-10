@@ -9,55 +9,60 @@ import requests
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import tool
 
+# Check for Google Search configuration
+_google_api_key = get_setting("api_key", "google")
+_google_cse_id = get_setting("cse_id", "google")
 
-@tool(
-    name="search_web",
-    description=(
-        "Perform a web search using Google to find information on the internet. "
-        "Use this to answer questions about current events, documentation, "
-        "or public data."
-    ),
-    parameters={
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "The search query (keywords or question).",
+
+if _google_api_key and _google_cse_id:
+
+    @tool(
+        name="search_web",
+        description=(
+            "Perform a web search using Google to find information on the internet. "
+            "Use this to answer questions about current events, documentation, "
+            "or public data."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query (keywords or question).",
+                },
             },
+            "required": ["query"],
         },
-        "required": ["query"],
-    },
-)
-def search_web(query: str) -> str:
-    api_key = get_setting("api_key", "google")
-    cse_id = get_setting("cse_id", "google")
-    if not api_key or not cse_id:
-        return (
-            "Error: Web Search (Google) is not configured. "
-            "Please ensure both 'api_key' and 'cse_id' are set in the [google] section "
-            "of your config.toml. You can use 'llm-cli-config' to set them."
-        )
+    )
+    def search_web(query: str) -> str:
+        if not _google_api_key or not _google_cse_id:
+            return "Error: Web Search configuration missing."
 
-    try:
-        resp = requests.get(
-            "https://www.googleapis.com/customsearch/v1",
-            params={"key": api_key, "cx": cse_id, "q": query, "num": 10},
-            headers={"Connection": "close"},
-            timeout=15,
-        )
-        items = resp.json().get("items", [])
-        if not items:
-            return f"### Results for: {query}\nNo results."
+        try:
+            resp = requests.get(
+                "https://www.googleapis.com/customsearch/v1",
+                params={
+                    "key": _google_api_key,
+                    "cx": _google_cse_id,
+                    "q": query,
+                    "num": 10,
+                },
+                headers={"Connection": "close"},
+                timeout=15,
+            )
+            items = resp.json().get("items", [])
+            if not items:
+                return f"### Results for: {query}\nNo results."
 
-        results = [
-            f"Title: {i.get('title')}\n"
-            f"URL: {i.get('link')}\n"
-            f"Snippet: {i.get('snippet')}\n"
-            for i in items
-        ]
-        return f"### Results for: {query}\n" + "\n".join(results)
-    except Exception as e:
-        return f"Error searching '{query}': {e}"
+            results = [
+                f"Title: {i.get('title')}\n"
+                f"URL: {i.get('link')}\n"
+                f"Snippet: {i.get('snippet')}\n"
+                for i in items
+            ]
+            return f"### Results for: {query}\n" + "\n".join(results)
+        except Exception as e:
+            return f"Error searching '{query}': {e}"
 
 
 @tool(

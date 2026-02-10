@@ -332,10 +332,18 @@ class GeminiClient(BaseLlmClient):
         if self.system_prompt and self.system_prompt_enabled and not is_tts_model:
             payload["system_instruction"] = {"parts": [{"text": self.system_prompt}]}
 
+        # Handle tools and grounding
+        tools_payload = []
+
         if self.active_tools and self.tools_enabled and not is_tts_model:
-            payload["tools"] = registry.get_gemini_spec(
-                self.active_tools, provider=self.config_section
+            tools_payload.extend(
+                registry.get_gemini_spec(
+                    self.active_tools, provider=self.config_section
+                )
             )
+
+        if tools_payload:
+            payload["tools"] = tools_payload
 
         if is_tts_model:
             # Enforce AUDIO modality for TTS models

@@ -117,9 +117,13 @@ def test_search_web_no_results(mock_config):
 
 def test_search_web_auth_error(monkeypatch):
     """Test search_web when credentials are missing."""
-    # Force get_setting to return None for google
-    monkeypatch.setattr("llm_cli.modules.tools.web.get_setting", lambda _k, _s: None)
+    # Patch the module-level variables directly since they are read at import time
+    monkeypatch.setattr("llm_cli.modules.tools.web._google_api_key", None)
+    monkeypatch.setattr("llm_cli.modules.tools.web._google_cse_id", None)
 
-    result = search_web(query="test")
-    assert "Error: Web Search (Google) is not configured." in result
-    assert "llm-cli-config" in result
+    # We mock requests to ensure no network call happens
+    with patch("requests.get") as mock_get:
+        result = search_web(query="test")
+        mock_get.assert_not_called()
+
+    assert "Error: Web Search configuration missing." in result

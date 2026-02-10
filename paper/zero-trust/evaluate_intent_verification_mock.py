@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import List, TypedDict
+from typing import TypedDict
 
 
 # Mocking the IntentAnalyzer for demonstration purposes.
@@ -44,7 +44,7 @@ class Metrics(TypedDict):
     tn: int
     fp: int
     fn: int
-    latencies: List[float]
+    latencies: list[float]
 
 
 def run_evaluation() -> None:

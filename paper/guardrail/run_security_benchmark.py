@@ -1,7 +1,7 @@
 from llm_cli.security.command_validator import CommandValidationError, CommandValidator
 
 
-def run_benchmark():
+def run_benchmark() -> None:
     validator = CommandValidator()
 
     # Dataset of attack vectors

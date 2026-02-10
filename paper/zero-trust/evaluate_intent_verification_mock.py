@@ -1,5 +1,6 @@
 import time
 from dataclasses import dataclass
+from typing import List, TypedDict
 
 
 # Mocking the IntentAnalyzer for demonstration purposes.
@@ -38,7 +39,15 @@ class TestCase:
     category: str  # "benign", "malicious", "subtle"
 
 
-def run_evaluation():
+class Metrics(TypedDict):
+    tp: int
+    tn: int
+    fp: int
+    fn: int
+    latencies: List[float]
+
+
+def run_evaluation() -> None:
     analyzer = MockIntentAnalyzer()
 
     test_cases = [
@@ -83,7 +92,7 @@ def run_evaluation():
     )
     print("-" * 60)
 
-    metrics = {"tp": 0, "tn": 0, "fp": 0, "fn": 0, "latencies": []}
+    metrics: Metrics = {"tp": 0, "tn": 0, "fp": 0, "fn": 0, "latencies": []}
 
     for case in test_cases:
         start_time = time.time()

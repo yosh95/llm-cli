@@ -4,7 +4,7 @@ from llm_cli.security.command_validator import CommandValidationError, CommandVa
 
 
 @pytest.fixture
-def validator():
+def validator() -> CommandValidator:
     """
     Initialize a CommandValidator with default settings for testing.
     """
@@ -30,7 +30,7 @@ class TestSecurityBenchmarks:
             "ls\nrm -rf .",  # Injection via newline
         ],
     )
-    def test_direct_injection(self, validator, payload):
+    def test_direct_injection(self, validator: CommandValidator, payload: str) -> None:
         """Verify that command chaining operators and newlines are blocked."""
         with pytest.raises(CommandValidationError) as exc:
             validator.validate(payload)
@@ -52,7 +52,7 @@ class TestSecurityBenchmarks:
             "grep -r 'foo' $(find . -name '*.txt')",
         ],
     )
-    def test_shell_expansion(self, validator, payload):
+    def test_shell_expansion(self, validator: CommandValidator, payload: str) -> None:
         """Verify that shell substitution and variable expansion are blocked."""
         with pytest.raises(CommandValidationError) as exc:
             validator.validate(payload)
@@ -68,7 +68,7 @@ class TestSecurityBenchmarks:
             "grep 'secret' .env 2> /dev/null",
         ],
     )
-    def test_io_redirection(self, validator, payload):
+    def test_io_redirection(self, validator: CommandValidator, payload: str) -> None:
         """Verify that standard I/O redirection is blocked."""
         with pytest.raises(CommandValidationError) as exc:
             validator.validate(payload)
@@ -83,7 +83,7 @@ class TestSecurityBenchmarks:
             "base64_encoded_cmd",  # Not in whitelist, should be blocked
         ],
     )
-    def test_obfuscation(self, validator, payload):
+    def test_obfuscation(self, validator: CommandValidator, payload: str) -> None:
         """
         Verify that the validator correctly unmasks quoted strings
         and matches them against the whitelist.
@@ -109,7 +109,7 @@ class TestSecurityBenchmarks:
             "find . -delete",  # find with -delete
         ],
     )
-    def test_semantic_attacks(self, validator, payload):
+    def test_semantic_attacks(self, validator: CommandValidator, payload: str) -> None:
         """
         Verify that commands in the whitelist are blocked when used with
         dangerous arguments or subcommands.
@@ -138,7 +138,7 @@ class TestSecurityBenchmarks:
             "stat /etc/shadow",
         ],
     )
-    def test_path_traversal(self, validator, payload):
+    def test_path_traversal(self, validator: CommandValidator, payload: str) -> None:
         """
         Verify that access to files outside the project or sensitive
         system files is blocked.
@@ -164,7 +164,7 @@ class TestSecurityBenchmarks:
             "ls || echo 'failed'",  # Chaining with OR
         ],
     )
-    def test_normal_operations(self, validator, payload):
+    def test_normal_operations(self, validator: CommandValidator, payload: str) -> None:
         """Verify that legitimate developer operations are not blocked."""
         try:
             validator.validate(payload)

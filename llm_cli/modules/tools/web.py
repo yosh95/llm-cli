@@ -128,7 +128,7 @@ def read_html_from_url(url: str, max_length: int = 50000) -> str:
 @tool(
     name="read_pdf_from_url",
     description=(
-        "Download and extract text from a PDF URL. "
+        "Download a PDF from a URL and add it to the context. "
         "Use this specifically for online PDF documents, research papers, or manuals."
     ),
     parameters={
@@ -137,23 +137,24 @@ def read_html_from_url(url: str, max_length: int = 50000) -> str:
         "required": ["url"],
     },
 )
-def read_pdf_from_url(url: str) -> str:
-    # Use fetch_url_content with pdf_as_base64=False to get text
-    content, ctype = fetch_url_content(url, pdf_as_base64=False)
+def read_pdf_from_url(url: str) -> str | dict:
+    # Use fetch_url_content with pdf_as_base64=True to get base64
+    content, ctype = fetch_url_content(url, pdf_as_base64=True)
 
     if content is None or ctype is None:
         return "Error: Failed to fetch content or invalid URL."
 
-    if "application/pdf" not in ctype and "text/plain" not in ctype:
+    if "application/pdf" not in ctype:
         return f"Error: Expected PDF but got {ctype}. Content might not be a PDF."
 
-    if not content.strip():
-        return (
-            "Error: Extracted text is empty. The PDF might be scanned images "
-            "without text (OCR is not supported)."
-        )
-
-    return content
+    return {
+        "result": f"Successfully fetched PDF from {url}",
+        "__llm_cli_data__": {
+            "content": content,
+            "content_type": ctype,
+            "is_file_or_url": True,
+        },
+    }
 
 
 @tool(

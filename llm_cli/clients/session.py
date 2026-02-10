@@ -454,7 +454,8 @@ class ChatSession:
                 self.client.conversation = original_conversation
         except (KeyboardInterrupt, EOFError):
             self.client.conversation = original_conversation
-            raise
+            console.print("[yellow]Checkpoint canceled (Interrupted).[/yellow]")
+            return
         except Exception as e:
             console.print(f"[bold red]Checkpoint failed: {e}[/bold red]")
             self.client.conversation = original_conversation

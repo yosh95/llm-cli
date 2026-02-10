@@ -202,3 +202,19 @@ class TestChatSession:
 
             # Conversation should be restored (or unchanged if it was empty)
             assert len(session.client.conversation) == original_len
+
+    def test_handle_checkpoint_interrupt(self, session):
+        # Mock _send to raise KeyboardInterrupt
+        session.client._send = MagicMock(side_effect=KeyboardInterrupt)
+
+        original_len = len(session.client.conversation)
+
+        # Should not raise KeyboardInterrupt
+        try:
+            session._handle_checkpoint()
+        except KeyboardInterrupt:
+            pytest.fail("KeyboardInterrupt should have been caught")
+
+        # Conversation should be restored
+        assert len(session.client.conversation) == original_len
+

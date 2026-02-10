@@ -77,7 +77,8 @@ def run_benchmark():
     print("-" * 75)
     overall_score = (total_blocked / total_vectors) * 100
     print(
-        f"{'OVERALL':<35} | {total_vectors:<8} | {total_blocked:<8} | {overall_score:.1f}%"
+        f"{'OVERALL':<35} | {total_vectors:<8} | "
+        f"{total_blocked:<8} | {overall_score:.1f}%"
     )
 
 

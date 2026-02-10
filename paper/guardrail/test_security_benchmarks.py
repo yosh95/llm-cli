@@ -101,7 +101,7 @@ class TestSecurityBenchmarks:
         "payload",
         [
             "git push origin main",  # Forbidden git subcommand
-            "git config --global user.email 'hacker@example.com'",  # Configuration change
+            "git config --global user.email 'hacker@example.com'",
             "git add .",  # Forbidden bulk add
             "python3 -c 'import os; os.system(\"rm -rf /\")'",  # Python one-liner
             "python -m http.server 8080",  # Forbidden module execution
@@ -139,7 +139,10 @@ class TestSecurityBenchmarks:
         ],
     )
     def test_path_traversal(self, validator, payload):
-        """Verify that access to files outside the project or sensitive system files is blocked."""
+        """
+        Verify that access to files outside the project or sensitive
+        system files is blocked.
+        """
         with pytest.raises(CommandValidationError) as exc:
             validator.validate(payload)
         err_msg = str(exc.value).lower()

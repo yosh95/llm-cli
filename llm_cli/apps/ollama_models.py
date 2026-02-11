@@ -1,17 +1,28 @@
 # llm_cli/apps/ollama_models.py
 
 import sys
+from urllib.parse import urlparse
 
 import requests
 from rich.console import Console
 from rich.table import Table
 
+from llm_cli.clients.config import get_setting
+
 
 def main() -> None:
     console = Console()
     try:
-        # Default host
-        host = "http://localhost:11434"
+        # Load API URL from config
+        api_url = get_setting("api_url", "ollama")
+        if not api_url:
+            api_url = "http://localhost:11434/v1/chat/completions"
+
+        # Extract base URL (e.g., http://localhost:11434)
+        # Assuming api_url is like http://host:port/v1/chat/completions
+        parsed = urlparse(api_url)
+        host = f"{parsed.scheme}://{parsed.netloc}"
+
         response = requests.get(
             f"{host}/api/tags", headers={"Connection": "close"}, timeout=5
         )

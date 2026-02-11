@@ -17,9 +17,11 @@ def main() -> None:
             )
         return "N/A"
 
-    # Load custom API URL from config or use default
-    config_url = get_setting("api_url", "vllm")
-    base_url = config_url if config_url else "http://localhost:8000/v1/chat/completions"
+    # Load custom API URL from config
+    # defaults.toml provides a default value, so this should rarely be None.
+    base_url = get_setting("api_url", "vllm")
+    if not base_url:
+        base_url = "http://localhost:8000/v1/chat/completions"
 
     # Adjust URL to point to /v1/models instead of /chat/completions
     if "/chat/completions" in base_url:

@@ -28,9 +28,7 @@ def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
         # Limit CPU time (seconds)
         # Soft limit: Process receives SIGXCPU
         # Hard limit: Process receives SIGKILL
-        resource.setrlimit(
-            resource.RLIMIT_CPU, (cpu_limit_sec, cpu_limit_sec + 5)
-        )
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu_limit_sec, cpu_limit_sec + 5))
 
         # Limit address space (Memory)
         # Android/Termux linker allocates large virtual address spaces, which causes

@@ -70,8 +70,22 @@ class MCPManager:
             # Identity Propagation: Inject Auth Token into environment
             env = env or {}
             # Use server name as audience to prevent token reuse
+            # Identity Propagation: Inject Auth Token into environment
+            # NOTE: Do NOT default to admin. Use least-privilege roles from config.
+            requested_roles = config.get("roles") or env.get("MCP_ROLES")
+
+            roles: list[str] = []
+            if isinstance(requested_roles, str):
+                roles = [r.strip() for r in requested_roles.split(",") if r.strip()]
+            elif isinstance(requested_roles, list):
+                roles = [str(r).strip() for r in requested_roles if str(r).strip()]
+
+            if not roles:
+                roles = ["guest"]
+
             env["MCP_AUTH_TOKEN"] = IdentityManager.generate_token(
-                roles=["admin"], audience=name
+                roles=roles,
+                audience=name,
             )
             env["MCP_SERVER_NAME"] = name
 

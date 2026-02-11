@@ -1,8 +1,11 @@
 import fnmatch
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any
+
+from llm_cli.security.path_validator import PathValidationError, validate_path
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +95,21 @@ class PolicyEngine:
                 self.intent_analyzer = IntentAnalyzer(provider, model)
             except Exception as e:
                 logger.error(f"Failed to initialize Intent Analyzer: {e}")
-                return True  # Fail open if analyzer is broken
+                # Configurable fail-open/closed.
+                # Zero-Trust default should be fail-closed for high-risk tools.
+                # We implement per-tool overrides with a safe default.
+                fail_open = self.config.get("intent_analyzer_fail_open", False)
+                fail_open_tools = set(
+                    self.config.get("intent_analyzer_fail_open_tools", [])
+                )
+                fail_closed_tools = set(
+                    self.config.get("intent_analyzer_fail_closed_tools", [])
+                )
+                if tool_name in fail_open_tools:
+                    return True
+                if tool_name in fail_closed_tools:
+                    return False
+                return True if fail_open else False
 
         logger.info(
             f"🧠 Verifying Intent: Prompt='{user_prompt[:50]}...' Tool='{tool_name}'"
@@ -197,13 +214,52 @@ class PolicyEngine:
 
         # Path-based restriction
         if "allowed_paths" in tool_scope:
-            path = arguments.get("path") or arguments.get("directory")
-            if path:
+            raw_path = arguments.get("path") or arguments.get("directory")
+            if raw_path:
                 allowed_patterns = tool_scope["allowed_paths"]
-                if not any(fnmatch.fnmatch(path, p) for p in allowed_patterns):
+
+                # Normalize/resolve the target path the same way as tool-level
+                # validation. This reduces bypass via relative paths, symlinks, or
+                # differing path forms.
+                try:
+                    normalized_target = str(validate_path(str(raw_path)))
+                except PathValidationError as e:
+                    logger.warning(f"Scope Violation: invalid path '{raw_path}': {e}")
+                    return False
+
+                # Also allow matching against the original raw string for convenience
+                # (e.g., patterns like '*.md' that are not tied to a directory).
+                candidates = {str(raw_path), normalized_target}
+
+                def _match_any(candidate: str) -> bool:
+                    for pattern in allowed_patterns:
+                        # Expand/resolve patterns that look like paths.
+                        pat = str(pattern)
+                        expanded_pat = str(Path(pat).expanduser())
+                        resolved_pat = expanded_pat
+                        try:
+                            # Only resolve patterns that contain a path separator or
+                            # start with '.'.
+                            if (
+                                (os.sep in expanded_pat)
+                                or expanded_pat.startswith("./")
+                                or expanded_pat.startswith("../")
+                            ):
+                                resolved_pat = str(Path(expanded_pat).resolve())
+                        except Exception:
+                            resolved_pat = expanded_pat
+
+                        if fnmatch.fnmatch(candidate, pat) or fnmatch.fnmatch(
+                            candidate, resolved_pat
+                        ):
+                            return True
+                    return False
+
+                if not any(_match_any(c) for c in candidates):
                     logger.warning(
-                        f"Scope Violation: Path '{path}' not in allowed patterns "
-                        f"{allowed_patterns}"
+                        f"Scope Violation: Path '{raw_path}' "
+                        f"(normalized='{normalized_target}') not in allowed "
+                        f"patterns {allowed_patterns}"
                     )
                     return False
 

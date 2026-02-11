@@ -63,13 +63,20 @@ def test_token_verification(identity_manager):
 
 
 @pytest.fixture
-def policy_engine():
+def policy_engine(tmp_path, monkeypatch):
+    # Align ABAC scope tests with path normalization + validate_path() sandboxing.
+    # Set CWD to a temporary project directory so validate_path() accepts it.
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    monkeypatch.chdir(project_dir)
+
     config = {
         "roles": {
             "developer": {
                 "allowed_tools": ["edit_file", "read_file"],
                 "scopes": {
-                    "edit_file": {"allowed_paths": ["/home/project/*"]},
+                    # Use a scope under the current project directory
+                    "edit_file": {"allowed_paths": [str(project_dir / "*")]},
                 },
             }
         },
@@ -82,24 +89,19 @@ def test_policy_scope_enforcement(policy_engine):
     context = {"roles": ["developer"], "user_id": "dev_user"}
 
     # Allowed path
-    assert (
-        policy_engine.evaluate("edit_file", {"path": "/home/project/main.py"}, context)
-        is True
-    )
+    assert policy_engine.evaluate("edit_file", {"path": "./main.py"}, context) is True
 
     # Disallowed path (Out of scope)
     assert (
-        policy_engine.evaluate("edit_file", {"path": "/etc/passwd"}, context) is False
+        policy_engine.evaluate("edit_file", {"path": "../outside.txt"}, context)
+        is False
     )
 
 
 def test_policy_subject_ban(policy_engine):
     # Even if role allows it, subject ban should block it
     context = {"roles": ["developer"], "user_id": "banned_user"}
-    assert (
-        policy_engine.evaluate("edit_file", {"path": "/home/project/main.py"}, context)
-        is False
-    )
+    assert policy_engine.evaluate("edit_file", {"path": "./main.py"}, context) is False
 
 
 def test_global_guardrails(policy_engine):

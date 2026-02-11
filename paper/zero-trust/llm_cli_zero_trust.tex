@@ -105,6 +105,11 @@ Currently, there is a lack of unified tooling that integrates these ZTA principl
 \end{figure*}
 
 \section{Proposed System: \texttt{llm-cli}}
+\subsection{Threat Model and Trust Assumptions}
+Our primary enforcement target is \textbf{MCP-mediated tool execution}. The MCP server-side wrapper acts as the Policy Enforcement Point (PEP) that performs authentication, authorization, and audit logging before invoking any tool.
+
+\textbf{Trusted Computing Base (TCB).} The launched MCP server process (binary, container image, and its launch configuration) is considered part of the TCB. In other words, \texttt{llm-cli} assumes the server command and configuration are controlled by the user/administrator and are not adversarial. This boundary must be made explicit because a malicious or modified MCP server can exfiltrate data regardless of runtime policy checks.
+
 
 \texttt{llm-cli} is a unified CLI tool designed to interact with multiple LLM providers (OpenAI, Anthropic, Google Gemini, xAI Grok, Ollama, vLLM) while enforcing a strict security model. It operates not just as a client, but as a secure runtime environment for MCP-based tools.
 
@@ -150,12 +155,16 @@ class IdentityManager:
 This mechanism ensures that even if a remote MCP server is accessed (e.g., via SSH tunneling), it can cryptographically verify the caller's identity and assigned roles, preventing unauthorized access from spoofed clients.
 
 \subsection{Least Privilege via RBAC and ABAC}
+\textbf{MCP role issuance.} In MCP mode, the client issues a short-lived JWT for each configured MCP server with an explicit \texttt{aud} (audience) bound to the server name. To uphold least privilege, the client must \emph{not} default to \texttt{admin}; instead, it derives roles from user configuration per server (default \texttt{guest}). This prevents accidental over-privileging of remote tool backends.
+
 The \texttt{PolicyEngine} implements a hybrid Role-Based Access Control (RBAC) and Attribute-Based Access Control (ABAC) model.
 
 \subsubsection{Role Definitions}
 Users are assigned roles such as \texttt{guest}, \texttt{user}, or \texttt{admin}. A \texttt{guest} role, for instance, is restricted to read-only tools like \texttt{list\_files} and \texttt{read\_file}, effectively neutralizing the risk of destructive actions.
 
 \subsubsection{Scope Verification}
+\textbf{Path normalization.} Scope checks must use canonical paths. We normalize tool arguments using the same expansion and resolution strategy as tool-level path validation (e.g., \texttt{expanduser} + \texttt{resolve}) before applying pattern matching. This reduces bypass via relative paths, alternate representations, or symlinks.
+
 Beyond simple role checks, the policy engine evaluates attributes of the request. For example, the \texttt{edit\_file} tool is restricted by a path scope:
 
 \begin{lstlisting}[caption={Scope Verification Logic}, label={lst:scope}]
@@ -173,6 +182,8 @@ def _verify_scope(self, tool_name, args, policy):
 This ensures that even an authenticated user cannot write to sensitive system directories (e.g., \texttt{/etc/}), limiting the blast radius of a compromised agent.
 
 \subsection{Tamper-Evident Audit Logging}
+\textbf{Retention without breaking integrity.} A practical system must enforce retention limits. Naively truncating old log lines breaks the hash chain and weakens tamper evidence. Therefore, when exceeding a configured limit, we rotate overflow entries into an archive file and insert a snapshot anchor entry into the active log, preserving verifiability of the remaining segment and linking it to the archived portion.
+
 Transparency is a core tenet of Zero Trust. \texttt{llm-cli} implements a chained hashing mechanism for audit logs. Each log entry contains a cryptographic hash of the previous entry, forming a tamper-evident chain.
 
 \begin{lstlisting}[caption={Audit Log Entry Structure with Chained Hashing}, label={lst:auditlog}]
@@ -194,6 +205,8 @@ Transparency is a core tenet of Zero Trust. \texttt{llm-cli} implements a chaine
 \end{itemize}
 
 \subsection{Dynamic Intent Verification (Verify Explicitly)}
+\textbf{Availability and failure policy.} Because the intent verifier is itself a dependency (network/model availability), Zero Trust requires an explicit failure mode. Our implementation supports configurable \emph{fail-closed by default} when the intent analyzer cannot be initialized, with per-tool overrides (e.g., fail-open for low-risk read tools; fail-closed for high-risk write/shell tools). This aligns with \emph{Verify Explicitly} and \emph{Assume Breach}.
+
 Static policies cannot capture context. To address this, \texttt{llm-cli} introduces a "Dynamic Guardrail" using a secondary, smaller LLM (e.g., Gemini 2.5 Flash Lite) to act as a supervisor.
 
 Before executing any tool, the \texttt{IntentAnalyzer} compares the user's original prompt with the agent's proposed action using a strict system prompt (Listing \ref{lst:intent_prompt}).

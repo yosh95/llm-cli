@@ -196,5 +196,25 @@ class TestAuditLog:
         log_file.write_text("line1\nline2\nline3\nline4\n")
 
         _trim_log_file(log_file, 2)
-        content = log_file.read_text()
-        assert content == "line3\nline4\n"
+        lines = log_file.read_text().splitlines()
+
+        # New behavior: rotate overflow into an archive and insert a snapshot anchor.
+        assert len(lines) == 3
+
+        import json
+
+        snapshot = json.loads(lines[0])
+        assert snapshot["tool"] == "__audit_snapshot__"
+        assert "archive" in snapshot["args"]
+        assert snapshot["args"]["kept_lines"] == 2
+
+        # The kept lines remain as the tail of the file
+        assert lines[1] == "line3"
+        assert lines[2] == "line4"
+
+        # Archive file should exist
+        from pathlib import Path
+
+        archive_path = Path(snapshot["args"]["archive"])
+        assert archive_path.exists()
+        assert archive_path.read_text() == "line1\nline2\n"

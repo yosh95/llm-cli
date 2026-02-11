@@ -95,18 +95,70 @@ def _get_last_log_hash(path: Path) -> str:
 
 
 def _trim_log_file(path: Path, max_lines: int) -> None:
-    """Keeps the log file within the specified line limit while preserving the chain."""
+    """Keeps the log file within the specified line limit.
+
+    Important: naive trimming breaks hash-chain continuity. To keep tamper-evidence,
+    we *rotate* the overflow into an archive file and insert a signed snapshot entry
+    at the beginning of the remaining log.
+
+    Snapshot entry (tool='__audit_snapshot__') contains:
+      - snapshot_prev_hash: the prev_hash of the first kept entry
+      - snapshot_first_hash: the hash of the first kept entry
+
+    This preserves verifiability for the remaining segment and provides an anchor
+    to the rotated archive.
+    """
     try:
         if not path.exists():
             return
+
         with path.open("r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        if len(lines) > max_lines:
-            # When trimming, we break the hash chain from the beginning,
-            # but preserve it for the remaining entries.
-            # In a production system, we would archive the old logs.
-            with path.open("w", encoding="utf-8") as f:
-                f.writelines(lines[-max_lines:])
+        if len(lines) <= max_lines:
+            return
+
+        overflow = lines[:-max_lines]
+        kept = lines[-max_lines:]
+
+        # Write overflow to a rotated archive (append-only)
+        ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        archive_path = path.with_name(f"{path.name}.archive.{ts}.jsonl")
+        with archive_path.open("a", encoding="utf-8") as af:
+            af.writelines(overflow)
+
+        # Prepare a snapshot anchor for the kept segment
+        try:
+            first_entry = json.loads(kept[0])
+            snapshot_prev_hash = first_entry.get("prev_hash", "0" * 64)
+            snapshot_first_hash = first_entry.get("hash", "0" * 64)
+        except Exception:
+            snapshot_prev_hash = "0" * 64
+            snapshot_first_hash = "0" * 64
+
+        snapshot = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "trace_id": "-",
+            "subject": "system",
+            "audience": "-",
+            "tool": "__audit_snapshot__",
+            "args": {
+                "archive": str(archive_path),
+                "snapshot_prev_hash": snapshot_prev_hash,
+                "snapshot_first_hash": snapshot_first_hash,
+                "kept_lines": max_lines,
+            },
+            "status": "SUCCESS",
+            "exit_code": None,
+            "prev_hash": _get_last_log_hash(archive_path),
+        }
+        entry_str = json.dumps(snapshot, sort_keys=True)
+        snapshot["hash"] = hashlib.sha256(entry_str.encode()).hexdigest()
+
+        with path.open("w", encoding="utf-8") as wf:
+            wf.write(json.dumps(snapshot) + "\n")
+            wf.writelines(kept)
+
     except Exception:
+        # Never break tool execution due to logging
         pass

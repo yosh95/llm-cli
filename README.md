@@ -164,14 +164,15 @@ MCP server commands defined in `config.toml` are executed as-is, trusting the us
 ### Resource Limits
 
 To prevent resource exhaustion, commands executed by the agent are subject to the following limits:
-- **CPU Time**: 30 seconds
+- **Command Timeout**: 300 seconds (Default)
 - **Max File Write**: 50 MB
 - **Memory (RLIMIT_AS)**: 1024 MB (1GB) (Default)
 
-If a tool fails with `Exit Code: 134 (Aborted)` (commonly seen with memory-heavy tools like `ruff` or compilers), you can increase the memory limit in your configuration:
+If a tool fails with `Exit Code: 134 (Aborted)` (commonly seen with memory-heavy tools like `ruff` or compilers), or if a long-running command times out, you can adjust the limits in your configuration:
 
 ```toml
 [general]
+command_timeout = 300
 max_command_memory_mb = 1024
 ```
 
@@ -536,14 +537,15 @@ AIエージェント（`execute_shell_command` ツール）を通じて実行さ
 ### リソース制限
 
 リソースの枯渇を防ぐため、エージェントによって実行されるコマンドには以下の制限が適用されます：
-- **CPU時間**: 30秒
+- **コマンドタイムアウト**: 300秒 (デフォルト)
 - **最大ファイル書き込み**: 50 MB
 - **メモリ (RLIMIT_AS)**: 1024 MB (1GB) (デフォルト)
 
-ツールが `Exit Code: 134 (Aborted)` で失敗する場合（`ruff` やコンパイラなど、メモリを大量に消費するツールでよく見られます）、設定でメモリ制限を増やすことができます：
+ツールが `Exit Code: 134 (Aborted)` で失敗する場合（`ruff` やコンパイラなど、メモリを大量に消費するツールでよく見られます）、または長時間実行されるコマンドがタイムアウトする場合は、設定で制限を調整できます：
 
 ```toml
 [general]
+command_timeout = 300
 max_command_memory_mb = 1024
 ```
 

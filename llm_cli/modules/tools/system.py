@@ -19,14 +19,18 @@ from llm_cli.security import CommandValidationError, validate_command
 logger = logging.getLogger(__name__)
 
 
-def set_resource_limits(mem_limit_mb: int) -> None:
+def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
     """Sets resource limits for the child process. (Linux/Unix only)"""
     if resource is None:
         return
 
     try:
         # Limit CPU time (seconds)
-        resource.setrlimit(resource.RLIMIT_CPU, (30, 35))
+        # Soft limit: Process receives SIGXCPU
+        # Hard limit: Process receives SIGKILL
+        resource.setrlimit(
+            resource.RLIMIT_CPU, (cpu_limit_sec, cpu_limit_sec + 5)
+        )
 
         # Limit address space (Memory)
         # Android/Termux linker allocates large virtual address spaces, which causes
@@ -74,11 +78,17 @@ def execute_shell_command(command: str) -> str:
         # and logs it as FAILED
         raise RuntimeError(f"Security Error: {e}") from e
 
-    # Use a default timeout of 60 seconds.
-    timeout = int(os.environ.get("LLM_CLI_COMMAND_TIMEOUT", 60))
+    # Use a default timeout of 300 seconds.
+    # Config > Env Var > Default
+    timeout = int(
+        str(
+            get_setting("command_timeout", "general")
+            or os.environ.get("LLM_CLI_COMMAND_TIMEOUT", "300")
+        )
+    )
 
     # Read memory limit from config, default to 1024MB (1GB)
-    mem_limit_mb = int(get_setting("max_command_memory_mb", "general") or 1024)
+    mem_limit_mb = int(str(get_setting("max_command_memory_mb", "general") or "1024"))
 
     # 1. Define base safe environment variables
     safe_env_keys = {
@@ -132,7 +142,7 @@ def execute_shell_command(command: str) -> str:
 
     if platform.system() != "Windows":
         kwargs["start_new_session"] = True
-        kwargs["preexec_fn"] = lambda: set_resource_limits(mem_limit_mb)
+        kwargs["preexec_fn"] = lambda: set_resource_limits(mem_limit_mb, timeout)
 
     try:
         with subprocess.Popen(command, **kwargs) as proc:

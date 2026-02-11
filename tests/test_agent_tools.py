@@ -6,6 +6,7 @@ import time
 
 import pytest
 
+import llm_cli.clients.config
 from llm_cli.modules.tools.system import execute_shell_command
 
 
@@ -62,5 +63,33 @@ def test_timeout_and_cleanup():
                 f"Child process 'sleep 10' should have been killed. Found:\n{ps_check.stdout}"
             )
     finally:
+        if "LLM_CLI_COMMAND_TIMEOUT" in os.environ:
+            del os.environ["LLM_CLI_COMMAND_TIMEOUT"]
+
+
+def test_timeout_config_override():
+    """Verify that config setting takes precedence over environment variable."""
+    # Set environment variable to a high value (10s)
+    os.environ["LLM_CLI_COMMAND_TIMEOUT"] = "10"
+
+    # Save original config cache
+    original_cache = llm_cli.clients.config._config_cache
+
+    # Inject config with short timeout (2s)
+    llm_cli.clients.config._config_cache = {"general": {"command_timeout": 2}}
+
+    try:
+        start_time = time.time()
+        # Should timeout in ~2s despite env var being 10s
+        with pytest.raises(RuntimeError) as excinfo:
+            execute_shell_command("sleep 5")
+
+        duration = time.time() - start_time
+        assert 2 <= duration <= 8, f"Command should timeout around 2s, took {duration}s"
+        assert "Command timed out (2s)." in str(excinfo.value)
+
+    finally:
+        # Restore original config and cleanup env var
+        llm_cli.clients.config._config_cache = original_cache
         if "LLM_CLI_COMMAND_TIMEOUT" in os.environ:
             del os.environ["LLM_CLI_COMMAND_TIMEOUT"]

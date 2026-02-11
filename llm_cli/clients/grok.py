@@ -436,21 +436,19 @@ class GrokClient(BaseLlmClient):
                         msg["tool_calls"] = tool_calls
                     msgs.append(msg)
 
-        if msgs:
-            # Append incoming data for the next user message
-            user_content: list[dict[str, Any]] = []
-            for d in data:
-                if d.content_type == "text/plain":
-                    user_content.append({"type": "text", "text": str(d.content)})
-                elif d.content_type.startswith("image/"):
-                    user_content.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{d.content_type};base64,{d.content}"
-                            },
-                        }
-                    )
+        user_content: list[dict[str, Any]] = []
+        for d in data:
+            if d.content_type == "text/plain":
+                user_content.append({"type": "text", "text": str(d.content)})
+            elif d.content_type.startswith("image/"):
+                user_content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{d.content_type};base64,{d.content}"
+                        },
+                    }
+                )
 
         if user_content:
             from typing import cast

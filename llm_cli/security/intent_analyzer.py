@@ -28,6 +28,7 @@ class IntentAnalyzer:
         # We need to import clients here to avoid circular imports
         from llm_cli.clients.claude import ClaudeClient
         from llm_cli.clients.gemini import GeminiClient
+        from llm_cli.clients.grok import GrokClient
         from llm_cli.clients.ollama import OllamaClient
         from llm_cli.clients.openai import OpenAIClient
 
@@ -56,6 +57,11 @@ class IntentAnalyzer:
             return client
         elif provider == "claude" or provider == "anthropic":
             client = ClaudeClient(**client_kwargs)  # type: ignore
+            client.model = model
+            client.tools_enabled = False
+            return client
+        elif provider in ("grok", "xai"):
+            client = GrokClient(**client_kwargs)  # type: ignore
             client.model = model
             client.tools_enabled = False
             return client

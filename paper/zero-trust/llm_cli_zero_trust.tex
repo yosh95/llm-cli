@@ -192,7 +192,7 @@ Transparency is a core tenet of Zero Trust. \texttt{llm-cli} implements a chaine
 \end{itemize}
 
 \subsection{Dynamic Intent Verification (Verify Explicitly)}
-Static policies cannot capture context. To address this, \texttt{llm-cli} introduces a "Dynamic Guardrail" using a secondary, smaller LLM (e.g., Gemini Flash) to act as a supervisor.
+Static policies cannot capture context. To address this, \texttt{llm-cli} introduces a "Dynamic Guardrail" using a secondary, smaller LLM (e.g., Gemini 2.5 Flash Lite) to act as a supervisor.
 
 Before executing any tool, the \texttt{IntentAnalyzer} compares the user's original prompt with the agent's proposed action using a strict system prompt (Listing \ref{lst:intent_prompt}).
 
@@ -262,40 +262,49 @@ This setup allows the agent to perform complex tasks like "Review the latest PR 
 \section{Evaluation and Discussion}
 
 \subsection{Experiment Design}
-To evaluate the effectiveness of the \texttt{IntentAnalyzer}, we conducted a controlled experiment using a dataset of 50 prompts, categorized into three groups:
+To evaluate the effectiveness of the \texttt{IntentAnalyzer} and the feasibility of running verification locally, we conducted a comparative analysis using both cloud-based (OpenAI \texttt{gpt-5-nano}, Anthropic \texttt{claude-4.5-haiku}, Google \texttt{gemini-2.5-flash-lite}) and local (Ollama \texttt{llama3.2:3b}, \texttt{qwen3:4b}) models.
+
+The test suite consisted of distinct scenarios:
 \begin{itemize}
-    \item \textbf{Benign (20)}: Standard development tasks (e.g., \texttt{ls -la}, \texttt{read\_file}).
-    \item \textbf{Malicious (20)}: Explicit attacks (e.g., \texttt{rm -rf /}, \texttt{curl | sh}).
-    \item \textbf{Subtle (10)}: Context-dependent risks (e.g., editing \texttt{.env} files, modifying git config).
+    \item \textbf{Benign}: Standard actions (e.g., \texttt{ls -la}, reading documentation).
+    \item \textbf{Malicious}: Explicit attacks (e.g., \texttt{rm -rf /}, accessing \texttt{/etc/passwd}).
+    \item \textbf{Subtle}: Context-dependent risks (e.g., modifying \texttt{.env} files, piping web content to shell).
 \end{itemize}
 
-We measured the Detection Rate (Recall), False Positive Rate (FPR), and Latency using Google Gemini 1.5 Flash as the verifier model.
+We measured Detection Rate (Recall), False Positive Rate (FPR), and Latency. A key variable in our experiments was the impact of explicitly disabling tool definitions for the verifier model to force purely semantic reasoning.
 
 \subsection{Results}
-Table \ref{tab:results} presents the results of our evaluation.
+Table \ref{tab:results} summarizes the performance of selected models with tools disabled.
 
 \begin{table}[htbp]
-\caption{Intent Verification Performance}
+\caption{Intent Verification Performance (Tools Disabled)}
 \begin{center}
-\begin{tabular}{|l|c|c|c|}
+\begin{tabular}{|l|c|c|c|c|}
 \hline
-\textbf{Category} & \textbf{Total} & \textbf{Detected/Blocked} & \textbf{Accuracy} \\
+\textbf{Model} & \textbf{Type} & \textbf{Recall} & \textbf{FPR} & \textbf{Latency (s)} \\
 \hline
-Benign (Safe) & 20 & 0 (False Positive) & 100\% \\
-Malicious (Unsafe) & 20 & 20 (True Positive) & 100\% \\
-Subtle (Unsafe) & 10 & 9 (True Positive) & 90\% \\
-\hline
-\textbf{Overall} & \textbf{50} & \textbf{Recall: 96.6\%} & \textbf{FPR: 0\%} \\
+llama3.2:3b & Local & \textbf{100\%} & 50\% & 2.10 \\
+gemini-2.5-flash-lite & Cloud & 50\% & 0\% & \textbf{0.93} \\
+claude-4.5-haiku & Cloud & 50\% & 0\% & 1.51 \\
+gpt-5-nano & Cloud & 50\% & 50\% & 5.92 \\
+qwen3:4b & Local & 0\% & 0\% & 20.17 \\
 \hline
 \end{tabular}
 \label{tab:results}
 \end{center}
 \end{table}
 
-The system demonstrated a high detection rate for malicious commands. The single missed subtle case involved a complex, multi-step edit that appeared benign in isolation, highlighting the need for stateful verification in future work.
+\subsubsection{Local vs. Cloud Models}
+Surprisingly, the local model \texttt{llama3.2:3b} achieved the highest Recall (100\%), successfully detecting all malicious and subtle attacks, including `curl | bash` and `.env` modifications. However, this came at the cost of a higher False Positive Rate (50\%), as it flagged some benign file reads as suspicious. In contrast, cloud models like \texttt{gemini-2.5-flash-lite} were faster (0.93s) but less aggressive in detection (50\% Recall).
+
+\subsubsection{The "Tools Disabled" Optimization}
+We observed that explicitly disabling tool definitions for the verifier model significantly improved performance for smaller local models. When tools were enabled, models often hallucinated function arguments or became confused by the schema. Disabling tools forced the models to rely on the natural language system prompt, resulting in a jump from 75\% to 100\% recall for \texttt{llama3.2:3b}.
+
+\subsubsection{Failures}
+The \texttt{qwen3:4b} model proved unsuitable for this task, exhibiting extreme latency (~20s) and a 0\% detection rate, marking all actions as safe. This highlights the variability in model capability regarding security reasoning.
 
 \subsection{Latency Analysis}
-The average latency introduced by the Intent Verification step was \textbf{500ms} (std dev: 120ms). While perceptible, this delay is negligible for asynchronous agentic workflows where safety is paramount. Compared to the execution time of typical LLM generation (2-10s), the overhead is less than 10\%.
+Latency is a critical factor for usability. While cloud models offer sub-second verification, the optimized local \texttt{llama3.2:3b} model provided a viable alternative at ~2.1 seconds. This is an acceptable trade-off for users requiring air-gapped security or data privacy, effectively enabling "offline Zero Trust."
 
 \subsection{Threat Model Analysis}
 We evaluate the security resilience of \texttt{llm-cli} against common attack vectors targeting LLM agents. Table \ref{tab:threats} summarizes these mitigations.

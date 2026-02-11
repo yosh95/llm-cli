@@ -47,18 +47,22 @@ class IntentAnalyzer:
             client: BaseLlmClient = OpenAIClient(**client_kwargs)  # type: ignore
             # OpenAI client uses self.model directly
             client.model = model
+            client.tools_enabled = False
             return client
-        elif provider == "gemini":
+        elif provider == "gemini" or provider == "google":
             client = GeminiClient(**client_kwargs)  # type: ignore
             client.model = model
+            client.tools_enabled = False
             return client
         elif provider == "claude" or provider == "anthropic":
             client = ClaudeClient(**client_kwargs)  # type: ignore
             client.model = model
+            client.tools_enabled = False
             return client
         elif provider == "ollama":
             client = OllamaClient(**client_kwargs)  # type: ignore
             client.model = model
+            client.tools_enabled = False
             return client
         else:
             raise ValueError(f"Unsupported provider for IntentAnalyzer: {provider}")

@@ -209,6 +209,5 @@ __marimo__/
 *.out
 *.log
 *.aux
-*.pdf
 images/generated/
 ./*.json

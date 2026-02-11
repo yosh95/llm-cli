@@ -8,6 +8,8 @@
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{tikz}
+\usepackage{array}
+\usepackage{balance}
 \usetikzlibrary{shapes,arrows,fit,positioning}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
@@ -314,7 +316,7 @@ We evaluate the security resilience of \texttt{llm-cli} against common attack ve
 \begin{table}[htbp]
 \caption{Threat Model and Mitigations}
 \begin{center}
-\begin{tabular}{|p{3cm}|p{4.5cm}|}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{3cm}|>{\raggedright\arraybackslash}p{4.5cm}|}
 \hline
 \textbf{Threat Vector} & \textbf{Mitigation in \texttt{llm-cli}} \\
 \hline
@@ -340,6 +342,7 @@ Man-in-the-Middle (MitM) & \textbf{RSA/JWT Auth}: Remote MCP connections are aut
 
 Future work will focus on improving the latency of the intent analyzer through distilled local models and preparing for the quantum era with Post-Quantum Cryptography (PQC) identities.
 
+\balance
 \begin{thebibliography}{00}
 \raggedright
 

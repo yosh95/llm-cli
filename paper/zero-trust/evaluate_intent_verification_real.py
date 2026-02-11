@@ -1,11 +1,11 @@
 import sys
-import os
 import time
 from dataclasses import dataclass
-from typing import TypedDict, Optional
+from pathlib import Path
+from typing import TypedDict
 
 # Add project root to sys.path to allow imports from llm_cli
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+sys.path.append(str((Path(__file__).parent / "../../").resolve()))
 
 from llm_cli.security.intent_analyzer import IntentAnalyzer
 
@@ -30,7 +30,7 @@ class Metrics(TypedDict):
 
 
 def run_evaluation(
-    provider: str, model_name: str, case_id: Optional[str] = None
+    provider: str, model_name: str, case_id: str | None = None
 ) -> Metrics:
     print(f"\nInitializing IntentAnalyzer with {provider}/{model_name}...")
     try:
@@ -116,7 +116,8 @@ def run_evaluation(
     }
 
     # Warmup for Ollama if needed, but we measure everything here.
-    # The user noted Ollama first response is slow. We might want to do a dummy call first?
+    # The user noted Ollama first response is slow.
+    # We might want to do a dummy call first?
     # Let's do a dummy call if provider is ollama
     # if provider == "ollama":
     #     print("Warming up Ollama...")

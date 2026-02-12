@@ -516,7 +516,14 @@ class ChatSession:
             kwargs.pop(
                 "history", None
             )  # PromptSession.prompt() does not accept history
-            return str(self.prompt_session.prompt(message, **kwargs)).strip()
+
+            try:
+                return str(self.prompt_session.prompt(message, **kwargs)).strip()
+            except (KeyboardInterrupt, EOFError):
+                # Return empty string to simulate cancellation (e.g. "no")
+                # print a newline to ensure clean output
+                console.print()
+                return ""
 
         try:
             tty_path = Path("/dev/tty") if sys.platform != "win32" else Path("CON")

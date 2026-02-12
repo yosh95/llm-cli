@@ -217,3 +217,13 @@ class TestChatSession:
 
         # Conversation should be restored
         assert len(session.client.conversation) == original_len
+
+    def test_get_input_interrupt(self, session):
+        # Ensure _get_input catches KeyboardInterrupt and returns empty string
+        # We need to mock sys.stdin.isatty to True to hit the prompt_toolkit path
+        with patch("sys.stdin.isatty", return_value=True):
+            with patch.object(
+                session.prompt_session, "prompt", side_effect=KeyboardInterrupt
+            ):
+                result = session._get_input("Test: ")
+                assert result == ""

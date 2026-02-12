@@ -11,7 +11,7 @@ max_command_memory_mb = 1024
 [google]
 
 [google.models]
-default = "gemini-3-flash-preview"
+default = "gemini-3-pro-preview"
 lite = "gemini-flash-lite-latest"
 flash = "gemini-3-flash-preview"
 pro = "gemini-3-pro-preview"

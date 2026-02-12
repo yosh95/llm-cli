@@ -63,7 +63,8 @@ def test_read_html_from_url_basic(mock_cloudscraper):
     mock_cloudscraper.get.return_value.text = html_content
 
     # We expect markdownify to handle the conversion.
-    result = read_html_from_url("https://example.com")
+    with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
+        result = read_html_from_url("https://example.com")
 
     # Check for markdown elements
     # Both ATX headings and link preservation should be handled by markdownify
@@ -88,7 +89,8 @@ def test_read_html_from_url_truncation(mock_cloudscraper):
     mock_cloudscraper.get.return_value.text = html_content
 
     # Use a small limit to ensure truncation occurs
-    result = read_html_from_url("https://example.com", max_length=1000)
+    with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
+        result = read_html_from_url("https://example.com", max_length=1000)
 
     assert "... (Truncated" in result
     assert len(result) <= 1200  # 1000 + extra message chars
@@ -103,7 +105,8 @@ def test_read_html_from_url_no_limit(mock_cloudscraper):
     mock_cloudscraper.get.return_value.text = html_content
 
     # Set limit to 0 (no limit)
-    result = read_html_from_url("https://example.com", max_length=0)
+    with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
+        result = read_html_from_url("https://example.com", max_length=0)
 
     # Should NOT be truncated
     assert "... (Truncated" not in result
@@ -115,9 +118,10 @@ def test_read_html_from_url_error(mock_cloudscraper):
     """Test error handling in read_html_from_url."""
     mock_cloudscraper.get.side_effect = Exception("Connection error")
 
-    result = read_html_from_url("https://example.com")
-    assert "Error fetching or parsing" in result
-    assert "Connection error" in result
+    with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
+        result = read_html_from_url("https://example.com")
+
+    assert "Error: Failed to fetch content" in result
 
 
 def test_search_web_success(mock_config):

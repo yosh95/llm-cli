@@ -2,8 +2,6 @@
 
 import re
 
-import cloudscraper
-import markdownify
 import requests
 
 from llm_cli.clients.config import get_setting
@@ -90,39 +88,30 @@ if _google_api_key and _google_cse_id:
     },
 )
 def read_html_from_url(url: str, max_length: int = 50000) -> str:
-    try:
-        resp = cloudscraper.create_scraper().get(
-            url, headers={"Connection": "close"}, timeout=30
+    content, ctype = fetch_url_content(url, pdf_as_base64=False)
+
+    if content is None or ctype is None:
+        return f"Error: Failed to fetch content from {url} or invalid URL."
+
+    if "text/html" not in ctype and "text/plain" not in ctype:
+        return (
+            f"Error: URL returned {ctype}, expected text/html or text/plain. "
+            "Use 'read_pdf_from_url' for PDFs or 'read_image_from_url' for images."
         )
-        ctype = resp.headers.get("Content-Type", "").lower()
 
-        if "text/html" not in ctype:
-            return (
-                f"Error: URL returned {ctype}, expected text/html. "
-                "Use 'read_pdf_from_url' for PDFs or 'read_image_from_url' for images."
-            )
+    # Post-processing to remove excessive newlines
+    # fetch_url_content already handles markdownify for HTML
+    content = re.sub(r"\n{3,}", "\n\n", content).strip()
 
-        # Remove script and style tags via regex before processing
-        # markdownify's 'strip' option only removes tags but keeps content
-        html_content = re.sub(r"(?is)<script.*?>.*?</script>", "", resp.text)
-        html_content = re.sub(r"(?is)<style.*?>.*?</style>", "", html_content)
+    # Truncate if too long (rough safety limit)
+    if max_length > 0 and len(content) > max_length:
+        content = (
+            content[:max_length]
+            + f"\n... (Truncated. Total length: {len(content)} chars. "
+            "Use max_length parameter to retrieve more.)"
+        )
 
-        # Configure markdownify to strip unwanted tags but keep structure
-        content = markdownify.markdownify(html_content, heading_style="ATX")
-        # Post-processing to remove excessive newlines
-        content = re.sub(r"\n{3,}", "\n\n", content).strip()
-
-        # Truncate if too long (rough safety limit)
-        if max_length > 0 and len(content) > max_length:
-            content = (
-                content[:max_length]
-                + f"\n... (Truncated. Total length: {len(content)} chars. "
-                "Use max_length parameter to retrieve more.)"
-            )
-
-        return content
-    except Exception as e:
-        return f"Error fetching or parsing {url}: {e}"
+    return content
 
 
 @tool(

@@ -137,7 +137,11 @@ def read_pdf_from_url(url: str) -> str | dict:
         return f"Error: Expected PDF but got {ctype}. Content might not be a PDF."
 
     return {
-        "result": f"Successfully fetched PDF from {url}",
+        "result": (
+            f"Successfully fetched PDF from {url}. "
+            "The content has been added to the conversation context "
+            "as a binary attachment. Please analyze the attached file."
+        ),
         "__llm_cli_data__": {
             "content": content,
             "content_type": ctype,
@@ -166,7 +170,11 @@ def read_image_from_url(url: str) -> str | dict:
         return f"Error: URL returned {ctype}, expected an image type."
 
     return {
-        "result": f"Successfully fetched image from {url}",
+        "result": (
+            f"Successfully fetched image from {url}. "
+            "The content has been added to the conversation context "
+            "as a binary attachment. Please analyze the attached file."
+        ),
         "__llm_cli_data__": {
             "content": content,
             "content_type": ctype,

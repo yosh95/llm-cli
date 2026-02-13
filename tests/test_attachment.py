@@ -26,6 +26,7 @@ def test_read_pdf_content_success(mock_path, mock_process):
     res = read_pdf_content("doc.pdf")
 
     assert "Successfully read" in res["result"]
+    assert "content has been added to the conversation context" in res["result"]
     assert res["__llm_cli_data__"]["content"] == "pdf_base64"
     assert res["__llm_cli_data__"]["content_type"] == "application/pdf"
 

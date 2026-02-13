@@ -491,7 +491,11 @@ def _process_and_return(path: str, expected_types: tuple | None = None) -> str |
                 )
 
         return {
-            "result": f"Successfully read {path} ({content_type})",
+            "result": (
+                f"Successfully read {path} ({content_type}). "
+                "The file content has been added to the conversation context "
+                "as a binary attachment. Please analyze the attached file."
+            ),
             "__llm_cli_data__": {
                 "content": res["content"],
                 "content_type": res["content_type"],

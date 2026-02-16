@@ -250,4 +250,4 @@ def test_system_prompt_inclusion(client):
         system_payload = kwargs["json_data"]["system"]
         assert len(system_payload) == 1
         assert system_payload[0]["text"] == "You are a helpful assistant."
-        assert system_payload[0]["cache_control"]["type"] == "ephemeral"
+        assert "cache_control" not in system_payload[0]

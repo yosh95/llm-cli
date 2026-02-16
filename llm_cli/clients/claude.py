@@ -62,7 +62,6 @@ class ClaudeClient(BaseLlmClient):
                     {
                         "type": "text",
                         "text": self.system_prompt,
-                        "cache_control": {"type": "ephemeral"},
                     }
                 ]
 
@@ -70,8 +69,6 @@ class ClaudeClient(BaseLlmClient):
                 tools = registry.get_anthropic_spec(
                     self.active_tools, provider=self.config_section
                 )
-                if tools:
-                    tools[-1]["cache_control"] = {"type": "ephemeral"}
                 payload["tools"] = tools
 
             response = self._post(
@@ -234,13 +231,6 @@ class ClaudeClient(BaseLlmClient):
                         },
                     }
                 )
-
-        # Add cache control to the last message in history
-        # to optimize multi-turn conversations
-        if msgs:
-            last_msg = msgs[-1]
-            if isinstance(last_msg["content"], list) and last_msg["content"]:
-                last_msg["content"][-1]["cache_control"] = {"type": "ephemeral"}
 
         if user_content:
             msgs.append({"role": "user", "content": user_content})

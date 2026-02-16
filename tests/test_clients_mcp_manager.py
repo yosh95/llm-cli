@@ -1,10 +1,8 @@
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
 from llm_cli.clients.mcp_manager import MCPManager
-from llm_cli.mcp_lib import ClientSession, StdioServerParameters
-from llm_cli.security.identity import IdentityManager
 
 
 @pytest.fixture

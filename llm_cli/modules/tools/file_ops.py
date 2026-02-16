@@ -372,12 +372,16 @@ def read_file_content(
                 "type": "string",
                 "description": (
                     "The exact block of text to find. "
-                    "Must match exactly including indentation."
+                    "Must match exactly including indentation. "
+                    "Use actual newlines for multi-line blocks, not '\\n'."
                 ),
             },
             "replace": {
                 "type": "string",
-                "description": "The new block of text to replace 'search' with.",
+                "description": (
+                    "The new block of text to replace 'search' with. "
+                    "Use actual newlines for multi-line blocks, not '\\n'."
+                ),
             },
             "dry_run": {
                 "type": "boolean",

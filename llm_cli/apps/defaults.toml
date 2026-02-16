@@ -36,6 +36,7 @@ video = "sora-2-pro"
 # Anthropic (Claude)
 # =============================================================================
 [anthropic]
+max_tokens = 8192
 
 [anthropic.models]
 default = "claude-opus-4-6"

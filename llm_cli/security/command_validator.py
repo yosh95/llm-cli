@@ -46,6 +46,7 @@ class CommandValidator:
         "mypy",
         "pwd",
         "pytest",
+        "coverage",  # Added: Test coverage tool (read-only reports, sandboxed writes)
         "python",
         "python3",
         "ruff",

@@ -40,10 +40,13 @@ class ClaudeClient(BaseLlmClient):
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Sends the conversation history and new data to Claude."""
+        from llm_cli.clients.config import get_setting
+
         messages = self._build_messages(data)
+        max_tokens = int(get_setting("max_tokens", "anthropic") or 8192)
         payload: dict[str, Any] = {
             "model": self.model,
-            "max_tokens": 4096,
+            "max_tokens": max_tokens,
             "messages": messages,
         }
 

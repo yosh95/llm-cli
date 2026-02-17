@@ -250,16 +250,14 @@ class GeminiClient(BaseLlmClient):
             if is_tts_model:
                 payload["response_modalities"] = ["AUDIO"]
                 gen_config: dict[str, Any] = payload.get("generation_config", {})
-                if "speech_config" not in gen_config:
-                    gen_config["speech_config"] = {
-                        "voice": "Puck",
-                        "language": "en-US",
-                    }
+                # if "speech_config" not in gen_config:
+                #     gen_config["speech_config"] = {
+                #         "voice": "Puck",
+                #         "language": "en-US",
+                #     }
                 payload["generation_config"] = gen_config
             elif is_image_model:
-                # Request ONLY Image for specialized image models
                 payload["response_modalities"] = ["IMAGE"]
-                # Remove generation_config entirely for image models to avoid 400 errors
                 if "generation_config" in payload:
                     del payload["generation_config"]
 

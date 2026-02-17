@@ -87,7 +87,7 @@ def _get_last_log_hash(path: Path) -> str:
             if not lines:
                 return "0" * 64
 
-            last_line = lines[-1].decode("utf-8")
+            last_line = lines[-1].decode("utf-8", errors="replace")
             last_entry = json.loads(last_line)
             return str(last_entry.get("hash", "0" * 64))
     except Exception:
@@ -112,7 +112,9 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
         if not path.exists():
             return
 
-        with path.open("r", encoding="utf-8") as f:
+        # Robust line-based trimming.
+        # Use errors="replace" to ensure we don't fail due to encoding issues.
+        with path.open("r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
 
         if len(lines) <= max_lines:
@@ -124,7 +126,7 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
         # Write overflow to a rotated archive (append-only)
         ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         archive_path = path.with_name(f"{path.name}.archive.{ts}.jsonl")
-        with archive_path.open("a", encoding="utf-8") as af:
+        with archive_path.open("a", encoding="utf-8", errors="replace") as af:
             af.writelines(overflow)
 
         # Prepare a snapshot anchor for the kept segment
@@ -155,7 +157,7 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
         entry_str = json.dumps(snapshot, sort_keys=True)
         snapshot["hash"] = hashlib.sha256(entry_str.encode()).hexdigest()
 
-        with path.open("w", encoding="utf-8") as wf:
+        with path.open("w", encoding="utf-8", errors="replace") as wf:
             wf.write(json.dumps(snapshot) + "\n")
             wf.writelines(kept)
 

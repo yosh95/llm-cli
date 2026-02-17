@@ -767,9 +767,16 @@ class BaseLlmClient(ABC):
         try:
             if not path.exists():
                 return
-            lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+
+            # Robust line-based trimming.
+            # We use errors="replace" to prevent UnicodeDecodeError if the log
+            # is corrupted.
+            with path.open("r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+
             if len(lines) > max_lines:
-                path.write_text("".join(lines[-max_lines:]), encoding="utf-8")
+                with path.open("w", encoding="utf-8", errors="replace") as f:
+                    f.writelines(lines[-max_lines:])
         except Exception as e:
             console.print(f"[dim red]Log trimming failed: {e}[/dim red]")
 

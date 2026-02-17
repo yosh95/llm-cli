@@ -227,3 +227,27 @@ class TestChatSession:
             ):
                 result = session._get_input("Test: ")
                 assert result == ""
+
+    def test_get_input_raise_interrupt(self, session):
+        # Ensure _get_input raises KeyboardInterrupt when raise_on_interrupt=True
+        with patch("sys.stdin.isatty", return_value=True):
+            with patch.object(
+                session.prompt_session, "prompt", side_effect=KeyboardInterrupt
+            ):
+                with pytest.raises(KeyboardInterrupt):
+                    session._get_input("Test: ", raise_on_interrupt=True)
+
+    def test_handle_checkpoint_sends_prompt_as_data(self, session):
+        # Mock _send
+        session.client._send = MagicMock(return_value=(("Summary text", None), {}))
+
+        # Mock confirm to yes
+        with patch.object(session, "_confirm", return_value=True):
+            session._handle_checkpoint()
+
+            # Verify _send was called with a list containing DataSource with text content
+            args, _ = session.client._send.call_args
+            assert len(args[0]) == 1
+            data_source = args[0][0]
+            assert "Summarize" in str(data_source.content)
+            assert data_source.content_type == "text/plain"

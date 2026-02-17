@@ -312,10 +312,12 @@ class ChatSession:
                 # OpenAI: 'total_tokens'
                 # Claude: 'input_tokens' + 'output_tokens' or 'total_tokens'
                 # Gemini: 'totalTokenCount'
+                # Ollama: 'prompt_eval_count' + 'eval_count'
                 total = (
                     usage.get("total_tokens")
                     or usage.get("totalTokenCount")
                     or (usage.get("input_tokens", 0) + usage.get("output_tokens", 0))
+                    or (usage.get("prompt_eval_count", 0) + usage.get("eval_count", 0))
                     or 0
                 )
                 if total > 0:
@@ -402,13 +404,11 @@ class ChatSession:
             "Be comprehensive but concise."
         )
 
-        temp_conversation = copy.deepcopy(self.client.conversation)
-        temp_conversation.append(
-            Message(role=Role.USER, parts=[ContentPart(text=summarize_prompt)])
-        )
+        # Back up the current conversation state
+        original_conversation = copy.deepcopy(self.client.conversation)
 
-        original_conversation = self.client.conversation
-        self.client.conversation = temp_conversation
+        # Prepare the summarization prompt as a new DataSource
+        prompt_source = DataSource(content=summarize_prompt, content_type="text/plain")
 
         try:
             status_msg = (
@@ -416,7 +416,9 @@ class ChatSession:
                 "[dim](Ctrl+C to interrupt)[/dim]"
             )
             with console.status(status_msg, spinner="dots"):
-                res = self.client._send([])
+                # Pass the prompt as data so it is correctly processed by all clients
+                # (especially Gemini which requires 'input' payload)
+                res = self.client._send([prompt_source])
 
             response_tuple, _ = res if res else ((None, None), None)
             summary = response_tuple[0]
@@ -495,7 +497,11 @@ class ChatSession:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
 
     def _get_input(
-        self, message: str, exit_on_escape: bool = False, **kwargs: Any
+        self,
+        message: str,
+        exit_on_escape: bool = False,
+        raise_on_interrupt: bool = False,
+        **kwargs: Any,
     ) -> str:
         """Helper for console input, supporting both TTY and prompt_toolkit."""
         if sys.stdin.isatty():
@@ -520,6 +526,8 @@ class ChatSession:
             try:
                 return str(self.prompt_session.prompt(message, **kwargs)).strip()
             except (KeyboardInterrupt, EOFError):
+                if raise_on_interrupt:
+                    raise
                 # Return empty string to simulate cancellation (e.g. "no")
                 # print a newline to ensure clean output
                 console.print()
@@ -672,6 +680,7 @@ class ChatSession:
             user_input = self._get_input(
                 "Allow execution? (y/N or feedback): ",
                 exit_on_escape=True,
+                raise_on_interrupt=True,
             )
             if user_input.lower() != "y":
                 feedback = user_input if user_input.lower() != "n" else ""

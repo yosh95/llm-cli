@@ -68,8 +68,9 @@ def test_send_normal_success(gemini_client: GeminiClient) -> None:
     with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
         mock_res = MagicMock()
         mock_res.status_code = 200
+        # Updated to match Interactions API format
         mock_res.json.return_value = {
-            "candidates": [{"content": {"parts": [{"text": "Hello world"}]}}],
+            "outputs": [{"type": "text", "text": "Hello world"}],
             "usageMetadata": {"totalTokenCount": 10},
         }
         mock_post.return_value = mock_res
@@ -82,6 +83,29 @@ def test_send_normal_success(gemini_client: GeminiClient) -> None:
         assert usage is not None
         assert usage["totalTokenCount"] == 10
         assert len(gemini_client.conversation) == 2  # User + Model
+
+
+def test_send_with_usage_key_fallback(gemini_client: GeminiClient) -> None:
+    """Test fallback to 'usage' key when 'usageMetadata' is missing."""
+    gemini_client.model = "gemini-pro"
+
+    with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
+        mock_res = MagicMock()
+        mock_res.status_code = 200
+        # Mock response with 'usage' key (snake_case) as observed in bug report
+        mock_res.json.return_value = {
+            "outputs": [{"type": "text", "text": "Hello world"}],
+            "usage": {"total_tokens": 1870},
+        }
+        mock_post.return_value = mock_res
+
+        (text, thought), usage = gemini_client._send(
+            [DataSource(content="Hi", content_type="text/plain")]
+        )
+
+        assert text == "Hello world"
+        assert usage is not None
+        assert usage["total_tokens"] == 1870
 
 
 def test_send_api_error(gemini_client: GeminiClient) -> None:
@@ -193,176 +217,149 @@ def test_wait_for_file_active_failed(gemini_client: GeminiClient) -> None:
         assert gemini_client._wait_for_file_active("files/abc") is False
 
 
-def test_to_provider_request_format_tts(gemini_client: GeminiClient) -> None:
+def test_send_with_tts_config(gemini_client: GeminiClient) -> None:
     """Test payload construction for TTS model."""
-    gemini_client.model = "tts-1"
-    payload = gemini_client._to_provider_request_format([], start_index=0)
+    gemini_client.model = "tts-1-preview"
 
-    assert "responseModalities" in payload["generationConfig"]
-    assert "AUDIO" in payload["generationConfig"]["responseModalities"]
-    assert "speechConfig" in payload["generationConfig"]
+    with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
+        mock_res = MagicMock()
+        mock_res.status_code = 200
+        mock_res.json.return_value = {"outputs": [{"type": "text", "text": "Audio"}]}
+        mock_post.return_value = mock_res
+
+        gemini_client._send([DataSource(content="Speak", content_type="text/plain")])
+
+        call_args = mock_post.call_args
+        assert call_args is not None
+        payload = call_args[1]["json_data"]
+
+        assert "generation_config" in payload
+        assert "response_modalities" in payload["generation_config"]
+        assert "AUDIO" in payload["generation_config"]["response_modalities"]
+        assert "speech_config" in payload["generation_config"]
 
 
-def test_to_provider_request_format_tools(gemini_client: GeminiClient) -> None:
+def test_send_with_tools(gemini_client: GeminiClient) -> None:
     """Test payload construction with tools."""
     gemini_client.active_tools = ["test_tool"]
+    gemini_client.model = "gemini-pro"
 
-    with patch("llm_cli.modules.tool_registry.registry.get_gemini_spec") as mock_spec:
-        mock_spec.return_value = [{"functionDeclarations": [...]}]
+    with patch(
+        "llm_cli.modules.tool_registry.registry.get_gemini_interactions_spec"
+    ) as mock_spec:
+        mock_spec.return_value = [{"function_declarations": [...]}]
 
-        payload = gemini_client._to_provider_request_format([], start_index=0)
-
-        assert "tools" in payload
-        mock_spec.assert_called_with(["test_tool"], provider="google")
-
-
-def test_parse_response_with_thoughts(gemini_client: GeminiClient) -> None:
-    """Test parsing response containing thinking blocks."""
-    res_json = {
-        "candidates": [
-            {
-                "content": {
-                    "parts": [
-                        {"thought": True, "text": "Thinking..."},
-                        {"text": "Answer"},
-                    ]
-                }
-            }
-        ]
-    }
-
-    msg = gemini_client._parse_response(res_json)
-    assert len(msg.parts) == 2
-    assert isinstance(msg.parts[0], ContentPart)
-    assert msg.parts[0].thought == "Thinking..."
-    assert isinstance(msg.parts[1], ContentPart)
-    assert msg.parts[1].text == "Answer"
-
-
-def test_send_video_generation_success(gemini_client: GeminiClient) -> None:
-    """Test video generation flow."""
-    gemini_client.model = "veo-2.0-generate-001"
-
-    # 1. Start generation response
-    with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
-        mock_post.return_value.json.return_value = {"name": "operations/123"}
-
-        # 2. Poll response
-        with patch("llm_cli.clients.base.BaseLlmClient._get") as mock_get:
-            # Poll 1: Not done (simulated by side effect if needed, but let's go straight to done)
-            # Poll 2: Done with video URI
-            mock_poll_res = MagicMock()
-            mock_poll_res.status_code = 200
-            mock_poll_res.json.return_value = {
-                "done": True,
-                "response": {"result": {"video": {"uri": "http://video.url"}}},
-            }
-
-            # Download response
-            mock_download_res = MagicMock()
-            mock_download_res.status_code = 200
-            mock_download_res.content = b"video data"
-            mock_download_res.headers = {"Content-Type": "video/mp4"}
-
-            mock_get.side_effect = [mock_poll_res, mock_download_res]
-
-            # Mock saving
-            with patch.object(
-                gemini_client, "_save_inline_media_and_get_log_entry"
-            ) as mock_save:
-                mock_save.return_value = ("Saved video", Path("video.mp4"))
-
-                (text, thought), _ = gemini_client._send(
-                    [DataSource(content="Make video", content_type="text/plain")]
-                )
-
-                assert text is not None
-                assert "Successfully generated video" in text
-                assert "Saved video" in text
-                assert "http://video.url" in text
-
-
-def test_send_video_generation_failure(gemini_client: GeminiClient) -> None:
-    """Test video generation failure during polling."""
-    gemini_client.model = "veo-2.0-generate-001"
-
-    with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
-        mock_post.return_value.json.return_value = {"name": "operations/123"}
-
-        with patch("llm_cli.clients.base.BaseLlmClient._get") as mock_get:
+        with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
             mock_res = MagicMock()
             mock_res.status_code = 200
-            mock_res.json.return_value = {
-                "done": True,
-                "error": {"message": "Generation failed"},
-            }
-            mock_get.return_value = mock_res
+            mock_res.json.return_value = {"outputs": [{"type": "text", "text": "OK"}]}
+            mock_post.return_value = mock_res
 
-            (text, _), _ = gemini_client._send([])
+            gemini_client._send(
+                [DataSource(content="Use tool", content_type="text/plain")]
+            )
+
+            mock_spec.assert_called_with(["test_tool"], provider="google")
+
+            call_args = mock_post.call_args
+            payload = call_args[1]["json_data"]
+            assert "tools" in payload
+
+
+def test_send_parses_response(gemini_client: GeminiClient) -> None:
+    """Test parsing response from Interactions API."""
+    gemini_client.model = "gemini-pro"
+
+    with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
+        mock_res = MagicMock()
+        mock_res.status_code = 200
+        # Interactions API response format
+        mock_res.json.return_value = {
+            "outputs": [
+                {"type": "text", "text": "Answer"},
+                {"type": "image", "data": "base64...", "mime_type": "image/png"},
+            ]
+        }
+        mock_post.return_value = mock_res
+
+        # Mock saving inline image
+        with patch.object(
+            gemini_client, "_save_inline_media_and_get_log_entry"
+        ) as mock_save:
+            mock_save.return_value = ("[Image saved]", Path("img.png"))
+
+            (text, thought), _ = gemini_client._send(
+                [DataSource(content="Hi", content_type="text/plain")]
+            )
+
             assert text is not None
-            assert "Video generation failed: Generation failed" in text
+            assert "Answer" in text
+            assert "[Image saved]" in text
+            assert thought == ""
 
 
-def test_to_provider_request_format_system_prompt(gemini_client: GeminiClient) -> None:
-    """Test system prompt inclusion."""
+def test_send_with_system_prompt(gemini_client: GeminiClient) -> None:
+    """Test system prompt inclusion in the first turn."""
     gemini_client.model = "gemini-pro"
     gemini_client.system_prompt = "Sys Prompt"
     gemini_client.system_prompt_enabled = True
+    gemini_client.last_interaction_id = None  # Ensure first turn
 
-    payload = gemini_client._to_provider_request_format([])
-    assert "system_instruction" in payload
-    assert payload["system_instruction"]["parts"][0]["text"] == "Sys Prompt"
+    with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
+        mock_res = MagicMock()
+        mock_res.status_code = 200
+        mock_res.json.return_value = {"outputs": [{"type": "text", "text": "OK"}]}
+        mock_post.return_value = mock_res
 
+        gemini_client._send([DataSource(content="Hi", content_type="text/plain")])
 
-def test_to_provider_request_format_function_filtering(
-    gemini_client: GeminiClient,
-) -> None:
-    """Test filtering of function calls without responses."""
-    # History:
-    # 1. User: Hi
-    # 2. Model: Call tool (no response follows)
-    # 3. User: Another msg
+        call_args = mock_post.call_args
+        payload = call_args[1]["json_data"]
 
-    # Message 2 should be filtered out or have parts removed because there is no matching response in 3
-    gemini_client.conversation = [
-        Message(Role.USER, ["Hi"]),
-        Message(Role.MODEL, [ContentPart(function_call={"name": "tool", "args": {}})]),
-        Message(Role.USER, ["Another msg"]),  # No function response here
-    ]
-
-    payload = gemini_client._to_provider_request_format([], start_index=0)
-    contents = payload["contents"]
-
-    # Expect: User "Hi", User "Another msg". Model message with only function call should be removed or skipped if empty.
-    # The logic says: if message becomes empty, don't append it.
-
-    # Check contents length.
-    # 0: User Hi
-    # 1: User Another msg
-    assert len(contents) == 2
-    assert contents[0]["role"] == "user"
-    assert contents[1]["role"] == "user"
+        # System prompt should be prepended to inputs
+        assert len(payload["input"]) >= 2
+        assert payload["input"][0]["text"] == "System: Sys Prompt"
 
 
-def test_to_provider_request_format_function_pairing(
-    gemini_client: GeminiClient,
-) -> None:
-    """Test successful pairing of function call and response."""
-    gemini_client.conversation = [
-        Message(Role.USER, ["Hi"]),
-        Message(Role.MODEL, [ContentPart(function_call={"name": "tool", "args": {}})]),
-        Message(
-            Role.USER,
-            [ContentPart(function_response={"name": "tool", "response": "ok"})],
-        ),
-    ]
+def test_send_with_tool_result(gemini_client: GeminiClient) -> None:
+    """Test that tool results are included in the request."""
+    gemini_client.model = "gemini-pro"
 
-    payload = gemini_client._to_provider_request_format([], start_index=0)
-    contents = payload["contents"]
+    # Simulate history where the last message was a tool execution
+    tool_msg = Message(
+        Role.TOOL,
+        [
+            ContentPart(
+                function_response={
+                    "name": "my_tool",
+                    "id": "call_123",
+                    "response": {"result": "success"},
+                }
+            )
+        ],
+    )
+    gemini_client.conversation = [tool_msg]
 
-    assert len(contents) == 3
-    assert "functionCall" in contents[1]["parts"][0]
-    assert "functionResponse" in contents[2]["parts"][0]
+    with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
+        mock_res = MagicMock()
+        mock_res.status_code = 200
+        mock_res.json.return_value = {"outputs": [{"type": "text", "text": "OK"}]}
+        mock_post.return_value = mock_res
+
+        # User sends follow-up or just continues
+        gemini_client._send([])
+
+        call_args = mock_post.call_args
+        payload = call_args[1]["json_data"]
+
+        # Check if function_result is in input
+        assert any(item.get("type") == "function_result" for item in payload["input"])
+        item = next(
+            item for item in payload["input"] if item.get("type") == "function_result"
+        )
+        assert item["name"] == "my_tool"
+        assert item["call_id"] == "call_123"
+        assert item["result"] == "success"
 
 
 def test_send_video_generation_patterns(gemini_client: GeminiClient) -> None:

@@ -90,9 +90,18 @@ class OllamaClient(BaseLlmClient):
             model_msg = Message(role=Role.MODEL, parts=model_parts)
             self.conversation.append(model_msg)
 
-            return (raw_content.strip(), (reasoning or "").strip()), res_json.get(
-                "usage", {}
-            )
+            # Extract usage from root keys if not present in "usage"
+            usage = res_json.get("usage")
+            if not usage:
+                usage = {
+                    "prompt_eval_count": res_json.get("prompt_eval_count", 0),
+                    "eval_count": res_json.get("eval_count", 0),
+                    # Approximate total tokens
+                    "total_tokens": res_json.get("prompt_eval_count", 0)
+                    + res_json.get("eval_count", 0),
+                }
+
+            return (raw_content.strip(), (reasoning or "").strip()), usage
         except Exception as e:
             self._report_error("Ollama", e)
             return (None, None), None

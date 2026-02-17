@@ -211,6 +211,19 @@ class ToolRegistry:
         ]
         return [{"function_declarations": tools}] if tools else []
 
+    def get_gemini_interactions_spec(
+        self, names: list[str], provider: str = "google"
+    ) -> list[dict[str, Any]]:
+        return [
+            {
+                "type": "function",
+                "name": t["name"],
+                "description": t["description"],
+                "parameters": t["parameters"],
+            }
+            for t in self._get_active(names, provider=provider)
+        ]
+
     def get_openai_spec(
         self, names: list[str], provider: str = "openai"
     ) -> list[dict[str, Any]]:

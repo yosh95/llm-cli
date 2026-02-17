@@ -1,6 +1,6 @@
 """Tests for PDF processing functionality across providers using dataclasses."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from llm_cli.clients.claude import ClaudeClient
 from llm_cli.clients.gemini import GeminiClient
@@ -50,19 +50,42 @@ class TestPDFProcessing:
     ):
         """Test Gemini message building with PDF."""
         client = GeminiClient(initial_model_alias="default", stdout=True)
-        # Refactored _to_provider_request_format takes only 1 positional argument (new_parts)
-        new_parts = [
-            {"inlineData": {"mimeType": "application/pdf", "data": sample_pdf_base64}}
-        ]
-        payload = client._to_provider_request_format(new_parts)
 
-        assert "contents" in payload
-        assert len(payload["contents"]) == 1
-        assert payload["contents"][0]["role"] == "user"
-        assert (
-            payload["contents"][0]["parts"][0]["inlineData"]["mimeType"]
-            == "application/pdf"
-        )
+        data = [
+            DataSource(
+                content=sample_pdf_base64,
+                content_type="application/pdf",
+                is_file_or_url=True,
+            )
+        ]
+
+        with patch("requests.post") as mock_post:
+            mock_res = MagicMock()
+            mock_res.status_code = 200
+            mock_res.json.return_value = {"outputs": [{"type": "text", "text": "OK"}]}
+            mock_post.return_value = mock_res
+
+            client._send(data)
+
+            args, kwargs = mock_post.call_args
+            if kwargs.get("json"):
+                payload = kwargs["json"]
+            else:
+                payload = args[1]  # json might be positional or passed as json=...
+
+            # Check input list for document type
+            # Expected: {"type": "document", "data": "base64...", "mime_type": "application/pdf"}
+            assert "input" in payload
+            found_pdf = False
+            for item in payload["input"]:
+                if (
+                    item.get("type") == "document"
+                    and item.get("mime_type") == "application/pdf"
+                ):
+                    found_pdf = True
+                    break
+
+            assert found_pdf, f"PDF input not found in payload: {payload}"
 
     def test_pdf_url_fetching_gemini(
         self,

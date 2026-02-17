@@ -42,7 +42,7 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
     # Use DataSource dataclass
     data = [
         DataSource(
-            content=None,
+            content="audio/wav",
             content_type="audio/wav",
             is_file_or_url=True,
             metadata={"file_uri": "https://gemini.api/files/abc"},
@@ -52,8 +52,9 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
     with patch("requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
+        # Update mock response to Interactions API format
         mock_response.json.return_value = {
-            "candidates": [{"content": {"parts": [{"text": "Heard audio"}]}}],
+            "outputs": [{"type": "text", "text": "Heard audio"}],
             "usageMetadata": {"totalTokenCount": 5},
         }
         mock_post.return_value = mock_response
@@ -62,13 +63,27 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
 
         # Check payload
         args, kwargs = mock_post.call_args
-        payload = kwargs["json"]
-        user_parts = payload["contents"][-1]["parts"]
+        if kwargs.get("json"):
+            payload = kwargs["json"]
+        else:
+            payload = args[1]  # json might be positional or passed as json=...
 
-        assert any(
-            part.get("file_data", {}).get("file_uri") == "https://gemini.api/files/abc"
-            for part in user_parts
-        )
+        # Interactions API uses 'input' list
+        # Expected input item: {"type": "audio", "uri": "...", "mime_type": "..."}
+
+        assert "input" in payload
+        input_items = payload["input"]
+
+        found_audio = False
+        for item in input_items:
+            if (
+                item.get("type") == "audio"
+                and item.get("uri") == "https://gemini.api/files/abc"
+            ):
+                found_audio = True
+                break
+
+        assert found_audio, f"Audio input not found in payload: {payload}"
 
 
 def test_base_client_audio_as_base64(mock_config_audio, tmp_path):

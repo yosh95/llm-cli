@@ -137,6 +137,41 @@ def test_read_html_from_url_no_limit(mock_cloudscraper):
     assert len(result) >= 50000
 
 
+def test_read_html_from_url_slicing(mock_cloudscraper):
+    """Test read_html_from_url with start_line and end_line."""
+    # markdownify usually puts blank lines between paragraphs.
+    # So we expect:
+    # Line 1
+    #
+    # Line 2
+    #
+    # Line 3
+    # ...
+    lines = ["Line 1", "Line 2", "Line 3", "Line 4", "Line 5"]
+    html_content = (
+        "<html><body>" + "".join(f"<p>{line}</p>" for line in lines) + "</body></html>"
+    )
+
+    mock_cloudscraper.get.return_value.headers = {"Content-Type": "text/html"}
+    mock_cloudscraper.get.return_value.text = html_content
+
+    with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
+        # Read with line numbers to be precise
+        # Line 1: Line 1
+        # Line 2:
+        # Line 3: Line 2
+        # Line 4:
+        # Line 5: Line 3
+        result = read_html_from_url(
+            "https://example.com", start_line=1, end_line=3, with_line_numbers=True
+        )
+
+    assert "   1 | Line 1" in result
+    assert "   2 | " in result
+    assert "   3 | Line 2" in result
+    assert "   4 | " not in result
+
+
 def test_read_html_from_url_error(mock_cloudscraper):
     """Test error handling in read_html_from_url."""
     mock_cloudscraper.get.side_effect = Exception("Connection error")

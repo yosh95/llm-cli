@@ -75,6 +75,12 @@ if _google_api_key and _google_cse_id:
         "type": "object",
         "properties": {
             "url": {"type": "string", "description": "Target URL."},
+            "start_line": {
+                "type": "integer",
+                "description": "First line to read (1-indexed).",
+                "default": 1,
+            },
+            "end_line": {"type": "integer", "description": "Last line to read."},
             "max_length": {
                 "type": "integer",
                 "description": (
@@ -82,12 +88,22 @@ if _google_api_key and _google_cse_id:
                     "Set to 0 for no limit."
                 ),
             },
-            "explanation": {"type": "string", "description": "Reason for fetching."},
+            "with_line_numbers": {
+                "type": "boolean",
+                "description": "If true, adds line numbers to the output.",
+                "default": False,
+            },
         },
         "required": ["url"],
     },
 )
-def read_html_from_url(url: str, max_length: int = 50000) -> str:
+def read_html_from_url(
+    url: str,
+    start_line: int = 1,
+    end_line: int | None = None,
+    max_length: int = 50000,
+    with_line_numbers: bool = False,
+) -> str:
     content, ctype = fetch_url_content(url, pdf_as_base64=False)
 
     if content is None or ctype is None:
@@ -103,12 +119,26 @@ def read_html_from_url(url: str, max_length: int = 50000) -> str:
     # fetch_url_content already handles markdownify for HTML
     content = re.sub(r"\n{3,}", "\n\n", content).strip()
 
+    # Slice by lines
+    lines = content.splitlines()
+    start = max(1, start_line) - 1
+    end = min(len(lines), end_line) if end_line else len(lines)
+    selected_lines = lines[start:end]
+
+    if with_line_numbers:
+        content_lines = []
+        for i, line in enumerate(selected_lines):
+            content_lines.append(f"{start + i + 1:4d} | {line}")
+        content = "\n".join(content_lines)
+    else:
+        content = "\n".join(selected_lines)
+
     # Truncate if too long (rough safety limit)
     if max_length > 0 and len(content) > max_length:
         content = (
             content[:max_length]
             + f"\n... (Truncated. Total length: {len(content)} chars. "
-            "Use max_length parameter to retrieve more.)"
+            "Use start_line/end_line or max_length parameter to retrieve more.)"
         )
 
     return content

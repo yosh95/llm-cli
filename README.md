@@ -86,7 +86,7 @@ The AI agent comes equipped with the following tools:
 | `create_or_overwrite_file` | Create a new file (full content). |
 | `read_pdf_content` | Read a PDF file and add it to the context. |
 | `search_web` | Search the web using Google to find information (Requires Google Cloud Platform API Key and Custom Search Engine ID). |
-| `read_html_from_url` | Fetch a URL and convert it to Markdown (preserves structure). Use for HTML pages. |
+| `read_html_from_url` | Fetch a URL and convert it to Markdown. Supports `start_line`, `end_line` and `with_line_numbers`. |
 | `read_pdf_from_url` | Download and extract text from a PDF URL. Use for online research papers. |
 | `read_image_from_url` | Fetch an image from a URL for visual processing. |
 
@@ -459,7 +459,7 @@ AIエージェントは以下のツールを標準で備えています：
 | `create_or_overwrite_file` | 新規ファイルを作成します（全内容上書き）。 |
 | `read_pdf_content` | PDFファイルを読み込み、コンテキストに追加します。 |
 | `search_web` | Google検索を使用して、インターネット上の情報を探します（Google Cloud Platform APIキーとカスタム検索エンジンIDが設定されている場合のみ）。 |
-| `read_html_from_url` | URLを取得し、Markdown形式に変換します（構造を維持）。HTMLページに使用します。 |
+| `read_html_from_url` | URLを取得し、Markdown形式に変換します。`start_line`や`with_line_numbers`による範囲指定が可能です。 |
 | `read_pdf_from_url` | Web上のPDFをダウンロードし、テキストを抽出します。論文やマニュアルの調査に使用します。 |
 | `read_image_from_url` | Web上の画像を取得し、視覚処理のためにコンテキストに追加します。 |
 

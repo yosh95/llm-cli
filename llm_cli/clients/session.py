@@ -529,8 +529,6 @@ class ChatSession:
                 if raise_on_interrupt:
                     raise
                 # Return empty string to simulate cancellation (e.g. "no")
-                # print a newline to ensure clean output
-                console.print()
                 return ""
 
         try:

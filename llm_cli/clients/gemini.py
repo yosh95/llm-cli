@@ -211,7 +211,7 @@ class GeminiClient(BaseLlmClient):
             interaction_input = [{"type": "text", "text": combined_prompt.strip()}]
             payload["input"] = interaction_input
 
-        if self.last_interaction_id:
+        if self.last_interaction_id and not is_tts_model:
             payload["previous_interaction_id"] = self.last_interaction_id
         elif not is_image_model:
             # No interaction ID (First turn). Inject context.
@@ -249,13 +249,8 @@ class GeminiClient(BaseLlmClient):
         if is_tts_model or is_image_model:
             if is_tts_model:
                 payload["response_modalities"] = ["AUDIO"]
-                gen_config: dict[str, Any] = payload.get("generation_config", {})
-                # if "speech_config" not in gen_config:
-                #     gen_config["speech_config"] = {
-                #         "voice": "Puck",
-                #         "language": "en-US",
-                #     }
-                payload["generation_config"] = gen_config
+                if "generation_config" not in payload:
+                    payload["generation_config"] = {}
             elif is_image_model:
                 payload["response_modalities"] = ["IMAGE"]
                 if "generation_config" in payload:
@@ -413,10 +408,20 @@ class GeminiClient(BaseLlmClient):
                 }
                 model_parts.append(ContentPart(function_call=fc))
 
-            elif type_ in ("image", "audio"):
+            elif type_ in ("image", "audio", "video"):
                 # API: {"type": "image", "data": "BASE64...", "mime_type": "..."}
+                mime_type = output.get("mime_type")
+                if not mime_type:
+                    # Fallback for models that don't return mime_type (e.g. Gemini TTS)
+                    if type_ == "audio":
+                        mime_type = "audio/L16;rate=24000"
+                    elif type_ == "image":
+                        mime_type = "image/png"
+                    elif type_ == "video":
+                        mime_type = "video/mp4"
+
                 inline = {
-                    "mimeType": output.get("mime_type"),
+                    "mimeType": mime_type,
                     "data": output.get("data"),
                 }
                 model_parts.append(ContentPart(inline_data=inline))

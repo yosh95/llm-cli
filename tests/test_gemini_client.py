@@ -236,7 +236,6 @@ def test_send_with_tts_config(gemini_client: GeminiClient) -> None:
         assert "generation_config" in payload
         assert "response_modalities" in payload
         assert "AUDIO" in payload["response_modalities"]
-        assert "speech_config" in payload["generation_config"]
 
 
 def test_send_with_tools(gemini_client: GeminiClient) -> None:

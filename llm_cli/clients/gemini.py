@@ -116,6 +116,10 @@ class GeminiClient(BaseLlmClient):
         # Check specifically for Veo models
         return "veo" in self.model.lower() and "generate" in self.model.lower()
 
+    def _is_image_model(self) -> bool:
+        """Determines if the current model is an image generation model."""
+        return "image" in self.model.lower() or "imagen" in self.model.lower()
+
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
@@ -136,10 +140,6 @@ class GeminiClient(BaseLlmClient):
                 if isinstance(part, ContentPart) and part.function_response:
                     fr = part.function_response
                     # Convert to Interactions API function_result format
-                    # Internal:
-                    # {"id": call_id, "name": name, "response": {"result": ...}}
-                    # API:
-                    # {"type": "function_result", "name": name, "call_id": id, ...}
                     interaction_input.append(
                         {
                             "type": "function_result",
@@ -174,7 +174,6 @@ class GeminiClient(BaseLlmClient):
                 for t in ["image/", "audio/", "video/", "application/pdf"]
             ):
                 # Inline base64 data
-                # Interactions API expects 'type' and 'data' (base64)
                 input_type = "image"
                 if item.content_type.startswith("audio/"):
                     input_type = "audio"
@@ -201,23 +200,27 @@ class GeminiClient(BaseLlmClient):
         }
 
         is_tts_model = "tts" in self.model.lower()
+        is_image_model = self._is_image_model()
+
+        # For image models, consolidate all text input into a single prompt
+        if is_image_model:
+            combined_prompt = ""
+            for inp in interaction_input:
+                if inp.get("type") == "text":
+                    combined_prompt += inp.get("text", "") + " "
+            interaction_input = [{"type": "text", "text": combined_prompt.strip()}]
+            payload["input"] = interaction_input
 
         if self.last_interaction_id:
             payload["previous_interaction_id"] = self.last_interaction_id
-        else:
-            # No interaction ID (First turn, or session loaded from file).
-            # Inject system prompt and conversation history into 'input'
-            # to restore context.
-
+        elif not is_image_model:
+            # No interaction ID (First turn). Inject context.
+            # Skip context injection for Image models to keep prompt clean.
             context_text_parts = []
-
-            # 1. System Prompt
+            # ... (rest of context logic)
             if self.system_prompt and self.system_prompt_enabled and not is_tts_model:
                 context_text_parts.append(f"System: {self.system_prompt}")
 
-            # 2. Conversation History
-            # If we have local history but no ID (e.g. after /load), we must inject it
-            # so the model knows what happened before.
             if self.conversation:
                 for msg in self.conversation:
                     role_str = msg.role.upper()
@@ -226,10 +229,6 @@ class GeminiClient(BaseLlmClient):
                         if isinstance(p, ContentPart):
                             if p.text:
                                 msg_text += p.text
-                            elif p.thought:
-                                # Include thought? Not strictly needed for context
-                                # but good for completeness if supported.
-                                pass
                             elif p.function_call:
                                 name = p.function_call.get("name")
                                 msg_text += f"\n[Function Call: {name}]"
@@ -244,23 +243,33 @@ class GeminiClient(BaseLlmClient):
 
             if context_text_parts:
                 full_context = "\n\n".join(context_text_parts)
-                # Prepend context to input
                 payload["input"].insert(0, {"type": "text", "text": full_context})
 
-            # TTS Configuration
+        # Multimodal Output Configuration
+        if is_tts_model or is_image_model:
             if is_tts_model:
+                payload["response_modalities"] = ["AUDIO"]
                 gen_config: dict[str, Any] = payload.get("generation_config", {})
-                gen_config["response_modalities"] = ["AUDIO"]
                 if "speech_config" not in gen_config:
                     gen_config["speech_config"] = {
-                        "voice_config": {
-                            "prebuilt_voice_config": {"voice_name": "Puck"}
-                        }
+                        "voice": "Puck",
+                        "language": "en-US",
                     }
                 payload["generation_config"] = gen_config
+            elif is_image_model:
+                # Request ONLY Image for specialized image models
+                payload["response_modalities"] = ["IMAGE"]
+                # Remove generation_config entirely for image models to avoid 400 errors
+                if "generation_config" in payload:
+                    del payload["generation_config"]
 
         # Tools - Send every time as Interactions API does not persist them
-        if self.active_tools and self.tools_enabled and not is_tts_model:
+        if (
+            self.active_tools
+            and self.tools_enabled
+            and not is_tts_model
+            and not is_image_model
+        ):
             tools_payload = registry.get_gemini_interactions_spec(
                 self.active_tools, provider=self.config_section
             )

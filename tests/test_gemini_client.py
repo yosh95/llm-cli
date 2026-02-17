@@ -234,8 +234,8 @@ def test_send_with_tts_config(gemini_client: GeminiClient) -> None:
         payload = call_args[1]["json_data"]
 
         assert "generation_config" in payload
-        assert "response_modalities" in payload["generation_config"]
-        assert "AUDIO" in payload["generation_config"]["response_modalities"]
+        assert "response_modalities" in payload
+        assert "AUDIO" in payload["response_modalities"]
         assert "speech_config" in payload["generation_config"]
 
 

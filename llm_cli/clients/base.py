@@ -406,6 +406,7 @@ class BaseLlmClient(ABC):
                         parts.append(ContentPart(**p))
                 loaded_conversation.append(Message(role=role, parts=parts))
 
+            self.clear_history()
             self.conversation = loaded_conversation
             console.print(
                 f"[green]Session loaded from {load_path} "
@@ -415,6 +416,11 @@ class BaseLlmClient(ABC):
         except Exception as e:
             console.print(f"[red]Failed to load session: {e}[/red]")
             return False
+
+    def clear_history(self) -> None:
+        """Clears the conversation history and resets token count."""
+        self.conversation.clear()
+        self.cumulative_total_tokens = 0
 
     def _handle_command(
         self,
@@ -627,8 +633,7 @@ class BaseLlmClient(ABC):
             return True
 
         if cmd in ("c", "clear"):
-            self.conversation.clear()
-            self.cumulative_total_tokens = 0
+            self.clear_history()
             console.print("[yellow]Conversation history cleared.[/yellow]")
             return True
 

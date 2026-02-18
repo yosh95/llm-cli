@@ -54,6 +54,11 @@ class GeminiClient(BaseLlmClient):
 
         return False
 
+    def clear_history(self) -> None:
+        """Clears history and resets Gemini interaction ID."""
+        super().clear_history()
+        self.last_interaction_id = None
+
     def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases

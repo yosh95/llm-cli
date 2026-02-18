@@ -438,6 +438,7 @@ class ChatSession:
             console.print(Rule(style="cyan"))
 
             if self._confirm("Clear history and use this summary? (y/N): "):
+                self.client.clear_history()
                 self.client.conversation = [
                     Message(
                         role=Role.USER,
@@ -450,7 +451,6 @@ class ChatSession:
                     )
                 ]
                 console.print("[green]✅ Context refreshed.[/green]")
-                self.client.cumulative_total_tokens = 0
             else:
                 console.print("[yellow]Checkpoint canceled.[/yellow]")
                 self.client.conversation = original_conversation

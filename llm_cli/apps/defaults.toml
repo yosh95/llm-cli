@@ -52,7 +52,7 @@ opus = "claude-opus-4-6"
 
 [xai.models]
 default = "grok-4-1-fast-reasoning"
-non-reasoning = "grok-4-fast-non-reasoning"
+non-reasoning = "grok-4-1-fast-non-reasoning"
 reasoning = "grok-4-1-fast-reasoning"
 image = "grok-imagine-image-pro"
 video = "grok-imagine-video"

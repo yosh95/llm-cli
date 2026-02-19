@@ -19,8 +19,6 @@ if _google_api_key and _google_cse_id:
         name="search_web",
         description=(
             "Perform a web search using Google to find information on the internet. "
-            "Use this to answer questions about current events, documentation, "
-            "or public data."
         ),
         parameters={
             "type": "object",
@@ -68,8 +66,6 @@ if _google_api_key and _google_cse_id:
     name="read_html_from_url",
     description=(
         "Fetch a web page URL and convert the HTML content to Markdown text. "
-        "Use this for reading articles, blog posts, or documentation pages. "
-        "If the URL points to a PDF, use 'read_pdf_from_url' instead."
     ),
     parameters={
         "type": "object",
@@ -98,10 +94,7 @@ def read_html_from_url(url: str) -> str:
 
 @tool(
     name="read_pdf_from_url",
-    description=(
-        "Download a PDF from a URL and add it to the context. "
-        "Use this specifically for online PDF documents, research papers, or manuals."
-    ),
+    description=("Download a PDF from a URL and add it to the context. "),
     parameters={
         "type": "object",
         "properties": {"url": {"type": "string", "description": "Target PDF URL."}},

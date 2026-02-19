@@ -11,10 +11,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 
 @tool(
     name="list_files_in_directory",
-    desc=(
-        "List files in a directory. Use this to explore the project structure to "
-        "find relevant files."
-    ),
+    desc=("List files in a directory."),
     params={
         "type": "object",
         "properties": {
@@ -203,23 +200,11 @@ def read_file_content(
                 "description": (
                     "The exact block of text to find. "
                     "Must match exactly including indentation. "
-                    "Use actual newlines for multi-line blocks, not '\\n'."
                 ),
             },
             "replace": {
                 "type": "string",
-                "description": (
-                    "The new block of text to replace 'search' with. "
-                    "Use actual newlines for multi-line blocks, not '\\n'."
-                ),
-            },
-            "dry_run": {
-                "type": "boolean",
-                "description": (
-                    "If true, returns the diff without modifying the file. "
-                    "Use this for preview."
-                ),
-                "default": False,
+                "description": ("The new block of text to replace 'search' with. "),
             },
         },
         "required": ["path", "search", "replace"],

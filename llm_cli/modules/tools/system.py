@@ -58,7 +58,7 @@ def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
     description=(
         "Execute a shell command. Use this for running tests, linters, git operations, "
         "or other development tasks. Do not use this for file editing; use "
-        "'create_or_overwrite_file' or 'edit_file_by_replacing_lines' instead. "
+        "'create_or_overwrite_file' or 'edit_file' instead. "
     ),
     parameters={
         "type": "object",

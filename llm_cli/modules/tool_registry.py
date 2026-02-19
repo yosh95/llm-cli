@@ -138,6 +138,8 @@ class ToolRegistry:
 
     def register_remote_tools(self, mcp_manager: Any) -> list[str]:
         remote_names = []
+        # Register shutdown hook for MCP manager
+        self.register_shutdown_hook(mcp_manager.shutdown)
         try:
             for tool in mcp_manager.list_tools():
 

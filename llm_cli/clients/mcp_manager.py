@@ -219,13 +219,22 @@ class MCPManager:
 
     def shutdown(self) -> None:
         """Close all connections."""
+        if not self.exit_stack:
+            if not self.loop.is_closed():
+                self.loop.close()
+            return
+
         for _server_name, (transport_ctx, session) in self.exit_stack.items():
             try:
-                self._run_async(session.__aexit__(None, None, None))
-                self._run_async(transport_ctx.__aexit__(None, None, None))  # type: ignore[attr-defined]
+                if not self.loop.is_closed():
+                    self._run_async(session.__aexit__(None, None, None))
+                    self._run_async(transport_ctx.__aexit__(None, None, None))  # type: ignore[attr-defined]
             except Exception:
                 pass
-        self.loop.close()
+        self.exit_stack.clear()
+        self.sessions.clear()
+        if not self.loop.is_closed():
+            self.loop.close()
 
 
 # Global manager instance

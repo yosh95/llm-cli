@@ -267,12 +267,18 @@ async def stdio_client(
     try:
         yield proc.stdout, proc.stdin
     finally:
+        if proc.stdin:
+            try:
+                proc.stdin.close()
+            except Exception:
+                pass
         if proc.returncode is None:
             proc.terminate()
             try:
                 await asyncio.wait_for(proc.wait(), timeout=2.0)
             except TimeoutError:
                 proc.kill()
+                await proc.wait()
 
 
 # --- Server Implementation ---

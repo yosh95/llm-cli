@@ -92,6 +92,11 @@ The AI agent comes equipped with the following tools:
 
 > **Note**: To use `search_web`, you need to obtain a **Google Cloud Platform API Key** and a **Custom Search Engine ID (CX)**. These can be configured using `llm-cli-config`.
 
+### 🛡️ Tool Output Limits
+By default, tool outputs are truncated to **10,000 characters** to prevent context window overflow. You can customize this in two ways:
+1.  **Globally**: Run `llm-cli-config` and set "Default Tool Output Max Length".
+2.  **Per-call**: The AI agent can dynamically increase the limit by specifying the `max_output_length` parameter in supported tools (e.g., `execute_shell_command`, `read_file_content`). Set it to `0` for no limit.
+
 ## Power User Tips
 
 For power users who need full control over their environment:
@@ -475,6 +480,11 @@ AIエージェントは以下のツールを標準で備えています：
 | `read_image_from_url` | Web上の画像を取得し、視覚処理のためにコンテキストに追加します。 |
 
 > **注**: `search_web` を使用するには、**Google Cloud Platform APIキー**と**カスタム検索エンジンID (CX)**が必要です。
+
+### 🛡️ ツールの出力制限について
+コンテキストウィンドウの溢れを防ぐため、ツールの出力はデフォルトで **10,000文字** に制限されています。この制限は以下の2つの方法でカスタマイズ可能です：
+1.  **グローバル設定**: `llm-cli-config` を実行し、「Default Tool Output Max Length」を設定します。
+2.  **実行時指定**: AIエージェントは、対応するツール（`execute_shell_command` や `read_file_content` など）の `max_output_length` パラメータを指定することで、動的に制限を緩和できます。制限を解除するには `0` を指定します。
 
 ## パワーユーザー向けのヒント
 

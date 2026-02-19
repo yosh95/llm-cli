@@ -18,7 +18,9 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
     desc=(
         "List files in a directory. Use this to explore the project structure to "
         "find relevant files. If you are looking for specific code definitions, "
-        "use 'search_text_in_files' instead."
+        "use 'search_text_in_files' instead. "
+        "Note: Output is truncated to 10,000 characters by default. Use "
+        "'max_output_length' to increase the limit."
     ),
     params={
         "type": "object",
@@ -49,7 +51,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
                 "type": "integer",
                 "description": (
                     "Maximum number of characters to return in the output. "
-                    "Truncates if exceeded."
+                    "Truncates if exceeded. Set to 0 for no limit."
                 ),
             },
         },
@@ -134,7 +136,7 @@ def list_files_in_directory(
 
         walk(base_path, 1)
         final_result = "\n".join(results) or "No files found."
-        if len(final_result) > max_output_length:
+        if max_output_length > 0 and len(final_result) > max_output_length:
             final_result = (
                 final_result[:max_output_length]
                 + "\n... (Listing truncated due to length limit)"
@@ -149,7 +151,11 @@ def list_files_in_directory(
 
 @tool(
     name="search_text_in_files",
-    desc="Search for a text pattern in files within a directory (Grep-like).",
+    desc=(
+        "Search for a text pattern in files within a directory (Grep-like). "
+        "Note: Output is truncated to 10,000 characters by default. Use "
+        "'max_output_length' to increase the limit."
+    ),
     params={
         "type": "object",
         "properties": {
@@ -169,7 +175,7 @@ def list_files_in_directory(
                 "type": "integer",
                 "description": (
                     "Maximum number of characters to return in the output. "
-                    "Truncates if exceeded."
+                    "Truncates if exceeded. Set to 0 for no limit."
                 ),
             },
         },
@@ -337,7 +343,9 @@ def search_text_in_files(
     name="read_file_content",
     desc=(
         "Read content from a text file. Can read specific lines and optionally "
-        "include line numbers."
+        "include line numbers. "
+        "Note: Output is truncated to 10,000 characters by default. Use "
+        "'max_output_length' to increase the limit."
     ),
     params={
         "type": "object",
@@ -358,7 +366,7 @@ def search_text_in_files(
                 "type": "integer",
                 "description": (
                     "Maximum number of characters to return in the output. "
-                    "Truncates if exceeded."
+                    "Truncates if exceeded. Set to 0 for no limit."
                 ),
             },
         },
@@ -398,7 +406,7 @@ def read_file_content(
                     get_setting("max_output_length", "general") or 10000
                 )
 
-            if len(content) > max_output_length:
+            if max_output_length > 0 and len(content) > max_output_length:
                 content = (
                     content[:max_output_length]
                     + "\n... (Content truncated due to length limit)"

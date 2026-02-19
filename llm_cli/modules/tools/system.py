@@ -58,7 +58,9 @@ def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
     description=(
         "Execute a shell command. Use this for running tests, linters, git operations, "
         "or other development tasks. Do not use this for file editing; use "
-        "'create_or_overwrite_file' or 'edit_file_by_replacing_lines' instead."
+        "'create_or_overwrite_file' or 'edit_file_by_replacing_lines' instead. "
+        "Note: Output is truncated to 10,000 characters by default. Use "
+        "'max_output_length' to increase the limit if large output is expected."
     ),
     parameters={
         "type": "object",
@@ -68,7 +70,7 @@ def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
                 "type": "integer",
                 "description": (
                     "Maximum number of characters to return in the output. "
-                    "Truncates if exceeded."
+                    "Truncates if exceeded. Set to 0 for no limit."
                 ),
             },
         },
@@ -167,7 +169,7 @@ def execute_shell_command(command: str, max_output_length: int | None = None) ->
                 if stderr:
                     result += f"\nSTDERR:\n{stderr}"
 
-                if len(result) > max_output_length:
+                if max_output_length > 0 and len(result) > max_output_length:
                     result = (
                         result[:max_output_length]
                         + "\n[... OUTPUT TRUNCATED DUE TO LENGTH LIMIT ...]"
@@ -186,7 +188,7 @@ def execute_shell_command(command: str, max_output_length: int | None = None) ->
                 if stderr:
                     error_msg += f"\nPartial STDERR:\n{stderr}"
 
-                if len(error_msg) > max_output_length:
+                if max_output_length > 0 and len(error_msg) > max_output_length:
                     error_msg = (
                         error_msg[:max_output_length]
                         + "\n[... ERROR MESSAGE TRUNCATED DUE TO LENGTH LIMIT ...]"

@@ -187,6 +187,12 @@ def configure_general(config: dict[str, Any]) -> None:
     g_config["request_timeout"] = int(
         prompt_input("Request Timeout (seconds)", g_config.get("request_timeout", 1800))
     )
+    g_config["max_output_length"] = int(
+        prompt_input(
+            "Default Tool Output Max Length (chars)",
+            g_config.get("max_output_length", 10000),
+        )
+    )
 
 
 def configure_security(config: dict[str, Any]) -> None:

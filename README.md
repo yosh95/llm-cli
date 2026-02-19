@@ -103,6 +103,17 @@ For power users who need full control over their environment:
 
 `llm-cli` implements strict security guardrails to protect against command injection and dangerous operations initiated by the AI agent:
 
+### 🛡️ Design Philosophy: Secure-by-Design Workflow
+
+While many projects use `make` for task automation, `llm-cli` intentionally avoids `Makefile` for its core development and validation workflow.
+
+#### Why we don't use `Makefile`:
+- **Command Injection Prevention**: `make` is a powerful macro-processing engine that allows variable overrides (e.g., `make VAR='$(shell command)'`). This creates a significant attack surface for command injection that is difficult for AI security validators to audit.
+- **Auditability & Transparency**: We use explicit, sequential shell scripts (like `check.sh`) instead. These scripts are easy for both humans and AI security guardrails to parse and verify before execution.
+- **Predictable Integrity**: By avoiding the complexity of `make` targets, we ensure that formatting, linting, type-checking, and testing are performed in a transparent, immutable manner.
+
+This decision reflects our commitment to **Zero Trust** for AI-assisted development—ensuring that every action the AI or developer takes is explicit, auditable, and secure.
+
 ### 🛡️ Secure MCP Orchestration (Zero Trust Architecture)
 
 This project introduces a robust security layer designed for enterprise-grade tool orchestration, especially when operating as an MCP server.
@@ -475,6 +486,17 @@ AIエージェントは以下のツールを標準で備えています：
 ## セキュリティ
 
 `llm-cli` は、AIエージェントによるコマンドインジェクションや危険な操作を防ぐため、厳格なセキュリティガードレールを実装しています：
+
+### 🛡️ 設計思想：Secure-by-Design ワークフロー
+
+多くのプロジェクトではタスクの自動化に `make` を使用しますが、`llm-cli` ではコアな開発および検証ワークフローにおいて、意図的に `Makefile` の使用を避けています。
+
+#### なぜ `Makefile` を使用しないのか：
+- **コマンドインジェクションの防止**: `make` は強力なマクロ処理エンジンであり、変数の上書き（例：`make VAR='$(shell command)'`）を許容します。これは、AIセキュリティバリデータが厳格に監査することが困難な、大きなコマンドインジェクションの攻撃面（Attack Surface）を生み出します。
+- **監査性と透明性**: 代わりに、明示的で逐次的なシェルスクリプト（`check.sh` など）を使用します。これらのスクリプトは、実行前に人間とAIのセキュリティガードレールの両方が内容を解析し、検証することが容易です。
+- **予測可能な整合性**: 複雑な `make` ターゲットを避けることで、フォーマット、Lint、型チェック、テストが、環境に依存しない透過的かつ不変な方法で実行されることを保証します。
+
+この決定は、AI支援開発における **ゼロトラスト** への私たちの取り組みを反映したものです。AIや開発者が行うすべての行動が明示的で、監査可能、かつ安全であることを保証します。
 
 ### 🛡️ 安全なMCPオーケストレーション（ゼロトラストアーキテクチャ）
 

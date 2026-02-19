@@ -113,14 +113,14 @@ def test_read_html_from_url_truncation(mock_cloudscraper):
 
     # Use a small limit to ensure truncation occurs
     with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
-        result = read_html_from_url("https://example.com", max_length=1000)
+        result = read_html_from_url("https://example.com", max_output_length=1000)
 
     assert "... (Truncated" in result
     assert len(result) <= 1200  # 1000 + extra message chars
 
 
 def test_read_html_from_url_no_limit(mock_cloudscraper):
-    """Test read_html_from_url with no limit (max_length=0)."""
+    """Test read_html_from_url with no limit (max_output_length=0)."""
     long_text = "word " * 11000  # Approx 55000 chars
     html_content = f"<html><body>{long_text}</body></html>"
 
@@ -129,7 +129,7 @@ def test_read_html_from_url_no_limit(mock_cloudscraper):
 
     # Set limit to 0 (no limit)
     with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
-        result = read_html_from_url("https://example.com", max_length=0)
+        result = read_html_from_url("https://example.com", max_output_length=0)
 
     # Should NOT be truncated
     assert "... (Truncated" not in result

@@ -62,11 +62,20 @@ def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
     ),
     parameters={
         "type": "object",
-        "properties": {"command": {"type": "string", "description": "Command to run."}},
+        "properties": {
+            "command": {"type": "string", "description": "Command to run."},
+            "max_output_length": {
+                "type": "integer",
+                "description": (
+                    "Maximum number of characters to return in the output. "
+                    "Truncates if exceeded."
+                ),
+            },
+        },
         "required": ["command"],
     },
 )
-def execute_shell_command(command: str) -> str:
+def execute_shell_command(command: str, max_output_length: int | None = None) -> str:
     # Validate command against security whitelist
     # Note: validation errors are now handled by the registry wrapper auditing
     try:
@@ -84,6 +93,12 @@ def execute_shell_command(command: str) -> str:
             or os.environ.get("LLM_CLI_COMMAND_TIMEOUT", "300")
         )
     )
+
+    # Use configured max output length or default to 10000
+    if max_output_length is None:
+        max_output_length = int(
+            str(get_setting("max_output_length", "general") or "10000")
+        )
 
     # Read memory limit from config, default to 1024MB (1GB)
     mem_limit_mb = int(str(get_setting("max_command_memory_mb", "general") or "1024"))
@@ -151,6 +166,13 @@ def execute_shell_command(command: str) -> str:
                 result = f"STDOUT:\n{stdout}"
                 if stderr:
                     result += f"\nSTDERR:\n{stderr}"
+
+                if len(result) > max_output_length:
+                    result = (
+                        result[:max_output_length]
+                        + "\n[... OUTPUT TRUNCATED DUE TO LENGTH LIMIT ...]"
+                    )
+
                 return f"{result}\nExit Code: {exit_code}"
 
             except subprocess.TimeoutExpired:
@@ -160,10 +182,18 @@ def execute_shell_command(command: str) -> str:
                     proc.kill()
                 stdout, stderr = proc.communicate()
 
+                error_msg = f"Command timed out ({timeout}s). Partial STDOUT:\n{stdout}"
+                if stderr:
+                    error_msg += f"\nPartial STDERR:\n{stderr}"
+
+                if len(error_msg) > max_output_length:
+                    error_msg = (
+                        error_msg[:max_output_length]
+                        + "\n[... ERROR MESSAGE TRUNCATED DUE TO LENGTH LIMIT ...]"
+                    )
+
                 # Raising error so registry wrapper logs it
-                raise RuntimeError(
-                    f"Command timed out ({timeout}s). Partial STDOUT:\n{stdout}"
-                ) from None
+                raise RuntimeError(error_msg) from None
 
     except Exception as e:
         # Re-raise to let the tool_registry wrapper handle logging

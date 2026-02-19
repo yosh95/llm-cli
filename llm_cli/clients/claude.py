@@ -15,7 +15,7 @@ class ClaudeClient(BaseLlmClient):
 
     Extended thinking allows Claude to reason through complex problems
     before responding. Claude 4 models return summarized thinking content,
-    while Claude Sonnet 3.7 returns full thinking output.
+    while Claude Sonnet 4.6 returns full thinking output.
     """
 
     API_URL = "https://api.anthropic.com/v1/messages"

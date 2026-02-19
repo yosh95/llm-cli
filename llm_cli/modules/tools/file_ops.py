@@ -45,6 +45,13 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
                 "description": "Maximum number of files to list.",
                 "default": 500,
             },
+            "max_output_length": {
+                "type": "integer",
+                "description": (
+                    "Maximum number of characters to return in the output. "
+                    "Truncates if exceeded."
+                ),
+            },
         },
         "required": [],
     },
@@ -54,6 +61,7 @@ def list_files_in_directory(
     depth: int = 1,
     ignore_patterns: list[str] | None = None,
     max_files: int = 500,
+    max_output_length: int | None = None,
 ) -> str:
     """
     Lists files in a directory tree, excluding specified patterns
@@ -64,6 +72,11 @@ def list_files_in_directory(
         base_path = Path(directory or ".")
         if not base_path.exists():
             return f"Error: Directory '{directory}' does not exist."
+
+        if max_output_length is None:
+            max_output_length = int(
+                get_setting("max_output_length", "general") or 10000
+            )
 
         if ignore_patterns is None:
             ignore_patterns = [
@@ -120,7 +133,13 @@ def list_files_in_directory(
                     file_count += 1
 
         walk(base_path, 1)
-        return "\n".join(results) or "No files found."
+        final_result = "\n".join(results) or "No files found."
+        if len(final_result) > max_output_length:
+            final_result = (
+                final_result[:max_output_length]
+                + "\n... (Listing truncated due to length limit)"
+            )
+        return final_result
 
     except PathValidationError as e:
         return f"Security Error: {e}"
@@ -146,12 +165,22 @@ def list_files_in_directory(
                 "type": "string",
                 "description": "Glob pattern for file names to include (e.g. '*.py').",
             },
+            "max_output_length": {
+                "type": "integer",
+                "description": (
+                    "Maximum number of characters to return in the output. "
+                    "Truncates if exceeded."
+                ),
+            },
         },
         "required": ["query"],
     },
 )
 def search_text_in_files(
-    query: str, directory: str = ".", file_pattern: str | None = None
+    query: str,
+    directory: str = ".",
+    file_pattern: str | None = None,
+    max_output_length: int | None = None,
 ) -> str:
     """
     Search for a text pattern in files.
@@ -162,6 +191,12 @@ def search_text_in_files(
         base_path = Path(directory or ".")
         if not base_path.exists():
             return f"Error: Directory '{directory}' does not exist."
+
+        # Use configured max output length or default to 10000
+        if max_output_length is None:
+            max_output_length = int(
+                str(get_setting("max_output_length", "general") or "10000")
+            )
 
         exclude_dirs = [
             ".git",
@@ -225,12 +260,13 @@ def search_text_in_files(
                         else:
                             formatted_results.append(line)
 
-                    if len(formatted_results) > 500:
-                        return (
-                            "\n".join(formatted_results[:500])
-                            + "\n... (Too many matches, truncated)"
+                    final_result = "\n".join(formatted_results)
+                    if len(final_result) > max_output_length:
+                        final_result = (
+                            final_result[:max_output_length]
+                            + "\n... (Too many matches, output truncated)"
                         )
-                    return "\n".join(formatted_results)
+                    return final_result
                 elif process.returncode == 1:
                     return f"No matches found for '{query}'."
                 else:
@@ -278,7 +314,11 @@ def search_text_in_files(
 
                             results.append(f"{clean_path}:{i + 1}: {line.strip()}")
 
-                            if len(results) >= 100:
+                            current_output = "\n".join(results)
+                            if (
+                                len(current_output) >= max_output_length
+                                or len(results) >= 1000
+                            ):
                                 results.append("... (Too many matches, truncated)")
                                 return "\n".join(results)
 
@@ -314,6 +354,13 @@ def search_text_in_files(
                 "description": "If true, adds line numbers to the output.",
                 "default": False,
             },
+            "max_output_length": {
+                "type": "integer",
+                "description": (
+                    "Maximum number of characters to return in the output. "
+                    "Truncates if exceeded."
+                ),
+            },
         },
         "required": ["path"],
     },
@@ -323,6 +370,7 @@ def read_file_content(
     start_line: int = 1,
     end_line: int | None = None,
     with_line_numbers: bool = False,
+    max_output_length: int | None = None,
 ) -> str:
     try:
         validate_path(path)
@@ -345,8 +393,17 @@ def read_file_content(
             else:
                 content = "\n".join(selected_lines)
 
-            max_output = int(get_setting("max_read_file_len", "general") or 50000)
-            return content[:max_output]
+            if max_output_length is None:
+                max_output_length = int(
+                    get_setting("max_output_length", "general") or 10000
+                )
+
+            if len(content) > max_output_length:
+                content = (
+                    content[:max_output_length]
+                    + "\n... (Content truncated due to length limit)"
+                )
+            return content
 
         except UnicodeDecodeError:
             return f"Error: '{path}' appears to be a binary file."

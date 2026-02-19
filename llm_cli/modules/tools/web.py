@@ -81,10 +81,10 @@ if _google_api_key and _google_cse_id:
                 "default": 1,
             },
             "end_line": {"type": "integer", "description": "Last line to read."},
-            "max_length": {
+            "max_output_length": {
                 "type": "integer",
                 "description": (
-                    "Maximum number of characters to return (default: 50000). "
+                    "Maximum number of characters to return (default: 10000). "
                     "Set to 0 for no limit."
                 ),
             },
@@ -101,7 +101,7 @@ def read_html_from_url(
     url: str,
     start_line: int = 1,
     end_line: int | None = None,
-    max_length: int = 50000,
+    max_output_length: int | None = None,
     with_line_numbers: bool = False,
 ) -> str:
     content, ctype = fetch_url_content(url, pdf_as_base64=False)
@@ -114,6 +114,9 @@ def read_html_from_url(
             f"Error: URL returned {ctype}, expected text/html or text/plain. "
             "Use 'read_pdf_from_url' for PDFs or 'read_image_from_url' for images."
         )
+
+    if max_output_length is None:
+        max_output_length = int(get_setting("max_output_length", "general") or 10000)
 
     # Post-processing to remove excessive newlines
     # fetch_url_content already handles markdownify for HTML
@@ -134,11 +137,11 @@ def read_html_from_url(
         content = "\n".join(selected_lines)
 
     # Truncate if too long (rough safety limit)
-    if max_length > 0 and len(content) > max_length:
+    if max_output_length > 0 and len(content) > max_output_length:
         content = (
-            content[:max_length]
+            content[:max_output_length]
             + f"\n... (Truncated. Total length: {len(content)} chars. "
-            "Use start_line/end_line or max_length parameter to retrieve more.)"
+            "Use start_line/end_line or max_output_length parameter to retrieve more.)"
         )
 
     return content

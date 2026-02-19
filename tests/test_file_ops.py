@@ -5,7 +5,6 @@ from llm_cli.modules.tools.file_ops import (
     edit_file,
     list_files_in_directory,
     read_file_content,
-    search_text_in_files,
 )
 
 
@@ -101,41 +100,6 @@ def test_file_ops_security_block(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = create_or_overwrite_file("../illegal.txt", "content")
     assert "Security Error" in result or "outside the sandbox" in result.lower()
-
-
-def test_search_files_basic(tmp_path, monkeypatch):
-    """Test searching for text in files."""
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "a.py").write_text("def target_func():\n    pass")
-    (tmp_path / "b.txt").write_text("Just some text")
-    (tmp_path / "c.py").write_text("call target_func()")
-
-    result = search_text_in_files(query="target_func", file_pattern="*.py")
-    assert "a.py:1: def target_func():" in result
-    assert "c.py:1: call target_func()" in result
-    assert "b.txt" not in result
-
-
-def test_search_files_regex(tmp_path, monkeypatch):
-    """Test searching with extended regular expressions (ERE)."""
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "data.txt").write_text("apple\nbanana\ncherry\ndate")
-
-    # Test OR operator (ERE feature)
-    result = search_text_in_files(query="apple|cherry")
-    assert "data.txt:1: apple" in result
-    assert "data.txt:3: cherry" in result
-    assert "banana" not in result
-
-    # Test case sensitivity (default depends on tool, but 'rg' uses smart-case)
-    # Our grep implementation uses -I (ignore binary) and -i (ignore case) is not set,
-    # but ripgrep uses --smart-case.
-    # Actually, the grep implementation I wrote didn't include -i.
-
-    # Test starting with hyphen (protection check)
-    (tmp_path / "hyphen.txt").write_text("- starts with hyphen")
-    result = search_text_in_files(query="- starts")
-    assert "hyphen.txt:1: - starts with hyphen" in result
 
 
 def test_edit_file_success(tmp_path, monkeypatch):

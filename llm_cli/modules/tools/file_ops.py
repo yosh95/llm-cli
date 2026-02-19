@@ -2,12 +2,8 @@
 
 import difflib
 import fnmatch
-import re
-import shutil
-import subprocess
 from pathlib import Path
 
-from llm_cli.clients.config import get_setting
 from llm_cli.modules.media_utils import process_file
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
@@ -17,10 +13,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
     name="list_files_in_directory",
     desc=(
         "List files in a directory. Use this to explore the project structure to "
-        "find relevant files. If you are looking for specific code definitions, "
-        "use 'search_text_in_files' instead. "
-        "Note: Output is truncated to 10,000 characters by default. Use "
-        "'max_output_length' to increase the limit."
+        "find relevant files."
     ),
     params={
         "type": "object",
@@ -47,13 +40,6 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
                 "description": "Maximum number of files to list.",
                 "default": 500,
             },
-            "max_output_length": {
-                "type": "integer",
-                "description": (
-                    "Maximum number of characters to return in the output. "
-                    "Truncates if exceeded. Set to 0 for no limit."
-                ),
-            },
         },
         "required": [],
     },
@@ -63,7 +49,6 @@ def list_files_in_directory(
     depth: int = 1,
     ignore_patterns: list[str] | None = None,
     max_files: int = 500,
-    max_output_length: int | None = None,
 ) -> str:
     """
     Lists files in a directory tree, excluding specified patterns
@@ -74,11 +59,6 @@ def list_files_in_directory(
         base_path = Path(directory or ".")
         if not base_path.exists():
             return f"Error: Directory '{directory}' does not exist."
-
-        if max_output_length is None:
-            max_output_length = int(
-                get_setting("max_output_length", "general") or 10000
-            )
 
         if ignore_patterns is None:
             ignore_patterns = [
@@ -136,202 +116,7 @@ def list_files_in_directory(
 
         walk(base_path, 1)
         final_result = "\n".join(results) or "No files found."
-        if max_output_length > 0 and len(final_result) > max_output_length:
-            final_result = (
-                final_result[:max_output_length]
-                + "\n... (Listing truncated due to length limit)"
-            )
         return final_result
-
-    except PathValidationError as e:
-        return f"Security Error: {e}"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-@tool(
-    name="search_text_in_files",
-    desc=(
-        "Search for a text pattern in files within a directory (Grep-like). "
-        "Note: Output is truncated to 10,000 characters by default. Use "
-        "'max_output_length' to increase the limit."
-    ),
-    params={
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "Text or regex pattern (ERE/PCRE) to search for.",
-            },
-            "directory": {
-                "type": "string",
-                "description": "Directory to search in (default: current directory).",
-            },
-            "file_pattern": {
-                "type": "string",
-                "description": "Glob pattern for file names to include (e.g. '*.py').",
-            },
-            "max_output_length": {
-                "type": "integer",
-                "description": (
-                    "Maximum number of characters to return in the output. "
-                    "Truncates if exceeded. Set to 0 for no limit."
-                ),
-            },
-        },
-        "required": ["query"],
-    },
-)
-def search_text_in_files(
-    query: str,
-    directory: str = ".",
-    file_pattern: str | None = None,
-    max_output_length: int | None = None,
-) -> str:
-    """
-    Search for a text pattern in files.
-    Uses 'rg' or 'grep -E' if available for performance, otherwise falls back to Python.
-    """
-    try:
-        validate_path(directory or ".")
-        base_path = Path(directory or ".")
-        if not base_path.exists():
-            return f"Error: Directory '{directory}' does not exist."
-
-        # Use configured max output length or default to 10000
-        if max_output_length is None:
-            max_output_length = int(
-                str(get_setting("max_output_length", "general") or "10000")
-            )
-
-        exclude_dirs = [
-            ".git",
-            "__pycache__",
-            "node_modules",
-            "venv",
-            ".venv",
-            ".mypy_cache",
-            ".pytest_cache",
-            ".ruff_cache",
-            ".env",
-            ".DS_Store",
-            "__MACOSX",
-        ]
-
-        # Try using system tools for performance
-        search_tool = None
-        if shutil.which("rg"):
-            search_tool = "rg"
-            cmd = ["rg", "-nH", "--no-heading", "--smart-case", "-I"]
-            for d in exclude_dirs:
-                cmd.extend(["-g", f"!{d}/*"])
-            if file_pattern:
-                cmd.extend(["-g", file_pattern])
-        elif shutil.which("grep"):
-            search_tool = "grep"
-            cmd = ["grep", "-rnIE"]  # -E for Extended Regular Expressions
-            for d in exclude_dirs:
-                cmd.extend(["--exclude-dir", d])
-            if file_pattern:
-                cmd.extend(["--include", file_pattern])
-
-        if search_tool:
-            try:
-                # Use '--' to prevent query from being interpreted as an option
-                cmd.extend(["--", query, str(base_path)])
-
-                # Run tool with timeout for safety (ReDoS protection)
-                process = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=30,
-                )
-
-                if process.returncode == 0:
-                    lines = process.stdout.splitlines()
-                    formatted_results = []
-                    for line in lines:
-                        # Normalize output: remove leading ./ and ensure space after
-                        # colon. format: path:line:content
-                        parts = line.split(":", 2)
-                        if len(parts) == 3:
-                            path, line_num, content = parts
-                            if path.startswith("./"):
-                                path = path[2:]
-                            res_line = f"{path}:{line_num}: {content.lstrip()}"
-                            formatted_results.append(res_line)
-                        else:
-                            formatted_results.append(line)
-
-                    final_result = "\n".join(formatted_results)
-                    if len(final_result) > max_output_length:
-                        final_result = (
-                            final_result[:max_output_length]
-                            + "\n... (Too many matches, output truncated)"
-                        )
-                    return final_result
-                elif process.returncode == 1:
-                    return f"No matches found for '{query}'."
-                else:
-                    # tool error, fall back to python
-                    pass
-            except subprocess.TimeoutExpired:
-                return "Error: Search timed out after 30 seconds."
-            except Exception:
-                # Fall back to python on any error
-                pass
-
-        # Python Fallback Implementation
-        results = []
-        ignore_dirs = set(exclude_dirs)
-
-        for file_path in base_path.rglob(file_pattern or "*"):
-            if file_path.is_dir():
-                continue
-
-            if any(
-                part.startswith(".") or part in ignore_dirs for part in file_path.parts
-            ):
-                continue
-
-            try:
-                # Check for binary file
-                is_binary = False
-                try:
-                    with file_path.open("rb") as f_bin:
-                        chunk = f_bin.read(8192)
-                        if b"\x00" in chunk:
-                            is_binary = True
-                except Exception:
-                    continue
-
-                if is_binary:
-                    continue
-
-                with file_path.open(encoding="utf-8", errors="ignore") as f:
-                    for i, line in enumerate(f):
-                        if re.search(query, line):
-                            clean_path = str(file_path)
-                            if clean_path.startswith("./"):
-                                clean_path = clean_path[2:]
-
-                            results.append(f"{clean_path}:{i + 1}: {line.strip()}")
-
-                            current_output = "\n".join(results)
-                            if (
-                                len(current_output) >= max_output_length
-                                or len(results) >= 1000
-                            ):
-                                results.append("... (Too many matches, truncated)")
-                                return "\n".join(results)
-
-            except Exception:
-                continue
-
-        return "\n".join(results) or f"No matches found for '{query}'."
 
     except PathValidationError as e:
         return f"Security Error: {e}"
@@ -344,8 +129,6 @@ def search_text_in_files(
     desc=(
         "Read content from a text file. Can read specific lines and optionally "
         "include line numbers. "
-        "Note: Output is truncated to 10,000 characters by default. Use "
-        "'max_output_length' to increase the limit."
     ),
     params={
         "type": "object",
@@ -362,13 +145,6 @@ def search_text_in_files(
                 "description": "If true, adds line numbers to the output.",
                 "default": False,
             },
-            "max_output_length": {
-                "type": "integer",
-                "description": (
-                    "Maximum number of characters to return in the output. "
-                    "Truncates if exceeded. Set to 0 for no limit."
-                ),
-            },
         },
         "required": ["path"],
     },
@@ -378,7 +154,6 @@ def read_file_content(
     start_line: int = 1,
     end_line: int | None = None,
     with_line_numbers: bool = False,
-    max_output_length: int | None = None,
 ) -> str:
     try:
         validate_path(path)
@@ -401,16 +176,6 @@ def read_file_content(
             else:
                 content = "\n".join(selected_lines)
 
-            if max_output_length is None:
-                max_output_length = int(
-                    get_setting("max_output_length", "general") or 10000
-                )
-
-            if max_output_length > 0 and len(content) > max_output_length:
-                content = (
-                    content[:max_output_length]
-                    + "\n... (Content truncated due to length limit)"
-                )
             return content
 
         except UnicodeDecodeError:

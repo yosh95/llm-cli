@@ -80,7 +80,6 @@ The AI agent comes equipped with the following tools:
 | :--- | :--- |
 | `execute_shell_command` | Execute shell commands (Use for testing, linting, git operations). |
 | `list_files_in_directory` | List files in a directory to explore structure (Supports `ignore_patterns`). |
-| `search_text_in_files` | Search for text patterns in files (Grep-like). Essential for finding code definitions. |
 | `read_file_content` | Read text file content. Use `with_line_numbers=True` before editing. |
 | `edit_file` | Edit a file by replacing a specific block of text. Returns a Diff. Safer than string replace. |
 | `create_or_overwrite_file` | Create a new file (full content). |
@@ -469,7 +468,6 @@ AIエージェントは以下のツールを標準で備えています：
 | :--- | :--- |
 | `execute_shell_command` | シェルコマンドを実行します（テスト実行、Lint実行、Git操作用）。 |
 | `list_files_in_directory` | ディレクトリ構造を一覧表示します（`ignore_patterns`対応）。 |
-| `search_text_in_files` | ファイル内のテキストパターンを検索します（Grep互換）。コード定義の探索に必須です。 |
 | `read_file_content` | テキストファイルを読み込みます。編集前には `with_line_numbers=True` で行番号を確認してください。 |
 | `edit_file` | ファイル内の特定のテキストブロックを検索して置換します。Diffを返し、文字列検索置換より安全です。 |
 | `create_or_overwrite_file` | 新規ファイルを作成します（全内容上書き）。 |

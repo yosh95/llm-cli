@@ -144,6 +144,12 @@ class UnifiedClient(BaseLlmClient):
         self.model = self.active_client.model
         self.current_alias = self.active_client.current_alias
 
+    def clear_history(self) -> None:
+        """Delegate history clearing to the active client."""
+        self.active_client.clear_history()
+        # Reset the unified client's token count as well
+        self.cumulative_total_tokens = 0
+
     def _process_single_source(self, source: str) -> DataSource | None:
         """Delegate source processing to the active provider client."""
         return self.active_client._process_single_source(source)

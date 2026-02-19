@@ -73,37 +73,11 @@ if _google_api_key and _google_cse_id:
     ),
     parameters={
         "type": "object",
-        "properties": {
-            "url": {"type": "string", "description": "Target URL."},
-            "start_line": {
-                "type": "integer",
-                "description": "First line to read (1-indexed).",
-                "default": 1,
-            },
-            "end_line": {"type": "integer", "description": "Last line to read."},
-            "max_output_length": {
-                "type": "integer",
-                "description": (
-                    "Maximum number of characters to return (default: 10000). "
-                    "Set to 0 for no limit."
-                ),
-            },
-            "with_line_numbers": {
-                "type": "boolean",
-                "description": "If true, adds line numbers to the output.",
-                "default": False,
-            },
-        },
+        "properties": {"url": {"type": "string", "description": "Target URL."}},
         "required": ["url"],
     },
 )
-def read_html_from_url(
-    url: str,
-    start_line: int = 1,
-    end_line: int | None = None,
-    max_output_length: int | None = None,
-    with_line_numbers: bool = False,
-) -> str:
+def read_html_from_url(url: str) -> str:
     content, ctype = fetch_url_content(url, pdf_as_base64=False)
 
     if content is None or ctype is None:
@@ -115,34 +89,9 @@ def read_html_from_url(
             "Use 'read_pdf_from_url' for PDFs or 'read_image_from_url' for images."
         )
 
-    if max_output_length is None:
-        max_output_length = int(get_setting("max_output_length", "general") or 10000)
-
     # Post-processing to remove excessive newlines
     # fetch_url_content already handles markdownify for HTML
     content = re.sub(r"\n{3,}", "\n\n", content).strip()
-
-    # Slice by lines
-    lines = content.splitlines()
-    start = max(1, start_line) - 1
-    end = min(len(lines), end_line) if end_line else len(lines)
-    selected_lines = lines[start:end]
-
-    if with_line_numbers:
-        content_lines = []
-        for i, line in enumerate(selected_lines):
-            content_lines.append(f"{start + i + 1:4d} | {line}")
-        content = "\n".join(content_lines)
-    else:
-        content = "\n".join(selected_lines)
-
-    # Truncate if too long (rough safety limit)
-    if max_output_length > 0 and len(content) > max_output_length:
-        content = (
-            content[:max_output_length]
-            + f"\n... (Truncated. Total length: {len(content)} chars. "
-            "Use start_line/end_line or max_output_length parameter to retrieve more.)"
-        )
 
     return content
 

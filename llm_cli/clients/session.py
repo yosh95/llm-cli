@@ -1,6 +1,5 @@
 # llm_cli/clients/session.py
 
-import copy
 import datetime
 import difflib
 import os
@@ -404,8 +403,8 @@ class ChatSession:
             "Be comprehensive but concise."
         )
 
-        # Back up the current conversation state
-        original_conversation = copy.deepcopy(self.client.conversation)
+        # Back up the current conversation state including provider-specific data
+        original_state = self.client.get_conversation_state()
 
         # Prepare the summarization prompt as a new DataSource
         prompt_source = DataSource(content=summarize_prompt, content_type="text/plain")
@@ -425,7 +424,7 @@ class ChatSession:
 
             if not summary:
                 console.print("[red]Failed to generate summary.[/red]")
-                self.client.conversation = original_conversation
+                self.client.set_conversation_state(original_state)
                 return
 
             console.print(
@@ -453,14 +452,14 @@ class ChatSession:
                 console.print("[green]✅ Context refreshed.[/green]")
             else:
                 console.print("[yellow]Checkpoint canceled.[/yellow]")
-                self.client.conversation = original_conversation
+                self.client.set_conversation_state(original_state)
         except (KeyboardInterrupt, EOFError):
-            self.client.conversation = original_conversation
+            self.client.set_conversation_state(original_state)
             console.print("[yellow]Checkpoint canceled (Interrupted).[/yellow]")
             return
         except Exception as e:
             console.print(f"[bold red]Checkpoint failed: {e}[/bold red]")
-            self.client.conversation = original_conversation
+            self.client.set_conversation_state(original_state)
 
     def _log_chat(self, content: Any, role: str) -> None:
         if not self.client.chat_log_path:

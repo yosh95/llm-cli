@@ -150,6 +150,16 @@ class UnifiedClient(BaseLlmClient):
         # Reset the unified client's token count as well
         self.cumulative_total_tokens = 0
 
+    def get_conversation_state(self) -> dict[str, Any]:
+        """Delegate state backup to the active client."""
+        return self.active_client.get_conversation_state()
+
+    def set_conversation_state(self, state: dict[str, Any]) -> None:
+        """Delegate state restoration to the active client."""
+        self.active_client.set_conversation_state(state)
+        self.conversation = self.active_client.conversation
+        self.cumulative_total_tokens = self.active_client.cumulative_total_tokens
+
     def _process_single_source(self, source: str) -> DataSource | None:
         """Delegate source processing to the active provider client."""
         return self.active_client._process_single_source(source)

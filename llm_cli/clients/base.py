@@ -1,6 +1,7 @@
 # llm_cli/clients/base.py
 
 import base64
+import copy
 import datetime
 import json
 from abc import ABC, abstractmethod
@@ -421,6 +422,23 @@ class BaseLlmClient(ABC):
         """Clears the conversation history and resets token count."""
         self.conversation.clear()
         self.cumulative_total_tokens = 0
+
+    def get_conversation_state(self) -> dict[str, Any]:
+        """
+        Returns the current state of the conversation.
+        Override this to include provider-specific state (like interaction IDs).
+        """
+        return {
+            "conversation": copy.deepcopy(self.conversation),
+            "cumulative_total_tokens": self.cumulative_total_tokens,
+        }
+
+    def set_conversation_state(self, state: dict[str, Any]) -> None:
+        """
+        Restores the conversation state from a dictionary.
+        """
+        self.conversation = state["conversation"]
+        self.cumulative_total_tokens = state.get("cumulative_total_tokens", 0)
 
     def _handle_command(
         self,

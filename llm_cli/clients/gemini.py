@@ -59,6 +59,32 @@ class GeminiClient(BaseLlmClient):
         super().clear_history()
         self.last_interaction_id = None
 
+    def get_conversation_state(self) -> dict[str, Any]:
+        """Returns the conversation state including Gemini's interaction ID."""
+        state = super().get_conversation_state()
+        state["last_interaction_id"] = self.last_interaction_id
+        return state
+
+    def set_conversation_state(self, state: dict[str, Any]) -> None:
+        """Restores the conversation state including Gemini's interaction ID."""
+        super().set_conversation_state(state)
+        self.last_interaction_id = state.get("last_interaction_id")
+
+    def set_model(self, alias: str) -> bool:
+        """Resets interaction ID when model changes."""
+        old_model = self.model
+        if super().set_model(alias):
+            if self.model != old_model:
+                self.last_interaction_id = None
+            return True
+        return False
+
+    def set_custom_model(self, model_name: str) -> None:
+        """Resets interaction ID when model changes."""
+        if model_name != self.model:
+            self.last_interaction_id = None
+        super().set_custom_model(model_name)
+
     def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
         from llm_cli.clients.config import get_model_aliases

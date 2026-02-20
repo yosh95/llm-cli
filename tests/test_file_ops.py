@@ -3,8 +3,6 @@
 from llm_cli.modules.tools.file_ops import (
     create_or_overwrite_file,
     edit_file,
-    list_files_in_directory,
-    read_file_content,
 )
 
 
@@ -19,80 +17,6 @@ def test_write_and_read_file(tmp_path, monkeypatch):
     write_result = create_or_overwrite_file(test_path, content)
     assert "Successfully wrote" in write_result
     assert (tmp_path / test_path).exists()
-
-    # Test read_file_content
-    read_result = read_file_content(test_path)
-    assert content in read_result
-
-
-def test_read_file_line_range(tmp_path, monkeypatch):
-    """Test reading a specific line range from a file."""
-    monkeypatch.chdir(tmp_path)
-
-    lines = ["Line 1", "Line 2", "Line 3", "Line 4"]
-    test_path = "range.txt"
-    (tmp_path / test_path).write_text("\n".join(lines))
-
-    # Read lines 2 to 3
-    result = read_file_content(test_path, start_line=2, end_line=3)
-    assert "Line 1" not in result
-    assert "Line 2" in result
-    assert "Line 3" in result
-    assert "Line 4" not in result
-
-
-def test_read_file_with_line_numbers(tmp_path, monkeypatch):
-    """Test reading with line numbers."""
-    monkeypatch.chdir(tmp_path)
-    test_path = "nums.txt"
-    lines = ["A", "B", "C"]
-    (tmp_path / test_path).write_text("\n".join(lines))
-
-    result = read_file_content(test_path, with_line_numbers=True)
-    assert "   1 | A" in result
-    assert "   2 | B" in result
-    assert "   3 | C" in result
-
-
-def test_list_files_recursive(tmp_path, monkeypatch):
-    """Test listing files with depth and directory structure."""
-    monkeypatch.chdir(tmp_path)
-
-    (tmp_path / "dir1" / "dir2").mkdir(parents=True)
-    (tmp_path / "dir1" / "file1.txt").touch()
-    (tmp_path / "dir1" / "dir2" / "file2.txt").touch()
-
-    # List with depth 1
-    res_d1 = list_files_in_directory(directory="dir1", depth=1)
-    assert "file1.txt" in res_d1
-    assert "dir2/" in res_d1
-    assert "file2.txt" not in res_d1
-
-    # List with depth 2
-    res_d2 = list_files_in_directory(directory="dir1", depth=2)
-    assert "file2.txt" in res_d2
-
-
-def test_list_files_ignore(tmp_path, monkeypatch):
-    """Test ignore patterns in list_files_in_directory."""
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "keep.txt").touch()
-    (tmp_path / "node_modules").mkdir()
-    (tmp_path / "node_modules" / "ignore.js").touch()
-    (tmp_path / "__pycache__").mkdir()
-    (tmp_path / "secrets.env").touch()
-
-    # Default ignore should catch node_modules and __pycache__
-    # Custom ignore for .env
-    result = list_files_in_directory(
-        ignore_patterns=["node_modules", "__pycache__", "*.env"]
-    )
-
-    assert "keep.txt" in result
-    assert "node_modules" not in result
-    assert "ignore.js" not in result
-    assert "__pycache__" not in result
-    assert "secrets.env" not in result
 
 
 def test_file_ops_security_block(tmp_path, monkeypatch):

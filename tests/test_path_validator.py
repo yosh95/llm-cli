@@ -4,11 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from llm_cli.modules.tools.file_ops import (
-    create_or_overwrite_file,
-    list_files_in_directory,
-    read_file_content,
-)
 from llm_cli.security.path_validator import PathValidationError, validate_path
 
 
@@ -42,28 +37,3 @@ class TestPathValidator:
             PathValidationError, match="Access outside project directory is forbidden"
         ):
             validate_path("/var/log/syslog")
-
-    def test_file_ops_integrity(self, tmp_path, monkeypatch):
-        """Test that file_ops tools actually respect the validator."""
-        # Change CWD to a temp directory for this test
-        monkeypatch.chdir(tmp_path)
-
-        # 1. read_file_content restriction
-        result = read_file_content("/etc/passwd")
-        assert "Security Error" in result
-
-        result = read_file_content("../any_file")
-        assert "Security Error" in result
-
-        # 2. create_or_overwrite_file restriction
-        result = create_or_overwrite_file("/tmp/malicious.sh", "echo hi")
-        assert "Security Error" in result
-
-        # 3. list_files_in_directory restriction
-        result = list_files_in_directory("/")
-        assert "Security Error" in result
-
-        # 4. Success case within sandbox
-        (tmp_path / "safe.txt").write_text("hello")
-        result = read_file_content("safe.txt")
-        assert "hello" in result

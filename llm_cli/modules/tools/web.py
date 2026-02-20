@@ -165,36 +165,3 @@ def read_pdf_from_url(url: str) -> str | dict:
             "is_file_or_url": True,
         },
     }
-
-
-@tool(
-    name="read_image_from_url",
-    description="Fetch an image from a URL and return it for visual processing.",
-    parameters={
-        "type": "object",
-        "properties": {"url": {"type": "string", "description": "Target Image URL."}},
-        "required": ["url"],
-    },
-)
-def read_image_from_url(url: str) -> str | dict:
-    # Use fetch_url_content with pdf_as_base64=True (default) to get base64
-    content, ctype = fetch_url_content(url, pdf_as_base64=True)
-
-    if content is None or ctype is None:
-        return "Error: Failed to fetch content or invalid URL."
-
-    if not ctype.startswith("image/"):
-        return f"Error: URL returned {ctype}, expected an image type."
-
-    return {
-        "result": (
-            f"Successfully fetched image from {url}. "
-            "The content has been added to the conversation context "
-            "as a binary attachment. Please analyze the attached file."
-        ),
-        "__llm_cli_data__": {
-            "content": content,
-            "content_type": ctype,
-            "is_file_or_url": True,
-        },
-    }

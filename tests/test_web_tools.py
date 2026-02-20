@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 from llm_cli.modules.tools.web import (
     read_html_from_url,
-    read_image_from_url,
     read_pdf_from_url,
     search_web,
 )
@@ -24,23 +23,6 @@ def test_read_pdf_from_url_success(mock_cloudscraper):
     assert result["__llm_cli_data__"]["content_type"] == "application/pdf"
     # "fake pdf content" base64 encoded is "ZmFrZSBwZGYgY29udGVudA=="
     assert result["__llm_cli_data__"]["content"] == "ZmFrZSBwZGYgY29udGVudA=="
-    assert result["__llm_cli_data__"]["is_file_or_url"] is True
-
-
-def test_read_image_from_url_success(mock_cloudscraper):
-    """Test read_image_from_url returns base64 content."""
-    mock_cloudscraper.get.return_value.headers = {"Content-Type": "image/jpeg"}
-    mock_cloudscraper.get.return_value.content = b"fake image content"
-
-    with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
-        result = read_image_from_url("https://example.com/image.jpg")
-
-    assert isinstance(result, dict)
-    assert "Successfully fetched image" in result["result"]
-    assert "content has been added to the conversation context" in result["result"]
-    assert result["__llm_cli_data__"]["content_type"] == "image/jpeg"
-    # "fake image content" base64 encoded is "ZmFrZSBpbWFnZSBjb250ZW50"
-    assert result["__llm_cli_data__"]["content"] == "ZmFrZSBpbWFnZSBjb250ZW50"
     assert result["__llm_cli_data__"]["is_file_or_url"] is True
 
 

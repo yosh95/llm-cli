@@ -10,6 +10,7 @@ max_output_length = 10000
 # Gemini (Google)
 # =============================================================================
 [google]
+search_model = "gemini-3-flash-preview"
 
 [google.models]
 default = "gemini-3.1-pro-preview"

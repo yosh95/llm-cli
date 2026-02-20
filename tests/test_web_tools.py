@@ -117,45 +117,56 @@ def test_search_web_success(mock_config):
     """Test search_web success scenario."""
     mock_response = MagicMock()
     mock_response.json.return_value = {
-        "items": [
-            {"title": "Result 1", "link": "https://r1.com", "snippet": "Snippet 1"},
-            {"title": "Result 2", "link": "https://r2.com", "snippet": "Snippet 2"},
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "This is a summary of the search results."}]
+                },
+                "groundingMetadata": {
+                    "groundingChunks": [
+                        {"web": {"uri": "https://r1.com", "title": "Result 1"}},
+                        {"web": {"uri": "https://r2.com", "title": "Result 2"}},
+                    ]
+                },
+            }
         ]
     }
 
-    with patch("requests.get", return_value=mock_response) as mock_get:
+    with patch("requests.post", return_value=mock_response) as mock_post:
         result = search_web(query="test query")
 
         # Check API call
-        args, kwargs = mock_get.call_args
-        assert kwargs["params"]["q"] == "test query"
-        assert kwargs["params"]["num"] == 10
+        args, kwargs = mock_post.call_args
+        assert kwargs["json"]["contents"][0]["parts"][0]["text"].endswith(
+            "Query: test query"
+        )
+        assert "googleSearch" in kwargs["json"]["tools"][0]
 
         # Check result formatting
-        assert "### Results for: test query" in result
-        assert "Title: Result 1" in result
-        assert "URL: https://r2.com" in result
+        assert "### Search Results for: test query" in result
+        assert "This is a summary of the search results." in result
+        assert "- [Result 1](https://r1.com)" in result
+        assert "- [Result 2](https://r2.com)" in result
 
 
 def test_search_web_no_results(mock_config):
     """Test search_web when no items are returned."""
     mock_response = MagicMock()
-    mock_response.json.return_value = {}  # No "items"
+    mock_response.json.return_value = {}  # No "candidates"
 
-    with patch("requests.get", return_value=mock_response):
+    with patch("requests.post", return_value=mock_response):
         result = search_web(query="empty")
-        assert "No results." in result
+        assert "No results found." in result
 
 
 def test_search_web_auth_error(monkeypatch):
     """Test search_web when credentials are missing."""
     # Patch the module-level variables directly since they are read at import time
     monkeypatch.setattr("llm_cli.modules.tools.web._google_api_key", None)
-    monkeypatch.setattr("llm_cli.modules.tools.web._google_cse_id", None)
 
     # We mock requests to ensure no network call happens
-    with patch("requests.get") as mock_get:
+    with patch("requests.post") as mock_post:
         result = search_web(query="test")
-        mock_get.assert_not_called()
+        mock_post.assert_not_called()
 
-    assert "Error: Web Search configuration missing." in result
+    assert "Error: Web Search configuration missing" in result

@@ -135,11 +135,6 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
             "API Key", p_config.get("api_key"), secret=True
         )
 
-    if provider == "google":
-        p_config["cse_id"] = prompt_input(
-            "Google Custom Search Engine ID (Optional)", p_config.get("cse_id")
-        )
-
     p_config["system_prompt"] = prompt_input(
         "System Prompt (Optional)", p_config.get("system_prompt")
     )

@@ -10,15 +10,16 @@ from llm_cli.modules.tool_registry import tool
 
 # Check for Google Search configuration
 _google_api_key = get_setting("api_key", "google")
-_google_cse_id = get_setting("cse_id", "google")
+_google_search_model = get_setting("search_model", "google") or "gemini-3-flash-preview"
 
 
-if _google_api_key and _google_cse_id:
+if _google_api_key:
 
     @tool(
         name="search_web",
         description=(
-            "Perform a web search using Google to find information on the internet. "
+            "Perform a web search using Gemini's Google Search tool "
+            "to find information on the internet."
         ),
         parameters={
             "type": "object",
@@ -32,32 +33,73 @@ if _google_api_key and _google_cse_id:
         },
     )
     def search_web(query: str) -> str:
-        if not _google_api_key or not _google_cse_id:
-            return "Error: Web Search configuration missing."
+        if not _google_api_key:
+            return "Error: Web Search configuration missing (Google API key required)."
 
         try:
-            resp = requests.get(
-                "https://www.googleapis.com/customsearch/v1",
-                params={
-                    "key": _google_api_key,
-                    "cx": _google_cse_id,
-                    "q": query,
-                    "num": 10,
-                },
-                headers={"Connection": "close"},
-                timeout=15,
-            )
-            items = resp.json().get("items", [])
-            if not items:
-                return f"### Results for: {query}\nNo results."
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{_google_search_model}:generateContent"
+            payload = {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": (
+                                    "Please search the web for the following query "
+                                    "and provide a comprehensive summary or answer "
+                                    "based on the search results. Include source "
+                                    f"URLs where applicable. Query: {query}"
+                                )
+                            }
+                        ],
+                    }
+                ],
+                "tools": [{"googleSearch": {}}],
+            }
+            headers = {
+                "x-goog-api-key": _google_api_key,
+                "Content-Type": "application/json",
+            }
 
-            results = [
-                f"Title: {i.get('title')}\n"
-                f"URL: {i.get('link')}\n"
-                f"Snippet: {i.get('snippet')}\n"
-                for i in items
-            ]
-            return f"### Results for: {query}\n" + "\n".join(results)
+            resp = requests.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            res_json = resp.json()
+
+            candidates = res_json.get("candidates", [])
+            if not candidates:
+                return f"### Results for: {query}\nNo results found."
+
+            content = candidates[0].get("content", {})
+            parts = content.get("parts", [])
+
+            if not parts:
+                return f"### Results for: {query}\nEmpty response received."
+
+            answer = parts[0].get("text", "")
+
+            # Extract source URLs from grounding metadata
+            grounding_metadata = candidates[0].get("groundingMetadata", {})
+            grounding_chunks = grounding_metadata.get("groundingChunks", [])
+
+            urls = []
+            for chunk in grounding_chunks:
+                web = chunk.get("web", {})
+                uri = web.get("uri")
+                title = web.get("title")
+                if uri and title:
+                    urls.append(f"- [{title}]({uri})")
+
+            if urls:
+                # Remove duplicates while preserving order
+                urls = list(dict.fromkeys(urls))
+                answer += "\n\n**Sources:**\n" + "\n".join(urls)
+
+            return f"### Search Results for: {query}\n\n{answer}"
         except Exception as e:
             return f"Error searching '{query}': {e}"
 

@@ -74,8 +74,7 @@ def prompt_input(
             is_password=secret,
         ).strip()
     except (KeyboardInterrupt, EOFError):
-        # We handle this in main() but for smaller prompts we might just return current
-        return str(current_value) if current_value is not None else ""
+        raise
 
     return value if value else (str(current_value) if current_value is not None else "")
 
@@ -93,7 +92,7 @@ def prompt_bool(prompt_text: str, current_value: bool = False) -> bool:
             .lower()
         )
     except (KeyboardInterrupt, EOFError):
-        return current_value
+        raise
 
     if not val:
         return current_value
@@ -250,7 +249,7 @@ def configure_mcp(config: dict[str, Any]) -> None:
                 complete_style=CompleteStyle.READLINE_LIKE,
             ).lower()
         except (KeyboardInterrupt, EOFError):
-            break
+            raise
 
         if choice == "a":
             name = prompt(
@@ -276,8 +275,10 @@ def configure_mcp(config: dict[str, Any]) -> None:
                 idx = int(idx_str) - 1
                 if 0 <= idx < len(mcp_servers):
                     mcp_servers.pop(idx)
-            except (ValueError, KeyboardInterrupt, EOFError):
+            except ValueError:
                 pass
+            except (KeyboardInterrupt, EOFError):
+                raise
         elif choice == "d" or not choice:
             break
 
@@ -310,6 +311,7 @@ def main() -> None:
         print("========================================")
         print("   llm-cli Interactive Configuration    ")
         print("========================================")
+        print("Press Ctrl+C at any time to quit and discard changes.")
         print(f"Config file: {CONFIG_FILE}\n")
 
         config = load_config()
@@ -338,7 +340,7 @@ def main() -> None:
             print(f"\nConfiguration saved to {CONFIG_FILE}")
         else:
             print("\nConfiguration NOT saved.")
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
         print("\n\nConfiguration cancelled.")
         sys.exit(0)
 

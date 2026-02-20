@@ -8,18 +8,16 @@ from llm_cli.clients.config import get_setting
 from llm_cli.modules.media_utils import fetch_url_content
 from llm_cli.modules.tool_registry import tool
 
-# Check for Google Search configuration
-_google_api_key = get_setting("api_key", "google")
-_google_search_model = get_setting("search_model", "google") or "gemini-3-flash-preview"
+# Check for Brave Search configuration
+_brave_api_key = get_setting("api_key", "brave")
 
 
-if _google_api_key:
+if _brave_api_key:
 
     @tool(
         name="search_web",
         description=(
-            "Perform a web search using Gemini's Google Search tool "
-            "to find information on the internet."
+            "Search the web using Brave Search to find information on the internet."
         ),
         parameters={
             "type": "object",
@@ -33,75 +31,35 @@ if _google_api_key:
         },
     )
     def search_web(query: str) -> str:
-        if not _google_api_key:
-            return "Error: Web Search configuration missing (Google API key required)."
+        if not _brave_api_key:
+            return "Error: Brave Search API key required."
 
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{_google_search_model}:generateContent"
-            payload = {
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "text": (
-                                    "Please search the web for the following query "
-                                    "and provide a comprehensive summary or answer "
-                                    "based on the search results. Include source "
-                                    f"URLs where applicable. Query: {query}"
-                                )
-                            }
-                        ],
-                    }
-                ],
-                "tools": [{"googleSearch": {}}],
-            }
+            url = "https://api.search.brave.com/res/v1/web/search"
             headers = {
-                "x-goog-api-key": _google_api_key,
-                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-Subscription-Token": _brave_api_key,
             }
-
-            resp = requests.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=300,
-            )
+            params = {"q": query}
+            resp = requests.get(url, headers=headers, params=params, timeout=30)
             resp.raise_for_status()
-            res_json = resp.json()
+            data = resp.json()
 
-            candidates = res_json.get("candidates", [])
-            if not candidates:
-                return f"### Results for: {query}\nNo results found."
+            results = data.get("web", {}).get("results", [])
+            if not results:
+                return f"### Search Results for: {query}\n\nNo results found."
 
-            content = candidates[0].get("content", {})
-            parts = content.get("parts", [])
+            output = [f"### Search Results for: {query}\n"]
+            for i, res in enumerate(results[:10], 1):
+                title = res.get("title", "No Title")
+                link = res.get("url", "#")
+                snippet = res.get("description", "No description available.")
+                output.append(f"{i}. **[{title}]({link})**")
+                output.append(f"   {snippet}\n")
 
-            if not parts:
-                return f"### Results for: {query}\nEmpty response received."
-
-            answer = parts[0].get("text", "")
-
-            # Extract source URLs from grounding metadata
-            grounding_metadata = candidates[0].get("groundingMetadata", {})
-            grounding_chunks = grounding_metadata.get("groundingChunks", [])
-
-            urls = []
-            for chunk in grounding_chunks:
-                web = chunk.get("web", {})
-                uri = web.get("uri")
-                title = web.get("title")
-                if uri and title:
-                    urls.append(f"- [{title}]({uri})")
-
-            if urls:
-                # Remove duplicates while preserving order
-                urls = list(dict.fromkeys(urls))
-                answer += "\n\n**Sources:**\n" + "\n".join(urls)
-
-            return f"### Search Results for: {query}\n\n{answer}"
+            return "\n".join(output)
         except Exception as e:
-            return f"Error searching '{query}': {e}"
+            return f"Error searching '{query}' with Brave Search: {e}"
 
 
 @tool(

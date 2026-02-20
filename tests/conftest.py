@@ -14,6 +14,7 @@ llm_cli.clients.config._config_cache = {
         "api_key": "dummy_test_key",
         "cse_id": "dummy_test_cse_id",
     },
+    "brave": {"api_key": "dummy_brave_key"},
     "openai": {"api_key": "dummy_openai_key"},
     "anthropic": {"api_key": "dummy_anthropic_key"},
     "xai": {"api_key": "dummy_xai_key"},
@@ -141,6 +142,9 @@ def mock_config(monkeypatch, mock_api_key):
                 "api_key": mock_api_key,
                 "cse_id": "test_cse_id",
                 "system_prompt": "You are a helpful AI assistant.",
+            },
+            "brave": {
+                "api_key": mock_api_key,
             },
             "openai": {
                 "api_key": mock_api_key,

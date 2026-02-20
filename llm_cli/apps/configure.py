@@ -321,6 +321,7 @@ def main() -> None:
         configure_provider(config, "openai", "OpenAI")
         configure_provider(config, "anthropic", "Anthropic Claude")
         configure_provider(config, "xai", "xAI Grok")
+        configure_provider(config, "brave", "Brave Search")
         configure_provider(config, "ollama", "Ollama (Local)")
         configure_provider(config, "vllm", "vLLM")
 

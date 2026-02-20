@@ -82,11 +82,11 @@ The AI agent comes equipped with the following tools:
 | `edit_file` | Edit a file by replacing a specific block of text. Returns a Diff. Safer than string replace. |
 | `create_or_overwrite_file` | Create a new file (full content). |
 | `read_pdf_content` | Read a PDF file and add it to the context. |
-| `search_web` | Search the web using Google to find information (Requires Google Cloud Platform API Key). |
+| `search_web` | Search the web using Brave Search to find information (Requires Brave Search API Key). |
 | `read_html_from_url` | Fetch a URL and convert it to Markdown. Supports `start_line`, `end_line` and `with_line_numbers`. |
 | `read_pdf_from_url` | Download and extract text from a PDF URL. Use for online research papers. |
 
-> **Note**: To use `search_web`, you need to obtain a **Google Cloud Platform API Key** THis can be configured using `llm-cli-config`.
+> **Note**: To use `search_web`, you need to obtain a **Brave Search API Key**. This can be configured using `llm-cli-config`.
 
 ### 🛡️ Tool Output Limits
 By default, tool outputs are truncated to **10,000 characters** to prevent context window overflow. You can customize this in two ways:
@@ -288,9 +288,9 @@ You can define frequently used prompts as templates in your `config.toml` and qu
     The template text will be inserted into your prompt input, allowing you to edit or append text before sending.
 
 ### 2. Research Automation (Example)
-Search for papers using Google, find the best one, and summarize its contributions in one command:
+Search for papers using Brave Search, find the best one, and summarize its contributions in one command:
 ```bash
-llm "Search for the 'Direct Preference Optimization' paper on Google, fetch its abstract, and summarize its key contributions."
+llm "Search for the 'Direct Preference Optimization' paper on the web, fetch its abstract, and summarize its key contributions."
 ```
 
 ### 2. Interactive Chat
@@ -479,11 +479,11 @@ AIエージェントは以下のツールを標準で備えています：
 | `edit_file` | ファイル内の特定のテキストブロックを検索して置換します。Diffを返し、文字列検索置換より安全です。 |
 | `create_or_overwrite_file` | 新規ファイルを作成します（全内容上書き）。 |
 | `read_pdf_content` | PDFファイルを読み込み、コンテキストに追加します。 |
-| `search_web` | Google検索を使用して、インターネット上の情報を探します（Google Cloud Platform APIキーが設定されている場合のみ）。 |
+| `search_web` | Brave Searchを使用して、インターネット上の情報を探します（Brave Search APIキーが設定されている場合のみ）。 |
 | `read_html_from_url` | URLを取得し、Markdown形式に変換します。`start_line`や`with_line_numbers`による範囲指定が可能です。 |
 | `read_pdf_from_url` | Web上のPDFをダウンロードし、テキストを抽出します。論文やマニュアルの調査に使用します。 |
 
-> **注**: `search_web` を使用するには、**Google Cloud Platform APIキーが必要です。
+> **注**: `search_web` を使用するには、**Brave Search APIキーが必要です。
 
 ### 🛡️ ツールの出力制限について
 コンテキストウィンドウの溢れを防ぐため、ツールの出力はデフォルトで **10,000文字** に制限されています。この制限は以下の2つの方法でカスタマイズ可能です：
@@ -685,9 +685,9 @@ llm "こんにちは！"
     テンプレートのテキストがプロンプト入力に挿入され、送信前にテキストを編集したり追加したりできます。
 
 ### 2. 調査の自動化（例）
-Googleを使用して論文を検索し、最適なものを見つけ、その貢献を一回のコマンドで要約します：
+Web検索を使用して論文を検索し、最適なものを見つけ、その貢献を一回のコマンドで要約します：
 ```bash
-llm "Googleで 'Direct Preference Optimization' の論文を検索し、その要約を取得して、主な貢献をまとめてください。"
+llm "Webで 'Direct Preference Optimization' の論文を検索し、その要約を取得して、主な貢献をまとめてください。"
 ```
 
 ### 2. 対話型チャット

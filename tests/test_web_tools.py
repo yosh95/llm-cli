@@ -96,59 +96,58 @@ def test_read_html_from_url_error(mock_cloudscraper):
 
 
 def test_search_web_success(mock_config):
-    """Test search_web success scenario."""
+    """Test search_web success scenario with Brave Search."""
     mock_response = MagicMock()
     mock_response.json.return_value = {
-        "candidates": [
-            {
-                "content": {
-                    "parts": [{"text": "This is a summary of the search results."}]
+        "web": {
+            "results": [
+                {
+                    "title": "Result 1",
+                    "url": "https://r1.com",
+                    "description": "Snippet 1",
                 },
-                "groundingMetadata": {
-                    "groundingChunks": [
-                        {"web": {"uri": "https://r1.com", "title": "Result 1"}},
-                        {"web": {"uri": "https://r2.com", "title": "Result 2"}},
-                    ]
+                {
+                    "title": "Result 2",
+                    "url": "https://r2.com",
+                    "description": "Snippet 2",
                 },
-            }
-        ]
+            ]
+        }
     }
 
-    with patch("requests.post", return_value=mock_response) as mock_post:
+    with patch("requests.get", return_value=mock_response) as mock_get:
         result = search_web(query="test query")
 
         # Check API call
-        args, kwargs = mock_post.call_args
-        assert kwargs["json"]["contents"][0]["parts"][0]["text"].endswith(
-            "Query: test query"
-        )
-        assert "googleSearch" in kwargs["json"]["tools"][0]
+        args, kwargs = mock_get.call_args
+        assert kwargs["params"]["q"] == "test query"
+        assert "X-Subscription-Token" in kwargs["headers"]
 
         # Check result formatting
         assert "### Search Results for: test query" in result
-        assert "This is a summary of the search results." in result
-        assert "- [Result 1](https://r1.com)" in result
-        assert "- [Result 2](https://r2.com)" in result
+        assert "Result 1" in result
+        assert "https://r1.com" in result
+        assert "Snippet 1" in result
 
 
 def test_search_web_no_results(mock_config):
     """Test search_web when no items are returned."""
     mock_response = MagicMock()
-    mock_response.json.return_value = {}  # No "candidates"
+    mock_response.json.return_value = {"web": {"results": []}}
 
-    with patch("requests.post", return_value=mock_response):
+    with patch("requests.get", return_value=mock_response):
         result = search_web(query="empty")
         assert "No results found." in result
 
 
 def test_search_web_auth_error(monkeypatch):
     """Test search_web when credentials are missing."""
-    # Patch the module-level variables directly since they are read at import time
-    monkeypatch.setattr("llm_cli.modules.tools.web._google_api_key", None)
+    # Patch the module-level variables directly
+    monkeypatch.setattr("llm_cli.modules.tools.web._brave_api_key", None)
 
     # We mock requests to ensure no network call happens
-    with patch("requests.post") as mock_post:
+    with patch("requests.get") as mock_get:
         result = search_web(query="test")
-        mock_post.assert_not_called()
+        mock_get.assert_not_called()
 
-    assert "Error: Web Search configuration missing" in result
+    assert "Error: Brave Search API key required" in result

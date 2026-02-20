@@ -78,16 +78,13 @@ The AI agent comes equipped with the following tools:
 
 | Tool | Description |
 | :--- | :--- |
-| `execute_shell_command` | Execute shell commands (Use for testing, linting, git operations). |
-| `list_files_in_directory` | List files in a directory to explore structure (Supports `ignore_patterns`). |
-| `read_file_content` | Read text file content. Use `with_line_numbers=True` before editing. |
+| `execute_shell_command` | Execute shell commands. |
 | `edit_file` | Edit a file by replacing a specific block of text. Returns a Diff. Safer than string replace. |
 | `create_or_overwrite_file` | Create a new file (full content). |
 | `read_pdf_content` | Read a PDF file and add it to the context. |
 | `search_web` | Search the web using Google to find information (Requires Google Cloud Platform API Key). |
 | `read_html_from_url` | Fetch a URL and convert it to Markdown. Supports `start_line`, `end_line` and `with_line_numbers`. |
 | `read_pdf_from_url` | Download and extract text from a PDF URL. Use for online research papers. |
-| `read_image_from_url` | Fetch an image from a URL for visual processing. |
 
 > **Note**: To use `search_web`, you need to obtain a **Google Cloud Platform API Key** THis can be configured using `llm-cli-config`.
 
@@ -466,16 +463,13 @@ AIエージェントは以下のツールを標準で備えています：
 
 | ツール | 説明 |
 | :--- | :--- |
-| `execute_shell_command` | シェルコマンドを実行します（テスト実行、Lint実行、Git操作用）。 |
-| `list_files_in_directory` | ディレクトリ構造を一覧表示します（`ignore_patterns`対応）。 |
-| `read_file_content` | テキストファイルを読み込みます。編集前には `with_line_numbers=True` で行番号を確認してください。 |
+| `execute_shell_command` | シェルコマンドを実行します。 |
 | `edit_file` | ファイル内の特定のテキストブロックを検索して置換します。Diffを返し、文字列検索置換より安全です。 |
 | `create_or_overwrite_file` | 新規ファイルを作成します（全内容上書き）。 |
 | `read_pdf_content` | PDFファイルを読み込み、コンテキストに追加します。 |
 | `search_web` | Google検索を使用して、インターネット上の情報を探します（Google Cloud Platform APIキーが設定されている場合のみ）。 |
 | `read_html_from_url` | URLを取得し、Markdown形式に変換します。`start_line`や`with_line_numbers`による範囲指定が可能です。 |
 | `read_pdf_from_url` | Web上のPDFをダウンロードし、テキストを抽出します。論文やマニュアルの調査に使用します。 |
-| `read_image_from_url` | Web上の画像を取得し、視覚処理のためにコンテキストに追加します。 |
 
 > **注**: `search_web` を使用するには、**Google Cloud Platform APIキーが必要です。
 

@@ -246,13 +246,25 @@ pip install ".[mcp]"
 
 ## Quick Start
 
-Before using the tool, run the interactive setup script to configure your API keys:
+Before using the tool, you can configure your API keys using the interactive setup script:
 
 ```bash
 llm-cli-config
 ```
 
-> **Note**: To use LLMs from Google, OpenAI, Anthropic, or xAI, you must obtain an API key from each respective provider. These keys can be configured using `llm-cli-config`.
+Alternatively, you can securely provide your API keys via **environment variables**. This is recommended for CI/CD pipelines, Docker containers, or if you prefer not to store keys in configuration files:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GOOGLE_API_KEY="AIza..."  # or GEMINI_API_KEY
+export XAI_API_KEY="xai-..."
+export VLLM_API_KEY="..."
+
+llm "Hello, world!"
+```
+
+> **Note**: To use LLMs from Google, OpenAI, Anthropic, or xAI, you must obtain an API key from each respective provider. These keys can be configured using `llm-cli-config` or environment variables.
 
 ## Usage
 
@@ -631,13 +643,25 @@ pip install ".[mcp]"
 
 ## クイックスタート
 
-ツールを使用する前に、対話型セットアップスクリプトを実行してAPIキーを設定してください：
+ツールを使用する前に、対話型セットアップスクリプトを実行してAPIキーを設定できます：
 
 ```bash
 llm-cli-config
 ```
 
-> **注**: Google, OpenAI, Anthropic, xAI のLLMを使用するには、各プロバイダからAPIキーを取得する必要があります。これらのキーは `llm-cli-config` を使用して設定できます。
+また、セキュリティを重視するユーザーやCI/CD環境向けに、**環境変数**を使用してAPIキーを安全に渡すことも可能です。設定ファイルにキーを保存したくない場合や、Dockerコンテナ内で実行する場合はこの方法を推奨します：
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GOOGLE_API_KEY="AIza..."  # または GEMINI_API_KEY
+export XAI_API_KEY="xai-..."
+export VLLM_API_KEY="..."
+
+llm "こんにちは！"
+```
+
+> **注**: Google, OpenAI, Anthropic, xAI のLLMを使用するには、各プロバイダからAPIキーを取得する必要があります。これらのキーは `llm-cli-config` または環境変数で設定できます。
 
 ## 使用方法
 

@@ -1,3 +1,4 @@
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -66,6 +67,28 @@ def _load_config_from_file() -> dict[str, Any]:
 
 def get_setting(key: str, section: str) -> Any | None:
     """Gets a specific setting value from a section in the config file."""
+    # 1. Prioritize environment variables for API keys
+    if key == "api_key":
+        env_vars = []
+        if section == "google":
+            env_vars = ["GEMINI_API_KEY", "GOOGLE_API_KEY"]
+        elif section == "anthropic":
+            env_vars = ["ANTHROPIC_API_KEY"]
+        elif section == "openai":
+            env_vars = ["OPENAI_API_KEY"]
+        elif section == "xai":
+            env_vars = ["XAI_API_KEY"]
+        elif section == "vllm":
+            env_vars = ["VLLM_API_KEY"]
+        else:
+            env_vars = [f"{section.upper()}_API_KEY"]
+
+        for env_var in env_vars:
+            val = os.environ.get(env_var)
+            if val:
+                return val
+
+    # 2. Fallback to reading from the configuration file
     config = _load_config_from_file()
     return config.get(section, {}).get(key)
 

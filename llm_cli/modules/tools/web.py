@@ -65,7 +65,7 @@ if _google_api_key:
                 url,
                 json=payload,
                 headers=headers,
-                timeout=30,
+                timeout=300,
             )
             resp.raise_for_status()
             res_json = resp.json()

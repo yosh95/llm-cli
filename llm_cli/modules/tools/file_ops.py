@@ -1,11 +1,187 @@
 # llm_cli/modules/tools/file_ops.py
 
 import difflib
+import fnmatch
 from pathlib import Path
 
 from llm_cli.modules.media_utils import process_file
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
+
+
+@tool(
+    name="list_files_in_directory",
+    desc=("List files in a directory."),
+    params={
+        "type": "object",
+        "properties": {
+            "directory": {
+                "type": "string",
+                "description": "Target directory (default: current directory).",
+            },
+            "depth": {
+                "type": "integer",
+                "description": "Maximum depth for recursive listing.",
+                "default": 1,
+            },
+            "ignore_patterns": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "List of patterns to ignore (e.g. ['node_modules', "
+                    "'*.pyc', '.git'])."
+                ),
+            },
+            "max_files": {
+                "type": "integer",
+                "description": "Maximum number of files to list.",
+                "default": 500,
+            },
+        },
+        "required": [],
+    },
+)
+def list_files_in_directory(
+    directory: str = ".",
+    depth: int = 1,
+    ignore_patterns: list[str] | None = None,
+    max_files: int = 500,
+) -> str:
+    """
+    Lists files in a directory tree, excluding specified patterns
+    and limiting the output size for safety.
+    """
+    try:
+        validate_path(directory or ".")
+        base_path = Path(directory or ".")
+        if not base_path.exists():
+            return f"Error: Directory '{directory}' does not exist."
+
+        if ignore_patterns is None:
+            ignore_patterns = [
+                ".git",
+                "__pycache__",
+                "node_modules",
+                "venv",
+                ".venv",
+                ".mypy_cache",
+                ".pytest_cache",
+                ".ruff_cache",
+                ".env",
+                ".DS_Store",
+            ]
+
+        results, file_count = [], 0
+
+        def should_ignore(name: str) -> bool:
+            return any(fnmatch.fnmatch(name, pattern) for pattern in ignore_patterns)
+
+        def walk(current_path: Path, current_depth: int) -> None:
+            nonlocal file_count
+            if depth is not None and current_depth > depth:
+                return
+
+            try:
+                # Filter out ignored directories before iterating
+                entries = sorted(
+                    [e for e in current_path.iterdir() if not should_ignore(e.name)],
+                    key=lambda x: (not x.is_dir(), x.name),
+                )
+            except PermissionError:
+                results.append(
+                    f"{'  ' * (current_depth - 1)}⚠️ "
+                    f"Permission Denied: {current_path.name}"
+                )
+                return
+
+            for entry in entries:
+                if file_count >= max_files:
+                    if file_count == max_files:
+                        results.append("... (Too many files, listing truncated)")
+                        file_count += 1
+                    break
+
+                rel_path = entry.relative_to(base_path)
+                prefix = "  " * (current_depth - 1)
+
+                if entry.is_dir():
+                    results.append(f"{prefix}📁 {rel_path}/")
+                    walk(entry, current_depth + 1)
+                else:
+                    results.append(f"{prefix}📄 {rel_path}")
+                    file_count += 1
+
+        walk(base_path, 1)
+        final_result = "\n".join(results) or "No files found."
+        return final_result
+
+    except PathValidationError as e:
+        return f"Security Error: {e}"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@tool(
+    name="read_file_content",
+    desc=(
+        "Read content from a text file. Can read specific lines and optionally "
+        "include line numbers. "
+    ),
+    params={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "File path."},
+            "start_line": {
+                "type": "integer",
+                "description": "First line to read (1-indexed).",
+                "default": 1,
+            },
+            "end_line": {"type": "integer", "description": "Last line to read."},
+            "with_line_numbers": {
+                "type": "boolean",
+                "description": "If true, adds line numbers to the output.",
+                "default": False,
+            },
+        },
+        "required": ["path"],
+    },
+)
+def read_file_content(
+    path: str,
+    start_line: int = 1,
+    end_line: int | None = None,
+    with_line_numbers: bool = False,
+) -> str:
+    try:
+        validate_path(path)
+        p = Path(path)
+        if not p.is_file():
+            return f"Error: '{path}' is not a file."
+
+        try:
+            lines = p.read_text(encoding="utf-8").splitlines()
+            start = max(1, start_line) - 1
+            end = min(len(lines), end_line) if end_line else len(lines)
+
+            selected_lines = lines[start:end]
+
+            if with_line_numbers:
+                content_lines = []
+                for i, line in enumerate(selected_lines):
+                    content_lines.append(f"{start + i + 1:4d} | {line}")
+                content = "\n".join(content_lines)
+            else:
+                content = "\n".join(selected_lines)
+
+            return content
+
+        except UnicodeDecodeError:
+            return f"Error: '{path}' appears to be a binary file."
+
+    except PathValidationError as e:
+        return f"Security Error: {e}"
+    except Exception as e:
+        return f"Error: {e}"
 
 
 @tool(

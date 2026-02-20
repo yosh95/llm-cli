@@ -58,6 +58,10 @@ class GrokClient(BaseLlmClient):
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict | None]:
         """Sends the conversation history and new data to Grok."""
+        # Check if we should use image generation path
+        # If tools are enabled or there are images in the input, we might want the
+        # chat path instead, but if the model is strictly an image model,
+        # we stay on this path.
         if self._is_image_model():
             return self._send_image_generation(data)
         if self._is_video_model():
@@ -142,9 +146,13 @@ class GrokClient(BaseLlmClient):
                     prompt_parts.append(p.text)
                 elif isinstance(p, str):
                     prompt_parts.append(p)
+
         for d in data:
             if d.content_type == "text/plain":
                 prompt_parts.append(str(d.content))
+            else:
+                # Include a placeholder for non-text data to maintain context
+                prompt_parts.append(f"[Attached {d.content_type}]")
 
         full_prompt = "\n".join(prompt_parts)
         payload = {

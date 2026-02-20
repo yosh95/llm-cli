@@ -172,9 +172,12 @@ class OpenAIClient(BaseLlmClient):
                     prompt_parts.append(p.text)
                 elif isinstance(p, str):
                     prompt_parts.append(p)
+
         for d in data:
             if d.content_type == "text/plain":
                 prompt_parts.append(str(d.content))
+            else:
+                prompt_parts.append(f"[Attached {d.content_type}]")
 
         full_prompt = "\n".join(prompt_parts)
         payload = {

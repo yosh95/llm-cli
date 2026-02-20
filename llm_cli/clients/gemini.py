@@ -234,19 +234,29 @@ class GeminiClient(BaseLlmClient):
         is_image_model = self._is_image_model()
 
         # For image models, consolidate all text input into a single prompt
+        # while preserving other media types (e.g. for image-to-image or context)
         if is_image_model:
-            combined_prompt = ""
+            new_interaction_input = []
+            text_parts = []
             for inp in interaction_input:
                 if inp.get("type") == "text":
-                    combined_prompt += inp.get("text", "") + " "
-            interaction_input = [{"type": "text", "text": combined_prompt.strip()}]
+                    text_parts.append(inp.get("text", ""))
+                else:
+                    new_interaction_input.append(inp)
+
+            if text_parts:
+                new_interaction_input.insert(
+                    0, {"type": "text", "text": " ".join(text_parts).strip()}
+                )
+            interaction_input = new_interaction_input
             payload["input"] = interaction_input
 
         if self.last_interaction_id and not is_tts_model:
             payload["previous_interaction_id"] = self.last_interaction_id
-        elif not is_image_model:
+        elif not is_image_model or len(interaction_input) > 1:
             # No interaction ID (First turn). Inject context.
-            # Skip context injection for Image models to keep prompt clean.
+            # We also inject context if it's an image model but we have
+            # multiple inputs (e.g. image + text), as it's likely a vision-related task.
             context_text_parts = []
             # ... (rest of context logic)
             if self.system_prompt and self.system_prompt_enabled and not is_tts_model:
@@ -288,12 +298,7 @@ class GeminiClient(BaseLlmClient):
                     del payload["generation_config"]
 
         # Tools - Send every time as Interactions API does not persist them
-        if (
-            self.active_tools
-            and self.tools_enabled
-            and not is_tts_model
-            and not is_image_model
-        ):
+        if self.active_tools and self.tools_enabled and not is_tts_model:
             tools_payload = registry.get_gemini_interactions_spec(
                 self.active_tools, provider=self.config_section
             )

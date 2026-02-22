@@ -44,7 +44,7 @@ The AI can use tools like `search_web` to find the latest information. In this e
 ## Features
 
 -   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, **Ollama**, and **vLLM** through a single `llm` command.
--   **Local LLM Support (Ollama / vLLM)**: Use models locally without cloud API costs or privacy concerns.
+-   **Local LLM Support (Ollama / vLLM / Mamba)**: Use models locally without cloud API costs or privacy concerns. (**Mamba is experimental and requires training**).
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Exit anytime**: Use **Ctrl+C** or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
 -   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
@@ -244,7 +244,38 @@ pip install .
 
 # Optional: Install MCP support
 pip install ".[mcp]"
+
+# Optional: Install Mamba support (Experimental)
+pip install ".[mamba]"
 ```
+
+## 🧪 Mamba (Experimental Implementation)
+
+`llm-cli` includes an experimental implementation of a Mamba-based local model for research purposes.
+
+- **Experimental**: This implementation is for demonstration and research only. It is not optimized for performance or practical use.
+- **Training Required**: The Mamba client does not come with a pre-trained model. You must collect training data and train the model locally using the provided scripts.
+- **Portability**: The Mamba provider is only available if `torch` is installed. The rest of the CLI remains portable and runs without `torch`.
+
+### Getting Started with Mamba
+
+1.  **Install dependencies**:
+    ```bash
+    pip install -e ".[mamba]"
+    ```
+2.  **Collect data for distillation**:
+    Use an existing provider to generate training data.
+    ```bash
+    python -m llm_cli.mamba_core.collect_data --provider openai --model gpt-4o-mini --output mamba_distill_data.jsonl
+    ```
+3.  **Train the model**:
+    ```bash
+    python -m llm_cli.mamba_core.train
+    ```
+4.  **Run the client**:
+    ```bash
+    llm -p mamba
+    ```
 
 ## Quick Start
 
@@ -444,7 +475,7 @@ AIは `search_web` などのツールを活用して最新情報を取得でき�
 ## 主な機能
 
 -   **統合インターフェース**: `llm` コマンド一つで Gemini, OpenAI, Claude, Grok, **Ollama**, **vLLM** にアクセス可能。
--   **ローカルLLM対応 (Ollama / vLLM)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。
+-   **ローカルLLM対応 (Ollama / vLLM / Mamba)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。（**Mambaは実験的実装であり、別途学習が必要です**）。
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Ctrl+C** または **Ctrl+D** を押すことで、即座にセッションを終了できます。
 -   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
@@ -643,7 +674,38 @@ pip install .
 
 # オプション: MCPサポートをインストール
 pip install ".[mcp]"
+
+# オプション: Mambaサポート（実験的）をインストール
+pip install ".[mamba]"
 ```
+
+## 🧪 Mamba（実験的実装）
+
+`llm-cli` には、研究目的で Mamba アーキテクチャに基づいたローカルモデルの実験的な実装が含まれています。
+
+- **実験的**: この実装はデモンストレーションおよび研究用です。実用的なパフォーマンスや精度を目的としたものではありません。
+- **学習が必要**: Mamba クライアントには学習済みモデルは付属していません。提供されているスクリプトを使用して、トレーニングデータを収集し、ローカルでモデルを学習させる必要があります。
+- **依存関係**: Mamba プロバイダを利用するには `torch` と `tiktoken` が必要です。これらがインストールされていない場合、Mamba プロバイダは無効化されますが、CLIの他の機能は引き続き利用可能です。
+
+### Mamba の始め方
+
+1.  **依存関係のインストール**:
+    ```bash
+    pip install -e ".[mamba]"
+    ```
+2.  **蒸留データの収集**:
+    既存のプロバイダを使用して、学習用のデータを生成します。
+    ```bash
+    python -m llm_cli.mamba_core.collect_data --provider openai --model gpt-4o-mini --output mamba_distill_data.jsonl
+    ```
+3.  **モデルの学習**:
+    ```bash
+    python -m llm_cli.mamba_core.train
+    ```
+4.  **クライアントの実行**:
+    ```bash
+    llm -p mamba
+    ```
 
 ## クイックスタート
 

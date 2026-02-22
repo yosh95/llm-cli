@@ -81,3 +81,13 @@ api_url = "http://localhost:8000/v1/chat/completions"
 
 [vllm.models]
 # No default model configs for vLLM
+
+# =============================================================================
+# Mamba (Local Distilled Model)
+# =============================================================================
+[mamba]
+d_model = 128
+n_layers = 4
+
+[mamba.models]
+default = "mamba-local"

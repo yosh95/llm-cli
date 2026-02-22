@@ -20,6 +20,7 @@ class ClientConfig:
     client_class: type[BaseLlmClient]
     description: str
     supports_provider_selection: bool = False
+    provider_choices: list[str] | None = None
     extra_args: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
 
@@ -37,7 +38,8 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
         parser.add_argument(
             "-p",
             "--provider",
-            choices=[
+            choices=config.provider_choices
+            or [
                 "google",
                 "gemini",
                 "openai",

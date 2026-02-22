@@ -309,7 +309,7 @@ class BaseLlmClient(ABC):
         sources: list[str] | None = None,
     ) -> None:
         """Starts an interactive chat session."""
-        if not self.api_key and self.config_section != "ollama":
+        if not self.api_key and self.config_section not in ("ollama", "mamba"):
             console.print(
                 f"[bold red]Error: API key for '{self.config_section}' "
                 "is missing.[/bold red]\n"

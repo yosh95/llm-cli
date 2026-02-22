@@ -8,6 +8,13 @@ from llm_cli.clients.claude import ClaudeClient
 from llm_cli.clients.config import get_setting
 from llm_cli.clients.gemini import GeminiClient
 from llm_cli.clients.grok import GrokClient
+
+try:
+    from llm_cli.clients.mamba import MambaClient
+
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
 from llm_cli.clients.ollama import OllamaClient
 from llm_cli.clients.openai import OpenAIClient
 from llm_cli.clients.vllm import VLLMClient
@@ -21,7 +28,7 @@ class UnifiedClient(BaseLlmClient):
     """
 
     # Maps aliases to (ClientClass, config_section)
-    PROVIDER_CONFIG = {
+    PROVIDER_CONFIG: dict[str, tuple[type[BaseLlmClient], str]] = {
         "google": (GeminiClient, "google"),
         "gemini": (GeminiClient, "google"),
         "openai": (OpenAIClient, "openai"),
@@ -217,11 +224,16 @@ class UnifiedClient(BaseLlmClient):
         return self.active_client._has_pending_tool_calls()
 
 
+if HAS_TORCH:
+    UnifiedClient.PROVIDER_CONFIG["mamba"] = (MambaClient, "mamba")
+
+
 def main() -> None:
     config = ClientConfig(
         client_class=UnifiedClient,
         description="Unified LLM CLI with multi-provider support",
         supports_provider_selection=True,
+        provider_choices=list(UnifiedClient.PROVIDER_CONFIG.keys()),
     )
     run_client_cli(config)
 

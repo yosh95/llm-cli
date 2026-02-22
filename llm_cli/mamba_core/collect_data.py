@@ -140,8 +140,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--provider",
         type=str,
-        default="openai",
-        help="LLM provider to use (e.g., openai, anthropic, xai).",
+        default="ollama",
+        help="LLM provider to use (e.g., ollama).",
     )
     parser.add_argument(
         "--model",

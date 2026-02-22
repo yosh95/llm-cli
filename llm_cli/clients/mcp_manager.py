@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import sys
+from contextlib import AsyncExitStack
 from typing import Any
 
 from rich.console import Console
@@ -23,13 +24,23 @@ class MCPManager:
     def __init__(self) -> None:
         self.servers_config = get_mcp_servers()
         self.sessions: dict[str, ClientSession] = {}
-        self.exit_stack: dict[str, Any] = {}
-        self.loop = asyncio.new_event_loop()
+        self.exit_stack = AsyncExitStack()
+
+        try:
+            self.loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
+
         self._initialized = False
         self._cached_tools: list[dict[str, Any]] = []
 
     def _run_async(self, coro: Any) -> Any:
         """Helper to run async coroutines in the manager's event loop."""
+        if self.loop.is_running():
+            # This shouldn't happen in our sync CLI, but for safety:
+            future = asyncio.run_coroutine_threadsafe(coro, self.loop)
+            return future.result()
         return self.loop.run_until_complete(coro)
 
     def list_tools(self) -> list[dict[str, Any]]:
@@ -164,16 +175,14 @@ class MCPManager:
         transport_ctx = stdio_client(params)
 
         try:
-            # Need to manually manage context to keep connection open
-            # We treat it as an async context manager which returns the tuple
-            read, write = await transport_ctx.__aenter__()  # type: ignore[attr-defined]
+            # Use AsyncExitStack to ensure clean teardown of both transport and session
+            read, write = await self.exit_stack.enter_async_context(transport_ctx)
             session = ClientSession(read, write)
-            await session.__aenter__()
+            await self.exit_stack.enter_async_context(session)
+
             await asyncio.wait_for(session.initialize(), timeout=10.0)
 
             self.sessions[server_name] = session
-            self.exit_stack[server_name] = (transport_ctx, session)
-
             response = await session.list_tools()
 
             namespaced_tools = []
@@ -190,11 +199,9 @@ class MCPManager:
                 )
 
             return namespaced_tools
-        except TimeoutError:
-            raise Exception("Connection timed out.") from None
         except Exception as e:
-            # Clean up if connection failed
-            await transport_ctx.__aexit__(None, None, None)  # type: ignore[attr-defined]
+            # Errors during initialization are handled by the caller.
+            # ExitStack will handle partial cleanup if enter_async_context succeeded.
             raise e
 
     def call_tool(
@@ -219,22 +226,15 @@ class MCPManager:
 
     def shutdown(self) -> None:
         """Close all connections."""
-        if not self.exit_stack:
+        try:
+            if not self.loop.is_closed():
+                self._run_async(self.exit_stack.aclose())
+        except Exception:
+            pass
+        finally:
+            self.sessions.clear()
             if not self.loop.is_closed():
                 self.loop.close()
-            return
-
-        for _server_name, (transport_ctx, session) in self.exit_stack.items():
-            try:
-                if not self.loop.is_closed():
-                    self._run_async(session.__aexit__(None, None, None))
-                    self._run_async(transport_ctx.__aexit__(None, None, None))  # type: ignore[attr-defined]
-            except Exception:
-                pass
-        self.exit_stack.clear()
-        self.sessions.clear()
-        if not self.loop.is_closed():
-            self.loop.close()
 
 
 # Global manager instance

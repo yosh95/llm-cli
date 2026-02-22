@@ -27,6 +27,7 @@ def mock_manager():
     manager._initialized = False
     manager._cached_tools = []
     manager.loop = Mock()
+    manager.loop.is_running.return_value = False
     return manager
 
 

@@ -586,10 +586,8 @@ class ChatSession:
 
         # Evaluate policy (includes Role-Based check and Intent Analysis)
         context = {
-            "user_id": "current_user",  # TODO: wiring identity
-            "roles": [
-                "admin"
-            ],  # TODO: wiring roles, currently defaulting to admin/full
+            "user_id": get_setting("default_user_id", "security") or "current_user",
+            "roles": get_setting("default_roles", "security") or ["admin"],
             "user_prompt": user_prompt,
         }
 
@@ -738,8 +736,8 @@ class ChatSession:
             # Apply a global safety limit on tool output length to prevent
             # token exhaustion.
             p_str = str(result_data)
-            # Default limit increased to 1,000,000 to allow full display/context
-            max_len = int(get_setting("max_tool_output_len", "general") or 1000000)
+            # Default limit 10,000 to prevent context overflow while keeping useful info
+            max_len = int(get_setting("max_tool_output_len", "general") or 10000)
 
             if len(p_str) > max_len:
                 original_len = len(p_str)

@@ -27,10 +27,10 @@ class Mamba(nn.Module):
             d_state=d_state,
             d_conv=d_conv,
             expand=expand,
-            _dt_min=dt_min,
-            _dt_max=dt_max,
-            _dt_scale=dt_scale,
-            _dt_init_floor=dt_init_floor,
+            dt_min=dt_min,
+            dt_max=dt_max,
+            dt_scale=dt_scale,
+            dt_init_floor=dt_init_floor,
             bias=bias,
             conv_bias=conv_bias,
         )
@@ -59,10 +59,10 @@ class CustomMamba(nn.Module):
         d_state: int = 16,
         d_conv: int = 3,
         expand: int = 2,
-        _dt_min: float = 0.001,
-        _dt_max: float = 0.1,
-        _dt_scale: float = 1.0,
-        _dt_init_floor: float = 1e-4,
+        dt_min: float = 0.001,
+        dt_max: float = 0.1,
+        dt_scale: float = 1.0,
+        dt_init_floor: float = 1e-4,
         bias: bool = False,
         conv_bias: bool = True,
     ) -> None:
@@ -89,24 +89,23 @@ class CustomMamba(nn.Module):
         self.x_proj = nn.Linear(self.d_inner, dt_rank + 4 * d_state + 1, bias=False)
         self.dt_proj = nn.Linear(dt_rank, self.d_inner, bias=True)
 
-        # Initialize dt_proj: Ensure delta is small initially
-        dt_init_std = dt_rank**-0.5 * 0.1  # Reduced scale
+        # Initialize dt_proj
+        dt_init_std = dt_rank**-0.5 * dt_scale
         nn.init.uniform_(self.dt_proj.weight, -dt_init_std, dt_init_std)
-
-        # Target initial delta around 0.01
-        dt = torch.full((self.d_inner,), 0.01)
+        dt = torch.exp(
+            torch.rand(self.d_inner) * (math.log(dt_max) - math.log(dt_min))
+            + math.log(dt_min)
+        ).clamp(min=dt_init_floor)
         inv_dt = dt + torch.log(-torch.expm1(-dt))
         with torch.no_grad():
             self.dt_proj.bias.copy_(inv_dt)
 
-        # Mamba-3 Complex A: Better HiPPO-like initialization
+        # Mamba-3 Complex A: A_real (log space) and A_imag
         A_real = torch.arange(1, d_state + 1, dtype=torch.float32).repeat(
             self.d_inner, 1
         )
         self.A_log = nn.Parameter(torch.log(A_real))
-        self.A_imag = nn.Parameter(
-            torch.zeros(self.d_inner, d_state)
-        )  # Start with real only stability
+        self.A_imag = nn.Parameter(torch.pi * torch.rand(self.d_inner, d_state))
 
         self.D = nn.Parameter(torch.ones(self.d_inner))
         self.out_proj = nn.Linear(self.d_inner, d_model, bias=bias)

@@ -21,7 +21,7 @@ class MambaClient(BaseLlmClient):
             **kwargs,
         )
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        self.tokenizer = tiktoken.get_encoding("o200k_base")
         self.model_instance: MambaLM | None = None
         self._initialize_model()
 

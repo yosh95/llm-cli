@@ -8,7 +8,7 @@ from llm_cli.mamba_core.trainer import Trainer
 
 def main() -> None:
     # Model parameters (Adjusted for memory efficiency)
-    tokenizer = tiktoken.get_encoding("cl100k_base")
+    tokenizer = tiktoken.get_encoding("o200k_base")
     vocab_size = tokenizer.n_vocab
     d_model = get_setting("d_model", "mamba") or 128
     n_layers = get_setting("n_layers", "mamba") or 4

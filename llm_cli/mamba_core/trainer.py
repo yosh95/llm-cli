@@ -70,7 +70,7 @@ class Trainer:
         max_length: int = 2048,
     ) -> None:
         self.model = model
-        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        self.tokenizer = tiktoken.get_encoding("o200k_base")
         self.dataset = SFTDataset(train_data_path, self.tokenizer, max_length)
         self.dataloader = DataLoader(
             self.dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn

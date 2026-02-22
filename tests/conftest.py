@@ -221,13 +221,9 @@ def mock_requests_success(monkeypatch):
 
 
 @pytest.fixture
-def mock_cloudscraper(monkeypatch, mock_requests_success):
-    """Mock cloudscraper to return successful responses."""
-    mock_scraper = Mock()
-    mock_scraper.get.return_value = mock_requests_success
-
-    def mock_create_scraper():
-        return mock_scraper
-
-    monkeypatch.setattr("cloudscraper.create_scraper", mock_create_scraper)
-    return mock_scraper
+def mock_curl_requests(monkeypatch, mock_requests_success):
+    """Mock curl_cffi.requests to return successful responses."""
+    # We want curl_cffi.requests.get to BE a mock that returns mock_requests_success
+    mock_get = Mock(return_value=mock_requests_success)
+    monkeypatch.setattr("curl_cffi.requests.get", mock_get)
+    return mock_requests_success

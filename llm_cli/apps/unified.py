@@ -8,13 +8,6 @@ from llm_cli.clients.claude import ClaudeClient
 from llm_cli.clients.config import get_setting
 from llm_cli.clients.gemini import GeminiClient
 from llm_cli.clients.grok import GrokClient
-
-try:
-    from llm_cli.clients.mamba import MambaClient
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
 from llm_cli.clients.ollama import OllamaClient
 from llm_cli.clients.openai import OpenAIClient
 from llm_cli.clients.vllm import VLLMClient
@@ -28,7 +21,8 @@ class UnifiedClient(BaseLlmClient):
     """
 
     # Maps aliases to (ClientClass, config_section)
-    PROVIDER_CONFIG: dict[str, tuple[type[BaseLlmClient], str]] = {
+    # MambaClient is handled lazily to avoid slow torch imports
+    PROVIDER_CONFIG: dict[str, tuple[type[BaseLlmClient] | None, str]] = {
         "google": (GeminiClient, "google"),
         "gemini": (GeminiClient, "google"),
         "openai": (OpenAIClient, "openai"),
@@ -39,6 +33,7 @@ class UnifiedClient(BaseLlmClient):
         "grok": (GrokClient, "xai"),
         "ollama": (OllamaClient, "ollama"),
         "vllm": (VLLMClient, "vllm"),
+        "mamba": (None, "mamba"),
     }
 
     def __init__(self, initial_provider: str | None = None, **kwargs: Any):
@@ -114,6 +109,28 @@ class UnifiedClient(BaseLlmClient):
             return False
 
         client_class, config_section = self.PROVIDER_CONFIG[provider_alias]
+
+        # Lazy load MambaClient to avoid slow torch import on startup
+        if client_class is None and config_section == "mamba":
+            try:
+                from llm_cli.clients.mamba import MambaClient
+
+                client_class = MambaClient
+                # Update the class in PROVIDER_CONFIG so we don't import again
+                self.PROVIDER_CONFIG["mamba"] = (MambaClient, "mamba")
+            except ImportError as e:
+                console.print(
+                    f"[red]Error: Mamba client could not be loaded: {e}[/red]"
+                )
+                console.print(
+                    "[yellow]Hint: Make sure 'torch' and 'tiktoken' are installed. "
+                    "Run: pip install torch tiktoken[/yellow]"
+                )
+                return False
+
+        if not client_class:
+            return False
+
         if config_section not in self.clients:
             self.clients[config_section] = client_class(**self.client_kwargs)
 
@@ -222,10 +239,6 @@ class UnifiedClient(BaseLlmClient):
 
     def _has_pending_tool_calls(self) -> bool:
         return self.active_client._has_pending_tool_calls()
-
-
-if HAS_TORCH:
-    UnifiedClient.PROVIDER_CONFIG["mamba"] = (MambaClient, "mamba")
 
 
 def main() -> None:

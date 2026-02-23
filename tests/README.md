@@ -104,4 +104,4 @@ All API calls are mocked in tests to avoid hitting real APIs. Use the fixtures f
 
 - `mock_config`: Mocks configuration loading
 - `mock_requests_success`: Mocks successful HTTP requests
-- `mock_cloudscraper`: Mocks cloudscraper for URL fetching
+- `mock_curl_requests`: Mocks curl_cffi for URL fetching

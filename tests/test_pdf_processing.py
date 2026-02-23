@@ -90,19 +90,18 @@ class TestPDFProcessing:
     def test_pdf_url_fetching_gemini(
         self,
         mock_config,  # noqa: ARG002
-        mock_cloudscraper,
+        mock_curl_requests,
         sample_pdf_content,
     ):
         """Test PDF URL fetching for Gemini (base64)."""
-        mock_cloudscraper.get.return_value.headers = {"Content-Type": "application/pdf"}
-        mock_cloudscraper.get.return_value.content = sample_pdf_content
+        mock_curl_requests.headers = {"Content-Type": "application/pdf"}
+        mock_curl_requests.content = sample_pdf_content
 
-        with patch("llm_cli.modules.media_utils.scraper", mock_cloudscraper):
-            from llm_cli.modules.media_utils import fetch_url_content
+        from llm_cli.modules.media_utils import fetch_url_content
 
-            content, content_type = fetch_url_content(
-                "https://example.com/test.pdf", pdf_as_base64=True
-            )
+        content, content_type = fetch_url_content(
+            "https://example.com/test.pdf", pdf_as_base64=True
+        )
 
         assert content is not None
         assert content_type == "application/pdf"

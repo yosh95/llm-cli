@@ -9,7 +9,7 @@ license = {text = "Apache License 2.0"}
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "cloudscraper",
+    "curl_cffi",
     "filetype",
     "markdownify",
     "prompt-toolkit",

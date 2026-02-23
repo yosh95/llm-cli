@@ -10,12 +10,10 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-import cloudscraper
 import filetype
 import markdownify
+from curl_cffi import requests as curl_requests
 from pypdf import PdfReader
-
-scraper = cloudscraper.create_scraper()
 
 
 def validate_url(url: str) -> bool:
@@ -55,7 +53,12 @@ def fetch_url_content(
     if not validate_url(url):
         return None, None
     try:
-        response = scraper.get(url, headers={"Connection": "close"}, timeout=30)
+        response = curl_requests.get(
+            url,
+            impersonate="chrome",
+            headers={"Connection": "close"},
+            timeout=30,
+        )
         response.raise_for_status()
         content_type = response.headers.get("Content-Type", "").split(";")[0]
 

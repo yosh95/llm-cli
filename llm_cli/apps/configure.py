@@ -132,6 +132,21 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
         p_config["api_url"] = prompt_input(
             "API URL", p_config.get("api_url", default_url)
         )
+    elif provider == "mamba":
+        p_config["teacher_enabled"] = prompt_bool(
+            "Enable Mentor/Teacher mode?", p_config.get("teacher_enabled", False)
+        )
+        if p_config["teacher_enabled"]:
+            p_config["teacher_provider"] = prompt_input(
+                "Teacher Provider (ollama/vllm)",
+                p_config.get("teacher_provider", "ollama"),
+            )
+            p_config["teacher_model"] = prompt_input(
+                "Teacher Model Name", p_config.get("teacher_model")
+            )
+        p_config["online_lr"] = float(
+            prompt_input("Online Learning Rate", p_config.get("online_lr", 1e-4))
+        )
     else:
         p_config["api_key"] = prompt_input(
             "API Key", p_config.get("api_key"), secret=True
@@ -327,6 +342,7 @@ def main() -> None:
         configure_provider(config, "brave", "Brave Search")
         configure_provider(config, "ollama", "Ollama (Local)")
         configure_provider(config, "vllm", "vLLM")
+        configure_provider(config, "mamba", "Mamba (Local)")
 
         # General and Security
         configure_general(config)

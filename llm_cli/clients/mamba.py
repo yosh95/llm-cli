@@ -268,6 +268,8 @@ class MambaClient(BaseLlmClient):
                 generated_ids.append(int(next_token.item()))
 
         response_text = self.tokenizer.decode(generated_ids)
+        # Clean up special tokens and whitespace
+        response_text = response_text.replace("<|im_end|>", "").strip()
         return response_text, None
 
     def _get_mentor_review(
@@ -278,29 +280,31 @@ class MambaClient(BaseLlmClient):
             return True, "", ""
 
         # Get available tool descriptions for the mentor
-        tool_descriptions = ""
+        tool_descriptions = "No tools available."
         if hasattr(self, "mcp_manager") and self.mcp_manager:
             tools = self.mcp_manager.get_tool_definitions()
-            tool_descriptions = json.dumps(tools, indent=2, ensure_ascii=False)
+            if tools:
+                tool_descriptions = json.dumps(tools, indent=2, ensure_ascii=False)
 
         prompt = f"""
         Review the following AI output for a digital agent.
         User Intent: "{user_prompt}"
-        Agent Output (should be JSON):
-        {mamba_output}
+        Agent Output: {mamba_output}
 
-        Available Tools (only use these if needed):
+        Available Tools:
         {tool_descriptions}
 
-        Instructions:
-        1. Check if the output is valid JSON with 'thought', 'message', 'tool_calls'.
-        2. Ensure 'tool_calls' (if any) use only the Available Tools listed above.
-        3. If the output is invalid, provide a full corrected JSON.
-        4. If the intent can be fulfilled with tools, use them.
+        Evaluation Criteria:
+        1. JSON Format: Must be valid JSON with 'thought', 'message', 'tool_calls'.
+        2. Thought Quality: Does 'thought' show logical reasoning for the intent?
+        3. Message Accuracy: Is the 'message' helpful, accurate, and natural?
+        4. Tool Usage: Are 'tool_calls' necessary and correctly parameterized?
 
-        Output ONLY a JSON object:
-        {{"valid": bool, "critique": "string",
-          "correction": "string_of_full_correct_json"}}
+        Instructions:
+        - If perfect: {{"valid": true, "critique": "OK", "correction": ""}}
+        - If issues found: {{"valid": false, "critique": "...", "correction": "..."}}
+        - "correction" must be the FULL corrected JSON response.
+        - Output ONLY the JSON object.
         """
 
         from llm_cli.modules.models import DataSource
@@ -312,9 +316,12 @@ class MambaClient(BaseLlmClient):
             if not res_text:
                 return True, "", ""
 
-            res_text = re.sub(r"```json\n?|\n?```", "", res_text).strip()
-            result = json.loads(res_text)
+            # Extract JSON more robustly
+            json_match = re.search(r"\{.*\}", res_text, re.DOTALL)
+            if json_match:
+                res_text = json_match.group(0)
 
+            result = json.loads(res_text)
             return (
                 result.get("valid", True),
                 result.get("critique", ""),

@@ -102,12 +102,13 @@ api_url = "http://localhost:8000/v1/chat/completions"
 # Mamba (Local Distilled Model)
 # =============================================================================
 [mamba]
-d_model = 256
-n_layers = 8
+d_model = 128
+n_layers = 4
 batch_size = 1
 max_length = 512
 accumulation_steps = 4
 learning_rate = 0.0002
+online_lr = 1e-4
 epochs = 10
 
 [mamba.models]

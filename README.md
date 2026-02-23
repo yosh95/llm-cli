@@ -249,43 +249,27 @@ pip install ".[mcp]"
 pip install ".[mamba]"
 ```
 
-## 🧪 Mamba (Experimental Implementation)
+## 🐍 Mamba Agent (Experimental Implementation)
 
-`llm-cli` includes an experimental implementation of a Mamba-based local model for research purposes.
+A lightweight, local agent powered by the Mamba (State Space Model) architecture. This component focuses on creating a **highly efficient AI Agent** that can run on consumer hardware (CPU/GPU) while maintaining the ability to use complex tools.
 
-- **Experimental**: This implementation is for demonstration and research only. It is not optimized for performance or practical use.
-- **Training Required**: The Mamba client does not come with a pre-trained model. You must collect training data and train the model locally using the provided scripts.
-- **Passive Collection**: You can automatically collect training data during your normal chat sessions with other providers.
-- **Portability**: The Mamba provider is only available if `torch` is installed. The rest of the CLI remains portable and runs without `torch`.
+#### Key Features
+- **JSON-Native Reasoning**: Optimized to output structured data. Mamba maps user requests directly to tool calls, bypassing the need for large-scale natural language generation.
+- **Mentor-Led Evolution**: Mamba learns while it works. If a larger "Mentor" LLM is configured, it provides real-time critiques and corrections. Mamba performs an immediate weight update (online learning) from these corrections, continuously improving its accuracy as an agent.
+- **Lightweight Autonomy**: Designed to be the "brain" for CLI tools, capable of managing files, executing commands, and searching the web with minimal overhead.
 
-### Getting Started with Mamba
+#### Configuration
+Enable Mamba's self-improvement by configuring a local Mentor (via Ollama) in your `config.toml`:
 
-1.  **Install dependencies**:
-    ```bash
-    pip install -e ".[mamba]"
-    ```
-2.  **Enable Passive Collection (Opt-in)**:
-    Update your `~/.config/llm_cli/config.toml` to enable data collection. This will save your conversations (including thoughts and tool calls) to `~/.llm_cli/logs/distill_data.jsonl`.
-    ```toml
-    [general]
-    collect_distill_data = "true"
-    distill_providers = ["ollama", "vllm"] # List providers you allow for distillation
-    ```
-    *Note: Always check the Terms of Service of your LLM provider before enabling distillation.*
-
-3.  **Alternative: Manual data collection**:
-    Use an existing provider to generate training data via a script.
-    ```bash
-    python -m llm_cli.mamba_core.collect_data --provider ollama --model llama3 --output mamba_distill_data.jsonl
-    ```
-4.  **Train the model**:
-    ```bash
-    python -m llm_cli.mamba_core.train
-    ```
-5.  **Run the client**:
-    ```bash
-    llm -p mamba
-    ```
+```toml
+[mamba]
+d_model = 128
+n_layers = 4
+teacher_enabled = true
+teacher_provider = "ollama"
+teacher_model = "llama3.2:1b"
+online_lr = 1e-5
+```
 
 ## Quick Start
 
@@ -689,43 +673,27 @@ pip install ".[mcp]"
 pip install ".[mamba]"
 ```
 
-## 🧪 Mamba（実験的実装）
+## 🐍 Mamba Agent（実験的実装）
 
-`llm-cli` には、研究目的で Mamba アーキテクチャに基づいたローカルモデルの実験的な実装が含まれています。
+Mamba（State Space Model）アーキテクチャに基づいた、軽量なローカルエージェントの実装です。このコンポーネントは、一般的なハードウェア（CPU/GPU）で動作しつつ、複雑なツールを使いこなす **「高効率なAIエージェント」** の構築に特化しています。
 
-- **実験的**: この実装はデモンストレーションおよび研究用です。実用的なパフォーマンスや精度を目的としたものではありません。
-- **学習が必要**: Mamba クライアントには学習済みモデルは付属していません。提供されているスクリプトを使用して、トレーニングデータを収集し、ローカルでモデルを学習させる必要があります。
-- **パッシブ・コレクション**: 他のプロバイダとの通常のチャットセッション中に、トレーニングデータを自動的に収集できます。
-- **依存関係**: Mamba プロバイダを利用するには `torch` と `tiktoken` が必要です。これらがインストールされていない場合、Mamba プロバイダは無効化されますが、CLIの他の機能は引き続き利用可能です。
+#### 主な特徴
+- **JSONネイティブな推論**: 構造化データ（JSON）の出力に最適化されています。ユーザーの要求を直接ツール呼び出しやメッセージにマッピングし、冗長な自然言語生成を省くことで効率を高めています。
+- **メンターによる自己進化（Mentor Mode）**: Mambaは仕事をしながら学習します。より巨大な「メンター（先生）」モデル（Ollama上のモデルなど）を設定すると、Mambaの出力をリアルタイムで添削し、必要に応じて修正案を提示します。Mambaはその修正から即座に重みを更新（オンライン学習）し、エージェントとしての精度を自律的に向上させます。
+- **軽量な自律性**: ファイル操作、コマンド実行、Web検索などのツールを、最小限のオーバーヘッドで実行する「CLIツールの脳」として設計されています。
 
-### Mamba の始め方
+#### 設定
+ローカルのメンター（Ollamaなど）を使用してMambaを自己進化させるには、`config.toml` に以下のように記述します：
 
-1.  **依存関係のインストール**:
-    ```bash
-    pip install -e ".[mamba]"
-    ```
-2.  **パッシブ・コレクションの有効化 (オプトイン)**:
-    `~/.config/llm_cli/config.toml` を更新して、データ収集を有効にします。これにより、会話（思考プロセスやツール実行を含む）が `~/.llm_cli/logs/distill_data.jsonl` に保存されます。
-    ```toml
-    [general]
-    collect_distill_data = "true"
-    distill_providers = ["ollama", "vllm"] # 蒸留を許可するプロバイダを指定
-    ```
-    *注: 蒸留を有効にする前に、必ず利用しているLLMプロバイダの利用規約を確認してください。*
-
-3.  **代替案: 手動データ収集**:
-    既存のプロバイダを使用して、スクリプト経由で学習用データを生成します。
-    ```bash
-    python -m llm_cli.mamba_core.collect_data --provider ollama --model llama3 --output mamba_distill_data.jsonl
-    ```
-4.  **モデルの学習**:
-    ```bash
-    python -m llm_cli.mamba_core.train
-    ```
-5.  **クライアントの実行**:
-    ```bash
-    llm -p mamba
-    ```
+```toml
+[mamba]
+d_model = 128
+n_layers = 4
+teacher_enabled = true
+teacher_provider = "ollama"
+teacher_model = "llama3.2:1b"
+online_lr = 1e-5
+```
 
 ## クイックスタート
 

@@ -161,13 +161,28 @@ class BaseLlmClient(ABC):
         self.cumulative_total_tokens = 0
         self.last_request_duration: float | None = None
 
-        from llm_cli.consts import CHAT_LOG_PATH, HISTORY_LOG_PATH
+        from llm_cli.consts import CHAT_LOG_PATH, DISTILL_DATA_PATH, HISTORY_LOG_PATH
 
         self.history_path = str(HISTORY_LOG_PATH)
         self.chat_log_path = str(CHAT_LOG_PATH)
+        self.distill_data_path = str(DISTILL_DATA_PATH)
+
         self.max_chat_log_lines = int(
             get_setting("max_chat_log_lines", "general") or 10000
         )
+        # Opt-in feature for data collection
+        self.collect_distill_data = (
+            get_setting("collect_distill_data", "general") == "true"
+        )
+        # Only collect from providers explicitly listed by the user in config.toml
+        # Default is empty to respect TOS of commercial providers.
+        raw_providers = get_setting("distill_providers", "general")
+        if isinstance(raw_providers, str):
+            self.distill_providers = [p.strip() for p in raw_providers.split(",")]
+        elif isinstance(raw_providers, list):
+            self.distill_providers = raw_providers
+        else:
+            self.distill_providers = []
 
         self.active_tools: list[str] = (
             initial_tools if initial_tools is not None else list(registry.tools.keys())
@@ -181,6 +196,25 @@ class BaseLlmClient(ABC):
 
         if enable_mcp:
             self._init_mcp(initial_tools is None)
+
+    def save_for_distillation(self) -> None:
+        """
+        Saves the current conversation for distillation if the feature is enabled
+        and the current provider is in the allowed list.
+        """
+        if not self.collect_distill_data:
+            return
+
+        if self.config_section not in self.distill_providers:
+            return
+
+        if not self.conversation:
+            return
+
+        from llm_cli.consts import DISTILL_DATA_PATH
+        from llm_cli.modules.distill_utils import append_to_distill_data
+
+        append_to_distill_data(DISTILL_DATA_PATH, self.conversation)
 
     def _init_mcp(self, update_active_tools: bool) -> None:
         """Initializes Model Context Protocol (MCP) tools."""
@@ -1046,7 +1080,11 @@ class BaseLlmClient(ABC):
     def get_display_name(self) -> str:
         """Get the formatted display name including icon and model path."""
         icon = self.get_model_icon()
-        return f"{icon} ({self.model})"
+        name = f"{icon} ({self.model})"
+        if self.collect_distill_data and self.config_section in self.distill_providers:
+            # Add a subtle recording indicator
+            name += " [dim]⏺[/dim]"
+        return name
 
     def _format_response_text(self, text: str | None) -> str | None:
         if text is None:

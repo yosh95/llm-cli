@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from llm_cli.apps.unified import UnifiedClient
+from llm_cli.modules.distill_utils import serialize_conversation_for_distill
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
@@ -105,31 +106,10 @@ def collect_training_data(
             client.clear_history()
             conversation = run_task(client, task)
 
-            # Convert conversation to JSONL format
-            serialized_conv = []
-            for msg in conversation:
-                # Basic serialization for SFT
-                content = ""
-                for p in msg.parts:
-                    if isinstance(p, str):
-                        content += p
-                    elif isinstance(p, ContentPart):
-                        if p.text:
-                            content += p.text
-                        if p.thought:
-                            content = f"<thought>{p.thought}</thought>\n" + content
-                        if p.function_call:
-                            call_str = json.dumps(p.function_call)
-                            content += f"\n<tool_call>{call_str}</tool_call>"
-                        if p.function_response:
-                            resp_str = json.dumps(p.function_response)
-                            content += f"\n<tool_response>{resp_str}</tool_response>"
+            # Convert conversation to JSONL format using unified utility
+            data = serialize_conversation_for_distill(conversation)
 
-                serialized_conv.append({"role": msg.role.value, "content": content})
-
-            f.write(
-                json.dumps({"messages": serialized_conv}, ensure_ascii=False) + "\n"
-            )
+            f.write(json.dumps(data, ensure_ascii=False) + "\n")
             f.flush()
 
 
@@ -152,11 +132,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=str,
-        default="mamba_distill_data.jsonl",
         help="Output file path.",
     )
 
     args = parser.parse_args()
+
+    from llm_cli.consts import DISTILL_DATA_PATH
+
+    output_path = args.output or str(DISTILL_DATA_PATH)
 
     tasks = [
         "Find the current weather in Tokyo and tell me if I should bring an umbrella.",
@@ -181,5 +164,5 @@ if __name__ == "__main__":
         "to a zip file.",
     ]
     collect_training_data(
-        args.output, tasks, provider=args.provider, model_alias=args.model
+        output_path, tasks, provider=args.provider, model_alias=args.model
     )

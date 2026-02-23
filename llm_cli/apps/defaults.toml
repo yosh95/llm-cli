@@ -7,6 +7,13 @@ max_command_memory_mb = 1024
 max_output_length = 10000
 max_tool_output_len = 10000
 
+# Distillation Data Collection (Opt-in)
+# Set to "true" to enable passive collection of high-quality data for training local models.
+collect_distill_data = "false"
+# List of providers allowed for distillation (e.g., ["ollama", "vllm"]).
+# Check the Terms of Service of your providers before enabling.
+distill_providers = []
+
 # =============================================================================
 # Security
 # =============================================================================
@@ -95,8 +102,13 @@ api_url = "http://localhost:8000/v1/chat/completions"
 # Mamba (Local Distilled Model)
 # =============================================================================
 [mamba]
-d_model = 128
-n_layers = 4
+d_model = 256
+n_layers = 8
+batch_size = 1
+max_length = 512
+accumulation_steps = 4
+learning_rate = 0.0002
+epochs = 10
 
 [mamba.models]
 default = "mamba-local"

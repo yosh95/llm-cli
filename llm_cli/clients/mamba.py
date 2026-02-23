@@ -36,7 +36,13 @@ class MambaClient(BaseLlmClient):
         )
 
         # Load weights if path exists
-        model_path = Path("mamba_model.pt")
+        from llm_cli.consts import MAMBA_MODEL_PATH
+
+        model_path_setting = get_setting("model_path", "mamba")
+        model_path = (
+            Path(model_path_setting) if model_path_setting else MAMBA_MODEL_PATH
+        )
+
         if model_path.exists():
             self.model_instance.load_state_dict(
                 torch.load(model_path, map_location=self.device)

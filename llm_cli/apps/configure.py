@@ -117,6 +117,9 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
     p_config = config.setdefault(provider, {})
 
     if provider == "ollama":
+        p_config["api_key"] = prompt_input(
+            "API Key (Optional)", p_config.get("api_key"), secret=True
+        )
         default_url = DEFAULTS.get("ollama", {}).get("api_url")
         p_config["api_url"] = prompt_input(
             "API URL", p_config.get("api_url", default_url)

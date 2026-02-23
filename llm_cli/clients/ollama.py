@@ -55,10 +55,14 @@ class OllamaClient(BaseLlmClient):
                 self.active_tools, provider=self.config_section
             )
 
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
         try:
             response = self._post(
                 self.api_url,
-                headers={},
+                headers=headers,
                 json_data=payload,
                 timeout=self.request_timeout,
             )

@@ -78,7 +78,7 @@ class MambaClient(BaseLlmClient):
     def _initialize_model(self) -> None:
         # Configuration for the base model - must match training
         vocab_size = self.tokenizer.n_vocab
-        d_model = get_setting("d_model", "mamba") or 128
+        d_model = get_setting("d_model", "mamba") or 512
         n_layers = get_setting("n_layers", "mamba") or 4
 
         self.model_instance = MambaLM(

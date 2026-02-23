@@ -47,7 +47,7 @@ class MambaLM(nn.Module):
         self,
         vocab_size: int,
         d_model: int = 512,
-        n_layers: int = 12,
+        n_layers: int = 4,
         d_state: int = 16,
         d_conv: int = 4,
         expand: int = 2,

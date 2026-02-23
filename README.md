@@ -263,12 +263,12 @@ Enable Mamba's self-improvement by configuring a local Mentor (via Ollama) in yo
 
 ```toml
 [mamba]
-d_model = 128
-n_layers = 4
+d_model = 256
+n_layers = 8
 teacher_enabled = true
 teacher_provider = "ollama"
 teacher_model = "llama3.2:1b"
-online_lr = 1e-5
+online_lr = 1e-4
 ```
 
 ## Quick Start
@@ -687,12 +687,12 @@ Mamba（State Space Model）アーキテクチャに基づいた、軽量なロ�
 
 ```toml
 [mamba]
-d_model = 128
-n_layers = 4
+d_model = 256
+n_layers = 8
 teacher_enabled = true
 teacher_provider = "ollama"
 teacher_model = "llama3.2:1b"
-online_lr = 1e-5
+online_lr = 1e-4
 ```
 
 ## クイックスタート

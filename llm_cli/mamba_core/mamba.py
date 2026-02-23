@@ -9,7 +9,7 @@ from torch import Tensor
 class Mamba(nn.Module):
     def __init__(
         self,
-        d_model: int = 128,
+        d_model: int = 256,
         d_state: int = 16,
         d_conv: int = 3,
         expand: int = 2,

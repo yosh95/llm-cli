@@ -177,12 +177,18 @@ class BaseLlmClient(ABC):
         # Only collect from providers explicitly listed by the user in config.toml
         # Default is empty to respect TOS of commercial providers.
         raw_providers = get_setting("distill_providers", "general")
+        allowed_distill_providers = ["ollama", "vllm"]
         if isinstance(raw_providers, str):
-            self.distill_providers = [p.strip() for p in raw_providers.split(",")]
+            providers = [p.strip() for p in raw_providers.split(",")]
         elif isinstance(raw_providers, list):
-            self.distill_providers = raw_providers
+            providers = raw_providers
         else:
-            self.distill_providers = []
+            providers = []
+
+        # Restrict to ollama or vllm to comply with ToS of commercial providers
+        self.distill_providers = [
+            p for p in providers if p in allowed_distill_providers
+        ]
 
         self.active_tools: list[str] = (
             initial_tools if initial_tools is not None else list(registry.tools.keys())

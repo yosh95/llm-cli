@@ -62,6 +62,15 @@ class MambaClient(BaseLlmClient):
             self.teacher_enabled = False
             return
 
+        if provider not in ["ollama", "vllm"]:
+            console.print(
+                f"[red]Error: Teacher provider '{provider}' is not allowed. "
+                "Distillation/Mentor mode is restricted to 'ollama' or 'vllm' "
+                "to comply with ToS of commercial providers.[/red]"
+            )
+            self.teacher_enabled = False
+            return
+
         from llm_cli.security.intent_analyzer import IntentAnalyzer
 
         try:

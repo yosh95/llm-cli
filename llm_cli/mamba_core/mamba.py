@@ -1,5 +1,4 @@
 import math
-from typing import Any
 
 import torch
 import torch.nn as nn
@@ -175,7 +174,8 @@ class CustomMamba(nn.Module):
         u = beta * Bx_prev + gamma * Bx
 
         # 4. Scan
-        hs = PScanComplex.apply(alpha, u)
+        # Using Associative Scan for GPU acceleration (O(log L) steps)
+        hs = associative_scan_complex(alpha, u)
 
         # 5. Output
         y_complex = (hs * C.unsqueeze(2).conj()).sum(dim=-1)
@@ -258,31 +258,50 @@ class CustomMamba(nn.Module):
         return output.unsqueeze(1), conv_state, ssm_state, current_Bx  # type: ignore
 
 
-class PScanComplex(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx: Any, A: Tensor, X: Tensor) -> Tensor:
-        # A: (B, L, D, N) Complex
-        # X: (B, L, D, N) Complex
-        # Sequential implementation for correctness in edge-mamba
-        L = X.size(1)
-        res = torch.zeros_like(X)
-        h = torch.zeros(X.size(0), X.size(2), X.size(3), device=X.device, dtype=X.dtype)
-        for t in range(L):
-            h = A[:, t] * h + X[:, t]
-            res[:, t] = h
-        ctx.save_for_backward(A, X, res)
-        return res
+def associative_scan_complex(A: torch.Tensor, X: torch.Tensor) -> torch.Tensor:
+    """
+    Parallelize Mamba's recurrence h_t = A_t * h_{t-1} + X_t using Associative Scan.
+    A: (B, L, D, N) - Complex coefficients
+    X: (B, L, D, N) - Complex inputs
+    """
+    B, L, D, N = A.shape
+    if L == 1:
+        return X
 
-    @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor | None, Tensor | None]:
-        A, X, res = ctx.saved_tensors
-        B, L, D, N = grad_output.shape
-        grad_X = torch.zeros_like(X)
-        grad_A = torch.zeros_like(A)
-        gh = torch.zeros(B, D, N, device=grad_output.device, dtype=grad_output.dtype)
-        for t in range(L - 1, -1, -1):
-            grad_X[:, t] = grad_output[:, t] + gh
-            if t > 0:
-                grad_A[:, t] = grad_X[:, t] * res[:, t - 1].conj()
-            gh = grad_X[:, t] * A[:, t].conj()
-        return grad_A, grad_X
+    # Handle odd lengths by padding
+    is_odd = L % 2 == 1
+    if is_odd:
+        A_pad = torch.cat(
+            [A, torch.ones(B, 1, D, N, device=A.device, dtype=A.dtype)], dim=1
+        )
+        X_pad = torch.cat(
+            [X, torch.zeros(B, 1, D, N, device=A.device, dtype=A.dtype)], dim=1
+        )
+    else:
+        A_pad, X_pad = A, X
+
+    # Combine adjacent pairs
+    A_even = A_pad[:, 0::2]
+    X_even = X_pad[:, 0::2]
+    A_odd = A_pad[:, 1::2]
+    X_odd = X_pad[:, 1::2]
+
+    A_prime = A_odd * A_even
+    X_prime = A_odd * X_even + X_odd
+
+    # Recursive scan
+    Y_prime = associative_scan_complex(A_prime, X_prime)
+
+    # Expand results
+    Y = torch.empty_like(A_pad)
+    Y[:, 1::2] = Y_prime
+    # y_{2t} = a_{2t} * y_{2t-1} + x_{2t} (with y_{-1} = 0)
+    Y_prev = torch.cat(
+        [torch.zeros(B, 1, D, N, device=A.device, dtype=A.dtype), Y_prime[:, :-1]],
+        dim=1,
+    )
+    Y[:, 0::2] = A_even * Y_prev + X_even
+
+    if is_odd:
+        return Y[:, :L]
+    return Y

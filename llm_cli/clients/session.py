@@ -359,9 +359,6 @@ class ChatSession:
                 self._log_chat(response_text, role="Model")
 
             if not self.client._has_pending_tool_calls():
-                # End of a full interaction (User -> Model [-> Tool -> Model]*)
-                # Attempt to save the conversation for distillation if configured.
-                self.client.save_for_distillation()
                 break
 
             # If there are pending tool calls, process them and continue the loop

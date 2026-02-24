@@ -227,7 +227,7 @@ class MambaClient(BaseLlmClient):
             "Output ONLY valid JSON with 'thought', 'message', and 'tool_calls'.\n"
             # FUTURE: Once the model matures and understands JSON structure, consider
             # injecting a list of available tool names here to assist with selection.
-            # For now, we rely on weight-based memorization via Mentor distillation.
+            # For now, we rely on weight-based memorization via Mentor-led learning.
         )
         if feedback:
             full_prompt += f"CONTEXT: {feedback}\n"

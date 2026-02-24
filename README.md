@@ -253,7 +253,7 @@ pip install ".[mamba]"
 
 A lightweight, local agent powered by the Mamba (State Space Model) architecture. This component focuses on creating a **highly efficient AI Agent** that can run on consumer hardware (CPU/GPU) while maintaining the ability to use complex tools.
 
-> **Important**: When using distillation or the "Mentor" mode, ensure you comply with the **Terms of Service (ToS)** of the respective model providers. To prevent accidental ToS violations, teacher/distill providers are restricted to local-first options (**Ollama** and **vLLM**).
+> **Important**: When using the "Mentor" mode, ensure you comply with the **Terms of Service (ToS)** of the respective model providers. To prevent accidental ToS violations, teacher providers are restricted to local-first options (**Ollama** and **vLLM**).
 
 #### Key Features
 - **JSON-Native Reasoning**: Optimized to output structured data. Mamba maps user requests directly to tool calls, bypassing the need for large-scale natural language generation.
@@ -679,7 +679,7 @@ pip install ".[mamba]"
 
 Mamba（State Space Model）アーキテクチャに基づいた、軽量なローカルエージェントの実装です。このコンポーネントは、一般的なハードウェア（CPU/GPU）で動作しつつ、複雑なツールを使いこなす **「高効率なAIエージェント」** の構築に特化しています。
 
-> **重要**: 蒸留（Distillation）または「メンター（Mentor）」モードを使用する際は、各モデルプロバイダの **利用規約（ToS）** を遵守してください。意図しない規約違反を防ぐため、教師モデルおよび蒸留用データの収集プロバイダは、ローカル実行を主体とする **Ollama** および **vLLM** に制限されています。
+> **重要**: 「メンター（Mentor）」モードを使用する際は、各モデルプロバイダの **利用規約（ToS）** を遵守してください。意図しない規約違反を防ぐため、教師モデルのプロバイダは、ローカル実行を主体とする **Ollama** および **vLLM** に制限されています。
 
 #### 主な特徴
 - **JSONネイティブな推論**: 構造化データ（JSON）の出力に最適化されています。ユーザーの要求を直接ツール呼び出しやメッセージにマッピングし、冗長な自然言語生成を省くことで効率を高めています。

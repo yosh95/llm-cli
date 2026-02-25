@@ -42,6 +42,7 @@ class PolicyEngine:
                 "description": "Standard user access",
                 "allowed_tools": [
                     "list_files_in_directory",
+                    "search_files",
                     "read_file_content",
                     "read_html_from_url",
                     "search_web",
@@ -53,16 +54,19 @@ class PolicyEngine:
                     "read_file_content": {
                         "allowed_paths": [str(Path.home() / "*"), "./*"]
                     },
+                    "search_files": {"allowed_paths": [str(Path.home() / "*"), "./*"]},
                 },
             },
             "guest": {
                 "description": "Read-only access",
                 "allowed_tools": [
                     "list_files_in_directory",
+                    "search_files",
                     "read_file_content",
                 ],
                 "scopes": {
                     "read_file_content": {"allowed_paths": ["./docs/*", "*.md"]},
+                    "search_files": {"allowed_paths": ["./docs/*", "./llm_cli/*"]},
                 },
             },
         }

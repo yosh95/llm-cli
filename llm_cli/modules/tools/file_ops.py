@@ -2,11 +2,106 @@
 
 import difflib
 import fnmatch
+import subprocess
 from pathlib import Path
 
 from llm_cli.modules.media_utils import process_file
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
+
+
+@tool(
+    name="search_files",
+    desc=(
+        "Search for a regex pattern in files within a directory. "
+        "Automatically excludes common junk directories like .git, node_modules, and "
+        "cache to provide clean and fast results. "
+    ),
+    params={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Regex pattern to search for."},
+            "directory": {
+                "type": "string",
+                "description": "Directory to search in (default: current directory).",
+            },
+            "file_pattern": {
+                "type": "string",
+                "description": "File pattern to include (e.g., '*.py').",
+            },
+        },
+        "required": ["query"],
+    },
+)
+def search_files(
+    query: str,
+    directory: str = ".",
+    file_pattern: str | None = None,
+) -> str:
+    """
+    Search for a pattern using grep, excluding common cache and junk directories.
+    """
+    try:
+        validate_path(directory or ".")
+
+        exclude_dirs = [
+            ".git",
+            "node_modules",
+            "cache",
+            ".cache",
+            "__pycache__",
+            "venv",
+            ".venv",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
+            "dist",
+            "build",
+        ]
+
+        # Use -rnP: recursive, line number, Perl-compatible regex
+        cmd = ["grep", "-rnP"]
+        for d in exclude_dirs:
+            cmd.append(f"--exclude-dir={d}")
+
+        if file_pattern:
+            cmd.append(f"--include={file_pattern}")
+
+        cmd.extend(["--", query, directory or "."])
+
+        # Limit execution time and capture output
+        process = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        if process.returncode == 1:
+            return "No matches found."
+        if process.returncode > 1:
+            # grep returns 2 if an error occurred
+            return (
+                f"Error: grep failed with exit code {process.returncode}\n"
+                f"{process.stderr}"
+            )
+
+        lines = process.stdout.splitlines()
+        max_lines = 300
+        if len(lines) > max_lines:
+            summary = (
+                f"\n\n... (Total {len(lines)} matches, truncated to {max_lines} lines)"
+            )
+            return "\n".join(lines[:max_lines]) + summary
+
+        return process.stdout or "No matches found."
+
+    except PathValidationError as e:
+        return f"Security Error: {e}"
+    except subprocess.TimeoutExpired:
+        return "Error: Search timed out after 60 seconds."
+    except Exception as e:
+        return f"Error: {e}"
 
 
 @tool(

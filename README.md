@@ -79,6 +79,7 @@ The AI agent comes equipped with the following tools:
 | Tool | Description |
 | :--- | :--- |
 | `list_files_in_directory` | List files in a directory tree, excluding specified patterns and limiting output size. |
+| `search_files` | Search for a regex pattern in files within a directory, excluding common junk/cache directories. |
 | `read_file_content` | Read content from a text file. Can read specific lines and optionally include line numbers. |
 | `execute_shell_command` | Execute shell commands. |
 | `edit_file` | Edit a file by replacing a specific block of text. Returns a Diff. Safer than string replace. |
@@ -505,6 +506,7 @@ AIエージェントは以下のツールを標準で備えています：
 | ツール | 説明 |
 | :--- | :--- |
 | `list_files_in_directory` | 指定ディレクトリ内のファイルを一覧表示します。特定のパターンの除外や、出力サイズの制限が可能です。 |
+| `search_files` | 指定ディレクトリ内のファイルから正規表現パターンを検索します。cacheなどの不要なディレクトリは自動的に除外されます。 |
 | `read_file_content` | テキストファイルの内容を読み込みます。特定の行範囲の指定や、行番号の付与が可能です。 |
 | `execute_shell_command` | シェルコマンドを実行します。 |
 | `edit_file` | ファイル内の特定のテキストブロックを検索して置換します。Diffを返し、文字列検索置換より安全です。 |

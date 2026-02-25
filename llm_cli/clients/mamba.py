@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-import tiktoken
 import torch
 
 from llm_cli.clients.base import BaseLlmClient, console
@@ -14,6 +13,52 @@ from llm_cli.mamba_core.model import MambaLM
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 
 logger = logging.getLogger(__name__)
+
+
+class ByteTokenizer:
+    """Simple Byte-level tokenizer with special tokens for ChatML."""
+
+    def __init__(self) -> None:
+        self.special_tokens = {
+            "<|im_start|>": 256,
+            "<|im_end|>": 257,
+        }
+        self.id_to_special = {v: k for k, v in self.special_tokens.items()}
+        self.vocab_size = 258
+        self.safe_control_ids = {10}  # Only allow Newline (\n) among control chars
+
+    def encode(self, text: str) -> list[int]:
+        # Split by special tokens and encode parts as utf-8 bytes
+        parts = re.split(r"(<\|im_start\|>|<\|im_end\|>)", text)
+        ids = []
+        for part in parts:
+            if part in self.special_tokens:
+                ids.append(self.special_tokens[part])
+            elif part:
+                ids.extend(list(part.encode("utf-8")))
+        return ids
+
+    def decode(self, ids: list[int]) -> str:
+        res_bytes = bytearray()
+        res_str = ""
+        for idx in ids:
+            if idx < 256:
+                # Filter raw control characters (0-31) except safe ones like \n
+                if idx < 32 and idx not in self.safe_control_ids:
+                    continue
+                if idx == 127:  # DEL
+                    continue
+                res_bytes.append(idx)
+            elif idx in self.id_to_special:
+                # Flush pending bytes before adding special token string
+                if res_bytes:
+                    res_str += res_bytes.decode("utf-8", errors="ignore")
+                    res_bytes = bytearray()
+                res_str += self.id_to_special[idx]
+
+        if res_bytes:
+            res_str += res_bytes.decode("utf-8", errors="ignore")
+        return res_str
 
 
 class MambaClient(BaseLlmClient):
@@ -26,7 +71,9 @@ class MambaClient(BaseLlmClient):
             **kwargs,
         )
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = tiktoken.get_encoding("o200k_base")
+
+        # Use minimalist ByteTokenizer
+        self.tokenizer = ByteTokenizer()
         self.model_instance: MambaLM | None = None
 
         # Ensure self.model has a value for display
@@ -43,7 +90,7 @@ class MambaClient(BaseLlmClient):
 
         # Online optimizer
         self.learning_rate = float(get_setting("online_lr", "mamba") or 1e-5)
-        self.max_loss_threshold = float(get_setting("online_max_loss", "mamba") or 10.0)
+        self.max_loss_threshold = float(get_setting("online_max_loss", "mamba") or 20.0)
         self.optimizer = (
             torch.optim.AdamW(self.model_instance.parameters(), lr=self.learning_rate)
             if self.model_instance
@@ -105,9 +152,9 @@ class MambaClient(BaseLlmClient):
 
     def _initialize_model(self) -> None:
         # Configuration for the base model - must match training
-        vocab_size = self.tokenizer.n_vocab
-        d_model = get_setting("d_model", "mamba") or 512
-        n_layers = get_setting("n_layers", "mamba") or 4
+        vocab_size = self.tokenizer.vocab_size
+        d_model = get_setting("d_model", "mamba") or 256
+        n_layers = get_setting("n_layers", "mamba") or 8
 
         self.model_instance = MambaLM(
             vocab_size=vocab_size, d_model=d_model, n_layers=n_layers
@@ -287,9 +334,6 @@ class MambaClient(BaseLlmClient):
         full_prompt = (
             "SYSTEM: You are a structural data agent. "
             "Output ONLY valid JSON with 'thought', 'message', and 'tool_calls'.\n"
-            # FUTURE: Once the model matures and understands JSON structure, consider
-            # injecting a list of available tool names here to assist with selection.
-            # For now, we rely on weight-based memorization via Mentor-led learning.
         )
         if feedback:
             full_prompt += f"CONTEXT: {feedback}\n"
@@ -307,30 +351,65 @@ class MambaClient(BaseLlmClient):
         max_new_tokens = 512
         states = None
 
+        # Generation params
+        temperature = 0.7
+        top_p = 0.9
+
+        # Identify invalid control characters for masking
+        invalid_ids = [i for i in range(32) if i not in self.tokenizer.safe_control_ids]
+        invalid_ids.append(127)  # DEL
+
         if self.model_instance is None:
             return "Error: Model not initialized", None
 
         self.model_instance.eval()
         with torch.no_grad():
             logits, states = self.model_instance.step(input_ids, states)
-            next_token = torch.argmax(logits[:, -1, :], dim=-1)
+
+            # Sampling for the first token
+            logits_last = logits[:, -1, :] / temperature
+            # Mask invalid tokens
+            logits_last[0, invalid_ids] = -float("Inf")
+
+            probs = torch.softmax(logits_last, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1).squeeze(-1)
             generated_ids.append(int(next_token.item()))
 
-            im_end_token = self.tokenizer.encode(
-                "<|im_end|>", allowed_special={"<|im_end|>"}
-            )[0]
+            # ChatML end token ID
+            im_end_token = 257
 
             for _ in range(max_new_tokens - 1):
                 logits, states = self.model_instance.step(
                     next_token.unsqueeze(0), states
                 )
-                next_token = torch.argmax(logits[:, -1, :], dim=-1)
+
+                logits_last = logits[:, -1, :] / temperature
+                # Mask invalid tokens
+                logits_last[0, invalid_ids] = -float("Inf")
+
+                # Top-p (nucleus) sampling
+                sorted_logits, sorted_indices = torch.sort(logits_last, descending=True)
+                cumulative_probs = torch.cumsum(
+                    torch.softmax(sorted_logits, dim=-1), dim=-1
+                )
+
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
+                    ..., :-1
+                ].clone()
+                sorted_indices_to_remove[..., 0] = 0
+
+                indices_to_remove = sorted_indices[sorted_indices_to_remove]
+                logits_last[0, indices_to_remove] = -float("Inf")
+
+                probs = torch.softmax(logits_last, dim=-1)
+                next_token = torch.multinomial(probs, num_samples=1).squeeze(-1)
+
                 if next_token.item() == im_end_token:
                     break
                 generated_ids.append(int(next_token.item()))
 
         response_text = self.tokenizer.decode(generated_ids)
-        # Clean up special tokens and whitespace
         response_text = response_text.replace("<|im_end|>", "").strip()
         return response_text, None
 

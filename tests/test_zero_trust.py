@@ -73,7 +73,7 @@ def policy_engine(tmp_path, monkeypatch):
     config = {
         "roles": {
             "developer": {
-                "allowed_tools": ["edit_file", "read_file"],
+                "allowed_tools": ["edit_file", "read_file_content"],
                 "scopes": {
                     # Use a scope under the current project directory
                     "edit_file": {"allowed_paths": [str(project_dir / "*")]},

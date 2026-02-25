@@ -100,9 +100,9 @@ class TestPolicyEngine:
     def test_evaluate_guest_allowed(self):
         engine = PolicyEngine()
         context = {"roles": ["guest"]}
-        assert engine.evaluate("read_file", {}, context) is True
-        # Guest does not have google_search by default
-        assert engine.evaluate("google_search", {}, context) is False
+        assert engine.evaluate("read_file_content", {}, context) is True
+        # Guest does not have search_web by default
+        assert engine.evaluate("search_web", {}, context) is False
 
     def test_evaluate_guest_denied(self):
         engine = PolicyEngine()

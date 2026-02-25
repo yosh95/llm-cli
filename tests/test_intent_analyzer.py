@@ -30,7 +30,7 @@ def test_intent_analyzer_verify_safe(mock_client):
     mock_client._send.return_value = (('{"verdict": "SAFE", "reason": "Safe"}', ""), {})
 
     is_safe, reason = analyzer.verify_action(
-        "read file", "read_file", {"path": "test.txt"}
+        "read file", "read_file_content", {"path": "test.txt"}
     )
     assert is_safe is True
     assert reason == "Safe"

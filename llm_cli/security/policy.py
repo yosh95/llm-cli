@@ -41,24 +41,28 @@ class PolicyEngine:
             "user": {
                 "description": "Standard user access",
                 "allowed_tools": [
-                    "list_files",
-                    "read_file",
-                    "fetch_web_text",
-                    "google_search",
+                    "list_files_in_directory",
+                    "read_file_content",
+                    "read_html_from_url",
+                    "search_web",
                     "edit_file",
+                    "execute_shell_command",
                 ],
                 "scopes": {
                     "edit_file": {"allowed_paths": [str(Path.home() / "*"), "./*"]},
+                    "read_file_content": {
+                        "allowed_paths": [str(Path.home() / "*"), "./*"]
+                    },
                 },
             },
             "guest": {
                 "description": "Read-only access",
                 "allowed_tools": [
-                    "list_files",
-                    "read_file",
+                    "list_files_in_directory",
+                    "read_file_content",
                 ],
                 "scopes": {
-                    "read_file": {"allowed_paths": ["./docs/*", "*.md"]},
+                    "read_file_content": {"allowed_paths": ["./docs/*", "*.md"]},
                 },
             },
         }
@@ -97,7 +101,16 @@ class PolicyEngine:
                 logger.error(f"Failed to initialize Intent Analyzer: {e}")
                 # Configurable fail-open/closed.
                 # Zero-Trust default should be fail-closed for high-risk tools.
-                # We implement per-tool overrides with a safe default.
+                high_risk_tools = {
+                    "execute_shell_command",
+                    "edit_file",
+                    "create_or_overwrite_file",
+                    "delete_file",
+                }
+                if tool_name in high_risk_tools:
+                    logger.error(f"Intent Analyzer failed. Blocked: '{tool_name}'")
+                    return False
+
                 fail_open = self.config.get("intent_analyzer_fail_open", False)
                 fail_open_tools = set(
                     self.config.get("intent_analyzer_fail_open_tools", [])

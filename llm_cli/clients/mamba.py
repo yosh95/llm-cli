@@ -43,6 +43,7 @@ class MambaClient(BaseLlmClient):
 
         # Online optimizer
         self.learning_rate = float(get_setting("online_lr", "mamba") or 1e-5)
+        self.max_loss_threshold = float(get_setting("online_max_loss", "mamba") or 10.0)
         self.optimizer = (
             torch.optim.AdamW(self.model_instance.parameters(), lr=self.learning_rate)
             if self.model_instance
@@ -421,6 +422,17 @@ class MambaClient(BaseLlmClient):
 
         if not (torch.isnan(loss) or torch.isinf(loss)):
             loss_val = loss.item()
+
+            # Stability Guard: Skip update if loss is suspiciously high
+            if loss_val > self.max_loss_threshold:
+                console.print(
+                    f"[bold yellow]⚠️  Online Update Skipped: Loss ({loss_val:.4f}) "
+                    f"exceeds safety threshold ({self.max_loss_threshold}). "
+                    "Data might be noisy or unstable.[/bold yellow]"
+                )
+                self.model_instance.eval()
+                return None
+
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
                 self.model_instance.parameters(), max_norm=1.0

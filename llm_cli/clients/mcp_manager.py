@@ -10,6 +10,7 @@ from rich.console import Console
 
 from llm_cli.clients.config import get_mcp_servers
 from llm_cli.mcp_lib import ClientSession, StdioServerParameters, stdio_client
+from llm_cli.security.command_validator import CommandValidationError, validate_command
 from llm_cli.security.identity import IdentityManager
 
 # Set up logging for MCP client
@@ -74,9 +75,16 @@ class MCPManager:
             if not name or not command or name in self.sessions:
                 continue
 
-            # Validate MCP server command skipped:
-            # Users are responsible for the commands in their config.toml.
-            # We trust the user configuration for MCP servers.
+            # Validate MCP server command:
+            # We use the CommandValidator to ensure the command is in the whitelist.
+            try:
+                validate_command(command)
+            except CommandValidationError as e:
+                console.print(
+                    f"[red]✗ Security Risk: MCP server '{name}' uses an "
+                    f"unauthorized command '{command}': {e}[/red]"
+                )
+                continue
 
             # Identity Propagation: Inject Auth Token into environment
             env = env or {}

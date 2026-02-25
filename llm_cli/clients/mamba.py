@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,23 @@ class MambaClient(BaseLlmClient):
             else None
         )
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
+        self.turn_count = 0
+
+    def _log_metrics(self, metrics: dict[str, Any]) -> None:
+        """Log training metrics to a file for analysis."""
+        from llm_cli.consts import TRAINING_METRICS_LOG_PATH
+
+        log_path_setting = get_setting("training_metrics_path", "mamba")
+        log_path = (
+            Path(log_path_setting) if log_path_setting else TRAINING_METRICS_LOG_PATH
+        )
+
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with log_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(metrics, ensure_ascii=False) + "\n")
+        except Exception as e:
+            logger.error(f"Failed to log metrics: {e}")
 
     def _initialize_teacher(self) -> None:
         """Initialize the teacher LLM based on config. Fail-safe if not configured."""
@@ -135,7 +153,16 @@ class MambaClient(BaseLlmClient):
             )
 
         # 2. Generate with optional Mentor feedback loop
-        # max_attempts > 1 only if teacher is available
+        self.turn_count += 1
+        metrics: dict[str, Any] = {
+            "turn": self.turn_count,
+            "timestamp": time.time(),
+            "user_prompt": user_prompt,
+            "mamba_responses": [],
+            "teacher_reviews": [],
+            "losses": [],
+        }
+
         max_attempts = 2 if self.teacher_enabled else 1
         current_feedback = ""
         final_response_text = ""
@@ -144,14 +171,31 @@ class MambaClient(BaseLlmClient):
         for attempt in range(max_attempts):
             response_text, thought = self._generate_mamba(current_feedback)
 
+            # Basic JSON validity check for logging
+            is_json_valid = False
+            try:
+                clean_json_check = re.sub(
+                    r"```json\n?|\n?```", "", response_text
+                ).strip()
+                json.loads(clean_json_check)
+                is_json_valid = True
+            except Exception:
+                pass
+
             if self.teacher_enabled:
-                # Show raw Mamba output for debugging/transparency
                 msg = f"[dim cyan]Raw Mamba Output (Attempt {attempt + 1}):[/dim cyan]"
                 console.print(msg)
                 console.print(response_text, style="dim", highlight=False)
 
             if not self.teacher_enabled:
                 final_response_text, final_thought = response_text, thought
+                metrics["mamba_responses"].append(
+                    {
+                        "attempt": attempt + 1,
+                        "text": response_text,
+                        "json_valid": is_json_valid,
+                    }
+                )
                 break
 
             # Mentor Review
@@ -159,11 +203,27 @@ class MambaClient(BaseLlmClient):
                 user_prompt, response_text
             )
 
+            metrics["mamba_responses"].append(
+                {
+                    "attempt": attempt + 1,
+                    "text": response_text,
+                    "json_valid": is_json_valid,
+                }
+            )
+            metrics["teacher_reviews"].append(
+                {
+                    "attempt": attempt + 1,
+                    "is_valid": is_valid,
+                    "critique": critique,
+                    "correction": correction,
+                }
+            )
+
             if is_valid or not correction:
                 final_response_text, final_thought = response_text, thought
-                # Even if valid, we can update weights if correction provided
                 if correction:
-                    self._online_update(user_prompt, correction)
+                    loss = self._online_update(user_prompt, correction)
+                    metrics["losses"].append(loss)
                 break
             else:
                 msg = (
@@ -175,14 +235,15 @@ class MambaClient(BaseLlmClient):
                     f"MENTOR FEEDBACK: {critique}. CORRECT FORMAT: {correction}"
                 )
 
-                # Update weights using the teacher's gold standard
                 if correction:
-                    self._online_update(user_prompt, correction)
+                    loss = self._online_update(user_prompt, correction)
+                    metrics["losses"].append(loss)
 
                 if attempt == max_attempts - 1:
-                    # Final fallback: use corrected version directly if Mamba failed
                     final_response_text = correction
                     final_thought = "Corrected by Mentor"
+
+        self._log_metrics(metrics)
 
         # 3. Parse and update conversation (optimized for JSON)
         model_parts: list[str | ContentPart] = [
@@ -331,12 +392,13 @@ class MambaClient(BaseLlmClient):
             logger.error(f"Mentor review failed: {e}")
             return True, "", ""
 
-    def _online_update(self, user_prompt: str, target_json: str) -> None:
+    def _online_update(self, user_prompt: str, target_json: str) -> float | None:
         """Single-step online training using teacher's correction. Auto-saves."""
         if not self.model_instance or not self.optimizer:
-            return
+            return None
 
         console.print("[dim]Learning from Mentor and saving weights...[/dim]")
+        loss_val = None
 
         full_text = (
             f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
@@ -358,6 +420,7 @@ class MambaClient(BaseLlmClient):
         loss = self.criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
 
         if not (torch.isnan(loss) or torch.isinf(loss)):
+            loss_val = loss.item()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
                 self.model_instance.parameters(), max_norm=1.0
@@ -377,6 +440,7 @@ class MambaClient(BaseLlmClient):
                 logger.error(f"Failed to auto-save Mamba weights: {e}")
 
         self.model_instance.eval()
+        return loss_val
 
     def _load_model_aliases(self) -> None:
         self.available_models = {"mamba-local": "mamba_model.pt"}

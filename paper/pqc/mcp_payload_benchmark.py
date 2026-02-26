@@ -88,7 +88,8 @@ def run_protocol_benchmark() -> None:
     mldsa_token_str = f"header.payload.{base64.b64encode(mldsa_sig).decode('utf-8')}"
     mldsa_total_size = len(mldsa_token_str)
 
-    # Measure Hybrid (RSA + ML-DSA) as implemented in llm-cli (header.payload.sig.pqc_sig)
+    # Measure Hybrid (RSA + ML-DSA) as implemented in llm-cli
+    # Format: header.payload.sig.pqc_sig
     hybrid_token_str = f"{rsa_token_str}.{base64.b64encode(mldsa_sig).decode('utf-8')}"
     hybrid_total_size = len(hybrid_token_str)
 

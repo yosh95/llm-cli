@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from llm_cli.security.pqc import PQCProvider
 
 
-def benchmark_real_crypto():
+def benchmark_real_crypto() -> None:
     print("=== Real-World Crypto Benchmark for llm-cli ===")
 
     # 1. ML-DSA-65 (Real Implementation)
@@ -22,7 +22,7 @@ def benchmark_real_crypto():
     t_sign_pqc = (time.time() - t0) * 1000
 
     t0 = time.time()
-    is_valid_pqc = PQCProvider.verify(msg, sig_pqc, pk_pqc)
+    PQCProvider.verify(msg, sig_pqc, pk_pqc)
     t_verify_pqc = (time.time() - t0) * 1000
 
     # 2. RSA-2048 (Standard Cryptography)
@@ -52,9 +52,8 @@ def benchmark_real_crypto():
             ),
             hashes.SHA256(),
         )
-        is_valid_rsa = True
-    except:
-        is_valid_rsa = False
+    except Exception:
+        pass
     t_verify_rsa = (time.time() - t0) * 1000
 
     print("\n--- RESULTS ---")
@@ -64,9 +63,9 @@ def benchmark_real_crypto():
     print(f"Sign (ms)           | {t_sign_rsa:>20.2f} | {t_sign_pqc:>17.2f}")
     print(f"Verify (ms)         | {t_verify_rsa:>20.2f} | {t_verify_pqc:>17.2f}")
     print(f"Sig Size (bytes)    | {len(sig_rsa):>20} | {len(sig_pqc):>17}")
-    print(
-        f"PK Size (bytes)     | {pub_rsa.public_numbers().n.bit_length() // 8:>20} | {len(pk_pqc):>17}"
-    )
+
+    rsa_pk_size = pub_rsa.public_numbers().n.bit_length() // 8
+    print(f"PK Size (bytes)     | {rsa_pk_size:>20} | {len(pk_pqc):>17}")
 
 
 if __name__ == "__main__":

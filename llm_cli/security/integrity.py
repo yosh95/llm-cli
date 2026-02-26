@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 from llm_cli.consts import LLM_CLI_BASE_DIR
 
@@ -42,7 +43,7 @@ class IntegrityVerifier:
         except FileNotFoundError:
             return "MISSING"
 
-    def _load_manifest(self) -> dict[str, str] | None:
+    def _load_manifest(self) -> dict[str, Any] | None:
         """Load the trusted hash manifest."""
         if not self.MANIFEST_PATH.exists():
             return None
@@ -50,18 +51,38 @@ class IntegrityVerifier:
             with self.MANIFEST_PATH.open("r", encoding="utf-8") as f:
                 from typing import cast
 
-                return cast(dict[str, str], json.load(f))
+                return cast(dict[str, Any], json.load(f))
         except Exception as e:
             logger.error(f"Failed to load integrity manifest: {e}")
             return None
 
     def _save_manifest(self, manifest: dict[str, str]) -> None:
-        """Save the current hashes as the trusted manifest."""
+        """Save the current hashes as the trusted manifest with PQC signature."""
         try:
+            import base64
+
+            from llm_cli.security.identity import IdentityManager
+            from llm_cli.security.pqc import PQCProvider
+
             self.MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+            manifest_data = json.dumps(manifest, indent=2, sort_keys=True)
+
+            # Sign the manifest with PQC key
+            pqc_priv = IdentityManager._get_pqc_private_key_content()
+            signature = PQCProvider.sign(manifest_data.encode(), pqc_priv)
+
+            output = {
+                "hashes": manifest,
+                "pqc_signature": base64.b64encode(signature).decode(),
+                "pqc_algorithm": PQCProvider.ALGORITHM_NAME,
+            }
+
             with self.MANIFEST_PATH.open("w", encoding="utf-8") as f:
-                json.dump(manifest, f, indent=2, sort_keys=True)
-            logger.info(f"🛡️  Integrity manifest saved to {self.MANIFEST_PATH}")
+                json.dump(output, f, indent=2, sort_keys=True)
+            logger.info(
+                f"🛡️  PQC-Signed Integrity manifest saved to {self.MANIFEST_PATH}"
+            )
         except Exception as e:
             logger.error(f"Failed to save integrity manifest: {e}")
 
@@ -103,10 +124,47 @@ class IntegrityVerifier:
             return False
 
     def verify(self) -> bool:
-        """Verify integrity of critical files and audit log."""
-        logger.info("🛡️  Root of Trust: Verifying system integrity...")
+        """Verify integrity of critical files and audit log (with PQC signature)."""
+        logger.info("🛡️  Root of Trust: Verifying system integrity (PQC-enabled)...")
 
-        trusted_manifest = self._load_manifest()
+        raw_manifest = self._load_manifest()
+        trusted_manifest: dict[str, str] | None = None
+
+        if raw_manifest:
+            # Check if it's the new format with PQC signature
+            if "hashes" in raw_manifest:
+                trusted_manifest = raw_manifest["hashes"]
+                pqc_sig_b64 = raw_manifest.get("pqc_signature")
+
+                # Verify PQC Signature of the manifest itself
+                if pqc_sig_b64:
+                    try:
+                        import base64
+
+                        from llm_cli.security.identity import IdentityManager
+                        from llm_cli.security.pqc import PQCProvider
+
+                        manifest_data = json.dumps(
+                            trusted_manifest, indent=2, sort_keys=True
+                        )
+                        pqc_pub = IdentityManager._get_pqc_public_key_content()
+                        signature = base64.b64decode(pqc_sig_b64)
+
+                        if not PQCProvider.verify(
+                            manifest_data.encode(), signature, pqc_pub
+                        ):
+                            logger.error(
+                                "❌ Integrity Violated: Manifest PQC Mismatch!"
+                            )
+                            return False
+                        logger.debug("✅ Manifest PQC Signature verified.")
+                    except Exception as e:
+                        logger.error(f"PQC verification error: {e}")
+                        return False
+            else:
+                # Legacy format (migration)
+                trusted_manifest = raw_manifest
+
         current_manifest = {}
         all_ok = True
 

@@ -5,20 +5,20 @@ import socket
 import time
 import uuid
 
-import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from llm_cli.consts import KEY_DIR
+from llm_cli.security.pqc import HybridSigner, PQCProvider
 
 logger = logging.getLogger(__name__)
 
 
 class IdentityManager:
     """
-    Manages Workload Identity and Authentication Tokens using Asymmetric Keys (RS256).
-    Implements Zero Trust Identity Propagation for MCP.
+    Manages Workload Identity and Authentication Tokens using Hybrid Keys (RSA + PQC).
+    Implements Post-Quantum Zero Trust Identity Propagation for MCP.
     """
 
     _ALGORITHM = "RS256"
@@ -26,13 +26,16 @@ class IdentityManager:
     _KEY_DIR = KEY_DIR
     _PRIVATE_KEY_PATH = _KEY_DIR / "id_rsa"
     _PUBLIC_KEY_PATH = _KEY_DIR / "id_rsa.pub"
+    _PQC_PRIVATE_KEY_PATH = _KEY_DIR / "id_pqc.key"
+    _PQC_PUBLIC_KEY_PATH = _KEY_DIR / "id_pqc.pub"
 
     @classmethod
     def _ensure_keys(cls) -> None:
-        """Ensure RSA keys exist, generate them if not."""
+        """Ensure RSA and PQC keys exist, generate them if not."""
         if not cls._KEY_DIR.exists():
             cls._KEY_DIR.mkdir(parents=True, exist_ok=True)
 
+        # Classical RSA Keys
         if not cls._PRIVATE_KEY_PATH.exists():
             logger.info(f"Generating new RSA key pair in {cls._KEY_DIR}...")
             private_key = rsa.generate_private_key(
@@ -57,6 +60,15 @@ class IdentityManager:
                     )
                 )
 
+        # Post-Quantum Keys (ML-DSA)
+        if not cls._PQC_PRIVATE_KEY_PATH.exists():
+            logger.info("Generating new Post-Quantum (PQC) key pair...")
+            pub_pqc, priv_pqc = PQCProvider.generate_keypair()
+            with cls._PQC_PRIVATE_KEY_PATH.open("wb") as f:
+                f.write(priv_pqc)
+            with cls._PQC_PUBLIC_KEY_PATH.open("wb") as f:
+                f.write(pub_pqc)
+
     @classmethod
     def _get_private_key_content(cls) -> bytes:
         cls._ensure_keys()
@@ -64,10 +76,14 @@ class IdentityManager:
             return f.read()
 
     @classmethod
+    def _get_pqc_private_key_content(cls) -> bytes:
+        cls._ensure_keys()
+        with cls._PQC_PRIVATE_KEY_PATH.open("rb") as f:
+            return f.read()
+
+    @classmethod
     def _get_public_key_content(cls) -> bytes:
         cls._ensure_keys()
-        # On a remote server, the public key might be injected via environment
-        # or pre-placed file.
         env_pub_key = os.getenv("LLM_CLI_PUBLIC_KEY")
         if env_pub_key:
             return env_pub_key.encode("utf-8")
@@ -76,10 +92,22 @@ class IdentityManager:
             with cls._PUBLIC_KEY_PATH.open("rb") as f:
                 return f.read()
 
-        raise FileNotFoundError(
-            f"Public key not found at {cls._PUBLIC_KEY_PATH}. "
-            "Set LLM_CLI_PUBLIC_KEY env var or place the key file."
-        )
+        raise FileNotFoundError(f"Public key not found at {cls._PUBLIC_KEY_PATH}.")
+
+    @classmethod
+    def _get_pqc_public_key_content(cls) -> bytes:
+        cls._ensure_keys()
+        env_pqc_pub = os.getenv("LLM_CLI_PQC_PUBLIC_KEY")
+        if env_pqc_pub:
+            import base64
+
+            return base64.b64decode(env_pqc_pub)
+
+        if cls._PQC_PUBLIC_KEY_PATH.exists():
+            with cls._PQC_PUBLIC_KEY_PATH.open("rb") as f:
+                return f.read()
+
+        return b""  # Fallback
 
     @classmethod
     def get_local_identity(cls) -> str:
@@ -99,10 +127,7 @@ class IdentityManager:
         audience: str | None = None,
     ) -> str:
         """
-        Generate a signed JWT token using the private RSA key.
-        :param user_id: Identity of the caller (defaults to local user@host).
-        :param roles: List of roles assigned to this identity.
-        :param audience: The intended recipient of this token (e.g., server name).
+        Generate a signed Hybrid token (RSA + PQC).
         """
         now = time.time()
         uid = user_id or cls.get_local_identity()
@@ -110,17 +135,20 @@ class IdentityManager:
             "iss": cls._ISSUER,
             "sub": uid,
             "iat": now,
-            "exp": now + 600,  # Short lived: 10 minutes
+            "exp": now + 600,
             "jti": str(uuid.uuid4()),
             "roles": roles or ["user"],
+            "pqc": True,  # Flag indicating PQC coverage
         }
 
         if audience:
             payload["aud"] = audience
 
-        private_key = cls._get_private_key_content()
-        token = jwt.encode(payload, private_key, algorithm=cls._ALGORITHM)
-        logger.debug(f"Generated identity token for: {uid} (aud: {audience})")
+        rsa_priv = cls._get_private_key_content()
+        pqc_priv = cls._get_pqc_private_key_content()
+
+        token = HybridSigner.create_hybrid_token(payload, rsa_priv, pqc_priv)
+        logger.debug(f"Generated PQC-Hybrid identity token for: {uid}")
         return token
 
     @classmethod
@@ -128,27 +156,26 @@ class IdentityManager:
         cls, token: str, expected_audience: str | None = None
     ) -> dict | None:
         """
-        Verify the validity of an incoming identity token using the public RSA key.
+        Verify the validity of an incoming Hybrid token (RSA + PQC).
         """
         try:
-            public_key = cls._get_public_key_content()
-            # If audience is provided in the token, verify it matches
-            # The audience can be injected into the server via env var
-            target_aud = expected_audience or os.getenv("MCP_SERVER_NAME")
+            rsa_pub = cls._get_public_key_content()
+            pqc_pub = cls._get_pqc_public_key_content()
 
-            payload = jwt.decode(
-                token,
-                public_key,
-                algorithms=[cls._ALGORITHM],
-                issuer=cls._ISSUER,
-                audience=target_aud,
-            )
-            return payload
-        except jwt.ExpiredSignatureError:
-            logger.warning("Authentication failed: Token expired")
-            return None
-        except jwt.InvalidAudienceError as e:
-            logger.warning(f"Authentication failed: Invalid audience - {e}")
+            # Use HybridSigner for verification
+            payload = HybridSigner.verify_hybrid_token(token, rsa_pub, pqc_pub)
+
+            if payload:
+                # Additional audience check (normally handled inside jwt.decode,
+                # but HybridSigner does it too, here we just ensure it matches context)
+                target_aud = expected_audience or os.getenv("MCP_SERVER_NAME")
+                if target_aud and "aud" in payload and payload["aud"] != target_aud:
+                    logger.warning(
+                        f"Audience mismatch: {payload['aud']} != {target_aud}"
+                    )
+                    return None
+                return payload
+
             return None
         except Exception as e:
             logger.warning(f"Authentication failed: {e}")
@@ -168,3 +195,10 @@ class IdentityManager:
     def get_public_key(cls) -> str:
         """Expose the public key for distribution to remote servers."""
         return cls._get_public_key_content().decode("utf-8")
+
+    @classmethod
+    def get_pqc_public_key(cls) -> str:
+        """Expose the PQC public key for distribution to remote servers."""
+        import base64
+
+        return base64.b64encode(cls._get_pqc_public_key_content()).decode("utf-8")

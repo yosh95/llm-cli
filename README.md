@@ -142,6 +142,11 @@ This project introduces a robust security layer designed for enterprise-grade to
 - **Startup Verification**: The system verifies the integrity of its own source code and configuration before execution.
 - **Secure Remote Orchestration**: Optimized for SSH transport. Since we use asymmetric keys, **no private keys are ever transmitted over the network**, even when connecting to remote MCP servers.
 
+#### 5. Post-Quantum Cryptography (PQC) Support
+- **Hybrid Identity Tokens**: Beyond standard RSA, all identity tokens are signed using a **Hybrid Signature** (Classical RS256 + Post-Quantum ML-DSA/Dilithium). This ensures security even against future quantum computers.
+- **Quantum-Resistant Integrity**: The system's integrity manifest is protected with a PQC digital signature, preventing sophisticated attacks targeting the Root of Trust.
+- **SHA-3 Integration**: Uses SHA3-256 for critical PQC-related hashing operations, providing a more robust foundation than traditional SHA-2.
+
 ### 🧠 Intent Analyzer (Dual-LLM Guardrails)
 
 This is a **Context-Aware Dynamic Zero Trust** feature that uses a secondary, lightweight LLM (the "Verifier") to audit the actions of the main agent in real-time.
@@ -568,6 +573,11 @@ AIエージェントは以下のツールを標準で備えています：
 #### 4. ルート・オブ・トラストと整合性 (Integrity)
 - **起動時検証**: 実行前にソースコードや設定ファイルの整合性を自己検証します。
 - **安全なリモート連携**: SSHトランスポートに最適化。非対称鍵を使用するため、リモートMCPサーバー接続時にも**秘密鍵がネットワーク上を流れることはありません**。
+
+#### 5. PQC (耐量子計算機暗号) 対応
+- **ハイブリッド・アイデンティティ・トークン**: 標準のRSAに加え、すべてのアイデンティティトークンに**ハイブリッド署名**（古典的 RS256 + 耐量子 ML-DSA/Dilithium）を付与。将来的な量子計算機の脅威に対しても認証の安全性を確保します。
+- **量子耐性を持つ整合性検証**: システムの整合性マニフェスト自体を PQC デジタル署名で保護し、Root of Trust を標的とした高度な攻撃を防止します。
+- **SHA-3 の採用**: PQC 関連の重要なハッシュ操作に SHA3-256 を採用し、従来の SHA-2 よりも堅牢な基盤を提供します。
 
 ### 🧠 Intent Analyzer (Dual-LLM ガードレール)
 

@@ -18,6 +18,7 @@ dependencies = [
     "rich",
     "tomli-w",
     "PyJWT[crypto]",
+    "cryptography>=46.0.0",
 ]
 
 [project.optional-dependencies]

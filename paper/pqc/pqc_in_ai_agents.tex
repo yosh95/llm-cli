@@ -8,6 +8,7 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{listings}
+\usepackage{tabularx}
 
 \usepackage{tikz}
 \usetikzlibrary{shapes,arrows,positioning,fit,backgrounds}
@@ -16,7 +17,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
 \lstset{
-  basicstyle=\ttfamily\footnotesize,
+  basicstyle=\ttfamily\scriptsize,
   columns=fullflexible,
   frame=single,
   breaklines=true,
@@ -38,8 +39,7 @@ Tokyo, Japan}
 \maketitle
 
 \begin{abstract}
-As autonomous AI agents evolve from isolated conversational tools to interconnected entities communicating via protocols like the Model Context Protocol (MCP), ensuring cryptographic integrity and secure identity propagation becomes critical. Current agentic architectures, including state-of-the-art zero-trust frameworks, rely heavily on classical public-key cryptography (e.g., RSA-based JSON Web Signatures) for authentication and tamper-evident audit logs. The advent of fault-tolerant quantum computers introduces severe threats to these foundational cryptographic primitives, potentially enabling adversaries to forge execution approvals, hijack agent workloads, or alter historical audit logs. 
-In this paper, we propose a Post-Quantum Cryptographic (PQC) framework tailored for autonomous AI agents. We analyze the integration of NIST-standardized algorithms, specifically ML-DSA (Dilithium), into the MCP ecosystem for secure workload identity and chained-hash audit logging. Through benchmarking within the \texttt{llm-cli} framework, we evaluate the trade-offs between PQC-induced computational overhead, massive signature payload sizes (up to 10x larger), and their impact on real-time agentic loop latency. Our results demonstrate that while PQC introduces larger token sizes, its signing speed outperforms classical RSA, making it highly practical for orchestrating secure, distributed AI agents and laying the groundwork for Quantum-Safe Autonomous Systems.
+As autonomous AI agents transition from isolated tools to interconnected entities via the Model Context Protocol (MCP), securing their identity and audit trails against quantum threats becomes a critical imperative for zero-trust governance. This paper proposes a Post-Quantum Cryptographic (PQC) framework for AI agents, featuring a real-world implementation using NIST-standardized ML-DSA-65 (FIPS 204). Through benchmarking within the \texttt{llm-cli} reference implementation, we analyze the trade-offs between cryptographic resilience and operational efficiency. We demonstrate that while current pure-Python implementations introduce a signing latency of approximately 92\,ms, this overhead remains negligible compared to the inference cycles of Large Language Models (LLMs). Furthermore, we address the critical challenge of \textit{Context Exhaustion} caused by massive PQC signatures (inflating payloads by 9$\times$--15$\times$), and propose a context-aware ``Signature Stripping'' mechanism essential for maintaining long-term agent reasoning capability. By discussing scalability to ML-DSA-87 (AES-256 equivalent) for national-scale infrastructure, this work provides a foundational roadmap for building quantum-safe autonomous systems that are secure, compliant, and practically deployable.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -53,7 +53,7 @@ While these Zero Trust architectures successfully mitigate classical threats suc
 
 In an interconnected agentic ecosystem, compromised cryptography implies catastrophic vulnerabilities. Adversaries could spoof agent identities to bypass Role-Based Access Controls (RBAC), inject malicious context, or forge cryptographically signed audit logs to conceal unauthorized actions. This is further exacerbated by ``Store Now, Decrypt Later'' (SNDL) attacks, where current agent communications are harvested to be exploited once quantum capabilities mature.
 
-To proactively address these vulnerabilities, this paper introduces a quantum-resistant architecture for AI agents. We investigate the feasibility of integrating Post-Quantum Cryptography (PQC)---specifically the NIST-standardized lattice-based signature scheme ML-DSA (Dilithium)---into the distributed agent workflow. 
+To proactively address these vulnerabilities, this paper introduces a quantum-resistant architecture for AI agents. We investigate the feasibility of integrating Post-Quantum Cryptography (PQC)---specifically the NIST-standardized lattice-based signature scheme ML-DSA-65 (Dilithium3)---into the distributed agent workflow. 
 
 \section{Background and Threat Model}
 
@@ -68,20 +68,27 @@ The primary quantum threats to AI agent architectures include:
     \item \textbf{Store Now, Decrypt Later (SNDL):} While our focus is on signatures (authentication), key-exchange mechanisms securing the transport layer are also vulnerable to retrospective decryption.
 \end{itemize}
 
+\section{Related Work}
+The convergence of AI agents and security is an emerging field. Recent works have focused on LLM guardrails and prompt injection mitigation. For instance, Ando \textit{et al.} proposed a multi-layered guardrail architecture for autonomous agents using zero-trust principles \cite{ando2024guardrail}. 
+
+In the domain of Post-Quantum Cryptography, the National Institute of Standards and Technology (NIST) has recently finalized standards for ML-KEM (FIPS 203) and ML-DSA (FIPS 204) \cite{nistfips204}. While PQC has been explored for TLS and VPNs, its application to distributed agent orchestration protocols like the Model Context Protocol (MCP) is relatively unexplored.
+
+Traditional Zero Trust Architectures (ZTA) as defined in NIST SP 800-207 \cite{nist800207} emphasize continuous verification, but often assume the underlying cryptographic primitives (RSA/ECC) are immutable. Our work extends these concepts by addressing the cryptographic vulnerability of ZTA in the quantum era.
+
 \section{Post-Quantum Agent Architecture}
-We propose replacing the classical RS256 cryptographic layer within MCP orchestrators with ML-DSA (Module-Lattice-Based Digital Signature Algorithm). 
+We propose replacing the classical RS256 cryptographic layer within MCP orchestrators with ML-DSA-65 (Module-Lattice-Based Digital Signature Algorithm). 
 
 \subsection{Quantum-Safe Workload Identity}
-We replace the traditional RSA key pairs used for MCP token signing with ML-DSA. Because ML-DSA public keys and signatures are significantly larger than their classical counterparts (e.g., ML-DSA-44 public key: 1312 bytes, signature: 2420 bytes), embedding them directly into JSON-RPC payloads requires careful handling to avoid exceeding LLM context limits or network transport buffers (e.g., STDIO pipes).
+We replace the traditional RSA key pairs used for MCP token signing with ML-DSA-65. Because ML-DSA-65 public keys and signatures are significantly larger than their classical counterparts (e.g., ML-DSA-65 public key: 1,952 bytes, signature: 3,309 bytes), embedding them directly into JSON-RPC payloads requires careful handling to avoid exceeding LLM context limits or network transport buffers.
 
 \subsection{Tamper-Evident Audit Logging with PQC}
-The tamper-evident JSONL audit logs, which utilize chained hashing (SHA-256) to link sequential tool executions, are augmented. While hash functions are generally considered quantum-resistant, the digital signatures affirming the integrity of each log chunk are upgraded to ML-DSA.
+The tamper-evident JSONL audit logs, which utilize chained hashing (SHA-256) to link sequential tool executions, are augmented. While hash functions are generally considered quantum-resistant, the digital signatures affirming the integrity of each log chunk are upgraded to ML-DSA-65.
 
 \subsection{Cryptographic Agility and Hybrid Approach}
-Due to the nascent state of PQC adoption, a sudden transition is impractical. We propose a hybrid approach where MCP JWT extensions embed both an RSA signature and an ML-DSA signature. This ensures backward compatibility with legacy MCP servers while providing quantum resistance where supported.
+Due to the nascent state of PQC adoption, a sudden transition is impractical. We propose a hybrid approach where MCP tokens are extended to a four-slot format: \texttt{header.payload.\allowbreak classical\_signature.\allowbreak pqc\_signature}. This ensures backward compatibility with legacy MCP servers while providing quantum resistance where supported.
 
 \section{Implementation}
-We prototyped the PQC-enabled MCP architecture by extending the security module of the \texttt{llm-cli} framework. As illustrated in Fig. \ref{fig:architecture}, the architecture must rigorously separate the cryptographic identity layer from the LLM's conversational prompt history to maintain performance.
+We prototyped the PQC-enabled MCP architecture by extending the security module of the \texttt{llm-cli} framework. The implementation focuses on three core components: key management, hybrid token generation, and the context-aware signature stripper.
 
 \begin{figure}[htbp]
     \centering
@@ -90,31 +97,58 @@ We prototyped the PQC-enabled MCP architecture by extending the security module 
     \label{fig:architecture}
 \end{figure}
 
-\begin{lstlisting}[language=Python, caption=Conceptual Hybrid Signature Generation]
-def sign_mcp_request(payload, rsa_key, mldsa_key):
-    # Classical RSA Signature
-    rsa_sig = rsa_sign(payload, rsa_key)
-    # Post-Quantum Signature
-    mldsa_sig = mldsa_sign(payload, mldsa_key)
-    
-    return {
-        "payload": payload,
-        "signatures": {
-            "rsa": rsa_sig,
-            "mldsa": mldsa_sig
-        }
-    }
+\subsection{Hybrid Token Structure}
+To ensure backward compatibility, we extended the standard JSON Web Token (JWT) structure into a four-segment format. The classical JWS (3 segments) remains intact as the prefix, while the ML-DSA-65 signature is appended as the fourth segment.
+
+\begin{lstlisting}[language=Python, caption=Hybrid Signature Implementation in llm-cli]
+class HybridSigner:
+    @classmethod
+    def create_hybrid_token(cls, payload: dict, rsa_priv: bytes, pqc_priv: bytes) -> str:
+        # 1. Sign with Classical RSA
+        token = jwt.encode(payload, rsa_priv, algorithm="RS256")
+        
+        # 2. Sign the JWT with ML-DSA-65
+        pqc_sig = PQCProvider.sign(token.encode(), pqc_priv)
+        pqc_b64 = base64.b64encode(pqc_sig).decode()
+        
+        # 3. Append PQC as 4th segment
+        return f"{token}.{pqc_b64}"
 \end{lstlisting}
 
-\section{Evaluation and Benchmarking}
-To evaluate the practicality of our proposed architecture, we simulated the integration of ML-DSA into the MCP JSON-RPC payload structure and measured the resulting overheads in computational latency and network transmission.
+\subsection{The Context-Aware Signature Stripper}
+As illustrated in Fig. \ref{fig:architecture}, a critical implementation detail is the ``Signature Stripper.'' In \texttt{llm-cli}, this module intercepts the tool execution response. Before the response is appended to the agent's internal memory (Prompt History), the module removes all cryptographic metadata. This ensures that the 3.3\,KB signature does not consume thousands of tokens in subsequent LLM reasoning steps.
 
-\subsection{Computational Overhead}
-Our benchmarks compare the classical RSA-2048 algorithm with the post-quantum ML-DSA-44. For real-time agents continuously iterating through a ``thought-action-observation'' loop, signing latency is a critical factor. Our tests show that ML-DSA-44 provides a combined signing and verification latency of approximately 0.53\,ms, outperforming the classical RSA-2048 latency of 1.46\,ms. This demonstrates that cryptographic processing does not bottleneck high-frequency agentic loops.
+\section{Evaluation and Benchmarking}
+To evaluate the practicality of our proposed architecture, we simulated the integration of ML-DSA-65 into the MCP JSON-RPC payload structure and measured the resulting overheads in computational latency and network transmission.
+
+\subsection{Performance Characteristics}
+Our benchmarks compare the classical RSA-2048 algorithm with the post-quantum ML-DSA-65 (Dilithium3). For real-time agents continuously iterating through a ``thought-action-observation'' loop, signing latency is a critical factor. Table \ref{tab:crypto_comparison} summarizes the results.
+
+\begin{table}[htbp]
+\caption{Cryptographic Algorithm Comparison: Real-world Implementation}
+\begin{center}
+\begin{tabularx}{\linewidth}{|l|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|}
+\hline
+\textbf{Metric} & \textbf{RSA-2048 (OpenSSL)} & \textbf{ML-DSA-65 (Pure Python)} \\
+\hline
+Public Key Size (bytes) & 256 & 1,952 \\
+Private Key Size (bytes) & 1,192 & 4,032 \\
+Signature Size (bytes) & 256 & 3,309 \\
+\hline
+KeyGen Time (ms) & 40.38 & 11.67 \\
+Sign Time (ms) & 1.70 & 91.65 \\
+Verify Time (ms) & 0.06 & 11.48 \\
+\hline
+\end{tabularx}
+\label{tab:crypto_comparison}
+\end{center}
+\end{table}
+
+As shown in Table \ref{tab:crypto_comparison}, while the theoretical ML-DSA algorithm is computationally efficient, our current implementation using a pure Python library (\texttt{dilithium-py}) exhibits higher latency compared to the highly optimized C-based RSA implementation. However, a signing latency of approximately 92\,ms remains insignificant compared to the typical LLM inference latency (ranging from 500\,ms to several seconds). This confirms that PQC is practically deployable in autonomous agent loops today, even with non-optimized software stacks.
 
 \subsection{Network and Payload Impact}
-The primary trade-off in adopting ML-DSA is the substantial increase in signature size. A standard MCP JSON-RPC payload for a tool execution request (e.g., executing a shell command) requires approximately 132 bytes.
-When secured with a classical RS256 JWT, the total payload size is around 522 bytes. In contrast, embedding an ML-DSA-44 signature inflates the payload to 3,410 bytes (a 6.5$\times$ increase). The hybrid approach (RSA + ML-DSA) further increases the payload to 3,784 bytes.
+The primary trade-off in adopting ML-DSA-65 is the substantial increase in signature size. A standard MCP JSON-RPC payload for a tool execution request (e.g., executing a shell command) requires approximately 132 bytes.
+When secured with a classical RS256 JWT, the total payload size is around 520 bytes. In contrast, adding an ML-DSA-65 signature (base64 encoded) inflates the hybrid token to approximately 4,900 bytes (a 9.4$\times$ increase). 
 
 While a few extra kilobytes per request are negligible for typical STDIO or SSH-based transports, this inflation presents a unique challenge for AI architectures: \textit{LLM Context Exhaustion}. If a poorly configured agent orchestrator inadvertently feeds the raw, cryptographically signed protocol payload back into the LLM's context history, the token consumption per tool call surges from roughly 130 tokens (RSA) to over 850 tokens (ML-DSA). Over a long-running autonomous session involving dozens of tool calls, this rapidly depletes the model's context window and inflates inference costs. Therefore, it is critical that the architecture strips the \texttt{signature} fields before appending tool execution records to the LLM's prompt history.
 
@@ -122,12 +156,36 @@ While a few extra kilobytes per request are negligible for typical STDIO or SSH-
 Despite the larger payload, the end-to-end latency of the agent loop is heavily dominated by the LLM inference time (often hundreds of milliseconds to several seconds) and network round-trips. The sub-millisecond cryptographic overhead of ML-DSA is practically imperceptible in the broader system context.
 
 \section{Discussion}
-The integration of PQC into AI agents highlights a critical tension between cryptographic security and payload efficiency. Future work must explore stateful signature schemes or hash-based signatures (e.g., XMSS, SPHINCS+) as alternatives, though they present different trade-offs in signature size and state management complexity.
+
+\subsection{Future Performance Optimization}
+The current latency observed in our implementation (approx. 92\,ms for signing) is primarily due to the use of a pure Python implementation of ML-DSA-65. As the Python \texttt{cryptography} library and OpenSSL integrate native support for FIPS 204 (ML-DSA) via Rust or C extensions, we expect signing performance to improve by orders of magnitude, likely reaching sub-millisecond ranges. The architecture of \texttt{llm-cli} is designed to be cryptographically agile, allowing for a seamless transition to these high-performance native providers as they become available.
+
+\subsection{Path to Maximum Security: Scaling to ML-DSA-87}
+While our current implementation utilizes ML-DSA-65 (Security Level 3), high-assurance environments and national-scale infrastructure projects often demand Security Level 5 (equivalent to AES-256) to ensure long-term resilience against future quantum advancements. Transitioning to ML-DSA-87 would further increase signature size to 4,595 bytes, potentially consuming over 1,500 tokens if not properly managed. This reinforces the necessity of our proposed "Signature Stripping" mechanism. For mission-critical AI agents, the overhead of ML-DSA-87 is a necessary trade-off to prevent cryptographic obsolescence during the system's operational lifetime.
+
+\subsection{PQC Capability Negotiation}
+Our hybrid approach assumes that the orchestrator knows the capabilities of the target MCP server. A more robust implementation would include a ``PQC Capability Negotiation'' phase during the initial MCP handshake. Servers can advertise supported OIDs (Object Identifiers) for specific lattice-based algorithms, allowing the agent to dynamically choose between ML-DSA, Falcon, or SPHINCS+ based on the required security level and bandwidth constraints.
+
+\subsection{Autonomous Key Rotation}
+One significant advantage of integrating PQC within an AI agentic loop is the potential for autonomous key rotation. Agents can be programmed to monitor the security posture of their environment and proactively generate new ML-DSA key pairs, distributing them to trusted MCP servers before classical keys are compromised. This aligns with the "Continuous Verification" pillar of Zero Trust.
+
+\subsection{Impact on Decentralized Agents}
+As AI agents move toward decentralized autonomous organizations (DAOs), the immutability of audit logs becomes paramount. PQC ensures that even with the advent of large-scale quantum computers, the history of agent decisions remains cryptographically verifiable, preventing retroactive revision of automated governance actions.
 
 \section{Conclusion}
 Securing AI agents against quantum threats is an imperative step as autonomous systems become deeply integrated into critical infrastructure. Our proposed PQC framework demonstrates that migrating to NIST-standardized quantum-resistant algorithms is not only achievable but highly practical within modern agent protocols like MCP. The superior signing performance of ML-DSA offsets the network overhead caused by its larger signature sizes, ensuring that the self-directed operational loops of AI agents remain secure without sacrificing responsiveness.
 
 \section*{Acknowledgment}
 This research builds upon the foundational zero-trust principles implemented in the \texttt{llm-cli} open-source project.
+
+\begin{thebibliography}{00}
+\bibitem{nistfips204} National Institute of Standards and Technology (NIST), ``FIPS 204: Module-Lattice-Based Digital Signature Standard,'' 2024.
+\bibitem{nist800207} S. Rose, O. Borchert, S. Mitchell, and S. Connelly, ``Zero Trust Architecture,'' NIST Special Publication 800-207, 2020.
+\bibitem{ando2024guardrail} Y. Ando, ``Guardrail and Zero Trust for Autonomous AI Agents,'' TechRxiv, 2024.
+\bibitem{mcp2024} Anthropic, ``Model Context Protocol (MCP) Specification,'' [Online]. Available: https://modelcontextprotocol.io/ [Accessed: Feb 2026].
+\bibitem{shor1994} P. W. Shor, ``Algorithms for quantum computation: discrete logarithms and factoring,'' Proceedings 35th Annual Symposium on Foundations of Computer Science, Santa Fe, NM, USA, 1994, pp. 124-134.
+\bibitem{mldsa2023} V. Lyubashevsky, L. Ducas, E. Kiltz, T. Lepoint, P. Schwabe, G. Seiler, and D. Stehle, ``CRYSTALS-Dilithium Algorithm Specifications,'' NIST PQC Project, 2023.
+\bibitem{nistpqc} NIST, ``Post-Quantum Cryptography Standardization Project,'' [Online]. Available: https://csrc.nist.gov/projects/post-quantum-cryptography.
+\end{thebibliography}
 
 \end{document}

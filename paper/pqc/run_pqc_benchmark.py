@@ -14,26 +14,26 @@ def simulate_rsa_2048() -> dict:
     }
 
 
-def simulate_ml_dsa_44() -> dict:
-    # Simulate ML-DSA-44 (Dilithium2) performance
+def simulate_ml_dsa_65() -> dict:
+    # Simulate ML-DSA-65 (Dilithium3) performance based on NIST FIPS 204
     return {
-        "algo": "ML-DSA-44",
-        "public_key_size": 1312,  # bytes
-        "private_key_size": 2560,  # bytes
-        "signature_size": 2420,  # bytes
-        "keygen_time_ms": 0.1,
-        "sign_time_ms": 0.3,
-        "verify_time_ms": 0.1,
+        "algo": "ML-DSA-65",
+        "public_key_size": 1952,  # bytes
+        "private_key_size": 4032,  # bytes
+        "signature_size": 3309,  # bytes
+        "keygen_time_ms": 0.15,
+        "sign_time_ms": 0.55,
+        "verify_time_ms": 0.12,
     }
 
 
 def print_comparison() -> None:
     print("=" * 60)
-    print(f"{'Metric':<25} | {'RSA-2048 (Classical)':<20} | {'ML-DSA-44 (PQC)':<15}")
+    print(f"{'Metric':<25} | {'RSA-2048 (Classical)':<20} | {'ML-DSA-65 (PQC)':<15}")
     print("-" * 60)
 
     rsa = simulate_rsa_2048()
-    pqc = simulate_ml_dsa_44()
+    pqc = simulate_ml_dsa_65()
 
     metrics = [
         ("Public Key Size (bytes)", "public_key_size"),

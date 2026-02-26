@@ -1,48 +1,48 @@
 \begin{tikzpicture}[
-    node distance=1.5cm and 2cm,
+    node distance=1.2cm and 1.2cm,
     auto,
-    block/.style={rectangle, draw, fill=blue!10, text width=6em, text centered, rounded corners, minimum height=3em},
-    server/.style={rectangle, draw, fill=green!10, text width=6em, text centered, rounded corners, minimum height=3em},
-    data/.style={rectangle, draw, fill=yellow!10, text width=7em, text centered, minimum height=2em},
-    action/.style={rectangle, draw, fill=red!10, text width=6em, text centered, rounded corners, minimum height=2em},
-    line/.style={draw, -latex'}
+    block/.style={rectangle, draw, fill=blue!10, text width=6.5em, text centered, rounded corners, minimum height=3em},
+    server/.style={rectangle, draw, fill=green!10, text width=6.5em, text centered, rounded corners, minimum height=3em},
+    data/.style={rectangle, draw, fill=yellow!10, text width=7.5em, text centered, minimum height=2.5em},
+    action/.style={rectangle, draw, fill=red!10, text width=6.5em, text centered, rounded corners, minimum height=2.5em},
+    line/.style={draw, -latex', thick}
 ]
 
-    % Nodes
+    % --- Column 0: Orchestrator side ---
     \node [block] (llm) {LLM Orchestrator};
     \node [block, below=of llm] (agent) {Agent Logic / Prompt History};
+    \node [data, below=of agent, yshift=-2.2cm] (clean_result) {Clean Result \\ (100 Bytes)};
     
-    \node [data, right=of agent, yshift=1cm] (payload) {JSON-RPC Payload \\ (e.g., execute\_tool)};
-    \node [action, below=of payload, yshift=0.5cm] (signer) {Hybrid PQC Signer \\ (RSA + ML-DSA)};
-    \node [data, below=of signer, yshift=0.5cm] (signed_payload) {Signed Payload \\ (3.5\,KB+)};
+    % --- Column 1: Outgoing (Moving Down-Right) ---
+    \node [data, right=of agent] (payload) {JSON-RPC Payload \\ (execute\_tool)};
+    \node [action, below=of payload] (signer) {Hybrid PQC Signer \\ (RSA + ML-DSA)};
+    \node [data, below=of signer] (signed_payload) {Signed Payload \\ (3.5\,KB+)};
     
+    % --- Column 2: Execution ---
     \node [server, right=of signed_payload] (mcp_server) {Remote MCP Server};
     \node [action, right=of mcp_server] (verifier) {PQC Verifier \& Policy Engine};
     
+    % --- Column 3: Return (Moving Up-Left) ---
     \node [data, above=of verifier] (tool_result) {Tool Execution Result};
     \node [action, above=of mcp_server] (stripper) {Signature Stripper \\ (Context Manager)};
-    \node [data, left=of stripper] (clean_result) {Clean Result \\ (100 Bytes)};
 
     % Paths
     \path [line] (llm) -- (agent);
-    \path [line] (agent) -| (payload);
+    \path [line] (agent) -- (payload);
     \path [line] (payload) -- (signer);
     \path [line] (signer) -- (signed_payload);
     \path [line] (signed_payload) -- (mcp_server);
     \path [line] (mcp_server) -- (verifier);
-    \path [line] (verifier) |- (tool_result);
+    \path [line] (verifier) -- (tool_result);
     \path [line] (tool_result) -- (stripper);
-    \path [line] (stripper) -- (clean_result);
-    \path [line] (clean_result) -| (agent);
+    \path [line] (stripper) -| (clean_result);
+    \path [line] (clean_result) -- (agent);
     
-    % Grouping box for MCP Server
-    \draw [dashed, thick, gray] 
-        ([xshift=-0.5cm, yshift=0.5cm] mcp_server.north west) 
-        rectangle 
-        ([xshift=0.5cm, yshift=-0.5cm] verifier.south east)
-        node[pos=0.5, yshift=-1.5cm] {Zero-Trust Execution Environment};
+    % Grouping box
+    \node [draw, dashed, thick, gray, fit=(signer) (signed_payload) (mcp_server) (verifier) (tool_result) (stripper), inner sep=0.4cm, label=below:Zero-Trust Execution Environment] (zt_env) {};
 
-    % Highlighting the critical problem/solution
-    \node[text width=4cm, align=left, color=red!70!black] at (stripper.north) [yshift=0.8cm] {\textbf{Crucial Step:}\\ Prevent massive ML-DSA signatures from entering the LLM Context.};
+    % Highlighting
+    \node[text width=4.5cm, align=center, color=red!70!black, font=\footnotesize\bfseries] at (stripper.north) [yshift=0.8cm] {Crucial Step:\\ Prevent massive PQC signatures from entering LLM Context.};
 
 \end{tikzpicture}
+

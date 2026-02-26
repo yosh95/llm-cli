@@ -41,6 +41,7 @@ mamba = [
 
 [project.scripts]
 llm-cli-config = "llm_cli.apps.configure:main"
+llm-cli-security = "llm_cli.apps.identity_tool:main"
 llm = "llm_cli.apps.unified:main"
 gemini-models= "llm_cli.apps.gemini_models:main"
 openai-models = "llm_cli.apps.openai_models:main"

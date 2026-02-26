@@ -283,7 +283,14 @@ def configure_mcp(config: dict[str, Any]) -> None:
                 complete_style=CompleteStyle.READLINE_LIKE,
             ).strip()
             args = shlex.split(args_str)
-            mcp_servers.append({"name": name, "command": cmd, "args": args})
+
+            zt_enabled = prompt_bool("Enable Zero Trust (PQC Auth)?", False)
+
+            server_entry: dict[str, Any] = {"name": name, "command": cmd, "args": args}
+            if zt_enabled:
+                server_entry["zero_trust"] = True
+
+            mcp_servers.append(server_entry)
         elif choice == "r" and mcp_servers:
             try:
                 idx_str = prompt(

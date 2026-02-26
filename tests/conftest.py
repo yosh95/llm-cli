@@ -1,11 +1,15 @@
 """Shared test fixtures and configuration for pytest."""
 
 import base64
+import os
 from unittest.mock import Mock
 
 import pytest
 
 import llm_cli.clients.config
+
+# Disable strict mode during tests to allow dynamic key/manifest generation
+os.environ["LLM_CLI_STRICT_SECURITY"] = "0"
 
 # Inject dummy configuration to allow module-level checks in tools/web.py to pass
 # during test collection.

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -66,7 +67,10 @@ class IntegrityVerifier:
 
             self.MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-            manifest_data = json.dumps(manifest, indent=2, sort_keys=True)
+            # Create a canonical representation of the manifest for signing
+            manifest_data = json.dumps(
+                manifest, indent=None, sort_keys=True, separators=(",", ":")
+            )
 
             # Sign the manifest with PQC key
             pqc_priv = IdentityManager._get_pqc_private_key_content()
@@ -144,8 +148,12 @@ class IntegrityVerifier:
                         from llm_cli.security.identity import IdentityManager
                         from llm_cli.security.pqc import PQCProvider
 
+                        # Recreate canonical data for verification
                         manifest_data = json.dumps(
-                            trusted_manifest, indent=2, sort_keys=True
+                            trusted_manifest,
+                            indent=None,
+                            sort_keys=True,
+                            separators=(",", ":"),
                         )
                         pqc_pub = IdentityManager._get_pqc_public_key_content()
                         signature = base64.b64decode(pqc_sig_b64)
@@ -189,6 +197,15 @@ class IntegrityVerifier:
 
         # If no manifest exists, establish trust (TOFU)
         if trusted_manifest is None:
+            # Default to strict mode (1) unless explicitly disabled (0)
+            if os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1":
+                logger.critical(
+                    "🚨 STRICT MODE: Integrity manifest missing. "
+                    "In strict mode, TOFU is disabled. "
+                    "Please generate it using 'llm-cli-security manifest'."
+                )
+                return False
+
             logger.warning(
                 "⚠️  No integrity manifest found. Establishing trust baseline (TOFU)..."
             )

@@ -26,7 +26,7 @@ class PQCProvider:
 
     @classmethod
     def sign(cls, message: bytes, private_key_bytes: bytes) -> bytes:
-        return ML_DSA_65.sign(private_key_bytes, message)  # type: ignore[no-any-return]
+        return ML_DSA_65.sign(private_key_bytes, message, deterministic=True)  # type: ignore[no-any-return]
 
     @classmethod
     def verify(cls, message: bytes, signature: bytes, public_key_bytes: bytes) -> bool:

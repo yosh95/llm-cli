@@ -31,12 +31,25 @@ class IdentityManager:
 
     @classmethod
     def _ensure_keys(cls) -> None:
-        """Ensure RSA and PQC keys exist, generate them if not."""
+        """Ensure RSA and PQC keys exist, generate them if not (unless strict mode)."""
+        # Default to strict mode (1) unless explicitly disabled (0)
+        strict_mode = os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1"
+
         if not cls._KEY_DIR.exists():
+            if strict_mode:
+                raise FileNotFoundError(
+                    f"Strict Mode: Key directory {cls._KEY_DIR} not found. "
+                    "Keys must be pre-provisioned."
+                )
             cls._KEY_DIR.mkdir(parents=True, exist_ok=True)
 
         # Classical RSA Keys
         if not cls._PRIVATE_KEY_PATH.exists():
+            if strict_mode:
+                raise FileNotFoundError(
+                    f"Strict Mode: RSA key missing at {cls._PRIVATE_KEY_PATH}. "
+                    "Keys must be pre-provisioned."
+                )
             logger.info(f"Generating new RSA key pair in {cls._KEY_DIR}...")
             private_key = rsa.generate_private_key(
                 public_exponent=65537, key_size=2048, backend=default_backend()
@@ -62,6 +75,11 @@ class IdentityManager:
 
         # Post-Quantum Keys (ML-DSA)
         if not cls._PQC_PRIVATE_KEY_PATH.exists():
+            if strict_mode:
+                raise FileNotFoundError(
+                    f"Strict Mode: PQC key missing at {cls._PQC_PRIVATE_KEY_PATH}. "
+                    "Keys must be pre-provisioned."
+                )
             logger.info("Generating new Post-Quantum (PQC) key pair...")
             pub_pqc, priv_pqc = PQCProvider.generate_keypair()
             with cls._PQC_PRIVATE_KEY_PATH.open("wb") as f:

@@ -69,84 +69,87 @@ class MCPManager:
             name = config.get("name")
             command = config.get("command")
             args = config.get("args", [])
-            env = config.get("env")
+            env = config.get("env") or {}
 
             if not name or not command or name in self.sessions:
                 continue
 
-            # Identity Propagation: Inject Auth Token into environment
-            env = env or {}
-            # Use server name as audience to prevent token reuse
-            # Identity Propagation: Inject Auth Token into environment
-            # NOTE: Do NOT default to admin. Use least-privilege roles from config.
-            requested_roles = config.get("roles") or env.get("MCP_ROLES")
+            # Identity Propagation: Inject Auth Token only if zero_trust is enabled
+            is_zero_trust = config.get("zero_trust", False)
 
-            roles: list[str] = []
-            if isinstance(requested_roles, str):
-                roles = [r.strip() for r in requested_roles.split(",") if r.strip()]
-            elif isinstance(requested_roles, list):
-                roles = [str(r).strip() for r in requested_roles if str(r).strip()]
+            if is_zero_trust:
+                # Use server name as audience to prevent token reuse
+                # Identity Propagation: Inject Auth Token into environment
+                # NOTE: Do NOT default to admin. Use least-privilege roles from config.
+                requested_roles = config.get("roles") or env.get("MCP_ROLES")
 
-            if not roles:
-                roles = ["guest"]
+                roles: list[str] = []
+                if isinstance(requested_roles, str):
+                    roles = [r.strip() for r in requested_roles.split(",") if r.strip()]
+                elif isinstance(requested_roles, list):
+                    roles = [str(r).strip() for r in requested_roles if str(r).strip()]
 
-            env["MCP_AUTH_TOKEN"] = IdentityManager.generate_token(
-                roles=roles,
-                audience=name,
-            )
-            env["MCP_SERVER_NAME"] = name
-            env["LLM_CLI_PUBLIC_KEY"] = IdentityManager.get_public_key()
-            env["LLM_CLI_PQC_PUBLIC_KEY"] = IdentityManager.get_pqc_public_key()
+                if not roles:
+                    roles = ["guest"]
 
-            # If command is ssh, inject token into the remote command args
-            if command == "ssh" or command.endswith("/ssh"):
-                token = env["MCP_AUTH_TOKEN"]
-                server_name_env = f"MCP_SERVER_NAME={name}"
-                public_key = env["LLM_CLI_PUBLIC_KEY"]
-                pqc_public_key = env["LLM_CLI_PQC_PUBLIC_KEY"]
-                # Inject Token, Public Key, PQC Public Key and Server Name
-                env_str = (
-                    f"MCP_AUTH_TOKEN={token} "
-                    f"LLM_CLI_PUBLIC_KEY='{public_key}' "
-                    f"LLM_CLI_PQC_PUBLIC_KEY='{pqc_public_key}' "
-                    f"{server_name_env}"
+                env["MCP_AUTH_TOKEN"] = IdentityManager.generate_token(
+                    roles=roles,
+                    audience=name,
                 )
+                env["MCP_SERVER_NAME"] = name
+                env["LLM_CLI_PUBLIC_KEY"] = IdentityManager.get_public_key()
+                env["LLM_CLI_PQC_PUBLIC_KEY"] = IdentityManager.get_pqc_public_key()
 
-                # Strategy 1: Find python command and insert ENV before it
-                inserted = False
-                for i, arg in enumerate(args):
-                    if (
-                        arg == "python"
-                        or arg == "python3"
-                        or arg.endswith("/python")
-                        or arg.endswith("/python3")
-                    ):
-                        # Check if already injected
-                        if i > 0 and args[i - 1].startswith("MCP_AUTH_TOKEN="):
+                # If command is ssh, inject token into the remote command args
+                if command == "ssh" or command.endswith("/ssh"):
+                    token = env["MCP_AUTH_TOKEN"]
+                    server_name_env = f"MCP_SERVER_NAME={name}"
+                    public_key = env["LLM_CLI_PUBLIC_KEY"]
+                    pqc_public_key = env["LLM_CLI_PQC_PUBLIC_KEY"]
+                    # Inject Token, Public Key, PQC Public Key and Server Name
+                    env_str = (
+                        f"MCP_AUTH_TOKEN={token} "
+                        f"LLM_CLI_PUBLIC_KEY='{public_key}' "
+                        f"LLM_CLI_PQC_PUBLIC_KEY='{pqc_public_key}' "
+                        f"{server_name_env}"
+                    )
+
+                    # Strategy 1: Find python command and insert ENV before it
+                    inserted = False
+                    for i, arg in enumerate(args):
+                        if (
+                            arg == "python"
+                            or arg == "python3"
+                            or arg.endswith("/python")
+                            or arg.endswith("/python3")
+                        ):
+                            # Check if already injected
+                            if i > 0 and args[i - 1].startswith("MCP_AUTH_TOKEN="):
+                                inserted = True
+                                break
+                            args.insert(i, env_str)
                             inserted = True
                             break
-                        args.insert(i, env_str)
-                        inserted = True
-                        break
 
-                # Strategy 2: If python not found, insert after the first non-option
-                # argument (destination)
-                if not inserted:
-                    for i, arg in enumerate(args):
-                        if not arg.startswith("-"):
-                            # Found destination, insert after it if there are more args
-                            if i + 1 < len(args):
-                                if not args[i + 1].startswith("MCP_AUTH_TOKEN="):
-                                    args.insert(i + 1, env_str)
-                                inserted = True
-                            break
+                    # Strategy 2: If python not found, insert after first non-option arg
+                    if not inserted:
+                        for i, arg in enumerate(args):
+                            if not arg.startswith("-"):
+                                # Found destination, insert after it if more args
+                                if i + 1 < len(args):
+                                    if not args[i + 1].startswith("MCP_AUTH_TOKEN="):
+                                        args.insert(i + 1, env_str)
+                                    inserted = True
+                                break
 
-                # Strategy 3: If still not inserted (e.g. single string command at end),
-                # try to prepend to last arg
-                if not inserted and args:
-                    last_arg = args[-1]
-                    if "MCP_AUTH_TOKEN=" not in last_arg:
-                        args[-1] = f"{env_str} {last_arg}"
+                    # Strategy 3: If still not inserted, try to prepend to last arg
+                    if not inserted and args:
+                        last_arg = args[-1]
+                        if "MCP_AUTH_TOKEN=" not in last_arg:
+                            args[-1] = f"{env_str} {last_arg}"
+            else:
+                # Regular MCP server - just pass configured env if any
+                pass
 
             # Static status message instead of spinner
             console.print(

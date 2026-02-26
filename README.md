@@ -138,14 +138,22 @@ This project introduces a robust security layer designed for enterprise-grade to
 - **Chained Hashing**: Each log entry contains a cryptographic hash of the previous entry. Any deletion or modification of historical logs breaks the chain and is detected at startup.
 - **Traceability**: Implements distributed tracing by propagating `trace_id` through JSON-RPC metadata, allowing you to link an LLM's thought process directly to a specific tool execution.
 
-#### 4. Root of Trust & Integrity
+#### 4. Root of Trust & Integrity (Strict Mode by Default)
+- **Pre-established Trust**: Unlike TOFU (Trust On First Use), this system defaults to a strict mode where you must explicitly generate and sign your integrity anchor.
 - **Startup Verification**: The system verifies the integrity of its own source code and configuration before execution.
 - **Secure Remote Orchestration**: Optimized for SSH transport. Since we use asymmetric keys, **no private keys are ever transmitted over the network**, even when connecting to remote MCP servers.
 
+**To use strict mode (recommended):**
+1. **Generate Identity Keys**: `llm-cli-security keygen`
+2. **Sign Manifest**: `llm-cli-security manifest`
+3. **Provisioning**: For remote MCP, copy `~/.llm_cli/keys/id_pqc.pub` and `~/.llm_cli/integrity_manifest.json` to the target server.
+4. **Configuration**: Set `zero_trust = true` in your server config in `config.toml`.
+
 #### 5. Post-Quantum Cryptography (PQC) Support
-- **Hybrid Identity Tokens**: Beyond standard RSA, all identity tokens are signed using a **Hybrid Signature** (Classical RS256 + Post-Quantum ML-DSA/Dilithium). This ensures security even against future quantum computers.
-- **Quantum-Resistant Integrity**: The system's integrity manifest is protected with a PQC digital signature, preventing sophisticated attacks targeting the Root of Trust.
-- **SHA-3 Integration**: Uses SHA3-256 for critical PQC-related hashing operations, providing a more robust foundation than traditional SHA-2.
+- **Hybrid Identity Tokens**: Beyond standard RSA, all identity tokens are signed using a **Hybrid Signature** (Classical RS256 + Post-Quantum ML-DSA-65). This ensures security even against future quantum computers.
+- **Deterministic Signing**: Uses RFC 6979-like deterministic signing for PQC to ensure consistency across environments.
+- **Quantum-Resistant Integrity**: The system's integrity manifest is protected with a PQC digital signature.
+- **SHA-3 Integration**: Uses SHA3-256 for critical PQC-related hashing operations.
 
 ### 🧠 Intent Analyzer (Dual-LLM Guardrails)
 
@@ -570,14 +578,22 @@ AIエージェントは以下のツールを標準で備えています：
 - **ハッシュ連鎖 (Chained Hashing)**: 各ログエントリは一つ前のエントリの暗号ハッシュを含みます。過去のログが削除または変更されるとハッシュ連鎖が壊れ、起動時に検知されます。
 - **追跡可能性**: JSON-RPCメタデータを介して `trace_id` を伝搬させることで、LLMの思考プロセスと実際のツール実行を直接紐付ける分散トレーサビリティを実現します。
 
-#### 4. ルート・オブ・トラストと整合性 (Integrity)
+#### 4. ルート・オブ・トラストと整合性 (デフォルトで厳格モード)
+- **事前配布モデル**: 多くのシステムが採用する TOFU (Trust On First Use) ではなく、信頼の基点を事前に構築するモデルを採用。デフォルトで `LLM_CLI_STRICT_SECURITY=1` が有効です。
 - **起動時検証**: 実行前にソースコードや設定ファイルの整合性を自己検証します。
 - **安全なリモート連携**: SSHトランスポートに最適化。非対称鍵を使用するため、リモートMCPサーバー接続時にも**秘密鍵がネットワーク上を流れることはありません**。
 
+**厳格モードの利用手順:**
+1. **アイデンティティ鍵の生成**: `llm-cli-security keygen`
+2. **マニフェストの署名**: `llm-cli-security manifest`
+3. **プロビジョニング**: リモート管理時は、生成された `~/.llm_cli/keys/id_pqc.pub` と `~/.llm_cli/integrity_manifest.json` を対象サーバーに配置してください。
+4. **設定**: `config.toml` のサーバー設定で `zero_trust = true` を指定します。
+
 #### 5. PQC (耐量子計算機暗号) 対応
-- **ハイブリッド・アイデンティティ・トークン**: 標準のRSAに加え、すべてのアイデンティティトークンに**ハイブリッド署名**（古典的 RS256 + 耐量子 ML-DSA/Dilithium）を付与。将来的な量子計算機の脅威に対しても認証の安全性を確保します。
+- **ハイブリッド・アイデンティティ・トークン**: 標準のRSAに加え、すべてのアイデンティティトークンに**ハイブリッド署名**（古典的 RS256 + 耐量子 ML-DSA-65）を付与。将来的な量子計算機の脅威に対しても認証の安全性を確保します。
+- **決定論的署名の採用**: 署名の再現性を確保するため、決定論的署名スキームを使用します。
 - **量子耐性を持つ整合性検証**: システムの整合性マニフェスト自体を PQC デジタル署名で保護し、Root of Trust を標的とした高度な攻撃を防止します。
-- **SHA-3 の採用**: PQC 関連の重要なハッシュ操作に SHA3-256 を採用し、従来の SHA-2 よりも堅牢な基盤を提供します。
+- **SHA-3 の採用**: PQC 関連の重要なハッシュ操作に SHA3-256 を採用します。
 
 ### 🧠 Intent Analyzer (Dual-LLM ガードレール)
 

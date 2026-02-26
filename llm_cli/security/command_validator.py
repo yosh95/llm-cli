@@ -65,14 +65,6 @@ class CommandValidator:
         "yq",
     }
 
-    DANGEROUS_PATTERNS = [
-        r";",
-        r"`",
-        r"\$\(",
-        r"\$\{",
-        r"\n",
-    ]
-
     CHAINING_OPERATORS = {"&&", "||", "|"}
 
     def __init__(
@@ -86,13 +78,21 @@ class CommandValidator:
             self.whitelist.update(custom_whitelist)
 
         self.allow_dangerous_patterns = allow_dangerous_patterns
+        self.chaining_operators = self.CHAINING_OPERATORS.copy()
+        if self.allow_dangerous_patterns:
+            self.chaining_operators.add(";")
+
+        # Load security config once
+        config = _load_config_from_file()
+        self.security_config = config.get("security", {})
 
     def validate(self, command: str) -> None:
         if not command or not command.strip():
             raise CommandValidationError("Empty command not allowed")
 
-        # 1. Pre-parsing checks for Python one-liners to provide better feedback
-        self._check_python_oneliner_pre_parse(command)
+        # 1. Pre-parsing checks for Python one-liners
+        if not self.allow_dangerous_patterns:
+            self._check_python_oneliner_pre_parse(command)
 
         # 2. Dangerous pattern check
         if not self.allow_dangerous_patterns:
@@ -109,14 +109,16 @@ class CommandValidator:
 
         current_segment: list[str] = []
         for token in tokens:
-            if token in self.CHAINING_OPERATORS:
+            if token in self.chaining_operators:
                 if current_segment:
                     self._validate_parts(current_segment)
                     current_segment = []
             elif token == "&":
-                raise CommandValidationError(
-                    "Single '&' for background execution is forbidden."
-                )
+                if not self.allow_dangerous_patterns:
+                    raise CommandValidationError(
+                        "Single '&' for background execution is forbidden."
+                    )
+                current_segment.append(token)
             else:
                 current_segment.append(token)
 
@@ -150,7 +152,8 @@ class CommandValidator:
                 f"Command '{base_command}' is not in the allowed whitelist."
             )
 
-        self._check_dangerous_arguments(base_command, parts)
+        if not self.allow_dangerous_patterns:
+            self._check_dangerous_arguments(base_command, parts)
 
     def _check_dangerous_patterns(self, command: str) -> None:
         # 1. Mask single-quoted strings (Always safe zones)
@@ -219,9 +222,6 @@ class CommandValidator:
                     raise CommandValidationError(str(e)) from e
 
     def _check_dangerous_arguments(self, base_command: str, parts: list[str]) -> None:
-        config = _load_config_from_file()
-        security_config = config.get("security", {})
-
         if base_command == "git":
             strictly_forbidden = {
                 "push",
@@ -246,7 +246,7 @@ class CommandValidator:
                 "tag",
                 "rev-parse",
             }
-            user_allowed = set(security_config.get("allowed_git_subcommands", []))
+            user_allowed = set(self.security_config.get("allowed_git_subcommands", []))
             allowed_subcommands = default_allowed.union(user_allowed)
 
             if len(parts) > 1:

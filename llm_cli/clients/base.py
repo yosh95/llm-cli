@@ -116,11 +116,14 @@ class BaseLlmClient(ABC):
             "t",
             "checkpoint",
             "cp",
+            "reload",
             "tools",
             "help",
             "h",
         }
         self.config_section = config_section
+        self._api_key_name = api_key_name  # Store for reloads
+        self._disable_system_prompt = disable_system_prompt
         self.api_key = get_setting(api_key_name, config_section)
         self.pdf_as_base64 = pdf_as_base64
         self.stdout = stdout
@@ -141,20 +144,8 @@ class BaseLlmClient(ABC):
             else:
                 self.set_model("default")
 
-        raw_prompt = get_setting("system_prompt", config_section) or ""
-        disable_date_prompt = get_setting("disable_date_prompt", config_section)
-
-        self.system_prompt = ""
-        if not disable_date_prompt:
-            now = datetime.datetime.now().astimezone().strftime("%Y-%m-%d (%A)")
-            self.system_prompt = f"Current date: {now}"
-
-        if raw_prompt:
-            if self.system_prompt:
-                self.system_prompt += "\n"
-            self.system_prompt += raw_prompt
-
-        self.system_prompt_enabled = not disable_system_prompt
+        self._refresh_general_settings()
+        self._refresh_system_prompt()
 
         self.conversation: list[Message] = []
         self.last_usage: dict[str, int] | None = None
@@ -166,22 +157,41 @@ class BaseLlmClient(ABC):
         self.history_path = str(HISTORY_LOG_PATH)
         self.chat_log_path = str(CHAT_LOG_PATH)
 
-        self.max_chat_log_lines = int(
-            get_setting("max_chat_log_lines", "general") or 10000
-        )
-
         self.active_tools: list[str] = (
             initial_tools if initial_tools is not None else list(registry.tools.keys())
         )
 
-        # Default to None (wait indefinitely) instead of a fixed 600s timeout.
-        # This allows long-running reasoning processes to complete.
-        # Users can manually interrupt with Ctrl+C if desired.
+        if enable_mcp:
+            self._init_mcp(initial_tools is None)
+
+    def _refresh_general_settings(self) -> None:
+        """Reloads settings that can change at runtime."""
         raw_timeout = get_setting("request_timeout", "general")
         self.request_timeout = int(raw_timeout) if raw_timeout else None
 
-        if enable_mcp:
-            self._init_mcp(initial_tools is None)
+        self.max_chat_log_lines = int(
+            get_setting("max_chat_log_lines", "general") or 10000
+        )
+
+    def _refresh_system_prompt(self) -> None:
+        """Constructs or refreshes the system prompt."""
+        raw_prompt = get_setting("system_prompt", self.config_section) or ""
+        disable_date_prompt = get_setting("disable_date_prompt", self.config_section)
+
+        self.system_prompt = ""
+        if not disable_date_prompt:
+            now = datetime.datetime.now().astimezone().strftime("%Y-%m-%d (%A)")
+            self.system_prompt = f"Current date: {now}"
+
+        if raw_prompt:
+            if self.system_prompt:
+                self.system_prompt += "\n"
+            self.system_prompt += raw_prompt
+
+        if self._disable_system_prompt:
+            self.system_prompt_enabled = False
+        else:
+            self.system_prompt_enabled = True
 
     def _init_mcp(self, update_active_tools: bool) -> None:
         """Initializes Model Context Protocol (MCP) tools."""
@@ -516,6 +526,18 @@ class BaseLlmClient(ABC):
         if cmd in ("checkpoint", "cp"):
             raise CheckpointRequest()
 
+        if cmd == "reload":
+            from llm_cli.clients.config import reload_config
+            from llm_cli.security.policy import policy_engine
+
+            reload_config()
+            self.api_key = get_setting(self._api_key_name, self.config_section)
+            self._refresh_general_settings()
+            self._refresh_system_prompt()
+            policy_engine.reinitialize()
+            console.print("[green]Configuration reloaded from disk.[/green]")
+            return True
+
         if cmd == "save":
             path_str = args
             if not path_str:
@@ -772,6 +794,7 @@ class BaseLlmClient(ABC):
             "  /load <path>   Load conversation history from a JSON file\n"
             "  /clear (c)     Clear conversation history\n"
             "  /checkpoint(cp)Summarize and clear history\n"
+            "  /reload        Reload config.toml from disk\n"
             "  /dump          Dump conversation history as JSON\n"
             "  /raw           Show conversation as raw text\n"
             "  /quit (q)      Exit the application\n"

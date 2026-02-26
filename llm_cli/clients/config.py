@@ -65,6 +65,13 @@ def _load_config_from_file() -> dict[str, Any]:
     return _config_cache
 
 
+def reload_config() -> dict[str, Any]:
+    """Clears the config cache and reloads it from disk."""
+    global _config_cache
+    _config_cache = None
+    return _load_config_from_file()
+
+
 def get_setting(key: str, section: str) -> Any | None:
     """Gets a specific setting value from a section in the config file."""
     # 1. Prioritize environment variables for API keys

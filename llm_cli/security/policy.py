@@ -82,6 +82,28 @@ class PolicyEngine:
                 else:
                     self.roles[role_name] = role_def
 
+    def reinitialize(self, config: dict[str, Any] | None = None) -> None:
+        """Reload configuration and reset the engine state."""
+        self.config = config or {}
+        if not self.config:
+            try:
+                from llm_cli.clients.config import _load_config_from_file
+
+                full_conf = _load_config_from_file()
+                self.config.update(full_conf.get("security", {}))
+            except ImportError:
+                pass
+
+        self.intent_analyzer = None
+        self.subjects = self.config.get("subjects", {})
+
+        if "roles" in self.config:
+            for role_name, role_def in self.config["roles"].items():
+                if role_name in self.roles:
+                    self.roles[role_name].update(role_def)
+                else:
+                    self.roles[role_name] = role_def
+
     def _analyze_intent(
         self, user_prompt: str, tool_name: str, args: dict[str, Any]
     ) -> bool:
@@ -158,6 +180,10 @@ class PolicyEngine:
         """
         Evaluate if the current user/context can execute the tool with given arguments.
         """
+        # Ensure latest config is used if we were initialized with default empty dict
+        if not self.config:
+            self.reinitialize()
+
         user_id = context.get("user_id", "unknown")
         user_roles = context.get("roles", ["guest"])
         user_prompt = context.get("user_prompt", "")

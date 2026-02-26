@@ -222,9 +222,17 @@ allowed_mcp_commands = [
 ]
 
 # WARNING: Setting this to true disables protection against shell injection
-# Only enable if you fully understand the security implications
+# and allows risky patterns (e.g., Python one-liners, 'git push', backgrounding).
+# Use at your own risk.
 allow_dangerous_patterns = false
+
+# WARNING: Setting this to true allows the AI to access sensitive system
+# paths like /etc, /usr, /var, etc. Use with extreme caution.
+allow_sensitive_path_access = false
 ```
+
+**Policy on Human-in-the-Loop (HITL)**:
+This tool strictly follows a **Human-in-the-Loop** policy. Every destructive or potentially dangerous action (file writes, command execution, etc.) **must be approved by a human**. There is no configuration option to disable this requirement, as it serves as the ultimate defense against unintended agent behavior.
 
 **Important**: These guardrails provide defense-in-depth but do not replace user vigilance. Always review commands before approving execution.
 
@@ -375,6 +383,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
     -   `status`: Check cache status.
     -   `create`: Force create a cache.
     -   `clear`: Clear local cache reference.
+-   `/reload`: Reload configuration from `config.toml` without restarting.
 -   `/speech <text>` (or `/tts`): Generate audio from text (Gemini only).
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
 -   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video).
@@ -661,10 +670,18 @@ allowed_mcp_commands = [
     "custom_mcp_server"
 ]
 
-# 警告: これを true に設定すると、シェルインジェクションに対する保護が無効になります
-# セキュリティへの影響を完全に理解している場合のみ有効にしてください
+# 警告: これを true に設定すると、シェルインジェクションに対する保護が無効になり、
+# Pythonワンライナーや 'git push'、バックグラウンド実行などのリスクのあるパターンが許可されます。
+# 自己責任で設定してください。
 allow_dangerous_patterns = false
+
+# 警告: これを true に設定すると、AI が /etc, /usr, /var などの機密性の高い
+# システムパスにアクセスできるようになります。細心の注意を払って使用してください。
+allow_sensitive_path_access = false
 ```
+
+**Human-in-the-Loop (HITL) ポリシー**:
+本ツールは **Human-in-the-Loop** ポリシーを厳格に遵守しています。破壊的または潜在的に危険なアクション（ファイル書き込み、コマンド実行など）は、**必ず人間が承認する必要があります**。この要件を無効にする設定オプションは存在しません。これは、エージェントの意図しない動作に対する最終防衛線として機能します。
 
 **重要**: これらのガードレールは多層防御を提供しますが、ユーザーの警戒に代わるものではありません。実行を承認する前に必ずコマンドを確認してください。
 
@@ -815,6 +832,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
     -   `status`: キャッシュの状態を確認。
     -   `create`: 強制的にキャッシュを作成。
     -   `clear`: ローカルのキャッシュ参照をクリア。
+-   `/reload`: `config.toml` を再読み込みし、設定を反映（ツールを再起動せずに変更を適用）。
 -   `/speech <text>` (または `/tts`): テキストから音声を生成（Geminiのみ）。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイルを手動添付 (画像, PDF, 音声, 動画)。

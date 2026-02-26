@@ -226,6 +226,17 @@ def configure_security(config: dict[str, Any]) -> None:
         s_config.get("missing_token_policy", "guest"),
     )
 
+    # Dangerous Patterns & Sensitive Paths
+    print("\nAdvanced Security (USE WITH CAUTION):")
+    s_config["allow_dangerous_patterns"] = prompt_bool(
+        "Allow dangerous shell patterns (Python one-liners, git push, etc.)?",
+        s_config.get("allow_dangerous_patterns", False),
+    )
+    s_config["allow_sensitive_path_access"] = prompt_bool(
+        "Allow access to sensitive system paths (/etc, /usr, /var)?",
+        s_config.get("allow_sensitive_path_access", False),
+    )
+
     # Configure Intent Analyzer (New!)
     print("\n--- Intent Analyzer (Dual-Model Guardrails) ---")
     current_ia_enabled = s_config.get("intent_analyzer_enabled", False)

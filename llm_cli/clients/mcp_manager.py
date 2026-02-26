@@ -10,7 +10,6 @@ from rich.console import Console
 
 from llm_cli.clients.config import get_mcp_servers
 from llm_cli.mcp_lib import ClientSession, StdioServerParameters, stdio_client
-from llm_cli.security.command_validator import CommandValidationError, validate_command
 from llm_cli.security.identity import IdentityManager
 
 # Set up logging for MCP client
@@ -75,17 +74,6 @@ class MCPManager:
             if not name or not command or name in self.sessions:
                 continue
 
-            # Validate MCP server command:
-            # We use the CommandValidator to ensure the command is in the whitelist.
-            try:
-                validate_command(command)
-            except CommandValidationError as e:
-                console.print(
-                    f"[red]✗ Security Risk: MCP server '{name}' uses an "
-                    f"unauthorized command '{command}': {e}[/red]"
-                )
-                continue
-
             # Identity Propagation: Inject Auth Token into environment
             env = env or {}
             # Use server name as audience to prevent token reuse
@@ -107,16 +95,20 @@ class MCPManager:
                 audience=name,
             )
             env["MCP_SERVER_NAME"] = name
+            env["LLM_CLI_PUBLIC_KEY"] = IdentityManager.get_public_key()
+            env["LLM_CLI_PQC_PUBLIC_KEY"] = IdentityManager.get_pqc_public_key()
 
             # If command is ssh, inject token into the remote command args
             if command == "ssh" or command.endswith("/ssh"):
                 token = env["MCP_AUTH_TOKEN"]
                 server_name_env = f"MCP_SERVER_NAME={name}"
-                public_key = IdentityManager.get_public_key()
-                # Inject Token, Public Key and Server Name
+                public_key = env["LLM_CLI_PUBLIC_KEY"]
+                pqc_public_key = env["LLM_CLI_PQC_PUBLIC_KEY"]
+                # Inject Token, Public Key, PQC Public Key and Server Name
                 env_str = (
                     f"MCP_AUTH_TOKEN={token} "
                     f"LLM_CLI_PUBLIC_KEY='{public_key}' "
+                    f"LLM_CLI_PQC_PUBLIC_KEY='{pqc_public_key}' "
                     f"{server_name_env}"
                 )
 

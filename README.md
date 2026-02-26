@@ -33,12 +33,12 @@ proofread = "Proofread this text:"
 
 ## Screenshots
 
-### 🔍 Real-time Research & Tool Use
+### 🤖 Autonomous Agent & Tool Use
 
-The AI can use tools like `search_web` to find the latest information. In this example, it searches for the latest AI news and summarizes it. **Agent Mode is enabled by default**, allowing the AI to autonomously use various tools to help with your tasks.
+The AI agent can autonomously use various tools to perform complex tasks. In this example, the agent lists files and reads their content to understand the project structure before taking action. **Agent Mode is enabled by default**, giving the AI the power to solve problems independently.
 
 <p align="center">
-  <img src="images/google_search.png" width="700" alt="Real-time Research" />
+  <img src="images/screenshot-tool-calling.png" width="800" alt="Autonomous Agent and Tool Use" />
 </p>
 
 ## Features
@@ -484,11 +484,11 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 ## スクリーンショット
 
-### 🔍 リアルタイム調査とツール利用
-AIは `search_web` などのツールを活用して最新情報を取得できます。この例では、最新のAIニュースを検索して要約しています。**エージェントモードはデフォルトで有効**になっており、AIが自律的に様々なツールを使いこなしながらタスクをサポートします。
+### 🤖 自律型エージェントとツール実行
+AIエージェントは、自律的に様々なツールを使いこなしながらタスクをサポートします。この例では、ディレクトリのファイル一覧を確認し、コードの内容を読み取ることで、プロジェクトの構造を理解しながら作業を進めています。**エージェントモードはデフォルトで有効**です。
 
 <p align="center">
-  <img src="images/google_search.png" width="700" alt="リアルタイム調査" />
+  <img src="images/screenshot-tool-calling.png" width="800" alt="自律型エージェントのツール実行" />
 </p>
 
 ## 主な機能

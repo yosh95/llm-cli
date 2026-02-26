@@ -5,7 +5,9 @@ from typing import Any
 
 try:
     from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import mldsa  # type: ignore[attr-defined]
+    from cryptography.hazmat.primitives.asymmetric import (
+        mldsa,  # type: ignore[attr-defined]
+    )
 
     HAS_MLDSA = True
 except ImportError:

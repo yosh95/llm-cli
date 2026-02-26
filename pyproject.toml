@@ -19,6 +19,7 @@ dependencies = [
     "tomli-w",
     "PyJWT[crypto]",
     "cryptography>=46.0.0",
+    "dilithium-py",
 ]
 
 [project.optional-dependencies]

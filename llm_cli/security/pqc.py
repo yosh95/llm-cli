@@ -1,17 +1,8 @@
 import base64
-import hashlib
 import logging
 from typing import Any
 
-try:
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import (
-        mldsa,  # type: ignore[attr-defined]
-    )
-
-    HAS_MLDSA = True
-except ImportError:
-    HAS_MLDSA = False
+from dilithium_py.ml_dsa import ML_DSA_65
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +11,9 @@ class PQCProvider:
     """
     NIST-compliant PQC Provider.
     Primary: ML-DSA-65 (FIPS 204)
-    Fallback: SHAKE256-based Hash Signature (Quantum-Resistant)
     """
 
-    ALGORITHM_NAME = "ML-DSA-65" if HAS_MLDSA else "PQC-SHAKE256-HBS"
+    ALGORITHM_NAME = "ML-DSA-65"
 
     @classmethod
     def is_available(cls) -> bool:
@@ -31,63 +21,19 @@ class PQCProvider:
 
     @classmethod
     def generate_keypair(cls) -> tuple[bytes, bytes]:
-        if HAS_MLDSA:
-            private_key = mldsa.generate_private_key(mldsa.MLDSA65)
-            public_key = private_key.public_key()
-            priv_bytes = private_key.private_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PrivateFormat.Raw,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
-            pub_bytes = public_key.public_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PublicFormat.Raw,
-            )
-            return pub_bytes, priv_bytes
-        else:
-            # Fallback: SHA3-based PQC construction
-            import os
-
-            seed = os.urandom(32)
-            # Public key is a SHA3 hash of the secret (simplified HBS model)
-            pub = hashlib.sha3_256(seed).digest()
-            logger.info(f"ML-DSA missing. Using fallback {cls.ALGORITHM_NAME}")
-            return pub, seed
+        # pk, sk
+        return ML_DSA_65.keygen()  # type: ignore[no-any-return]
 
     @classmethod
     def sign(cls, message: bytes, private_key_bytes: bytes) -> bytes:
-        if HAS_MLDSA:
-            private_key = mldsa.MLDSAPrivateKey.from_private_bytes(
-                mldsa.MLDSA65, private_key_bytes
-            )
-            return private_key.sign(message)  # type: ignore[no-any-return]
-        else:
-            # SHAKE256 based HBS signature
-            h = hashlib.shake_256()
-            h.update(private_key_bytes + message)
-            return h.digest(64)  # Longer digest for quantum resistance
+        return ML_DSA_65.sign(private_key_bytes, message)  # type: ignore[no-any-return]
 
     @classmethod
     def verify(cls, message: bytes, signature: bytes, public_key_bytes: bytes) -> bool:
-        if HAS_MLDSA:
-            try:
-                public_key = mldsa.MLDSAPublicKey.from_public_bytes(
-                    mldsa.MLDSA65, public_key_bytes
-                )
-                public_key.verify(message, signature)
-                return True
-            except Exception:
-                return False
-        else:
-            # Basic PQC fallback verification
-            # In mock mode, we check for a known 'invalid' signature for testing
-            if signature == b"invalid_signature":
-                return False
-
-            # Simple consistency check for mock:
-            # In a real system, signature would be SHAKE(secret + message)
-            # and public_key would be SHAKE(secret).
-            return True
+        try:
+            return ML_DSA_65.verify(public_key_bytes, message, signature)  # type: ignore[no-any-return]
+        except Exception:
+            return False
 
 
 class HybridSigner:
@@ -118,8 +64,6 @@ class HybridSigner:
         pqc_sig_b64 = base64.b64encode(pqc_sig).decode()
 
         # 3. Create a Hybrid Wrap
-        # We can append it or wrap it. Conventionally, we can use a custom header
-        # or just a composite string: <jwt>.<pqc_signature>
         return f"{token}.{pqc_sig_b64}"
 
     @classmethod

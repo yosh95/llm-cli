@@ -16,7 +16,7 @@ def test_pqc_provider_key_gen():
 
 
 def test_pqc_sign_verify():
-    """Test signing and verification (supports fallback mode)."""
+    """Test signing and verification."""
     pub, priv = PQCProvider.generate_keypair()
     message = b"Test message for PQC"
 
@@ -27,12 +27,11 @@ def test_pqc_sign_verify():
     # Verify correct signature
     assert PQCProvider.verify(message, signature, pub) is True
 
-    # Negative tests (only reliable in native ML-DSA mode)
-    if "ML-DSA" in PQCProvider.ALGORITHM_NAME:
-        # Verify wrong message
-        assert PQCProvider.verify(b"Wrong message", signature, pub) is False
-        # Verify wrong signature
-        assert PQCProvider.verify(message, b"wrong" * 10, pub) is False
+    # Negative tests
+    # Verify wrong message
+    assert PQCProvider.verify(b"Wrong message", signature, pub) is False
+    # Verify wrong signature
+    assert PQCProvider.verify(message, b"wrong" * 10, pub) is False
 
 
 def test_hybrid_signer_token():

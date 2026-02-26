@@ -90,6 +90,55 @@ class TestIntegrityVerifier:
             IntegrityVerifier.CRITICAL_FILES = saved_critical_files
             IntegrityVerifier.MANIFEST_PATH = saved_manifest_path
 
+    def test_rebuild_manifest_in_strict_mode(self, tmp_path, monkeypatch):
+        # Setup
+        saved_critical_files = IntegrityVerifier.CRITICAL_FILES
+        saved_manifest_path = IntegrityVerifier.MANIFEST_PATH
+        IntegrityVerifier.CRITICAL_FILES = ["test_file.py"]
+        IntegrityVerifier.MANIFEST_PATH = tmp_path / "integrity_manifest.json"
+
+        # Mock keys directory to avoid cluttering local dev environment
+        monkeypatch.setattr(
+            "llm_cli.security.identity.IdentityManager._KEY_DIR", tmp_path / "keys"
+        )
+        monkeypatch.setattr(
+            "llm_cli.security.identity.IdentityManager._PRIVATE_KEY_PATH",
+            tmp_path / "keys" / "id_rsa",
+        )
+        monkeypatch.setattr(
+            "llm_cli.security.identity.IdentityManager._PUBLIC_KEY_PATH",
+            tmp_path / "keys" / "id_rsa.pub",
+        )
+        monkeypatch.setattr(
+            "llm_cli.security.identity.IdentityManager._PQC_PRIVATE_KEY_PATH",
+            tmp_path / "keys" / "id_pqc.key",
+        )
+        monkeypatch.setattr(
+            "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_PATH",
+            tmp_path / "keys" / "id_pqc.pub",
+        )
+
+        try:
+            (tmp_path / "test_file.py").write_text("initial content")
+
+            # Enable strict mode
+            monkeypatch.setenv("LLM_CLI_STRICT_SECURITY", "1")
+
+            verifier = IntegrityVerifier(tmp_path)
+
+            # verify() should fail in strict mode if manifest is missing
+            assert verifier.verify() is False
+
+            # rebuild_manifest() should succeed even in strict mode
+            assert verifier.rebuild_manifest() is True
+            assert IntegrityVerifier.MANIFEST_PATH.exists()
+
+            # Now verify() should succeed because manifest exists
+            assert verifier.verify() is True
+        finally:
+            IntegrityVerifier.CRITICAL_FILES = saved_critical_files
+            IntegrityVerifier.MANIFEST_PATH = saved_manifest_path
+
 
 class TestPolicyEngine:
     def test_evaluate_admin(self):

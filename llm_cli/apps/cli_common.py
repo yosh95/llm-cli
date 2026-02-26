@@ -62,11 +62,6 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
         "--mcp-server", action="store_true", help="Run as an MCP server"
     )
     parser.add_argument("--session", help="Load a saved session JSON file on startup")
-    parser.add_argument(
-        "--rebuild-trust",
-        action="store_true",
-        help="Re-establish the integrity trust anchor (updates hash manifest)",
-    )
 
     for arg_name, arg_config in config.extra_args:
         parser.add_argument(arg_name, **arg_config)
@@ -77,25 +72,6 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
 def run_client_cli(config: ClientConfig) -> None:
     parser = create_standard_parser(config)
     args = parser.parse_args()
-
-    # Handle trust rebuilding
-    if args.rebuild_trust:
-        from pathlib import Path
-
-        from llm_cli.security.integrity import IntegrityVerifier
-
-        # We need to instantiate Verifier manually to call rebuild_manifest
-        root_path = Path(__file__).resolve().parent.parent.parent
-        verifier = IntegrityVerifier(root_path)
-
-        if verifier.rebuild_manifest():
-            console.print(
-                "[bold green]✅ Trust anchor successfully rebuilt.[/bold green]"
-            )
-            sys.exit(0)
-        else:
-            console.print("[bold red]❌ Failed to rebuild trust anchor.[/bold red]")
-            sys.exit(1)
 
     if args.stdout and args.mcp:
         console.print("[red]Error: --stdout and --mcp cannot be used together.[/red]")

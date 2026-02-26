@@ -127,7 +127,7 @@ class IntegrityVerifier:
             logger.error(f"❌ Failed to verify audit log: {e}")
             return False
 
-    def verify(self) -> bool:
+    def verify(self, allow_tofu: bool = False) -> bool:
         """Verify integrity of critical files and audit log (with PQC signature)."""
         logger.info("🛡️  Root of Trust: Verifying system integrity (PQC-enabled)...")
 
@@ -198,7 +198,7 @@ class IntegrityVerifier:
         # If no manifest exists, establish trust (TOFU)
         if trusted_manifest is None:
             # Default to strict mode (1) unless explicitly disabled (0)
-            if os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1":
+            if not allow_tofu and os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1":
                 logger.critical(
                     "🚨 STRICT MODE: Integrity manifest missing. "
                     "In strict mode, TOFU is disabled. "
@@ -247,6 +247,16 @@ class IntegrityVerifier:
         Use with caution.
         """
         logger.warning("🛡️  Rebuilding integrity trust anchor (TOFU)...")
+
+        # Ensure we have keys for signing, even in strict mode
+        try:
+            from llm_cli.security.identity import IdentityManager
+
+            IdentityManager._ensure_keys(force=True)
+        except Exception as e:
+            logger.error(f"Failed to ensure identity keys: {e}")
+            return False
+
         if self.MANIFEST_PATH.exists():
             try:
                 self.MANIFEST_PATH.unlink()
@@ -255,8 +265,9 @@ class IntegrityVerifier:
                 logger.error(f"Failed to delete manifest: {e}")
                 return False
 
-        # Calling verify() will trigger TOFU logic since manifest is gone
-        return self.verify()
+        # Calling verify() with allow_tofu=True will trigger TOFU logic
+        # since manifest is gone
+        return self.verify(allow_tofu=True)
 
 
 def verify_installation() -> None:

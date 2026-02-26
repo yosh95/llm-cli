@@ -30,10 +30,14 @@ class IdentityManager:
     _PQC_PUBLIC_KEY_PATH = _KEY_DIR / "id_pqc.pub"
 
     @classmethod
-    def _ensure_keys(cls) -> None:
+    def _ensure_keys(cls, force: bool = False) -> None:
         """Ensure RSA and PQC keys exist, generate them if not (unless strict mode)."""
         # Default to strict mode (1) unless explicitly disabled (0)
         strict_mode = os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1"
+
+        # If force is True, we bypass strict mode (e.g., during explicit keygen command)
+        if force:
+            strict_mode = False
 
         if not cls._KEY_DIR.exists():
             if strict_mode:

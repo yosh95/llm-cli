@@ -26,7 +26,7 @@ def main() -> None:
 
     if args.command == "keygen":
         print("🛡️  Generating Identity Keys...")
-        IdentityManager._ensure_keys()
+        IdentityManager._ensure_keys(force=True)
         print(f"✅ Keys generated in {IdentityManager._KEY_DIR}")
         print(f"RSA Public Key: {IdentityManager._PUBLIC_KEY_PATH}")
         print(f"PQC Public Key: {IdentityManager._PQC_PUBLIC_KEY_PATH}")

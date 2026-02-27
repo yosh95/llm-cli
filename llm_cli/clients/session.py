@@ -217,14 +217,15 @@ class ChatSession:
             try:
                 # Suggest checkpoint if conversation is getting long.
                 # Use total tokens processed or turn count as metrics.
-                user_turns = len(
-                    [m for m in self.client.conversation if m.role == Role.USER]
+                # We count MODEL messages to include ReAct loop steps.
+                model_turns = len(
+                    [m for m in self.client.conversation if m.role == Role.MODEL]
                 )
-                if self.client.cumulative_total_tokens >= 50000 or user_turns >= 40:
+                if self.client.cumulative_total_tokens >= 50000 or model_turns >= 40:
                     msg = (
                         f"Context is large "
                         f"({self.client.cumulative_total_tokens:,} tokens, "
-                        f"{user_turns} turns). "
+                        f"{model_turns} turns). "
                         "Summarize and compress? (y/N): "
                     )
                     if self._confirm(msg):

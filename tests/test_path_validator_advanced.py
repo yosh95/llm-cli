@@ -1,5 +1,6 @@
 # tests/test_path_validator_advanced.py
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -41,4 +42,4 @@ class TestPathValidatorAdvanced:
 
         # Should now allow /etc/passwd
         path = validate_path("/etc/passwd")
-        assert str(path) == "/etc/passwd"
+        assert path == Path("/etc/passwd").resolve()

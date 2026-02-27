@@ -254,21 +254,23 @@ class TestChatSession:
 
     def test_run_suggests_checkpoint_on_turns(self, session):
         from llm_cli.modules.models import Message, Role
-        
+
         # Simulate 40 model turns
         session.client.conversation = [
             Message(role=Role.MODEL, parts=["Response"]) for _ in range(40)
         ]
-        
+
         with patch("llm_cli.clients.session.PromptSession") as mock_prompt_cls:
             mock_prompt = mock_prompt_cls.return_value
             # First prompt triggers checkpoint, then exit
             mock_prompt.prompt.side_effect = KeyboardInterrupt()
-            
+
             with patch.object(session, "_confirm", return_value=True) as mock_confirm:
-                with patch.object(session, "_handle_checkpoint") as mock_handle_checkpoint:
+                with patch.object(
+                    session, "_handle_checkpoint"
+                ) as mock_handle_checkpoint:
                     session.run()
-                    
+
                     mock_confirm.assert_called_once()
                     assert "turns" in mock_confirm.call_args[0][0]
                     mock_handle_checkpoint.assert_called_once()

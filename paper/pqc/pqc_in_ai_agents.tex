@@ -24,6 +24,32 @@
   captionpos=b,
 }
 
+% Define JSON language for listings
+\lstdefinelanguage{json}{
+    basicstyle=\ttfamily\scriptsize,
+    stringstyle=\color{blue},
+    showstringspaces=false,
+    breaklines=true,
+    frame=single,
+    literate=
+     *{0}{{{\color{black}0}}}{1}
+      {1}{{{\color{black}1}}}{1}
+      {2}{{{\color{black}2}}}{1}
+      {3}{{{\color{black}3}}}{1}
+      {4}{{{\color{black}4}}}{1}
+      {5}{{{\color{black}5}}}{1}
+      {6}{{{\color{black}6}}}{1}
+      {7}{{{\color{black}7}}}{1}
+      {8}{{{\color{black}8}}}{1}
+      {9}{{{\color{black}9}}}{1}
+      {:}{{{\color{black}{:}}}}{1}
+      {,}{{{\color{black}{,}}}}{1}
+      {\{}{{{\color{black}{\{}}}}{1}
+      {\}}{{{\color{black}{\}}}}}{1}
+      {[}{{{\color{black}{[}}}}{1}
+      {]}{{{\color{black}{]}}}}{1},
+}
+
 \begin{document}
 
 \title{Post-Quantum Cryptography in the Era of AI Agents:\\
@@ -115,8 +141,26 @@ class HybridSigner:
         return f"{token}.{pqc_b64}"
 \end{lstlisting}
 
+\begin{lstlisting}[language=json, caption=PQC-Signed MCP JSON-RPC Payload (Conceptual)]
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "read_file",
+    "arguments": {"path": "config.yaml"},
+    "_metadata": {
+      "auth_token": "eyJhbG...[RSA_JWT]... .[PQC_SIG_B64]"
+    }
+  },
+  "id": 42
+}
+\end{lstlisting}
+
 \subsection{The Context-Aware Signature Stripper}
 As illustrated in Fig. \ref{fig:architecture}, a critical implementation detail is the ``Signature Stripper.'' In \texttt{llm-cli}, this module intercepts the tool execution response. Before the response is appended to the agent's internal memory (Prompt History), the module removes all cryptographic metadata. This ensures that the 3.3\,KB signature does not consume thousands of tokens in subsequent LLM reasoning steps.
+
+\subsection{PQC-Signed Integrity Anchors}
+A unique feature of our implementation is the use of ML-DSA-65 to secure the system's Root of Trust. Beyond transient session tokens, the \texttt{llm-cli} framework maintains an \textit{integrity manifest}---a JSON-encoded registry of cryptographic hashes for all critical application files (e.g., identity managers, policy engines). This manifest is signed using the agent's PQC private key. At startup, the system performs a self-diagnostic: it verifies the PQC signature of the manifest and then re-calculates file hashes to detect any post-quantum or classical tampering with the security logic itself. This provides a robust defense against "Living off the Land" attacks where an adversary might attempt to modify the Python-based security filters.
 
 \section{Evaluation and Benchmarking}
 To evaluate the practicality of our proposed architecture, we simulated the integration of ML-DSA-65 into the MCP JSON-RPC payload structure and measured the resulting overheads in computational latency and network transmission.
@@ -161,7 +205,27 @@ Despite the larger payload, the end-to-end latency of the agent loop is heavily 
 The current latency observed in our implementation (approx. 92\,ms for signing) is primarily due to the use of a pure Python implementation of ML-DSA-65. As the Python \texttt{cryptography} library and OpenSSL integrate native support for FIPS 204 (ML-DSA) via Rust or C extensions, we expect signing performance to improve by orders of magnitude, likely reaching sub-millisecond ranges. The architecture of \texttt{llm-cli} is designed to be cryptographically agile, allowing for a seamless transition to these high-performance native providers as they become available.
 
 \subsection{Path to Maximum Security: Scaling to ML-DSA-87}
-While our current implementation utilizes ML-DSA-65 (Security Level 3), high-assurance environments and national-scale infrastructure projects often demand Security Level 5 (equivalent to AES-256) to ensure long-term resilience against future quantum advancements. Transitioning to ML-DSA-87 would further increase signature size to 4,595 bytes, potentially consuming over 1,500 tokens if not properly managed. This reinforces the necessity of our proposed "Signature Stripping" mechanism. For mission-critical AI agents, the overhead of ML-DSA-87 is a necessary trade-off to prevent cryptographic obsolescence during the system's operational lifetime.
+While our current implementation utilizes ML-DSA-65 (Security Level 3), high-assurance environments and national-scale infrastructure projects often demand Security Level 5 (equivalent to AES-256) to ensure long-term resilience against future quantum advancements. 
+
+Table \ref{tab:mldsa_variants} illustrates the trade-offs involved in scaling to higher security levels. Transitioning to ML-DSA-87 would increase the signature size to 4,595 bytes, potentially consuming over 1,100 tokens if not properly managed. This reinforces the necessity of our proposed ``Signature Stripping'' mechanism. For mission-critical AI agents, the overhead of ML-DSA-87 is a necessary trade-off to prevent cryptographic obsolescence during the system's operational lifetime.
+
+\begin{table}[htbp]
+\caption{NIST ML-DSA (Dilithium) Parameter Sets (FIPS 204)}
+\begin{center}
+\begin{tabularx}{\linewidth}{|l|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|}
+\hline
+\textbf{Parameter Set} & \textbf{ML-DSA-44} & \textbf{ML-DSA-65} & \textbf{ML-DSA-87} \\
+\hline
+NIST Sec. Level & 2 (AES-128) & 3 (AES-192) & 5 (AES-256) \\
+Public Key (B) & 1,312 & 1,952 & 2,592 \\
+Signature (B) & 2,420 & 3,309 & 4,595 \\
+\hline
+LLM Context (Est. Tokens) & $\sim$600 & $\sim$850 & $\sim$1,150 \\
+\hline
+\end{tabularx}
+\label{tab:mldsa_variants}
+\end{center}
+\end{table}
 
 \subsection{PQC Capability Negotiation}
 Our hybrid approach assumes that the orchestrator knows the capabilities of the target MCP server. A more robust implementation would include a ``PQC Capability Negotiation'' phase during the initial MCP handshake. Servers can advertise supported OIDs (Object Identifiers) for specific lattice-based algorithms, allowing the agent to dynamically choose between ML-DSA, Falcon, or SPHINCS+ based on the required security level and bandwidth constraints.

@@ -116,3 +116,13 @@ class TestCommandValidator:
 
         # Single Quotes - Allowed
         validator.validate("echo 'Use ${VAR} for variables'")
+
+    def test_line_continuation_validation(self):
+        """Test that line continuation backslashes don't break whitelist checks."""
+        # Create validator with custom whitelist and allowing newlines (simulating user config)
+        v = CommandValidator(custom_whitelist={"docker"}, allow_dangerous_patterns=True)
+
+        # Test various forms of line continuation
+        v.validate("docker build -t image:latest . && \\\ndocker save image:latest")
+        v.validate("docker build -t image:latest . &&\n\\\ndocker save image:latest")
+        v.validate("docker build \\\n. && docker save image")

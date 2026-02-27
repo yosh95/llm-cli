@@ -141,6 +141,10 @@ class CommandValidator:
         if not parts:
             return
 
+        # Ensure tokens are clean of leading/trailing whitespace/newlines
+        # that might have survived from line continuations.
+        parts = [p.strip() for p in parts]
+
         self._check_paths(parts)
 
         base_command = parts[0]

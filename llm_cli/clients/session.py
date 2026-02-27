@@ -216,16 +216,15 @@ class ChatSession:
         while True:
             try:
                 # Suggest checkpoint if conversation is getting long.
-                # Threshold: 20,000 tokens or 40 messages.
-                # We ask every time the threshold is exceeded if the user says No.
-                if (
-                    self.client.cumulative_total_tokens >= 20000
-                    or len(self.client.conversation) >= 40
-                ):
+                # Use total tokens processed or turn count as metrics.
+                user_turns = len(
+                    [m for m in self.client.conversation if m.role == Role.USER]
+                )
+                if self.client.cumulative_total_tokens >= 50000 or user_turns >= 40:
                     msg = (
                         f"Context is large "
                         f"({self.client.cumulative_total_tokens:,} tokens, "
-                        f"{len(self.client.conversation)} messages). "
+                        f"{user_turns} turns). "
                         "Summarize and compress? (y/N): "
                     )
                     if self._confirm(msg):
@@ -320,7 +319,7 @@ class ChatSession:
                     or 0
                 )
                 if total > 0:
-                    self.client.cumulative_total_tokens = total
+                    self.client.cumulative_total_tokens += total
                 self.client.last_usage = usage
 
             # Display thought content in a separate panel if available

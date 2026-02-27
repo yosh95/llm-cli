@@ -170,7 +170,7 @@ This is a **Context-Aware Dynamic Zero Trust** feature that uses a secondary, li
 
 All shell commands executed through the AI agent (`execute_shell_command` tool) are validated against a **whitelist** of safe commands before execution.
 
-**Default Allowed Commands**: `ls`, `cat`, `grep`, `find` and many other read-only or low-risk commands. See `llm_cli/security/command_validator.py` for the complete list.
+**Default Allowed Commands**: `ls`, `cat`, `grep`, `find`, `sleep` and many other read-only or low-risk commands. See `llm_cli/security/command_validator.py` for the complete list.
 
 **Supported Operations (Validated)**:
 - Command chaining and pipes (`&&`, `||`, `|`) are allowed, provided that **every command** in the chain is on the whitelist.
@@ -181,9 +181,8 @@ All shell commands executed through the AI agent (`execute_shell_command` tool) 
 - I/O Redirection (`>`, `<`)
 - Command substitution (`` ` ``, `$()`)
 - Dangerous operations (e.g., `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`)
-- Risky subcommands (e.g., `git push`, `pip install`)
 - Access to sensitive system paths (e.g., `/etc`, `/var`, `/root`)
-- **Note**: `awk`, `sed`, `tar`, `gzip`, `zip` and system reconnaissance tools (e.g., `whoami`, `ps`, `env`) are removed from the whitelist to minimize the attack surface. Please use Python scripts or built-in tools for complex processing.
+- **Note**: `python`, `git`, `awk`, `sed`, `tar`, `gzip`, `zip` and system reconnaissance tools (e.g., `whoami`, `ps`, `env`) are removed from the default whitelist to minimize the attack surface. If you need to use these, please add them to your `config.toml` under `[security] allowed_commands` (at your own responsibility).
 
 **MCP Server Protection**:
 MCP server commands defined in `config.toml` are executed as-is, trusting the user's configuration.
@@ -619,7 +618,7 @@ AIエージェントは以下のツールを標準で備えています：
 
 AIエージェント（`execute_shell_command` ツール）を通じて実行されるすべてのシェルコマンドは、実行前に**ホワイトリスト**と照合され、検証されます。
 
-**デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find` およびその他の読み取り専用または低リスクのコマンド。完全なリストについては、`llm_cli/security/command_validator.py` を参照してください。
+**デフォルトで許可されているコマンド**: `ls`, `cat`, `grep`, `find`, `sleep` およびその他の読み取り専用または低リスクのコマンド。完全なリストについては、`llm_cli/security/command_validator.py` を参照してください。
 
 **サポートされている操作（検証済み）**:
 - コマンドチェーンとパイプ（`&&`, `||`, `|`）は、チェーン内の**すべてのコマンド**がホワイトリストに含まれている場合に限り許可されます。
@@ -630,9 +629,8 @@ AIエージェント（`execute_shell_command` ツール）を通じて実行さ
 - I/O リダイレクト（`>`, `<`）
 - コマンド置換（`` ` ``, `$()`)
 - 危険な操作（例: `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`）
-- リスクのあるサブコマンド（例: `git push`, `pip install`）
 - 機密システムパスへのアクセス（例: `/etc`, `/var`, `/root`）
-- **注**: `awk`, `sed`, `tar`, `gzip`, `zip` およびシステム偵察ツール（例: `whoami`, `ps`, `env`）は、攻撃対象領域を最小限に抑えるためにホワイトリストから除外されています。複雑な処理には、Pythonスクリプトまたは組み込みツールを使用してください。
+- **注**: `python`, `git`, `awk`, `sed`, `tar`, `gzip`, `zip` およびシステム偵察ツール（例: `whoami`, `ps`, `env`）は、攻撃対象領域を最小限に抑えるためにデフォルトのホワイトリストから除外されています。これらを使用する必要がある場合は、自己責任で `config.toml` の `[security] allowed_commands` に追加してください。
 
 **MCPサーバー保護**:
 `config.toml` で定義されたMCPサーバーコマンドは、ユーザーの設定を信頼してそのまま実行されます。

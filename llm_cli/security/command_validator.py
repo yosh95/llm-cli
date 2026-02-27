@@ -34,7 +34,6 @@ class CommandValidator:
         "file",
         "find",
         "fold",
-        "git",
         "grep",
         "head",
         "jq",
@@ -43,13 +42,7 @@ class CommandValidator:
         "ls",
         "md5sum",
         "more",
-        "mypy",
         "pwd",
-        "pytest",
-        "coverage",  # Added: Test coverage tool (read-only reports, sandboxed writes)
-        "python",
-        "python3",
-        "ruff",
         "sha256sum",
         "sleep",
         "sort",
@@ -90,15 +83,9 @@ class CommandValidator:
         if not command or not command.strip():
             raise CommandValidationError("Empty command not allowed")
 
-        # 1. Pre-parsing checks for Python one-liners
-        if not self.allow_dangerous_patterns:
-            self._check_python_oneliner_pre_parse(command)
-
-        # 2. Dangerous pattern check
         if not self.allow_dangerous_patterns:
             self._check_dangerous_patterns(command)
 
-        # 3. Parsing
         try:
             tokens = shlex.split(command)
         except ValueError as e:
@@ -125,18 +112,6 @@ class CommandValidator:
         if current_segment:
             self._validate_parts(current_segment)
 
-    def _check_python_oneliner_pre_parse(self, command: str) -> None:
-        """Specifically check for python -c one-liners before other pattern checks."""
-        # This regex looks for 'python' or 'python3' followed by one-liner flags
-        # even if they are followed by other characters or semicolon.
-        pattern = r"\bpython3?\b.*?\s(-c|-m|--code|--module)\b"
-        if re.search(pattern, command):
-            raise CommandValidationError(
-                "Python one-liners (using -c or -m) are prohibited for security. "
-                "Please write the code to a temporary file using 'write_file' "
-                "and then execute it (e.g., 'python3 your_file.py')."
-            )
-
     def _validate_parts(self, parts: list[str]) -> None:
         if not parts:
             return
@@ -155,9 +130,6 @@ class CommandValidator:
             raise CommandValidationError(
                 f"Command '{base_command}' is not in the allowed whitelist."
             )
-
-        if not self.allow_dangerous_patterns:
-            self._check_dangerous_arguments(base_command, parts)
 
     def _check_dangerous_patterns(self, command: str) -> None:
         # 1. Mask single-quoted strings (Always safe zones)
@@ -224,81 +196,6 @@ class CommandValidator:
 
                     # Bubble up the specific traversal error message
                     raise CommandValidationError(str(e)) from e
-
-    def _check_dangerous_arguments(self, base_command: str, parts: list[str]) -> None:
-        if base_command == "git":
-            strictly_forbidden = {
-                "push",
-                "remote",
-                "alias",
-                "apply",
-                "credential",
-                "config",
-                "clone",
-                "fetch",
-                "pull",
-                "submodule",
-            }
-            default_allowed = {
-                "status",
-                "diff",
-                "log",
-                "show",
-                "add",
-                "commit",
-                "branch",
-                "tag",
-                "rev-parse",
-            }
-            user_allowed = set(self.security_config.get("allowed_git_subcommands", []))
-            allowed_subcommands = default_allowed.union(user_allowed)
-
-            if len(parts) > 1:
-                subcommand = parts[1]
-                if subcommand in strictly_forbidden:
-                    raise CommandValidationError(
-                        f"Git subcommand '{subcommand}' is strictly forbidden."
-                    )
-                if subcommand not in allowed_subcommands:
-                    raise CommandValidationError(
-                        f"Git subcommand '{subcommand}' is not allowed."
-                    )
-
-                if subcommand == "add":
-                    forbidden_add_args = {
-                        ".",
-                        "*",
-                        ":",
-                        "-A",
-                        "--all",
-                        "-u",
-                        "--update",
-                    }
-                    for arg in parts[2:]:
-                        if arg in forbidden_add_args:
-                            raise CommandValidationError(
-                                f"Bulk adding with 'git add {arg}' is "
-                                "forbidden for AI agents. Please specify "
-                                "files explicitly (e.g., 'git add path/to/file.py') "
-                                "to ensure temporary or unrelated files are not staged."
-                            )
-
-        if base_command in {"python", "python3"}:
-            forbidden_python_flags = {"-c", "-m", "--code", "--module"}
-            for p in parts[1:]:
-                if p in forbidden_python_flags:
-                    raise CommandValidationError(
-                        f"Python flag '{p}' is prohibited. "
-                        "Please write the code to a file first and then execute it."
-                    )
-
-        if base_command == "find":
-            forbidden_find_args = {"-exec", "-execdir", "-ok", "-okdir", "-delete"}
-            for arg in parts[1:]:
-                if arg in forbidden_find_args:
-                    raise CommandValidationError(
-                        f"Find argument '{arg}' is prohibited for security."
-                    )
 
 
 def validate_command(command: str, custom_whitelist: set[str] | None = None) -> None:

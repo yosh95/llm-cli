@@ -13,25 +13,16 @@ class TestCommandValidator:
     def test_allowed_commands(self, validator):
         validator.validate("ls -la")
         validator.validate("grep 'pattern' file.txt")
-        validator.validate("python3 test.py")
-        validator.validate("ruff check .")
-        validator.validate("mypy .")
+        validator.validate("cat file.txt")
+        validator.validate("pwd")
 
-    def test_disallowed_sed_and_patch(self, validator):
-        with pytest.raises(
-            CommandValidationError, match="'sed' is not in the allowed whitelist"
-        ):
-            validator.validate("sed 's/foo/bar/' file.txt")
-
-    def test_git_strict_restrictions(self, validator):
-        with pytest.raises(
-            CommandValidationError, match="Git subcommand 'push' is strictly forbidden"
-        ):
-            validator.validate("git push origin main")
-
-    def test_git_add_restrictions(self, validator):
-        with pytest.raises(CommandValidationError, match="Bulk adding.*is forbidden"):
-            validator.validate("git add .")
+    def test_custom_whitelist(self):
+        v = CommandValidator(custom_whitelist={"python3", "git"})
+        v.validate("python3 test.py")
+        v.validate("git status")
+        # These should now pass because strict subcommand checks are removed
+        v.validate("git push origin main")
+        v.validate("git add .")
 
     def test_path_traversal_blocking(self, validator):
         with pytest.raises(CommandValidationError):

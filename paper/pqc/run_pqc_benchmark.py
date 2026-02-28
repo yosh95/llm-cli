@@ -41,7 +41,9 @@ def measure_rsa_2048(payload: dict, iterations: int = 50) -> dict:
     }
 
 
-def measure_ml_dsa(variant_class: Any, payload_bytes: bytes, iterations: int = 50) -> dict:
+def measure_ml_dsa(
+    variant_class: Any, payload_bytes: bytes, iterations: int = 50
+) -> dict:
     # Keygen
     start = time.perf_counter()
     pk, sk = variant_class.keygen()

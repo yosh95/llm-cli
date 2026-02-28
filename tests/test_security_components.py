@@ -45,7 +45,7 @@ class TestIdentityManager:
 
 
 class TestIntegrityVerifier:
-    def test_verify_success(self, tmp_path):
+    def test_verify_success(self, tmp_path, monkeypatch):
         # Create dummy critical files
         # We need to recreate the directory structure expected by IntegrityVerifier
         # The verifier takes a base_path.
@@ -57,6 +57,11 @@ class TestIntegrityVerifier:
         IntegrityVerifier.CRITICAL_FILES = ["test_file.py"]
         IntegrityVerifier.MANIFEST_PATH = tmp_path / "integrity_manifest.json"
 
+        # Mock audit log path to avoid checking system's real audit log
+        monkeypatch.setattr(
+            "llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl"
+        )
+
         try:
             (tmp_path / "test_file.py").write_text("dummy content")
             verifier = IntegrityVerifier(tmp_path)
@@ -65,12 +70,17 @@ class TestIntegrityVerifier:
             IntegrityVerifier.CRITICAL_FILES = saved_critical_files
             IntegrityVerifier.MANIFEST_PATH = saved_manifest_path
 
-    def test_verify_missing_file(self, tmp_path):
+    def test_verify_missing_file(self, tmp_path, monkeypatch):
         saved_critical_files = IntegrityVerifier.CRITICAL_FILES
         saved_manifest_path = IntegrityVerifier.MANIFEST_PATH
 
         IntegrityVerifier.CRITICAL_FILES = ["test_file.py", "missing.py"]
         IntegrityVerifier.MANIFEST_PATH = tmp_path / "integrity_manifest.json"
+
+        # Mock audit log path to avoid checking system's real audit log
+        monkeypatch.setattr(
+            "llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl"
+        )
 
         try:
             # Create all files initially to establish a baseline
@@ -116,6 +126,10 @@ class TestIntegrityVerifier:
         monkeypatch.setattr(
             "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_PATH",
             tmp_path / "keys" / "id_pqc.pub",
+        )
+        # Mock audit log path to avoid checking system's real audit log
+        monkeypatch.setattr(
+            "llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl"
         )
 
         try:

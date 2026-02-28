@@ -58,9 +58,7 @@ class TestIntegrityVerifier:
         IntegrityVerifier.MANIFEST_PATH = tmp_path / "integrity_manifest.json"
 
         # Mock audit log path to avoid checking system's real audit log
-        monkeypatch.setattr(
-            "llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl"
-        )
+        monkeypatch.setattr("llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl")
 
         try:
             (tmp_path / "test_file.py").write_text("dummy content")
@@ -78,9 +76,7 @@ class TestIntegrityVerifier:
         IntegrityVerifier.MANIFEST_PATH = tmp_path / "integrity_manifest.json"
 
         # Mock audit log path to avoid checking system's real audit log
-        monkeypatch.setattr(
-            "llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl"
-        )
+        monkeypatch.setattr("llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl")
 
         try:
             # Create all files initially to establish a baseline
@@ -128,9 +124,7 @@ class TestIntegrityVerifier:
             tmp_path / "keys" / "id_pqc.pub",
         )
         # Mock audit log path to avoid checking system's real audit log
-        monkeypatch.setattr(
-            "llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl"
-        )
+        monkeypatch.setattr("llm_cli.consts.AUDIT_LOG_PATH", tmp_path / "audit.jsonl")
 
         try:
             (tmp_path / "test_file.py").write_text("initial content")

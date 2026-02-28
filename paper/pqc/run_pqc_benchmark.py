@@ -1,6 +1,4 @@
-import base64
 import json
-import time
 
 # --- PQC Parameter Sets (NIST FIPS 204 / ML-DSA) ---
 ML_DSA_VARIANTS = {
@@ -50,7 +48,8 @@ def run_comprehensive_benchmark() -> None:
     print(f"Base MCP Payload Size: {base_size} bytes")
     print("-" * 66)
     print(
-        f"{'Algorithm':<12} | {'Sec Lvl':<7} | {'Sig Size':<10} | {'Latency':<12} | {'Tokens (Est)'}"
+        f"{'Algorithm':<12} | {'Sec Lvl':<7} | {'Sig Size':<10} | "
+        f"{'Latency':<12} | {'Tokens (Est)'}"
     )
     print("-" * 66)
 
@@ -59,7 +58,8 @@ def run_comprehensive_benchmark() -> None:
     rsa_latency = 1.7 + 0.06
     rsa_token_est = (base_size + (rsa_sig_size * 1.33)) / 4
     print(
-        f"{'RSA-2048':<12} | {'1 (Cls)':<7} | {rsa_sig_size:<10} | {rsa_latency:<10.2f} ms | ~{int(rsa_token_est)}"
+        f"{'RSA-2048':<12} | {'1 (Cls)':<7} | {rsa_sig_size:<10} | "
+        f"{rsa_latency:<10.2f} ms | ~{int(rsa_token_est)}"
     )
 
     # ML-DSA Variants
@@ -71,19 +71,23 @@ def run_comprehensive_benchmark() -> None:
         token_est = (base_size + (v["sig_size"] * 1.33)) / 4
 
         print(
-            f"{name:<12} | {v['sec_level']:<7} | {v['sig_size']:<10} | {total_latency:<10.2f} ms | ~{int(token_est)}"
+            f"{name:<12} | {v['sec_level']:<7} | {v['sig_size']:<10} | "
+            f"{total_latency:<10.2f} ms | ~{int(token_est)}"
         )
 
     print("-" * 66)
     print("\n[Security Strategy Analysis]")
     print(
-        "1. ML-DSA-44: High performance, ideal for transient tool calls in low-risk contexts."
+        "1. ML-DSA-44: High performance, ideal for transient tool calls in "
+        "low-risk contexts."
     )
     print(
-        "2. ML-DSA-65: Standard compliance, recommended for enterprise MCP identity propagation."
+        "2. ML-DSA-65: Standard compliance, recommended for enterprise MCP "
+        "identity propagation."
     )
     print(
-        "3. ML-DSA-87: Maximum assurance, essential for national infrastructure and long-term DAOs."
+        "3. ML-DSA-87: Maximum assurance, essential for national infrastructure "
+        "and long-term DAOs."
     )
 
     print("\n[Context Management Strategy]")
@@ -95,4 +99,3 @@ def run_comprehensive_benchmark() -> None:
 
 if __name__ == "__main__":
     run_comprehensive_benchmark()
-

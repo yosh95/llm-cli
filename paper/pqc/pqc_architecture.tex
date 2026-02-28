@@ -1,48 +1,54 @@
 \begin{tikzpicture}[
-    node distance=1.2cm and 1.2cm,
+    node distance=1.5cm and 1.8cm,
     auto,
-    block/.style={rectangle, draw, fill=blue!10, text width=6.5em, text centered, rounded corners, minimum height=3em},
-    server/.style={rectangle, draw, fill=green!10, text width=6.5em, text centered, rounded corners, minimum height=3em},
-    data/.style={rectangle, draw, fill=yellow!10, text width=7.5em, text centered, minimum height=2.5em},
-    action/.style={rectangle, draw, fill=red!10, text width=6.5em, text centered, rounded corners, minimum height=2.5em},
+    block/.style={rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3.5em},
+    server/.style={rectangle, draw, fill=green!10, text width=7.5em, text centered, rounded corners, minimum height=3.5em},
+    data/.style={rectangle, draw, fill=yellow!10, text width=8.5em, text centered, minimum height=2.5em},
+    action/.style={rectangle, draw, fill=red!10, text width=7em, text centered, rounded corners, minimum height=2.8em},
+    policy/.style={diamond, draw, fill=purple!10, text width=6em, text centered, inner sep=0pt},
     line/.style={draw, -latex', thick}
 ]
 
-    % --- Column 0: Orchestrator side ---
-    \node [block] (llm) {LLM Orchestrator};
-    \node [block, below=of llm] (agent) {Agent Logic / Prompt History};
-    \node [data, below=of agent, yshift=-2.2cm] (clean_result) {Clean Result \\ (100 Bytes)};
+    % --- Column 0: Agent Orchestrator ---
+    \node [block] (llm) {\textbf{LLM Engine} \\ (Reasoning)};
+    \node [block, below=of llm] (agent) {Agent Orchestrator \\ (llm-cli)};
+    \node [data, left=of agent, xshift=0.5cm] (pqc_id) {\textbf{ML-DSA-65 ID} \\ Private Key};
+
+    % --- Column 1: Outgoing ---
+    \node [data, right=of agent] (payload) {JSON-RPC Payload \\ (tools/call)};
+    \node [action, below=of payload] (signer) {Hybrid Signer \\ (RSA + ML-DSA)};
+    \node [data, below=of signer] (signed_payload) {Signed PQC Token \\ (approx. 4.8\,KB)};
     
-    % --- Column 1: Outgoing (Moving Down-Right) ---
-    \node [data, right=of agent] (payload) {JSON-RPC Payload \\ (execute\_tool)};
-    \node [action, below=of payload] (signer) {Hybrid PQC Signer \\ (RSA + ML-DSA)};
-    \node [data, below=of signer] (signed_payload) {Signed Payload \\ (3.5\,KB+)};
-    
-    % --- Column 2: Execution ---
+    % --- Column 2: Security & Transport ---
     \node [server, right=of signed_payload] (mcp_server) {Remote MCP Server};
-    \node [action, right=of mcp_server] (verifier) {PQC Verifier \& Policy Engine};
+    \node [policy, above=of mcp_server] (pdp) {Policy \\ Decision \\ Point};
+    \node [action, right=of pdp] (verifier) {PQC Verifier \\ (FIPS 204)};
     
-    % --- Column 3: Return (Moving Up-Left) ---
-    \node [data, above=of verifier] (tool_result) {Tool Execution Result};
-    \node [action, above=of mcp_server] (stripper) {Signature Stripper \\ (Context Manager)};
+    % --- Column 3: Return ---
+    \node [data, above=of verifier] (tool_result) {Raw Tool Result \\ + Metadata};
+    \node [action, left=of tool_result] (stripper) {\textbf{Signature Stripper} \\ (Context Saver)};
+    \node [data, above=of stripper] (clean_result) {Clean Result \\ for LLM};
 
     % Paths
     \path [line] (llm) -- (agent);
     \path [line] (agent) -- (payload);
+    \path [line] (pqc_id) -- (agent);
     \path [line] (payload) -- (signer);
     \path [line] (signer) -- (signed_payload);
     \path [line] (signed_payload) -- (mcp_server);
-    \path [line] (mcp_server) -- (verifier);
+    \path [line] (mcp_server) -- (pdp);
+    \path [line] (pdp) -- (verifier);
     \path [line] (verifier) -- (tool_result);
     \path [line] (tool_result) -- (stripper);
-    \path [line] (stripper) -| (clean_result);
-    \path [line] (clean_result) -- (agent);
+    \path [line] (stripper) -- (clean_result);
+    \path [line] (clean_result) -- (llm);
     
-    % Grouping box
-    \node [draw, dashed, thick, gray, fit=(signer) (signed_payload) (mcp_server) (verifier) (tool_result) (stripper), inner sep=0.4cm, label=below:Zero-Trust Execution Environment] (zt_env) {};
+    % Grouping boxes
+    \node [draw, dashed, thick, blue!50, fit=(llm) (agent) (pqc_id) (stripper) (clean_result), inner sep=0.5cm, label=above:Agent Trusted Execution Boundary] (agent_env) {};
+    \node [draw, dashed, thick, red!50, fit=(mcp_server) (pdp) (verifier) (tool_result), inner sep=0.5cm, label=below:Target MCP Resource (Untrusted)] (mcp_env) {};
 
     % Highlighting
-    \node[text width=4.5cm, align=center, color=red!70!black, font=\footnotesize\bfseries] at (stripper.north) [yshift=0.8cm] {Crucial Step:\\ Prevent massive PQC signatures from entering LLM Context.};
+    \node[text width=4.0cm, align=center, color=red!70!black, font=\footnotesize\bfseries] at (stripper.west) [xshift=-0.5cm, yshift=0.8cm] {Prevents Token Bloat!};
 
 \end{tikzpicture}
 

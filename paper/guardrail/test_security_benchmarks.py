@@ -7,8 +7,10 @@ from llm_cli.security.command_validator import CommandValidationError, CommandVa
 def validator() -> CommandValidator:
     """
     Initialize a CommandValidator with default settings for testing.
+    We add git and python3 to the whitelist for these tests as they
+    represent typical developer operations we want to validate.
     """
-    return CommandValidator()
+    return CommandValidator(custom_whitelist={"git", "python3"})
 
 
 class TestSecurityBenchmarks:

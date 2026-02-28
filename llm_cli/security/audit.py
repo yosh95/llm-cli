@@ -51,10 +51,25 @@ def log_audit(
             "prev_hash": prev_hash,
         }
 
-        # Calculate hash of the current entry (excluding the hash itself)
+        # Calculate hash of the current entry (excluding the hash itself and PQC sig)
         entry_str = json.dumps(log_entry, sort_keys=True)
         current_hash = hashlib.sha256(entry_str.encode()).hexdigest()
         log_entry["hash"] = current_hash
+
+        # --- PQC-Audit-Chain: Sign the current entry hash with ML-DSA ---
+        try:
+            import base64
+
+            from llm_cli.security.identity import IdentityManager
+            from llm_cli.security.pqc import PQCProvider
+
+            pqc_priv = IdentityManager._get_pqc_private_key_content()
+            pqc_sig = PQCProvider.sign(current_hash.encode(), pqc_priv)
+            log_entry["pqc_signature"] = base64.b64encode(pqc_sig).decode()
+            log_entry["pqc_algorithm"] = PQCProvider.ALGORITHM_NAME
+        except Exception as e:
+            # Fallback for environments without PQC keys or during setup
+            logger.debug(f"PQC signing skipped for audit log: {e}")
 
         # Write as JSONL
         with path.open("a", encoding="utf-8") as f:

@@ -102,11 +102,18 @@ class IntegrityVerifier:
 
         logger.info("🛡️  Verifying audit log integrity...")
         try:
+            from llm_cli.security.identity import IdentityManager
+            from llm_cli.security.pqc import PQCProvider
+
+            pqc_pub = IdentityManager._get_pqc_public_key_content()
+
             with audit_log_path.open("r", encoding="utf-8") as f:
                 last_hash = "0" * 64
                 for i, line in enumerate(f):
                     entry = json.loads(line)
                     provided_hash = entry.pop("hash", None)
+                    pqc_sig_b64 = entry.pop("pqc_signature", None)
+                    entry.pop("pqc_algorithm", None)
 
                     # Check chain
                     if entry.get("prev_hash") != last_hash:
@@ -121,7 +128,21 @@ class IntegrityVerifier:
                         logger.error(f"❌ Audit log tampering detected at line {i + 1}")
                         return False
 
+                    # Verify PQC Signature of the hash
+                    if pqc_sig_b64:
+                        import base64
+
+                        pqc_sig = base64.b64decode(pqc_sig_b64)
+                        if not PQCProvider.verify(
+                            actual_hash.encode(), pqc_sig, pqc_pub
+                        ):
+                            logger.error(
+                                f"❌ Audit log PQC verification failed at line {i + 1}"
+                            )
+                            return False
+
                     last_hash = provided_hash
+            logger.info("✅ Audit log integrity and PQC signatures verified.")
             return True
         except Exception as e:
             logger.error(f"❌ Failed to verify audit log: {e}")

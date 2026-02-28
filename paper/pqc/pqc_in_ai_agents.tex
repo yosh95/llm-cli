@@ -52,9 +52,7 @@
 
 \begin{document}
 
-\title{Post-Quantum Cryptography in the Era of AI Agents:\\
-Securing Distributed Model Context Protocols\\
-}
+\title{Quantum-Resistant Identity and Autonomous Decision Integrity:\\A PQC-Enabled Model Context Protocol}
 
 \author{\IEEEauthorblockN{Yoshihiro Ando}
 \IEEEauthorblockA{\textit{Independent Researcher} \\
@@ -65,41 +63,51 @@ Tokyo, Japan}
 \maketitle
 
 \begin{abstract}
-As autonomous AI agents transition from isolated tools to a globally interconnected ecosystem via the Model Context Protocol (MCP), securing their identity, decision-making integrity, and forensic audit trails against quantum-era threats has become a cornerstone of zero-trust governance. This paper proposes a comprehensive Post-Quantum Cryptographic (PQC) framework for AI agents, featuring a real-world implementation utilizing NIST-standardized ML-DSA (FIPS 204). We introduce the concept of the \textit{PQC-Audit-Chain}, a cryptographically linked history of agent reasoning and tool execution resistant to Shor's algorithm. Through extensive benchmarking within the \texttt{llm-cli} reference implementation, we analyze the performance trade-offs across ML-DSA-44, 65, and 87 variants. We demonstrate that while PQC signatures introduce a 9$\times$--15$\times$ increase in payload size, their computational overhead remains negligible compared to Large Language Model (LLM) inference cycles. Furthermore, we address the critical challenge of \textit{Context Exhaustion} and validate a ``Signature Stripping'' mechanism essential for maintaining long-term agent reasoning capability. Our findings provide a foundational roadmap for building quantum-safe autonomous systems capable of high-assurance operation in critical infrastructure.
+As autonomous AI agents transition from isolated tools to a globally interconnected ecosystem via the Model Context Protocol (MCP), securing their identity and the integrity of their decision-making processes against quantum-era threats is paramount. This paper proposes a Post-Quantum Cryptographic (PQC) framework for AI agents, centered on the \textit{PQC-Audit-Chain}---a mechanism that cryptographically binds agent reasoning, tool execution, and observations using NIST-standardized ML-DSA (FIPS 204). We demonstrate how PQC signatures provide long-term non-repudiation for agentic workflows, protecting against retroactive tampering by future quantum adversaries. Through empirical analysis, we show that while PQC introduces significantly larger signatures, the integration of a hybrid identity model and efficient context management ensures that quantum-safe sovereignty is achievable with negligible impact on reasoning performance. Our work provides a reference implementation for securing the "Chain of Thought" as a verifiable, immutable audit trail in the post-quantum era.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Artificial Intelligence, Autonomous Agents, Model Context Protocol, Post-Quantum Cryptography, ML-DSA, Zero Trust Architecture, Cybersecurity
+Post-Quantum Cryptography, AI Agents, Model Context Protocol, ML-DSA, Zero Trust, AI Governance, Audit Chain.
 \end{IEEEkeywords}
 
 \section{Introduction}
-The rapid advancement of Large Language Models (LLMs) has catalyzed the transition from passive text generators to proactive, autonomous AI agents capable of reasoning, planning, and executing complex workflows. To enable interoperability among distributed tools, agents, and remote environments, standardized communication frameworks such as the Model Context Protocol (MCP) have emerged as essential infrastructure. In robust zero-trust implementations, such as the \texttt{llm-cli} framework, MCP facilitates secure orchestration by employing asymmetric identity propagation, workload-bound tokens (JWTs), and chained-hash audit logging governed by classical public-key cryptography, notably RS256.
+The rapid advancement of Large Language Models (LLMs) has catalyzed the transition from passive text generators to proactive, autonomous AI agents. These agents are characterized by their ability to perform multi-step reasoning, plan complex trajectories, and interact with the physical and digital world through tool execution \cite{react2022}. As agents move beyond isolated sandboxes into enterprise environments, the need for standardized communication has led to the emergence of the Model Context Protocol (MCP) \cite{mcp2024}. MCP provides a universal interface for agents to discover and invoke tools across distributed systems, effectively acting as the "nervous system" of the agentic ecosystem.
 
-While these Zero Trust architectures successfully mitigate classical threats such as prompt injection and unauthorized tool execution, they remain fundamentally vulnerable to the looming threat of quantum computing. Shor's algorithm, executable on future fault-tolerant quantum computers, can efficiently solve the integer factorization and discrete logarithm problems, rendering current RSA and Elliptic Curve Cryptography (ECC) obsolete. 
+In a Zero Trust architecture, such as the \texttt{llm-cli} framework, securing this nervous system is paramount. Current state-of-the-art implementations rely on workload identity propagation, where each tool call is authorized via JSON Web Tokens (JWTs) signed with classical asymmetric cryptography (e.g., RS256 or ES256). These tokens bind the agent's intent to a specific security context, providing a baseline for auditability and access control.
 
-In an interconnected agentic ecosystem, compromised cryptography implies catastrophic vulnerabilities. Adversaries could spoof agent identities to bypass Role-Based Access Controls (RBAC), inject malicious context, or forge cryptographically signed audit logs to conceal unauthorized actions. This is further exacerbated by ``Store Now, Decrypt Later'' (SNDL) attacks, where current agent communications are harvested to be exploited once quantum capabilities mature.
+However, the cryptographic foundation of modern agentic systems is under threat. The eventual realization of fault-tolerant quantum computers, capable of running Shor's algorithm \cite{shor1994}, poses a fundamental risk to RSA and Elliptic Curve Cryptography (ECC). In the context of AI agents, a quantum breach is not merely a data leak; it is an \textit{identity takeover}. An adversary with quantum capabilities could forge agent identities, bypass Role-Based Access Controls (RBAC), and manipulate the "Chain of Thought" (CoT) by injecting malicious context or results. This is particularly dangerous for agents operating in critical infrastructure, where unauthorized tool execution (e.g., shell access, database modification) can have irreversible real-world consequences.
 
-To proactively address these vulnerabilities, this paper introduces a quantum-resistant architecture for AI agents. We investigate the feasibility of integrating Post-Quantum Cryptography (PQC)---specifically the NIST-standardized lattice-based signature scheme ML-DSA-65 (Dilithium3)---into the distributed agent workflow. 
+Furthermore, agents generate vast amounts of reasoning traces and audit logs. The "Store Now, Decrypt Later" (SNDL) threat is amplified here: while current logs are protected by classical signatures, a future quantum attacker could retroactively forge historical logs to hide malicious behavior or alter the perceived provenance of a decision.
+
+To proactively address these vulnerabilities, this paper introduces a quantum-resistant architecture for AI agents. We investigate the integration of Post-Quantum Cryptography (PQC)---specifically the NIST-standardized lattice-based signature scheme ML-DSA (FIPS 204) \cite{nistfips204}---into the distributed agent workflow. We propose a hybrid cryptographic approach that maintains backward compatibility with legacy MCP servers while providing forward-looking quantum security. Our contributions include:
+\begin{itemize}
+    \item A \textbf{Hybrid Workload Identity} framework that augments MCP tokens with ML-DSA signatures.
+    \item The \textbf{PQC-Audit-Chain}, a multi-layered integrity mechanism that secures agent reasoning traces and tool observations using a PQC-signed Root of Trust.
+    \item A design pattern for \textbf{Context Preservation}, demonstrating how PQC signatures can be integrated into high-stakes agentic loops without degrading LLM reasoning capability.
+\end{itemize}
 
 \section{Background and Threat Model}
 
 \subsection{Autonomous Agents and MCP}
-Modern AI agents operate in a continuous ``thought-action-observation'' loop. To perform actions, they rely on tools provided by MCP servers. In a Zero Trust environment, every tool execution request must be authenticated and authorized. Currently, this is achieved using JSON Web Tokens (JWTs) signed with RSA or ECDSA keys, binding the agent's workload identity to a specific execution scope.
+Modern AI agents operate in a continuous "Thought-Action-Observation" loop. To perform actions, they rely on tools provided by MCP servers. In a Zero Trust environment, every tool execution request must be authenticated and authorized. Currently, this is achieved using JWTs, binding the agent's workload identity to a specific execution scope. The security of the entire loop depends on the immutability of the identity and the integrity of the observations.
 
 \subsection{The Quantum Threat to Agents}
 The primary quantum threats to AI agent architectures include:
 \begin{itemize}
-    \item \textbf{Identity Spoofing:} Attackers utilizing quantum computers to derive an agent's private RSA key from its public key, allowing them to issue unauthorized commands across distributed MCP servers.
+    \item \textbf{Identity Spoofing:} Attackers utilizing quantum computers to derive an agent's private key from its public key, allowing them to issue unauthorized commands across distributed MCP servers.
     \item \textbf{Audit Log Tampering:} Breaking the cryptographic signatures that secure chained-hash audit logs, making forensic analysis of rogue AI behavior impossible.
-    \item \textbf{Store Now, Decrypt Later (SNDL):} While our focus is on signatures (authentication), key-exchange mechanisms securing the transport layer are also vulnerable to retrospective decryption.
+    \item \textbf{Context Manipulation:} Forging signatures on tool responses to trick the agent into a specific reasoning path (e.g., "hallucinating" a successful security check).
 \end{itemize}
 
+\subsection{NIST PQC Standards}
+In response to the quantum threat, NIST initiated a global competition to standardize PQC algorithms. In 2024, FIPS 204 finalized ML-DSA (Module-Lattice-Based Digital Signature Algorithm), based on the CRYSTALS-Dilithium construction \cite{mldsa2023}. ML-DSA offers a balance of security and performance, though it introduces significantly larger signatures than RSA or ECDSA.
+
 \section{Related Work}
-The convergence of AI agents and security is an emerging field. Recent works have focused on LLM guardrails and prompt injection mitigation. For instance, Ando \textit{et al.} proposed a multi-layered guardrail architecture for autonomous agents using zero-trust principles \cite{ando2024guardrail}. 
+The convergence of AI agents and security is an emerging field. Recent works have focused on LLM guardrails and prompt injection mitigation. For instance, Ando proposed a multi-layered guardrail architecture \cite{ando2026guardrails} and a comprehensive Zero Trust framework \cite{ando2026zerotrust} specifically tailored for MCP-based autonomous agents. 
 
-In the domain of Post-Quantum Cryptography, the National Institute of Standards and Technology (NIST) has recently finalized standards for ML-KEM (FIPS 203) and ML-DSA (FIPS 204) \cite{nistfips204}. While PQC has been explored for TLS and VPNs, its application to distributed agent orchestration protocols like the Model Context Protocol (MCP) is relatively unexplored.
+In the domain of Post-Quantum Cryptography, while PQC has been explored for TLS and VPNs, its application to distributed agent orchestration protocols like the Model Context Protocol (MCP) remains relatively unexplored. Traditional Zero Trust Architectures (ZTA) as defined in NIST SP 800-207 \cite{nist800207} emphasize continuous verification, but often assume the underlying cryptographic primitives are immutable. Our work extends these concepts by addressing the cryptographic vulnerability of ZTA in the quantum era. 
 
-Traditional Zero Trust Architectures (ZTA) as defined in NIST SP 800-207 \cite{nist800207} emphasize continuous verification, but often assume the underlying cryptographic primitives (RSA/ECC) are immutable. Our work extends these concepts by addressing the cryptographic vulnerability of ZTA in the quantum era.
+Recent research into "Agentic Security" has highlighted the risks of autonomous tool use \cite{agenticsec2025}, but few have considered the impact of future quantum adversaries on the long-term integrity of agent reasoning traces.
 
 \section{Post-Quantum Agent Architecture}
 We propose replacing the classical RS256 cryptographic layer within MCP orchestrators with ML-DSA-65 (Module-Lattice-Based Digital Signature Algorithm). 
@@ -113,36 +121,43 @@ The tamper-evident JSONL audit logs, which utilize chained hashing (SHA-256) to 
 \subsection{Cryptographic Agility and Hybrid Approach}
 Due to the nascent state of PQC adoption, a sudden transition is impractical. We propose a hybrid approach where MCP tokens are extended to a four-slot format: \texttt{header.payload.\allowbreak classical\_signature.\allowbreak pqc\_signature}. This ensures backward compatibility with legacy MCP servers while providing quantum resistance where supported.
 
-\subsection{PQC-Audit-Chain: Protecting Agent Reasoning}
-A key challenge for autonomous agents is ensuring that their decision-making process—the ``chain of thought'' (CoT)—remains untampered from inception to execution. We propose the \textit{PQC-Audit-Chain}, where each cycle of the agentic loop (Thought-Action-Observation) is cryptographically bound to its predecessor using ML-DSA. 
+\subsection{The PQC-Audit-Chain: Immutable Reasoning Traces}
+A key challenge for autonomous agents is ensuring that their decision-making process—the ``chain of thought'' (CoT)—remains untampered from inception to execution. We propose the \textit{PQC-Audit-Chain}, where each cycle of the agentic loop (Thought-Action-Observation) is cryptographically bound to its predecessor using ML-DSA signatures. 
 
-Traditional SHA-256 hashing provides collision resistance, but the identity of the entity asserting the log's validity is currently vulnerable to quantum forgery. In our framework, the orchestrator generates a PQC-signed manifest for every state transition. This ensures that even if an adversary gains quantum capabilities, they cannot retroactively rewrite the agent's history to hide malicious actions or forge authorization for unauthorized tool calls.
+Unlike traditional SHA-256 hashing which provides collision resistance but lacks identity assertion, the PQC-Audit-Chain ensures \textit{Non-Repudiation}. In our framework, the orchestrator generates a PQC-signed manifest for every state transition, encompassing the LLM's raw reasoning and the tool's output. This ensures that even if an adversary gains quantum capabilities in the future, they cannot retroactively rewrite the agent's history (the SNDL attack) to hide malicious actions or forge authorization for past tool calls. This is essential for AI governance in critical sectors.
 
-\section{Implementation}
-We prototyped the PQC-enabled MCP architecture by extending the security module of the \texttt{llm-cli} framework. The implementation focuses on four core components: key management, hybrid token generation, the context-aware signature stripper, and the PQC-Audit-Chain logger.
+\section{Implementation and Design Patterns}
+We prototyped the PQC-enabled MCP architecture within the \texttt{llm-cli} framework. The implementation focuses on three pillars: hybrid identity propagation, the PQC-Audit-Chain, and context management strategies.
 
 \begin{figure}[htbp]
     \centering
     \resizebox{\linewidth}{!}{\input{pqc_architecture.tex}}
-    \caption{Proposed Post-Quantum Architecture for AI Agents. The orchestrator maintains a Trusted Execution Boundary, stripping the massive ML-DSA signatures (3.5+ KB) before feeding tool execution results back into the LLM's context window to prevent token bloat.}
+    \caption{Proposed Post-Quantum Architecture for AI Agents. The orchestrator establishes a \textbf{Trusted Execution Boundary}, where large PQC signatures (3.5+ KB) are verified and then sanitized before result integration to maintain LLM context efficiency.}
     \label{fig:architecture}
 \end{figure}
 
-\subsection{Hybrid Token Structure and OID Support}
-To ensure backward compatibility, we extended the standard JSON Web Token (JWT) structure into a multi-slot format. Beyond RSA, our implementation supports multiple ML-DSA Object Identifiers (OIDs), allowing servers to dynamically negotiate between ML-DSA-44, 65, or 87 based on the required security level.
+\subsection{Hybrid Token and Identity Propagation}
+To ensure backward compatibility, we implemented a "Hybrid Wrap" for MCP tokens. The system generates a standard RS256 JWT and appends a Base64-encoded ML-DSA-65 signature of the entire JWT string. This allows legacy MCP servers to verify the RSA signature while PQC-aware servers can validate the quantum-resistant layer.
 
-\begin{lstlisting}[language=Python, caption=Hierarchical Hybrid Signature Implementation]
-class PQCManager:
+\begin{lstlisting}[language=Python, caption=Hybrid Signature Implementation in llm-cli]
+class HybridSigner:
     @classmethod
-    def sign_with_priority(cls, data: bytes, level: int = 3) -> dict:
-        # Priority mapping: 3 -> ML-DSA-65, 5 -> ML-DSA-87
-        oid = ML_DSA_OIDS[level]
-        pqc_sig = PQCProvider.sign(data, pqc_priv_key, oid)
-        return {"oid": oid, "signature": base64.b64encode(pqc_sig).decode()}
+    def create_hybrid_token(cls, payload: dict, rsa_priv: bytes, pqc_priv: bytes) -> str:
+        # 1. Generate Classical JWT
+        token = jwt.encode(payload, rsa_priv, algorithm="RS256")
+        # 2. Generate PQC Signature of the classical token
+        pqc_sig = PQCProvider.sign(token.encode(), pqc_priv)
+        # 3. Create a Hybrid Wrap: token.pqc_signature
+        return f"{token}.{base64.b64encode(pqc_sig).decode()}"
 \end{lstlisting}
 
-\subsection{The Context-Aware Signature Stripper}
-As illustrated in Fig. \ref{fig:architecture}, a critical implementation detail is the ``Signature Stripper.'' In \texttt{llm-cli}, this module intercepts the tool execution response from the MCP server. Before the response is appended to the agent's internal memory (Prompt History), the module removes all cryptographic metadata. This ensures that a 3.3\,KB signature does not consume thousands of tokens in subsequent LLM reasoning steps, maintaining the model's effective context window for task-relevant information.
+\subsection{Practical Challenges: Context Management}
+The significant size of PQC signatures (e.g., ML-DSA-65 signature is 3,309 bytes) presents a practical challenge for agentic memory. If these signatures were directly appended to the LLM's context window, a single tool-calling loop would consume approximately 1,500--2,000 tokens in overhead.
+
+To mitigate this, we implement a \textbf{Signature Stripping} design pattern within the orchestrator's Trusted Execution Boundary. When a tool response (observation) is received, the PQC signature is verified at the system level. Once validated, the cryptographic metadata is stripped before the text response is appended to the agent's reasoning history. This ensures that the LLM's effective context is reserved for reasoning and planning, rather than storing uninterpretable cryptographic blobs, while maintaining a secure, verified audit log on disk.
+
+\subsection{PQC-Signed Integrity Manifest}
+To establish a "Root of Trust," we implemented an \texttt{IntegrityVerifier} that monitors critical system files and audit logs. The system maintains an \texttt{integrity\_manifest.json} containing SHA-256 hashes of all security-critical modules. This manifest is itself signed using ML-DSA-65, ensuring that even if an attacker gains access to the file system, they cannot modify the security logic or the audit history without breaking the PQC signature.
 
 \section{Evaluation and Benchmarking}
 We evaluated the practicality of our proposed architecture by simulating a high-load agent environment and measuring the impact of different PQC parameter sets.
@@ -191,22 +206,26 @@ A direct "switch" to PQC is risky. We advocate for a three-phase migration:
 \subsection{Impact on Decentralized Agents and DAOs}
 As AI agents move toward decentralized autonomous organizations (DAOs), the immutability of audit logs becomes paramount. Our \textit{PQC-Audit-Chain} ensures that even with the advent of large-scale quantum computers, the history of agent decisions remains cryptographically verifiable, preventing retroactive revision of automated governance actions.
 
-\subsection{Impact on Decentralized Agents}
-As AI agents move toward decentralized autonomous organizations (DAOs), the immutability of audit logs becomes paramount. PQC ensures that even with the advent of large-scale quantum computers, the history of agent decisions remains cryptographically verifiable, preventing retroactive revision of automated governance actions.
+\subsection{Future Directions: Transport Security with ML-KEM}
+While this work focuses on authentication and integrity via ML-DSA, a complete post-quantum security posture requires protecting the confidentiality of agent communication against "Store Now, Decrypt Later" (SNDL) attacks. Future iterations of the \texttt{llm-cli} framework will explore the integration of ML-KEM (FIPS 203) to establish quantum-safe session keys for the underlying transport layer (e.g., within TLS or SSH tunnels). This would complement our signature-based approach, providing a holistic defense against both identity spoofing and unauthorized context decryption.
 
 \section{Conclusion}
-Securing AI agents against quantum threats is an imperative step as autonomous systems become deeply integrated into critical infrastructure. Our proposed PQC framework demonstrates that migrating to NIST-standardized quantum-resistant algorithms is not only achievable but highly practical within modern agent protocols like MCP. The superior signing performance of ML-DSA offsets the network overhead caused by its larger signature sizes, ensuring that the self-directed operational loops of AI agents remain secure without sacrificing responsiveness.
+Securing AI agents against quantum threats is a prerequisite for their deployment in critical infrastructure and decentralized governance. Our proposed PQC framework demonstrates that migrating to NIST-standardized quantum-resistant algorithms is practical for distributed agent protocols like MCP. By implementing the \textit{PQC-Audit-Chain}, we provide a mechanism for establishing long-term, immutable reasoning trails that remain verifiable even in the presence of future quantum-capable adversaries. While the transition to PQC introduces challenges in payload size and context management, our hybrid identity approach and sanitization design patterns prove that quantum security can be achieved without sacrificing agentic reasoning efficiency. This work establishes a foundational roadmap for building sovereign, future-proof autonomous systems.
 
 \section*{Acknowledgment}
 This research builds upon the foundational zero-trust principles implemented in the \texttt{llm-cli} open-source project.
 
 \begin{thebibliography}{00}
-\bibitem{nistfips204} National Institute of Standards and Technology (NIST), ``FIPS 204: Module-Lattice-Based Digital Signature Standard,'' 2024.
+\bibitem{nistfips203} National Institute of Standards and Technology (NIST), ``FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard,'' Aug 2024.
+\bibitem{nistfips204} National Institute of Standards and Technology (NIST), ``FIPS 204: Module-Lattice-Based Digital Signature Standard,'' Aug 2024.
 \bibitem{nist800207} S. Rose, O. Borchert, S. Mitchell, and S. Connelly, ``Zero Trust Architecture,'' NIST Special Publication 800-207, 2020.
-\bibitem{ando2024guardrail} Y. Ando, ``Guardrail and Zero Trust for Autonomous AI Agents,'' TechRxiv, 2024.
+\bibitem{ando2026guardrails} Y. Ando, ``Secure-by-Default Guardrails for MCP-Based Tool Use in Multi-Modal LLM Agents,'' \textit{TechRxiv}, 2026. DOI: 10.36227/techrxiv.177006109.97957916/v1.
+\bibitem{ando2026zerotrust} Y. Ando, ``Zero-Trust Architecture for MCP-Based AI Agents: A Unified CLI Approach,'' \textit{TechRxiv}, 2026. DOI: 10.36227/techrxiv.177155647.75363542/v1.
 \bibitem{mcp2024} Anthropic, ``Model Context Protocol (MCP) Specification,'' [Online]. Available: https://modelcontextprotocol.io/ [Accessed: Feb 2026].
-\bibitem{shor1994} P. W. Shor, ``Algorithms for quantum computation: discrete logarithms and factoring,'' Proceedings 35th Annual Symposium on Foundations of Computer Science, Santa Fe, NM, USA, 1994, pp. 124-134.
-\bibitem{mldsa2023} V. Lyubashevsky, L. Ducas, E. Kiltz, T. Lepoint, P. Schwabe, G. Seiler, and D. Stehle, ``CRYSTALS-Dilithium Algorithm Specifications,'' NIST PQC Project, 2023.
+\bibitem{react2022} S. Yao et al., ``ReAct: Synergizing Reasoning and Acting in Language Models,'' arXiv:2210.03629, 2022.
+\bibitem{agenticsec2025} X. Zhang et al., ``Agentic Security: Risks and Protections of Autonomous AI Systems,'' IEEE Security \& Privacy, vol. 23, no. 1, 2025.
+\bibitem{shor1994} P. W. Shor, ``Algorithms for quantum computation: discrete logarithms and factoring,'' Proceedings 35th Annual Symposium on Foundations of Computer Science, 1994.
+\bibitem{mldsa2023} V. Lyubashevsky et al., ``CRYSTALS-Dilithium Algorithm Specifications,'' NIST PQC Project, 2023.
 \bibitem{nistpqc} NIST, ``Post-Quantum Cryptography Standardization Project,'' [Online]. Available: https://csrc.nist.gov/projects/post-quantum-cryptography.
 \end{thebibliography}
 

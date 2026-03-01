@@ -299,30 +299,36 @@ class MambaClient(BaseLlmClient):
         ]
 
         try:
+            if final_response_text is None:
+                final_response_text = ""
+
             # Expecting JSON: {"thought": "...", "message": "...", "tool_calls": [...]}
             clean_json = final_response_text.strip()
             clean_json = re.sub(r"```json\n?|\n?```", "", clean_json).strip()
 
-            payload = json.loads(clean_json)
-            if isinstance(payload, dict):
-                final_thought = payload.get("thought", final_thought)
-                calls = payload.get("tool_calls", [])
-                for call in calls:
-                    model_parts.append(ContentPart(function_call=call))
+            if clean_json:
+                payload = json.loads(clean_json)
+                if isinstance(payload, dict):
+                    final_thought = payload.get("thought") or final_thought
+                    calls = payload.get("tool_calls") or []
+                    for call in calls:
+                        if call:
+                            model_parts.append(ContentPart(function_call=call))
 
-                final_response_text = payload.get("message", "")
-                if isinstance(model_parts[0], ContentPart):
-                    model_parts[0].text = final_response_text
-                    model_parts[0].thought = final_thought
+                    final_response_text = payload.get("message") or ""
+                    if isinstance(model_parts[0], ContentPart):
+                        model_parts[0].text = final_response_text
+                        model_parts[0].thought = final_thought
         except json.JSONDecodeError:
             # Fallback to legacy tag parsing if JSON fails
-            calls = re.findall(r"<tool_call>(.*?)</tool_call>", final_response_text)
-            for call_str in calls:
-                try:
-                    call_data = json.loads(call_str)
-                    model_parts.append(ContentPart(function_call=call_data))
-                except json.JSONDecodeError:
-                    continue
+            if final_response_text:
+                calls = re.findall(r"<tool_call>(.*?)</tool_call>", final_response_text)
+                for call_str in calls:
+                    try:
+                        call_data = json.loads(call_str)
+                        model_parts.append(ContentPart(function_call=call_data))
+                    except json.JSONDecodeError:
+                        continue
 
         model_msg = Message(role=Role.MODEL, parts=model_parts)
         self.conversation.append(model_msg)
@@ -464,9 +470,9 @@ class MambaClient(BaseLlmClient):
 
             result = json.loads(res_text)
             return (
-                result.get("valid", True),
-                result.get("critique", ""),
-                result.get("correction", ""),
+                bool(result.get("valid", True)),
+                str(result.get("critique", "") or ""),
+                str(result.get("correction", "") or ""),
             )
         except Exception as e:
             logger.error(f"Mentor review failed: {e}")

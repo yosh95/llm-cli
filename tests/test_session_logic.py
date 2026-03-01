@@ -77,7 +77,7 @@ class TestLlmCliCompleter:
 
     def test_template_completion(self, mock_client):
         with patch(
-            "llm_cli.clients.session.get_templates",
+            "llm_cli.clients.completer.get_templates",
             return_value={"bug_report": "template"},
         ):
             completer = LlmCliCompleter(mock_client)
@@ -111,7 +111,7 @@ class TestChatSession:
     # ... (other tests)
 
     def test_execute_tool_call_no_approval(self, session):
-        with patch("llm_cli.clients.session.registry") as mock_registry:
+        with patch("llm_cli.clients.tool_executor.registry") as mock_registry:
             mock_tool_func = MagicMock(return_value="Tool Result")
             tool_entry = {
                 "skip_approval": True,
@@ -133,7 +133,7 @@ class TestChatSession:
             assert res_part.function_response["response"]["result"] == "Tool Result"
 
     def test_execute_tool_call_with_approval_granted(self, session):
-        with patch("llm_cli.clients.session.registry") as mock_registry:
+        with patch("llm_cli.clients.tool_executor.registry") as mock_registry:
             mock_tool_func = MagicMock(return_value="Tool Result")
             tool_entry = {
                 "skip_approval": False,
@@ -156,7 +156,7 @@ class TestChatSession:
                 assert res_part.function_response["response"]["result"] == "Tool Result"
 
     def test_execute_tool_call_with_approval_denied(self, session):
-        with patch("llm_cli.clients.session.registry") as mock_registry:
+        with patch("llm_cli.clients.tool_executor.registry") as mock_registry:
             tool_entry = {
                 "skip_approval": False,
                 "func": MagicMock(),

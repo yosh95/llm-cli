@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_cli.clients.base import (
-    BaseLlmClient,
+from llm_cli.clients.base import BaseLlmClient
+from llm_cli.clients.exceptions import (
     CheckpointRequest,
     ExitRequest,
     TemplateRequest,
@@ -86,7 +86,9 @@ class TestBaseClientCommands:
     # --- /template ---
     def test_template_list(self, client: BaseLlmClient) -> None:
         """Test listing templates."""
-        with patch("llm_cli.clients.base.get_templates") as mock_get_templates:
+        with patch(
+            "llm_cli.clients.command_handler.get_templates"
+        ) as mock_get_templates:
             mock_get_templates.return_value = {"t1": "Template 1", "t2": "Template 2"}
             with patch("llm_cli.clients.base.console.print") as mock_print:
                 assert client._handle_command("/template", None) is True
@@ -94,7 +96,9 @@ class TestBaseClientCommands:
 
     def test_template_select_preview(self, client: BaseLlmClient) -> None:
         """Test selecting a template just for preview (no pending data)."""
-        with patch("llm_cli.clients.base.get_templates") as mock_get_templates:
+        with patch(
+            "llm_cli.clients.command_handler.get_templates"
+        ) as mock_get_templates:
             mock_get_templates.return_value = {"t1": "Template content"}
             with patch("llm_cli.clients.base.console.print") as mock_print:
                 assert client._handle_command("/t t1", None) is True
@@ -103,7 +107,9 @@ class TestBaseClientCommands:
 
     def test_template_select_load(self, client: BaseLlmClient) -> None:
         """Test selecting a template to load into input buffer."""
-        with patch("llm_cli.clients.base.get_templates") as mock_get_templates:
+        with patch(
+            "llm_cli.clients.command_handler.get_templates"
+        ) as mock_get_templates:
             mock_get_templates.return_value = {"t1": "Template content"}
             pending_data: list[DataSource] = []
             with pytest.raises(TemplateRequest) as excinfo:
@@ -112,7 +118,9 @@ class TestBaseClientCommands:
 
     def test_template_not_found(self, client: BaseLlmClient) -> None:
         """Test selecting a non-existent template."""
-        with patch("llm_cli.clients.base.get_templates") as mock_get_templates:
+        with patch(
+            "llm_cli.clients.command_handler.get_templates"
+        ) as mock_get_templates:
             mock_get_templates.return_value = {}
             with patch("llm_cli.clients.base.console.print") as mock_print:
                 assert client._handle_command("/t nonexist", None) is True
@@ -149,7 +157,7 @@ class TestBaseClientCommands:
         client.conversation = [Message(role=Role.USER, parts=["Hi"])]
         save_file = tmp_path / "prompt_session.json"
 
-        with patch("llm_cli.clients.base.prompt") as mock_prompt:
+        with patch("llm_cli.clients.command_handler.prompt") as mock_prompt:
             mock_prompt.return_value = str(save_file)
             with patch("llm_cli.clients.base.console.print") as mock_print:
                 assert client._handle_command("/save", None) is True
@@ -160,7 +168,7 @@ class TestBaseClientCommands:
 
     def test_save_cancel(self, client: BaseLlmClient) -> None:
         """Test cancelling save at prompt."""
-        with patch("llm_cli.clients.base.prompt") as mock_prompt:
+        with patch("llm_cli.clients.command_handler.prompt") as mock_prompt:
             mock_prompt.side_effect = KeyboardInterrupt
             with patch("llm_cli.clients.base.console.print") as mock_print:
                 assert client._handle_command("/save", None) is True
@@ -173,7 +181,7 @@ class TestBaseClientCommands:
         save_file = tmp_path / "exists.json"
         save_file.touch()
 
-        with patch("llm_cli.clients.base.Confirm.ask") as mock_confirm:
+        with patch("llm_cli.clients.command_handler.Confirm.ask") as mock_confirm:
             mock_confirm.return_value = True
             with patch("llm_cli.clients.base.console.print") as mock_print:
                 assert client._handle_command(f"/save {save_file}", None) is True
@@ -186,7 +194,7 @@ class TestBaseClientCommands:
         save_file = tmp_path / "exists.json"
         save_file.touch()
 
-        with patch("llm_cli.clients.base.Confirm.ask") as mock_confirm:
+        with patch("llm_cli.clients.command_handler.Confirm.ask") as mock_confirm:
             mock_confirm.return_value = False
             with patch("llm_cli.clients.base.console.print") as mock_print:
                 assert client._handle_command(f"/save {save_file}", None) is True
@@ -485,10 +493,11 @@ class TestBaseClientDebug:
             # _format_json handles TypeError, but let's try to trigger the outer try/except
             # Maybe passing something that fails str()?
 
-            # Actually _log_debug calls _print_live_debug inside a try/except.
-            # Let's mock _print_live_debug to raise exception
-            with patch.object(
-                client, "_print_live_debug", side_effect=Exception("Boom")
+            # Actually _log_debug calls print_live_debug from base_helpers.
+            # Let's mock it there.
+            with patch(
+                "llm_cli.clients.base_helpers.print_live_debug",
+                side_effect=Exception("Boom"),
             ):
                 client._log_debug(response_content={})
                 mock_print.assert_called()

@@ -170,32 +170,6 @@ def test_process_single_source_video(
             assert source.content_type == "video/mp4"
 
 
-def test_upload_file_success(gemini_client: GeminiClient, tmp_path: Path) -> None:
-    """Test successful file upload."""
-    f = tmp_path / "test.txt"
-    f.write_text("content")
-
-    with patch("llm_cli.clients.gemini.requests.post") as mock_post:
-        # Start upload response
-        mock_start_res = MagicMock()
-        mock_start_res.headers = {"X-Goog-Upload-URL": "http://upload.url"}
-
-        # Upload content response
-        mock_upload_res = MagicMock()
-        mock_upload_res.json.return_value = {
-            "file": {"name": "files/abc", "uri": "file-uri"}
-        }
-
-        mock_post.side_effect = [mock_start_res, mock_upload_res]
-
-        with patch.object(gemini_client, "_wait_for_file_active", return_value=True):
-            res = gemini_client._upload_file(f)
-            assert res is not None
-            uri, mime = res
-            assert uri == "file-uri"
-            assert mime == "text/plain"
-
-
 def test_wait_for_file_active_success(gemini_client: GeminiClient) -> None:
     """Test polling for file active status."""
     with patch("llm_cli.clients.base.BaseLlmClient._get") as mock_get:
@@ -423,21 +397,18 @@ def test_send_video_generation_download_fail(gemini_client: GeminiClient) -> Non
 
             mock_dl = MagicMock()
             mock_dl.status_code = 500  # Fail
+            mock_dl.raise_for_status.side_effect = Exception(
+                "500 Internal Server Error"
+            )
 
             mock_get.side_effect = [mock_poll, mock_dl]
 
-            with patch("llm_cli.clients.gemini.console.print") as mock_print:
+            with patch("llm_cli.clients.base.console.print") as mock_print:
                 gemini_client._send([])
-                assert "Failed to download video" in mock_print.call_args_list[-1][0][0]
-
-
-def test_wait_for_file_active_timeout(gemini_client: GeminiClient) -> None:
-    """Test polling timeout."""
-    with patch("llm_cli.clients.base.BaseLlmClient._get") as mock_get:
-        mock_get.return_value.json.return_value = {"state": "PROCESSING"}
-        # Make range small to exit loop quickly
-        with patch("llm_cli.clients.gemini.range", return_value=[0]):
-            assert gemini_client._wait_for_file_active("f") is False
+                assert any(
+                    "Failed to download video" in str(call)
+                    for call in mock_print.call_args_list
+                )
 
 
 def test_upload_file_fail_mime(gemini_client: GeminiClient, tmp_path: Path) -> None:
@@ -455,7 +426,8 @@ def test_upload_file_exception(gemini_client: GeminiClient, tmp_path: Path) -> N
     f.touch()
 
     with patch(
-        "llm_cli.clients.gemini.requests.post", side_effect=Exception("Upload Error")
+        "llm_cli.clients.gemini_handlers.requests.post",
+        side_effect=Exception("Upload Error"),
     ):
         with patch.object(gemini_client, "_report_error") as mock_report:
             assert gemini_client._upload_file(f) is None

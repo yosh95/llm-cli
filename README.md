@@ -390,6 +390,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 -   `/load <path>`: Load conversation history from a JSON file.
 -   `/dump`: Dump conversation history as a JSON object.
 -   `/raw`: Show the raw conversation text.
+-   `/view` (or `/v`): Open the raw conversation text in an external editor.
 -   `/clear` (or `/c`): Clear conversation history.
 -   `/debug` (or `/d`): Toggle live debug mode.
 -   `/help` (or `/h`): Show full command list.
@@ -838,6 +839,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/load <path>`: JSONファイルから会話履歴を読み込み。
 -   `/dump`: 会話履歴をJSONオブジェクトとしてダンプ。
 -   `/raw`: 生の会話テキストを表示。
+-   `/view` (または `/v`): 生の会話テキストを外部エディタで開く。
 -   `/clear` (または `/c`): 会話履歴をクリア。
 -   `/debug` (または `/d`): ライブデバッグモードの切り替え。
 -   `/help` (または `/h`): 全コマンドリストを表示。

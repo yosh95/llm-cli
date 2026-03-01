@@ -246,6 +246,26 @@ class TestAuditLog:
         assert entry["exit_code"] == 127
         assert entry["status"] == "SUCCESS"
 
+    def test_log_audit_with_model(self, tmp_path, monkeypatch):
+        audit_file = tmp_path / "audit_model.log"
+        monkeypatch.setattr("llm_cli.security.audit.AUDIT_LOG_PATH", audit_file)
+        monkeypatch.setattr("llm_cli.security.audit.get_setting", lambda _k, _s: None)
+
+        log_audit(
+            "test_tool",
+            {"arg1": "val1"},
+            "output",
+            context={"model": "gpt-4-turbo"},
+        )
+        content = audit_file.read_text()
+
+        import json
+
+        entry = json.loads(content.strip())
+
+        assert entry["tool"] == "test_tool"
+        assert entry["model"] == "gpt-4-turbo"
+
     def test_trim_log_file(self, tmp_path):
         from llm_cli.security.audit import _trim_log_file
 

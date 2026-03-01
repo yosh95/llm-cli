@@ -4,6 +4,10 @@ import base64
 import copy
 import datetime
 import json
+import os
+import shlex
+import subprocess
+import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
@@ -100,6 +104,8 @@ class BaseLlmClient(ABC):
             "load",
             "dump",
             "raw",
+            "view",
+            "v",
             "clear",
             "c",
             "quit",
@@ -670,7 +676,61 @@ class BaseLlmClient(ABC):
                             text = p.text
 
                     if text:
-                        print(f"[{role.upper()}{role_suffix}]\n{text}\n")
+                        display_role = (
+                            self.model
+                            if role in (Role.MODEL, Role.ASSISTANT)
+                            else role.upper()
+                        )
+                        print(f"[{display_role}{role_suffix}]\n{text}\n")
+            return True
+
+        if cmd in ("view", "v"):
+            editor = get_setting("editor", "general") or os.environ.get("EDITOR")
+            if not editor:
+                console.print(
+                    "[red]Error: No editor configured. Please set 'editor' in "
+                    "[general] section of config.toml or the "
+                    "EDITOR environment variable.[/red]"
+                )
+                return True
+
+            raw_content = ""
+            for msg in self.conversation:
+                role = msg.role
+                for p in msg.parts:
+                    role_suffix = ""
+                    text = ""
+                    if isinstance(p, str):
+                        text = p
+                    elif isinstance(p, ContentPart):
+                        if p.thought:
+                            role_suffix = " (REASONING)"
+                            text = p.thought
+                        elif p.text:
+                            text = p.text
+
+                    if text:
+                        display_role = (
+                            self.model
+                            if role in (Role.MODEL, Role.ASSISTANT)
+                            else role.upper()
+                        )
+                        raw_content += f"[{display_role}{role_suffix}]\n{text}\n\n"
+
+            with tempfile.NamedTemporaryFile(
+                suffix=".txt", delete=False, mode="w", encoding="utf-8"
+            ) as tf:
+                tf.write(raw_content)
+                temp_path = tf.name
+
+            try:
+                subprocess.run(shlex.split(editor) + [temp_path], check=True)
+            except Exception as e:
+                console.print(f"[red]Error opening editor: {e}[/red]")
+            finally:
+                final_path = Path(temp_path)
+                if final_path.exists():
+                    final_path.unlink()
             return True
 
         if cmd in ("c", "clear"):
@@ -797,6 +857,7 @@ class BaseLlmClient(ABC):
             "  /reload        Reload config.toml from disk\n"
             "  /dump          Dump conversation history as JSON\n"
             "  /raw           Show conversation as raw text\n"
+            "  /view (v)      Open conversation in an external editor\n"
             "  /quit (q)      Exit the application\n"
             "  /info (i)      Show session info\n"
             "  /debug (d)     Toggle live debug mode\n"

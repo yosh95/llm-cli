@@ -260,7 +260,7 @@ class TestBaseClientCommands:
         captured = capsys.readouterr()
         assert "[USER]" in captured.out
         assert "Hi" in captured.out
-        assert "[MODEL (REASONING)]" in captured.out
+        assert f"[{client.model} (REASONING)]" in captured.out
         assert "Thinking" in captured.out
         # Note: Depending on implementation, text might also be printed separately if parts are iterated.
         # In base.py:

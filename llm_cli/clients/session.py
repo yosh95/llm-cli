@@ -356,7 +356,7 @@ class ChatSession:
                 return
 
             if response_text:
-                self._log_chat(response_text, role="Model")
+                self._log_chat(response_text, role=self.client.model)
 
             if not self.client._has_pending_tool_calls():
                 break
@@ -705,14 +705,18 @@ class ChatSession:
             is_interactive = tool_entry.get("interactive", False)
 
             if is_interactive:
-                result_data = tool_entry["func"](**args)
+                result_data = tool_entry["func"](
+                    __audit_model__=self.client.model, **args
+                )
             else:
                 # Use status context for tool execution spinner
                 with console.status(
                     f"[bold yellow]🏃 Executing {name}...[/bold yellow]",
                     spinner="dots",
                 ):
-                    result_data = tool_entry["func"](**args)
+                    result_data = tool_entry["func"](
+                        __audit_model__=self.client.model, **args
+                    )
 
             injected_data = (
                 result_data.pop("__llm_cli_data__", None)

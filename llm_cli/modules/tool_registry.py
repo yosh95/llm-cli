@@ -90,6 +90,7 @@ class ToolRegistry:
         def wrapper(**kwargs: Any) -> Any:
             # Extract explanation for logging (internal audit)
             _ = kwargs.get("explanation", "No explanation provided.")
+            audit_model = kwargs.pop("__audit_model__", "-")
 
             # Filter kwargs to match the wrapped function's signature
             sig = inspect.signature(func)
@@ -120,10 +121,17 @@ class ToolRegistry:
                     _output=result,
                     exit_code=exit_code,
                     error=None,
+                    context={"model": audit_model},
                 )
                 return result
             except Exception as e:
-                log_audit(tool_name=name, args=kwargs, _output="", error=str(e))
+                log_audit(
+                    tool_name=name,
+                    args=kwargs,
+                    _output="",
+                    error=str(e),
+                    context={"model": audit_model},
+                )
                 raise e
 
         self.tools[name] = {

@@ -94,11 +94,17 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
         # 3. Audit Logging (Non-repudiation)
         from llm_cli.mcp_lib import get_current_trace_id
 
+        # Extract model name if provided by the client (internal/propagation)
+        # We don't pop it here so it can be popped and logged by the tool's
+        # registry wrapper if it exists.
+        audit_model = kwargs.get("__audit_model__", "-")
+
         audit_context = {
             "user_id": user_context.get("user_id"),
             "roles": user_context.get("roles"),
             "audience": os.environ.get("MCP_SERVER_NAME"),
             "trace_id": get_current_trace_id(),
+            "model": audit_model,
         }
 
         # 4. Actual Execution

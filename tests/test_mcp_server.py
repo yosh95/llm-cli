@@ -120,6 +120,26 @@ class TestSecureToolWrapper:
         result = await wrapped()
         assert "Access Denied: Authentication required." in str(result)
 
+    @pytest.mark.asyncio
+    async def test_secure_wrapper_logs_model(self, monkeypatch, mock_policy_engine):
+        monkeypatch.setattr("llm_cli.apps.mcp_server.policy_engine", mock_policy_engine)
+        mock_log_audit = Mock()
+        monkeypatch.setattr("llm_cli.apps.mcp_server.log_audit", mock_log_audit)
+        monkeypatch.setattr(
+            "llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123")
+        )
+        monkeypatch.setattr(os, "environ", {}.copy())
+
+        def test_func(**kwargs):
+            return "ok"
+
+        wrapped = secure_tool_wrapper(test_func, "test_tool")
+        await wrapped(__audit_model__="test-model")
+
+        # Verify log_audit was called with context containing model
+        args, kwargs = mock_log_audit.call_args
+        assert kwargs["context"]["model"] == "test-model"
+
 
 class TestCreateMcpServer:
     @pytest.mark.usefixtures("mock_registry")

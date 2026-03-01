@@ -34,6 +34,7 @@ def log_audit(
         trace_id = ctx.get("trace_id", "-")
         subject = ctx.get("user_id", "unknown")
         audience = ctx.get("audience", "-")
+        model = ctx.get("model", "-")
 
         # Get previous hash to create a chain
         prev_hash = _get_last_log_hash(path)
@@ -43,6 +44,7 @@ def log_audit(
             "trace_id": trace_id,
             "subject": subject,
             "audience": audience,
+            "model": model,
             "tool": tool_name,
             "args": args,
             # "output": str(_output)[:256] if _output else None, # Truncate output
@@ -158,6 +160,7 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
             "trace_id": "-",
             "subject": "system",
             "audience": "-",
+            "model": "-",
             "tool": "__audit_snapshot__",
             "args": {
                 "archive": str(archive_path),

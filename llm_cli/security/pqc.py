@@ -59,7 +59,7 @@ class PQCProvider:
 class PQCAgilityManager:
     """
     Manages Context-Adaptive Security Scaling (CASS).
-    Dynamically adjusts NIST security levels based on task risk and execution environment.
+    Adjusts NIST security levels based on task risk and execution environment.
     """
 
     @staticmethod
@@ -77,7 +77,7 @@ class PQCAgilityManager:
         # Policy Matrix
         if environment_risk == "high" or tool_name in high_risk_tools:
             return "ML-DSA-87"  # NIST Level 5 (Maximum Resilience)
-        
+
         # Adaptive scaling for moderate tools
         moderate_risk_tools = {"read_file", "list_files_in_directory"}
         if tool_name in moderate_risk_tools:
@@ -101,7 +101,7 @@ class ResponseSigner:
         """
         message = f"{source_verification_id}:{response_text}".encode()
         signature = PQCProvider.sign(message, private_key)
-        
+
         return {
             "response": response_text,
             "verification_id": source_verification_id,
@@ -187,7 +187,10 @@ class HybridSigner:
         # 2. Verify PQC Signature
         pqc_sig = base64.b64decode(pqc_sig_b64)
         if not PQCProvider.verify(jwt_token.encode(), pqc_sig, pqc_public_key):
-            error_msg = "[SECURITY_ALERT] Post-Quantum signature verification failed! Potential Quantum Spoofing attempt detected."
+            error_msg = (
+                "[SECURITY_ALERT] Post-Quantum signature verification failed! "
+                "Potential Quantum Spoofing attempt detected."
+            )
             logger.error(error_msg)
 
             # Explicitly tag the security event in the chained audit logs
@@ -196,10 +199,13 @@ class HybridSigner:
 
                 log_audit(
                     tool_name="security_identity_verify",
-                    args={"protocol": "hybrid_pqc", "variant": cls.ALGORITHM_NAME},
+                    args={"protocol": "hybrid_pqc", "variant": PQCProvider.ALGORITHM_NAME},
                     _output=None,
                     error=error_msg,
-                    context={"user_id": payload.get("sub", "unknown"), "action": "pqc_auth_failure"},
+                    context={
+                        "user_id": payload.get("sub", "unknown"),
+                        "action": "pqc_auth_failure",
+                    },
                 )
             except Exception as audit_err:
                 logger.debug(f"Failed to record PQC failure to audit log: {audit_err}")

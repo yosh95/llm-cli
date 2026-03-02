@@ -65,8 +65,9 @@ def log_audit(
             from llm_cli.security.identity import IdentityManager
             from llm_cli.security.pqc import PQCAgilityManager, PQCProvider
 
-            # Determine required security level based on tool risk
-            variant = PQCAgilityManager.get_required_level(tool_name)
+            # Determine required security level based on tool risk and
+            # ARGS (Dynamic Context)
+            variant = PQCAgilityManager.get_required_level(tool_name, args=args)
 
             pqc_priv = IdentityManager._get_pqc_private_key_content()
             # Note: In a production system, we would have different keys for

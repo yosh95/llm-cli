@@ -359,13 +359,13 @@ def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> st
                 n=3,
             )
         )
-        _ = "".join(diff)
+        diff_str = "".join(diff)
 
         if dry_run:
-            return "Dry run enabled. No changes made."
+            return f"Dry run enabled. No changes made.\n\n{diff_str}"
 
         p.write_text(new_content, encoding="utf-8")
-        return f"Successfully updated {path}."
+        return f"Successfully updated {path}.\n\n{diff_str}"
 
     except PathValidationError as e:
         return f"Security Error: {e}"
@@ -449,13 +449,25 @@ def replace_lines(
 
         new_content = "".join(new_lines)
 
+        # Generate Diff Preview
+        diff = list(
+            difflib.unified_diff(
+                lines,
+                new_lines,
+                fromfile=f"a/{path}",
+                tofile=f"b/{path}",
+                n=3,
+            )
+        )
+        diff_str = "".join(diff)
+
         if dry_run:
-            return "Dry run enabled. No changes made."
+            return f"Dry run enabled. No changes made.\n\n{diff_str}"
 
         p.write_text(new_content, encoding="utf-8")
         return (
-            f"Successfully updated lines {start_line}-{end_line} in {path}. "
-            f"Please verify the changes."
+            f"Successfully updated lines {start_line}-{end_line} in {path}.\n\n"
+            f"{diff_str}"
         )
 
     except PathValidationError as e:

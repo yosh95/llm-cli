@@ -98,6 +98,7 @@ def execute_tool_call(
         or name.endswith("__create_or_overwrite_file")
     )
     is_edit = name == "edit_file" or name.endswith("__edit_file")
+    is_replace = name == "replace_lines" or name.endswith("__replace_lines")
     is_exec = (
         name == "execute_command"
         or name == "execute_shell_command"
@@ -106,7 +107,7 @@ def execute_tool_call(
     )
 
     if not skip_approval:
-        if is_write or is_edit or is_exec:
+        if is_write or is_edit or is_replace or is_exec:
             request_content = f"[cyan]{escape(name)}[/cyan]"
         else:
             display_args = {
@@ -128,6 +129,8 @@ def execute_tool_call(
             preview_diff(session, args)
         elif is_edit:
             preview_edit_diff(session, args)
+        elif is_replace:
+            preview_replace_lines_diff(session, args)
         elif is_exec:
             preview_command(session, args)
 
@@ -316,6 +319,64 @@ def preview_edit_diff(session: "ChatSession", args: dict[str, Any]) -> None:
             session._print_block(
                 "[yellow]No changes detected in search/replace block.[/yellow]",
                 title=title,
+                style="yellow",
+            )
+    except Exception:
+        pass
+
+
+def preview_replace_lines_diff(session: "ChatSession", args: dict[str, Any]) -> None:
+    """Generate a unified diff preview for replace_lines (line-range replacement)."""
+    try:
+        path_str = args.get("path", "")
+        start_line = args.get("start_line")
+        end_line = args.get("end_line")
+        replacement = args.get("replacement", "")
+
+        if not path_str or start_line is None or end_line is None:
+            return
+
+        path = Path(path_str)
+        if not path.exists():
+            return
+
+        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+
+        # 1-indexed to 0-indexed
+        original_segment = lines[start_line - 1 : end_line]
+
+        # replacement lines
+        replacement_lines = replacement.splitlines(keepends=True)
+
+        # Basic adjustment to match the tool's line-ending logic if needed
+        if replacement_lines and not replacement_lines[-1].endswith("\n"):
+            if original_segment and original_segment[-1].endswith("\n"):
+                replacement_lines[-1] += "\n"
+
+        diff = list(
+            difflib.unified_diff(
+                original_segment,
+                replacement_lines,
+                fromfile=f"before (lines {start_line}-{end_line})",
+                tofile=f"after (lines {start_line}-{end_line})",
+            )
+        )
+
+        if diff:
+            diff_text = "".join(
+                [line if line.endswith("\n") else line + "\n" for line in diff]
+            )
+            syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
+            session._print_block(
+                syn,
+                title=f"[bold]Replace Diff: {path} (L{start_line}-L{end_line})[/bold]",
+                style="yellow",
+            )
+        else:
+            session._print_block(
+                f"[yellow]No changes detected in lines {start_line}-{end_line}."
+                "[/yellow]",
+                title=f"[bold]Replace Diff: {path}[/bold]",
                 style="yellow",
             )
     except Exception:

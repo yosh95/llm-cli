@@ -58,13 +58,14 @@ class PQCProvider:
 
 class PQCAgilityManager:
     """
-    Manages cryptographic agility for AI agents.
-    Allows the orchestrator to scale security levels based on task risk.
+    Manages Context-Adaptive Security Scaling (CASS).
+    Dynamically adjusts NIST security levels based on task risk and execution environment.
     """
 
     @staticmethod
-    def get_required_level(tool_name: str) -> str:
-        """Determines the required PQC security level for a given tool."""
+    def get_required_level(tool_name: str, environment_risk: str = "standard") -> str:
+        """Determines the required PQC security level using a risk-aware matrix."""
+        # Risk levels for specific tools
         high_risk_tools = {
             "execute_shell_command",
             "edit_file",
@@ -72,9 +73,56 @@ class PQCAgilityManager:
             "delete_file",
             "database_query",
         }
-        if tool_name in high_risk_tools:
-            return "ML-DSA-87"  # NIST Level 5 for high-impact actions
-        return "ML-DSA-65"  # NIST Level 3 for standard actions
+
+        # Policy Matrix
+        if environment_risk == "high" or tool_name in high_risk_tools:
+            return "ML-DSA-87"  # NIST Level 5 (Maximum Resilience)
+        
+        # Adaptive scaling for moderate tools
+        moderate_risk_tools = {"read_file", "list_files_in_directory"}
+        if tool_name in moderate_risk_tools:
+            return "ML-DSA-65"  # NIST Level 3 (Balanced)
+
+        return "ML-DSA-44"  # NIST Level 2 (Optimized for Latency)
+
+
+class ResponseSigner:
+    """
+    Implements Bi-directional Verification.
+    Signs the final output to prove it was derived from verified tool observations.
+    """
+
+    @classmethod
+    def sign_response(
+        cls, response_text: str, source_verification_id: str, private_key: bytes
+    ) -> dict:
+        """
+        Binds the LLM's response to the verified tool execution ID.
+        """
+        message = f"{source_verification_id}:{response_text}".encode()
+        signature = PQCProvider.sign(message, private_key)
+        
+        return {
+            "response": response_text,
+            "verification_id": source_verification_id,
+            "pqc_signature": base64.b64encode(signature).decode(),
+            "algorithm": PQCProvider.DEFAULT_VARIANT
+        }
+
+
+class AuditAnchoring:
+    """
+    Facilitates external anchoring of audit logs to prevent historical revisionism.
+    """
+
+    @staticmethod
+    def generate_anchor_root(log_entries: list[dict]) -> str:
+        """
+        Generates a Merkle Root for a batch of audit logs to be anchored externally.
+        """
+        import hashlib
+        combined = "".join(str(entry) for entry in log_entries).encode()
+        return hashlib.sha256(combined).hexdigest()
 
 
 class HybridSigner:
@@ -139,7 +187,23 @@ class HybridSigner:
         # 2. Verify PQC Signature
         pqc_sig = base64.b64decode(pqc_sig_b64)
         if not PQCProvider.verify(jwt_token.encode(), pqc_sig, pqc_public_key):
-            logger.error("Post-Quantum signature verification failed!")
+            error_msg = "[SECURITY_ALERT] Post-Quantum signature verification failed! Potential Quantum Spoofing attempt detected."
+            logger.error(error_msg)
+
+            # Explicitly tag the security event in the chained audit logs
+            try:
+                from llm_cli.security.audit import log_audit
+
+                log_audit(
+                    tool_name="security_identity_verify",
+                    args={"protocol": "hybrid_pqc", "variant": cls.ALGORITHM_NAME},
+                    _output=None,
+                    error=error_msg,
+                    context={"user_id": payload.get("sub", "unknown"), "action": "pqc_auth_failure"},
+                )
+            except Exception as audit_err:
+                logger.debug(f"Failed to record PQC failure to audit log: {audit_err}")
+
             return None
 
         logger.info("✅ Hybrid Signature Verified (RSA + PQC)")

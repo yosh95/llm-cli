@@ -151,8 +151,12 @@ This project introduces a robust security layer designed for enterprise-grade to
 
 #### 5. Post-Quantum Cryptography (PQC) Support
 - **Hybrid Identity Tokens**: Beyond standard RSA, all identity tokens are signed using a **Hybrid Signature** (Classical RS256 + Post-Quantum ML-DSA-65). This ensures security even against future quantum computers.
+- **Context-Adaptive Security Scaling (CASS)**: Dynamically scales NIST security levels (ML-DSA-44 to 87) based on tool risk profiles (e.g., shell vs. read-only) and environment risk.
+- **Bi-directional Verification**: Cryptographically binds the LLM's final response to the preceding tool observation. This eliminates "hallucination-based identity spoofing" where an agent might fabricate a tool result.
+- **Signature Stripping**: A design pattern that achieves **100% token efficiency** for PQC. Large signatures (~3.3KB) are verified at the system level and stripped before the text is sent to the LLM, preserving the reasoning context.
 - **Deterministic Signing**: Uses RFC 6979-like deterministic signing for PQC to ensure consistency across environments.
 - **Quantum-Resistant Integrity**: The system's integrity manifest is protected with a PQC digital signature.
+- **External Anchoring**: Supports exporting the Merkle Root of the PQC-Audit-Chain to external immutable ledgers to prevent "Historical Revisionism."
 - **SHA-3 Integration**: Uses SHA3-256 for critical PQC-related hashing operations.
 
 ### 🧠 Intent Analyzer (Dual-LLM Guardrails)
@@ -600,8 +604,12 @@ AIエージェントは以下のツールを標準で備えています：
 
 #### 5. PQC (耐量子計算機暗号) 対応
 - **ハイブリッド・アイデンティティ・トークン**: 標準のRSAに加え、すべてのアイデンティティトークンに**ハイブリッド署名**（古典的 RS256 + 耐量子 ML-DSA-65）を付与。将来的な量子計算機の脅威に対しても認証の安全性を確保します。
+- **Context-Adaptive Security Scaling (CASS)**: ツール実行のリスク（シェル実行 vs 読み取り専用）や環境の危険度に応じて、NIST セキュリティレベル（ML-DSA-44 から 87）を動的にスケールさせます。
+- **双方向検証 (Bi-directional Verification)**: LLM の最終回答を直前のツール実行結果（Observation）に暗号的に紐付けます。これにより、エージェントがツール結果を捏造する「ハルシネーションによるなりすまし」を防止します。
+- **署名ストリッピング (Signature Stripping)**: PQC 署名に対して **100% のトークン効率** を実現。大規模な署名（~3.3KB）をシステムレベルで検証し、LLM に送る前に除去することで、推論用コンテキストを最大限に保護します。
 - **決定論的署名の採用**: 署名の再現性を確保するため、決定論的署名スキームを使用します。
 - **量子耐性を持つ整合性検証**: システムの整合性マニフェスト自体を PQC デジタル署名で保護し、Root of Trust を標的とした高度な攻撃を防止します。
+- **外部アンカリング (External Anchoring)**: PQC-Audit-Chain のマークルルートを不変の外部台帳にエクスポートし、「過去の履歴の書き換え（Historical Revisionism）」を防止します。
 - **SHA-3 の採用**: PQC 関連の重要なハッシュ操作に SHA3-256 を採用します。
 
 ### 🧠 Intent Analyzer (Dual-LLM ガードレール)

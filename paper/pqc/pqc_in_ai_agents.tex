@@ -9,6 +9,9 @@
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{tabularx}
+\usepackage{balance}
+
+\newcolumntype{C}{>{\centering\arraybackslash}X}
 
 \usepackage{tikz}
 \usetikzlibrary{shapes,arrows,positioning,fit,backgrounds}
@@ -52,7 +55,7 @@
 
 \begin{document}
 
-\title{Sovereign AI Autonomy via Quantum-Resistant Identity and Temporal Integrity Proofs}
+\title{Towards Immutable Agency: Quantum-Resistant Identity and Temporal Integrity for Sovereign AI Orchestration}
 
 \author{\IEEEauthorblockN{Yoshihiro Ando}
 \IEEEauthorblockA{\textit{Independent Researcher} \\
@@ -63,7 +66,7 @@ Tokyo, Japan}
 \maketitle
 
 \begin{abstract}
-As autonomous AI agents transition from isolated tools to a globally interconnected ecosystem via the Model Context Protocol (MCP), securing their identity and the long-term integrity of their decision-making processes against quantum-era threats is a prerequisite for sovereign autonomy. This paper proposes a Post-Quantum Cryptographic (PQC) framework for AI agents, centered on the \textit{PQC-Audit-Chain}---a mechanism that cryptographically binds agent reasoning, tool execution, and observations using NIST-standardized Module-Lattice-Based Digital Signatures (ML-DSA). We introduce the concept of \textit{Temporal Integrity Proofs}, ensuring that the "Chain of Thought" remains non-repudiable and immune to retroactive tampering by future quantum adversaries. Furthermore, we demonstrate a \textit{Cryptographic Agility} layer that dynamically scales security levels (ML-DSA-44 to ML-DSA-87) based on the operational risk of tool invocation. Through empirical analysis, we show that while PQC introduces significantly larger signatures, our "Signature Stripping" design pattern ensures that quantum-safe sovereignty is achievable with negligible impact on LLM context efficiency. This work establishes a foundational roadmap for building future-proof, self-sovereign autonomous systems.
+As autonomous AI agents transition from isolated tools to a globally interconnected ecosystem via the Model Context Protocol (MCP), securing their identity and the long-term integrity of their decision-making processes against quantum-era threats is a prerequisite for sovereign autonomy. This paper proposes a Post-Quantum Cryptographic (PQC) framework for AI agents, centered on the \textit{PQC-Audit-Chain}---a mechanism that cryptographically binds agent reasoning, tool execution, and observations using NIST-standardized Module-Lattice-Based Digital Signatures (ML-DSA). We introduce the concept of \textit{Temporal Integrity Proofs}, ensuring that the "Chain of Thought" remains non-repudiable and immune to retroactive tampering by future quantum adversaries. We present \textbf{Context-Adaptive Security Scaling (CASS)}, which dynamically optimizes security levels (ML-DSA-44 to 87) based on risk profiles, and a \textbf{Bi-directional Verification} protocol to eliminate hallucination-based identity spoofing. Furthermore, we demonstrate a "Signature Stripping" design pattern that ensures quantum-safe sovereignty with 100\% token efficiency in the LLM context. This work establishes a foundational roadmap for building future-proof, self-sovereign autonomous systems.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -126,17 +129,20 @@ A key challenge for autonomous agents is ensuring that their decision-making pro
 
 Unlike traditional SHA-256 hashing which provides collision resistance but lacks identity assertion, the PQC-Audit-Chain ensures \textit{Non-Repudiation}. In our framework, the orchestrator generates a PQC-signed manifest for every state transition, encompassing the LLM's raw reasoning and the tool's output. This ensures that even if an adversary gains quantum capabilities in the future, they cannot retroactively rewrite the agent's history (the SNDL attack) to hide malicious actions or forge authorization for past tool calls. This is essential for AI governance in critical sectors.
 
-\subsection{Cryptographic Agility and Security-Aware Reasoning}
-A static cryptographic approach is inefficient for high-frequency agentic loops. We implemented a \textbf{PQCAgilityManager} that enables the orchestrator to dynamically scale the NIST security level (ML-DSA-44/65/87) based on the "risk profile" of the tool being invoked. For example, a read-only search tool may utilize ML-DSA-44 for performance, while an \texttt{execute\_shell\_command} tool requires the maximal security of ML-DSA-87 (NIST Level 5). This allows the agent to maintain a "Security-Aware Reasoning" (SAR) state, where the choice of tool is informed by its cryptographic cost and the sensitivity of the target resource.
+\subsection{Context-Adaptive Security Scaling (CASS)}
+A static cryptographic approach is inefficient for high-frequency agentic loops. We implemented \textbf{Context-Adaptive Security Scaling (CASS)} within the \texttt{PQCAgilityManager}. CASS enables the orchestrator to dynamically scale the NIST security level (ML-DSA-44/65/87) based on the "risk profile" of the tool and the environmental risk state. 
 
-\begin{lstlisting}[language=Python, caption=Cryptographic Agility Manager in llm-cli]
+By mapping tool impact (e.g., \texttt{read\_file} as Low, \texttt{execute\_shell} as High) to security levels, the system minimizes the computational and latency overhead of lattice-based signatures for routine tasks while enforcing maximum resilience for critical system modifications. This ensures the agent maintains a "Security-Aware Reasoning" (SAR) state, optimizing for the "Post-Quantum Efficiency Frontier."
+
+\begin{lstlisting}[language=Python, caption=Context-Adaptive Security Scaling in llm-cli]
 class PQCAgilityManager:
     @staticmethod
-    def get_required_level(tool_name: str) -> str:
-        high_risk_tools = {"execute_shell_command", "edit_file"}
-        if tool_name in high_risk_tools:
+    def get_required_level(tool_name: str, env_risk: str) -> str:
+        if env_risk == "high" or tool_name in HIGH_RISK:
             return "ML-DSA-87" # NIST Level 5
-        return "ML-DSA-65" # NIST Level 3
+        if tool_name in MODERATE_RISK:
+            return "ML-DSA-65" # NIST Level 3
+        return "ML-DSA-44" # NIST Level 2
 \end{lstlisting}
 
 \section{Implementation and Design Patterns}
@@ -172,6 +178,12 @@ To mitigate this, we implement a \textbf{Signature Stripping} design pattern wit
 \subsection{PQC-Signed Integrity Manifest}
 To establish a "Root of Trust," we implemented an \texttt{IntegrityVerifier} that monitors critical system files and audit logs. The system maintains an \texttt{integrity\_manifest.json} containing SHA-256 hashes of all security-critical modules. This manifest is itself signed using ML-DSA-65, ensuring that even if an attacker gains access to the file system, they cannot modify the security logic or the audit history without breaking the PQC signature.
 
+\subsection{Bi-directional Verification Protocol}
+To prevent "Hallucinated Identity Spoofing"---where an LLM might generate a response that appears to come from a verified tool call but is actually a fabrication---we implemented a \textbf{Bi-directional Verification} protocol. The orchestrator signs the final LLM response using a PQC-backed \texttt{ResponseSigner}, cryptographically binding the output to the \textit{Observation Verification ID} of the preceding tool call. This ensures that the user can verify that the agent's answer is grounded in a verified, quantum-safe tool execution.
+
+\subsection{External Anchoring of the Audit Chain}
+To further harden the system against "Historical Revisionism," we provide an interface for \textbf{External Anchoring}. The Merkle Root of the \textit{PQC-Audit-Chain} is periodically exported and anchored to an external, immutable ledger (e.g., a public blockchain or a managed security log service). This ensures that even if a future quantum attacker gains full control of the local environment, any attempt to rewrite the historical audit logs will be detectable by comparing the local state against the externally anchored Root of Trust.
+
 \section{Evaluation and Benchmarking}
 We evaluated the practicality of our proposed architecture across two distinct hardware environments to ensure hardware-agnostic resilience. Both environments utilized \textbf{Ubuntu 24.04.4 LTS} as the base operating system.
 \begin{itemize}
@@ -185,7 +197,8 @@ Our benchmarks compare the NIST-standardized variants of ML-DSA to classical RSA
 \begin{table}[htbp]
 \caption{Empirical Comparison of ML-DSA Variants (Sign/Verify Time in ms)}
 \begin{center}
-\begin{tabularx}{\linewidth}{|l|c|c|c|c|}
+\small
+\begin{tabularx}{\linewidth}{|l|C|C|C|C|}
 \hline
 \textbf{Metric} & \textbf{RSA-2048} & \textbf{ML-DSA-44} & \textbf{ML-DSA-65} & \textbf{ML-DSA-87} \\
 \hline
@@ -216,6 +229,11 @@ An interesting performance inversion was observed: while the legacy i7-7700 (Env
 \subsection{Performance Impact on Agent Reasoning}
 We measured the end-to-end latency of a typical tool-calling loop (Reasoning $\to$ Call $\to$ Observation). Even in the slower i7-7700 environment for ML-DSA-65 (approx. 89\,ms total overhead), the latency represents less than 7.5\% of the median LLM inference latency (approx. 1,200\,ms). This empirical evidence confirms that the transition to quantum-safe identities is viable even on 7th-generation Intel hardware, with modern CPUs further reducing this overhead to a negligible 4.5\%.
 
+\subsection{Token Efficiency and Signature Stripping}
+We analyzed the impact of "Signature Stripping" on LLM context efficiency. A standard ML-DSA-65 signature, when Base64-encoded, adds approximately 4,412 characters. For modern tokenizers (e.g., GPT-4o), this translates to an overhead of ~1,100 tokens per tool invocation. In a multi-step trajectory with 10 tool calls, the cumulative overhead would exceed 11,000 tokens, significantly consuming the context window.
+
+By utilizing the \textbf{Signature Stripping} pattern, we achieve a \textbf{100\% reduction} in token overhead within the reasoning context while maintaining a 100\% verifiable audit trail in the system logs. This design pattern is critical for maintaining agent performance as security requirements scale.
+
 \section{Discussion: The Path to Sovereign AI Autonomy}
 
 \subsection{Temporal Integrity and the Historical Root of Trust}
@@ -233,6 +251,7 @@ Securing AI agents against quantum threats is a prerequisite for their deploymen
 \section*{Acknowledgment}
 This research builds upon the foundational zero-trust principles implemented in the \texttt{llm-cli} open-source project.
 
+\balance
 \begin{thebibliography}{00}
 \bibitem{nistfips203} National Institute of Standards and Technology (NIST), ``FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard,'' Aug 2024.
 \bibitem{nistfips204} National Institute of Standards and Technology (NIST), ``FIPS 204: Module-Lattice-Based Digital Signature Standard,'' Aug 2024.

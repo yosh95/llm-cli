@@ -106,7 +106,7 @@ class ResponseSigner:
             "response": response_text,
             "verification_id": source_verification_id,
             "pqc_signature": base64.b64encode(signature).decode(),
-            "algorithm": PQCProvider.DEFAULT_VARIANT
+            "algorithm": PQCProvider.DEFAULT_VARIANT,
         }
 
 
@@ -121,6 +121,7 @@ class AuditAnchoring:
         Generates a Merkle Root for a batch of audit logs to be anchored externally.
         """
         import hashlib
+
         combined = "".join(str(entry) for entry in log_entries).encode()
         return hashlib.sha256(combined).hexdigest()
 
@@ -199,7 +200,10 @@ class HybridSigner:
 
                 log_audit(
                     tool_name="security_identity_verify",
-                    args={"protocol": "hybrid_pqc", "variant": PQCProvider.ALGORITHM_NAME},
+                    args={
+                        "protocol": "hybrid_pqc",
+                        "variant": PQCProvider.ALGORITHM_NAME,
+                    },
                     _output=None,
                     error=error_msg,
                     context={

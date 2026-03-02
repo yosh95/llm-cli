@@ -1,5 +1,5 @@
 \begin{tikzpicture}[
-    node distance=1.5cm and 1.8cm,
+    node distance=2.2cm and 2.6cm,
     auto,
     block/.style={rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3.5em},
     server/.style={rectangle, draw, fill=green!10, text width=7.5em, text centered, rounded corners, minimum height=3.5em},
@@ -10,24 +10,24 @@
 ]
 
     % --- Column 0: Agent Orchestrator ---
-    \node [block] (llm) {\textbf{LLM Engine} \\ (Reasoning)};
+    \node [block] (llm) {\textbf{LLM Engine} \\ (Reasoning Trace)};
     \node [block, below=of llm] (agent) {Agent Orchestrator \\ (llm-cli)};
-    \node [data, left=of agent, xshift=0.5cm] (pqc_id) {\textbf{ML-DSA-65 ID} \\ Private Key};
+    \node [data, left=of agent] (pqc_id) {\textbf{ML-DSA-65 ID} \\ Private Key};
 
     % --- Column 1: Outgoing ---
-    \node [data, right=of agent] (payload) {JSON-RPC Payload \\ (tools/call)};
+    \node [data, right=of agent] (payload) {JSON-RPC Payload \\ (tool\_call)};
     \node [action, below=of payload] (signer) {Hybrid Signer \\ (RSA + ML-DSA)};
-    \node [data, below=of signer] (signed_payload) {Signed PQC Token \\ (approx. 4.8\,KB)};
+    \node [data, below=of signer] (signed_payload) {Signed PQC Token \\ (ML-DSA-65)};
     
     % --- Column 2: Security & Transport ---
     \node [server, right=of signed_payload] (mcp_server) {Remote MCP Server};
-    \node [policy, above=of mcp_server] (pdp) {Policy \\ Decision \\ Point};
+    \node [policy, above=of mcp_server, yshift=-1.5cm] (pdp) {Policy \\ Decision \\ Point};
     \node [action, right=of pdp] (verifier) {PQC Verifier \\ (FIPS 204)};
     
     % --- Column 3: Return ---
-    \node [data, above=of verifier] (tool_result) {Raw Tool Result \\ + Metadata};
-    \node [action, left=of tool_result] (stripper) {\textbf{Signature Stripper} \\ (Context Saver)};
-    \node [data, above=of stripper] (clean_result) {Clean Result \\ for LLM};
+    \node [data, above=of verifier] (tool_result) {Verified \\ Action Evidence};
+    \node [action, left=of tool_result] (stripper) {\textbf{Signature Stripper} \\ (Audit Anchoring)};
+    \node [data] (clean_result) at (stripper |- llm) {Sanitized Context \\ for Reasoning};
 
     % Paths
     \path [line] (llm) -- (agent);
@@ -45,10 +45,10 @@
     
     % Grouping boxes
     \node [draw, dashed, thick, blue!50, fit=(llm) (agent) (pqc_id) (stripper) (clean_result), inner sep=0.5cm, label=above:Agent Trusted Execution Boundary] (agent_env) {};
-    \node [draw, dashed, thick, red!50, fit=(mcp_server) (pdp) (verifier) (tool_result), inner sep=0.5cm, label=below:Target MCP Resource (Untrusted)] (mcp_env) {};
+    \node [draw, dashed, thick, red!50, fit=(mcp_server) (pdp) (verifier) (tool_result), inner sep=0.6cm, label=below:Target MCP Resource (Untrusted)] (mcp_env) {};
 
     % Highlighting
-    \node[text width=4.0cm, align=center, color=red!70!black, font=\footnotesize\bfseries] at (stripper.west) [xshift=-0.5cm, yshift=0.8cm] {Prevents Token Bloat!};
+    \node[text width=3.0cm, align=right, color=blue!70!black, font=\footnotesize\bfseries, anchor=east] at (stripper.west) [xshift=1.3cm, yshift=1.5cm] {Ensures Context Efficiency};
 
 \end{tikzpicture}
 

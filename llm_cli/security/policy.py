@@ -47,10 +47,12 @@ class PolicyEngine:
                     "read_html_from_url",
                     "search_web",
                     "edit_file",
+                    "replace_lines",
                     "execute_shell_command",
                 ],
                 "scopes": {
                     "edit_file": {"allowed_paths": [str(Path.home() / "*"), "./*"]},
+                    "replace_lines": {"allowed_paths": [str(Path.home() / "*"), "./*"]},
                     "read_file_content": {
                         "allowed_paths": [str(Path.home() / "*"), "./*"]
                     },
@@ -130,6 +132,7 @@ class PolicyEngine:
                 high_risk_tools = {
                     "execute_shell_command",
                     "edit_file",
+                    "replace_lines",
                     "create_or_overwrite_file",
                     "delete_file",
                 }

@@ -83,6 +83,7 @@ The AI agent comes equipped with the following tools:
 | `read_file_content` | Read content from a text file. Can read specific lines and optionally include line numbers. |
 | `execute_shell_command` | Execute shell commands. |
 | `edit_file` | Edit a file by replacing a specific block of text. Returns a Diff. Safer than string replace. |
+| `replace_lines` | Replace a specific range of lines in a file by line numbers. More reliable for files with complex formatting like LaTeX. |
 | `create_or_overwrite_file` | Create a new file (full content). |
 | `read_pdf_content` | Read a PDF file and add it to the context. |
 | `search_web` | Search the web using Brave Search to find information (Requires Brave Search API Key). |
@@ -536,6 +537,7 @@ AIエージェントは以下のツールを標準で備えています：
 | `read_file_content` | テキストファイルの内容を読み込みます。特定の行範囲の指定や、行番号の付与が可能です。 |
 | `execute_shell_command` | シェルコマンドを実行します。 |
 | `edit_file` | ファイル内の特定のテキストブロックを検索して置換します。Diffを返し、文字列検索置換より安全です。 |
+| `replace_lines` | 行番号を指定して特定の行範囲を置換します。LaTeXなどの複雑なファイルや、正確な文字列一致が困難な場合に有効です。 |
 | `create_or_overwrite_file` | 新規ファイルを作成します（全内容上書き）。 |
 | `read_pdf_content` | PDFファイルを読み込み、コンテキストに追加します。 |
 | `search_web` | Brave Searchを使用して、インターネット上の情報を探します（Brave Search APIキーが設定されている場合のみ）。 |

@@ -318,6 +318,22 @@ def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> st
 
         content = p.read_text(encoding="utf-8")
         if search not in content:
+            # Check for potential whitespace-only mismatch to provide better feedback
+            import re
+
+            def normalize(s: str) -> str:
+                return re.sub(r"\s+", " ", s).strip()
+
+            if normalize(search) in normalize(content):
+                return (
+                    "Error: The 'search' block was not found exactly, but a similar "
+                    "match was found ignoring whitespace/indentation. "
+                    "Ensure the search block matches the file content exactly, "
+                    "including the specific number of spaces, tabs, and newlines. "
+                    "Consider using read_file_content with line numbers and then "
+                    "using replace_lines for a more reliable edit."
+                )
+
             return (
                 "Error: The 'search' block was not found in the file. "
                 "Ensure the search block matches the file content exactly, "
@@ -350,6 +366,97 @@ def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> st
 
         p.write_text(new_content, encoding="utf-8")
         return f"Successfully updated {path}."
+
+    except PathValidationError as e:
+        return f"Security Error: {e}"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@tool(
+    name="replace_lines",
+    desc=(
+        "Replace a specific range of lines in a file with new content. "
+        "This is often more reliable than edit_file for files with complex "
+        "formatting like LaTeX, as it uses line numbers instead of exact "
+        "string matching. "
+    ),
+    params={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Path to the file to edit."},
+            "start_line": {
+                "type": "integer",
+                "description": (
+                    "The first line number to replace (1-indexed, inclusive)."
+                ),
+            },
+            "end_line": {
+                "type": "integer",
+                "description": (
+                    "The last line number to replace (1-indexed, inclusive)."
+                ),
+            },
+            "replacement": {
+                "type": "string",
+                "description": (
+                    "The new content to put in place of the specified lines."
+                ),
+            },
+        },
+        "required": ["path", "start_line", "end_line", "replacement"],
+    },
+)
+def replace_lines(
+    path: str, start_line: int, end_line: int, replacement: str, dry_run: bool = False
+) -> str:
+    """
+    Replace a range of lines in a file by line numbers.
+    """
+    try:
+        validate_path(path)
+        p = Path(path)
+        if not p.is_file():
+            return f"Error: '{path}' is not a file."
+
+        content = p.read_text(encoding="utf-8")
+        lines = content.splitlines(keepends=True)
+
+        if start_line < 1 or start_line > len(lines):
+            return f"Error: start_line {start_line} is out of range (1-{len(lines)})."
+        if end_line < start_line or end_line > len(lines):
+            return (
+                f"Error: end_line {end_line} is invalid (must be >= start_line "
+                f"and <= {len(lines)})."
+            )
+
+        # Construct new content
+        new_lines = lines[: start_line - 1]
+
+        # replacement may contain multiple lines.
+        # Ensure it has a trailing newline if it's replacing a block that ends with one.
+        # But we'll trust the replacement string as provided, mostly.
+        # Common behavior for LLMs is to provide the lines.
+        if replacement and not replacement.endswith("\n"):
+            # If the original last line being replaced had a newline,
+            # add one to replacement but only if replacement is not empty
+            # (for deletion).
+            if lines[end_line - 1].endswith("\n"):
+                replacement += "\n"
+
+        new_lines.append(replacement)
+        new_lines.extend(lines[end_line:])
+
+        new_content = "".join(new_lines)
+
+        if dry_run:
+            return "Dry run enabled. No changes made."
+
+        p.write_text(new_content, encoding="utf-8")
+        return (
+            f"Successfully updated lines {start_line}-{end_line} in {path}. "
+            f"Please verify the changes."
+        )
 
     except PathValidationError as e:
         return f"Security Error: {e}"

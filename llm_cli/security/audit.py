@@ -63,12 +63,19 @@ def log_audit(
             import base64
 
             from llm_cli.security.identity import IdentityManager
-            from llm_cli.security.pqc import PQCProvider
+            from llm_cli.security.pqc import PQCAgilityManager, PQCProvider
+
+            # Determine required security level based on tool risk
+            variant = PQCAgilityManager.get_required_level(tool_name)
 
             pqc_priv = IdentityManager._get_pqc_private_key_content()
-            pqc_sig = PQCProvider.sign(current_hash.encode(), pqc_priv)
+            # Note: In a production system, we would have different keys for
+            # different levels, but for this reference implementation,
+            # we demonstrate the agility logic.
+            pqc_sig = PQCProvider.sign(current_hash.encode(), pqc_priv, variant=variant)
+
             log_entry["pqc_signature"] = base64.b64encode(pqc_sig).decode()
-            log_entry["pqc_algorithm"] = PQCProvider.ALGORITHM_NAME
+            log_entry["pqc_algorithm"] = variant
         except Exception as e:
             # Fallback for environments without PQC keys or during setup
             logger.debug(f"PQC signing skipped for audit log: {e}")

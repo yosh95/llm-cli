@@ -137,10 +137,13 @@ def temp_empty_file(tmp_path):
 
 
 @pytest.fixture
-def mock_config(monkeypatch, mock_api_key):
+def mock_config(monkeypatch, mock_api_key, tmp_path):
     """Mock the config module to return test values."""
 
     def mock_get_setting(key, section):
+        if key in ("image_save_path", "audio_save_path", "video_save_path"):
+            return str(tmp_path)
+
         config = {
             "google": {
                 "api_key": mock_api_key,
@@ -190,7 +193,16 @@ def mock_config(monkeypatch, mock_api_key):
     # Patch where it is imported and used
     modules_to_patch = [
         "llm_cli.clients.base",
+        "llm_cli.clients.base_helpers",
+        "llm_cli.clients.openai",
+        "llm_cli.clients.claude",
+        "llm_cli.clients.grok",
+        "llm_cli.clients.gemini",
+        "llm_cli.clients.ollama",
+        "llm_cli.clients.vllm",
+        "llm_cli.clients.mamba",
         "llm_cli.modules.tools.web",
+        "llm_cli.modules.tools.system",
         "llm_cli.apps.unified",
     ]
 

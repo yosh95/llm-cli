@@ -129,7 +129,7 @@ This project introduces a robust security layer designed for enterprise-grade to
 
 #### 2. Context-Aware Policy Engine (RBAC/ABAC)
 - **Granular Control**: Beyond simple "allow/deny", the policy engine evaluates the **Scope** of tool arguments.
-- **Path Guardrails**: Restricts file operations to specific directories (e.g., developers can only edit files in `/home/*`).
+- **Path Guardrails**: Restricts file operations to specific directories based on a whitelist (`allowed_paths`) and a blacklist (`blocked_paths`) in your configuration.
 - **Command Filtering**: Prevents dangerous shell patterns (e.g., `rm -rf /`) even for administrative users.
 - **Audience Validation**: Tokens are minted for specific MCP servers (`aud` claim), preventing token reuse across different tools.
 
@@ -178,14 +178,14 @@ All shell commands executed through the AI agent (`execute_shell_command` tool) 
 
 **Supported Operations (Validated)**:
 - Command chaining and pipes (`&&`, `||`, `|`) are allowed, provided that **every command** in the chain is on the whitelist.
-- Absolute paths are allowed if they point to non-existent files (useful for regex/strings) or are within the current project directory.
+- Absolute paths are allowed if they point to non-existent files (useful for regex/strings) or are within one of the `allowed_paths` defined in your configuration.
 
 **Blocked Patterns**:
 - Command separators (`;`, `&`, `\n`)
 - I/O Redirection (`>`, `<`)
 - Command substitution (`` ` ``, `$()`)
 - Dangerous operations (e.g., `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`)
-- Access to sensitive system paths (e.g., `/etc`, `/var`, `/root`)
+- Access to paths listed in `blocked_paths` in your configuration (e.g., `/etc`, `/var`, `/root`).
 - **Note**: `python`, `git`, `awk`, `sed`, `tar`, `gzip`, `zip` and system reconnaissance tools (e.g., `whoami`, `ps`, `env`) are removed from the default whitelist to minimize the attack surface. If you need to use these, please add them to your `config.toml` under `[security] allowed_commands` (at your own responsibility).
 
 **MCP Server Protection**:
@@ -229,9 +229,14 @@ allowed_mcp_commands = [
 # Use at your own risk.
 allow_dangerous_patterns = false
 
-# WARNING: Setting this to true allows the AI to access sensitive system
-# paths like /etc, /usr, /var, etc. Use with extreme caution.
-allow_sensitive_path_access = false
+# Path-based access control (Whitelist/Blacklist)
+# Access is only allowed to paths under entries in 'allowed_paths'.
+# "." represents the current working directory.
+allowed_paths = ["."]
+
+# Explicitly forbidden paths. Use absolute paths or "~" expansion.
+# These will be blocked even if they are within an allowed path.
+blocked_paths = ["/etc", "/var", "/root", "/usr"]
 ```
 
 **Policy on Human-in-the-Loop (HITL)**:
@@ -581,7 +586,7 @@ AIエージェントは以下のツールを標準で備えています：
 
 #### 2. コンテキストを考慮したポリシーエンジン (RBAC/ABAC)
 - **きめ細かな制御**: 単なる「許可/拒否」を超え、ツール引数の **スコープ（Scope）** を評価します。
-- **パス・ガードレール**: ファイル操作を特定のディレクトリ（例: `/home/*`）に限定します。
+- **パス・ガードレール**: 設定ファイル（`allowed_paths` および `blocked_paths`）に基づき、ファイル操作を特定のディレクトリに制限します。
 - **コマンド・フィルタリング**: 管理者であっても、危険なシェルパターン（例: `rm -rf /`）の実行を防止します。
 - **Audience（対象）検証**: トークンは特定のMCPサーバー専用に発行され（`aud` クレーム）、異なるツール間でのトークン再利用を防止します。
 
@@ -630,14 +635,14 @@ AIエージェント（`execute_shell_command` ツール）を通じて実行さ
 
 **サポートされている操作（検証済み）**:
 - コマンドチェーンとパイプ（`&&`, `||`, `|`）は、チェーン内の**すべてのコマンド**がホワイトリストに含まれている場合に限り許可されます。
-- 絶対パスは、存在しないファイルを指している場合（正規表現/文字列用）、または現在のプロジェクトディレクトリ内にある場合に許可されます。
+- 絶対パスは、存在しないファイルを指している場合（正規表現/文字列用）、または設定ファイルの `allowed_paths` に記載されたパス内にある場合に許可されます。
 
 **ブロックされるパターン**:
 - コマンド区切り文字（`;`, `&`, `\n`）
 - I/O リダイレクト（`>`, `<`）
 - コマンド置換（`` ` ``, `$()`)
 - 危険な操作（例: `rm -rf`, `mkfs`, `dd`, `find -exec`, `find -delete`）
-- 機密システムパスへのアクセス（例: `/etc`, `/var`, `/root`）
+- 設定ファイルの `blocked_paths` に記載されたパスへのアクセス（例: `/etc`, `/var`, `/root`）
 - **注**: `python`, `git`, `awk`, `sed`, `tar`, `gzip`, `zip` およびシステム偵察ツール（例: `whoami`, `ps`, `env`）は、攻撃対象領域を最小限に抑えるためにデフォルトのホワイトリストから除外されています。これらを使用する必要がある場合は、自己責任で `config.toml` の `[security] allowed_commands` に追加してください。
 
 **MCPサーバー保護**:
@@ -681,9 +686,14 @@ allowed_mcp_commands = [
 # 自己責任で設定してください。
 allow_dangerous_patterns = false
 
-# 警告: これを true に設定すると、AI が /etc, /usr, /var などの機密性の高い
-# システムパスにアクセスできるようになります。細心の注意を払って使用してください。
-allow_sensitive_path_access = false
+# パスベースのアクセス制御（ホワイトリスト/ブラックリスト形式）
+# 'allowed_paths' に記載されたパスの配下のみアクセスが許可されます。
+# "." は現在の作業ディレクトリを表します。
+allowed_paths = ["."]
+
+# 明示的に禁止されるパス。絶対パスまたは "~" を使用できます。
+# 許可されたパス内であっても、これらのパスへのアクセスはブロックされます。
+blocked_paths = ["/etc", "/var", "/root", "/usr"]
 ```
 
 **Human-in-the-Loop (HITL) ポリシー**:

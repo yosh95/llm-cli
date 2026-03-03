@@ -68,6 +68,11 @@ class PQCAgilityManager:
         tool_name: str, args: Any = None, environment_risk: str = "standard"
     ) -> str:
         """Determines the required PQC security level using a risk-aware matrix."""
+        from llm_cli.clients.config import _load_config_from_file
+
+        config = _load_config_from_file()
+        security_config = config.get("security", {})
+
         # Risk levels for specific tools
         high_risk_tools = {
             "execute_shell_command",
@@ -78,20 +83,26 @@ class PQCAgilityManager:
         }
 
         # Dynamic context analysis (e.g., sensitive file access)
-        sensitive_patterns = [
-            "/etc/",
-            ".ssh/",
-            ".env",
-            "config",
-            "credential",
-            "password",
-            "sudo",
-            "rm -rf",
-        ]
+        # Defaults to a reasonable set if not specified in config
+        sensitive_patterns = security_config.get(
+            "scaling_patterns",
+            [
+                ".ssh/",
+                ".env",
+                "config",
+                "credential",
+                "password",
+                "sudo",
+                "rm -rf",
+            ],
+        )
+        # Also include blocked_paths as sensitive for scaling
+        sensitive_patterns.extend(security_config.get("blocked_paths", []))
+
         is_sensitive_context = False
         if args:
             args_str = str(args).lower()
-            if any(pattern in args_str for pattern in sensitive_patterns):
+            if any(str(pattern).lower() in args_str for pattern in sensitive_patterns):
                 is_sensitive_context = True
 
         # Policy Matrix

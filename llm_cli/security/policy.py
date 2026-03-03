@@ -18,17 +18,20 @@ class PolicyEngine:
 
     def __init__(self, config: dict[str, Any] | None = None):
         # Allow passing config directly, or load from global settings
-        self.config = config or {}
+        provided_config = config or {}
 
-        # Load security settings from global config if not explicitly provided
-        if not self.config:
-            try:
-                from llm_cli.clients.config import _load_config_from_file
+        # 1. Load base security settings from global config
+        self.config = {}
+        try:
+            from llm_cli.clients.config import _load_config_from_file
 
-                full_conf = _load_config_from_file()
-                self.config.update(full_conf.get("security", {}))
-            except ImportError:
-                pass
+            full_conf = _load_config_from_file()
+            self.config.update(full_conf.get("security", {}))
+        except ImportError:
+            pass
+
+        # 2. Override with provided config
+        self.config.update(provided_config)
 
         self.intent_analyzer: Any = None
 
@@ -318,19 +321,37 @@ class PolicyEngine:
         return True
 
     def _global_guardrails(self, tool_name: str, arguments: dict[str, Any]) -> bool:
-        """Hardcoded safety checks that apply to everyone, including admins."""
-        path = arguments.get("path", "")
-        if path:
-            # Block sensitive system paths
-            if re.match(
-                r"^(/etc|/var|/usr|/root|/bin|/sbin|C:\\Windows|C:\\System32)", path
-            ):
-                logger.warning(
-                    f"Guardrail: Attempt to access sensitive system path '{path}'"
-                )
+        """Safety checks that apply to everyone, including admins."""
+        # 1. Path Blacklist Check
+        # We check any argument that might be a path.
+        path_val = arguments.get("path") or arguments.get("directory")
+        if path_val and isinstance(path_val, str):
+            if ".." in path_val:
+                logger.warning(f"Guardrail: Directory traversal detected: {path_val}")
                 return False
 
-        if tool_name == "execute_command":
+            try:
+                path_obj = Path(path_val).expanduser().resolve()
+                blocked_paths = self.config.get("blocked_paths", [])
+                for blocked in blocked_paths:
+                    try:
+                        blocked_obj = Path(blocked).expanduser().resolve()
+                        if path_obj == blocked_obj or blocked_obj in path_obj.parents:
+                            logger.warning(
+                                "Guardrail: "
+                                f"Attempt to access blocked path '{path_val}'"
+                            )
+                            return False
+                    except (ValueError, OSError):
+                        continue
+            except (ValueError, OSError):
+                # If we can't resolve it, we still block it if it looks like
+                # a sensitive system path as a fallback,
+                # but we prefer the configured blocked_paths.
+                pass
+
+        # 2. Command Pattern Check
+        if tool_name == "execute_command" or tool_name == "execute_shell_command":
             command = arguments.get("command", "").lower()
             dangerous_patterns = [
                 r"rm\s+-rf\s+/",

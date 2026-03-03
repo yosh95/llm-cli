@@ -232,10 +232,26 @@ def configure_security(config: dict[str, Any]) -> None:
         "Allow dangerous shell patterns (Python one-liners, git push, etc.)?",
         s_config.get("allow_dangerous_patterns", False),
     )
-    s_config["allow_sensitive_path_access"] = prompt_bool(
-        "Allow access to sensitive system paths (/etc, /usr, /var)?",
-        s_config.get("allow_sensitive_path_access", False),
-    )
+
+    # Configure Allowed Paths
+    current_allowed_paths = s_config.get("allowed_paths", ["."])
+    print(f"\nCurrent allowed paths: {current_allowed_paths}")
+    if prompt_bool("Modify allowed paths?", False):
+        new_allowed_paths = prompt_list(
+            "Allowed Paths (e.g. '.', '~', '/mnt/data')", current_allowed_paths
+        )
+        s_config["allowed_paths"] = new_allowed_paths
+
+    # Configure Blocked Paths
+    current_blocked_paths = s_config.get("blocked_paths", [])
+    if not current_blocked_paths:
+        current_blocked_paths = DEFAULTS.get("security", {}).get("blocked_paths", [])
+    print(f"Current blocked paths: {current_blocked_paths}")
+    if prompt_bool("Modify blocked paths?", False):
+        new_blocked_paths = prompt_list(
+            "Blocked Paths (e.g. '/etc', '/root', '/var')", current_blocked_paths
+        )
+        s_config["blocked_paths"] = new_blocked_paths
 
     # Configure Intent Analyzer (New!)
     print("\n--- Intent Analyzer (Dual-Model Guardrails) ---")

@@ -22,6 +22,23 @@ llm_cli.clients.config._config_cache = {
     "openai": {"api_key": "dummy_openai_key"},
     "anthropic": {"api_key": "dummy_anthropic_key"},
     "xai": {"api_key": "dummy_xai_key"},
+    "security": {
+        "allowed_paths": ["."],
+        "blocked_paths": [
+            "/etc",
+            "/var",
+            "/root",
+            "/bin",
+            "/sbin",
+            "/usr",
+            "/dev",
+            "/proc",
+            "/sys",
+            "/boot",
+        ],
+        "allowed_commands": ["ls", "cat", "grep", "find", "sleep", "pwd"],
+        "allow_dangerous_patterns": False,
+    },
 }
 
 

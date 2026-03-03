@@ -15,6 +15,25 @@ max_tool_output_len = 10000
 default_roles = ["admin"]
 default_user_id = "current_user"
 
+# Path-based access control (Whitelist/Blacklist)
+# "." represents the current working directory.
+allowed_paths = ["."]
+
+# Explicitly forbidden paths. Use absolute paths or "~" expansion.
+# These will be blocked even if they are within an allowed path.
+blocked_paths = [
+    "/etc",
+    "/var",
+    "/root",
+    "/bin",
+    "/sbin",
+    "/usr",
+    "/dev",
+    "/proc",
+    "/sys",
+    "/boot"
+]
+
 # =============================================================================
 # Gemini (Google)
 # =============================================================================

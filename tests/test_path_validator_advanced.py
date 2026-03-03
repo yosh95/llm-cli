@@ -1,6 +1,5 @@
 # tests/test_path_validator_advanced.py
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -10,36 +9,41 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 
 class TestPathValidatorAdvanced:
     @patch("llm_cli.security.path_validator._load_config_from_file")
-    def test_allow_outside_cwd(self, mock_load_config):
-        """Should allow access outside CWD if configured."""
+    def test_allowed_paths_whitelist(self, mock_load_config):
+        """Should allow access only within the allowed_paths whitelist."""
         mock_load_config.return_value = {
             "security": {
-                "allow_outside_cwd": True,
-                "allow_sensitive_path_access": False,
+                "allowed_paths": ["/tmp", "."],
+                "blocked_paths": ["/etc"],
             }
         }
 
-        # Accessing /tmp should be allowed if it's not in the sensitive list
-        # Note: /tmp is NOT in sensitive_prefixes in the code
-        # sensitive_prefixes = ["/etc", "/var", "/root", "/bin", "/sbin", "/usr", "/dev", "/proc", "/sys", "/boot", "/home"]
-
-        # Should not raise for /tmp (assuming it exists on the system)
+        # Accessing /tmp should be allowed
         path = validate_path("/tmp")
         assert str(path) == "/tmp"
 
-        # Should still block /etc
+        # Accessing CWD should be allowed because of "."
+        path = validate_path("test_file.txt")
+        assert path.name == "test_file.txt"
+
+        # Should block /etc
         with pytest.raises(
-            PathValidationError, match="Access to sensitive system path is forbidden"
+            PathValidationError, match="Access to blocked path is forbidden"
         ):
             validate_path("/etc/passwd")
 
     @patch("llm_cli.security.path_validator._load_config_from_file")
-    def test_allow_sensitive_path_access(self, mock_load_config):
-        """Should allow access to sensitive paths if explicitly enabled."""
+    def test_path_not_in_whitelist(self, mock_load_config):
+        """Should block paths not explicitly in the whitelist."""
         mock_load_config.return_value = {
-            "security": {"allow_outside_cwd": True, "allow_sensitive_path_access": True}
+            "security": {
+                "allowed_paths": ["."],
+                "blocked_paths": [],
+            }
         }
 
-        # Should now allow /etc/passwd
-        path = validate_path("/etc/passwd")
-        assert path == Path("/etc/passwd").resolve()
+        # /tmp is not in whitelist
+        with pytest.raises(
+            PathValidationError, match="Access to path is not in the whitelist"
+        ):
+            validate_path("/tmp")

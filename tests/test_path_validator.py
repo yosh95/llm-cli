@@ -29,11 +29,12 @@ class TestPathValidator:
 
     def test_blocks_absolute_system_paths(self):
         """Should block absolute paths to system directories."""
+        # /etc/passwd and /var/... should be blocked by the blacklist first
         with pytest.raises(
-            PathValidationError, match="Access outside project directory is forbidden"
+            PathValidationError, match="Access to blocked path is forbidden"
         ):
             validate_path("/etc/passwd")
         with pytest.raises(
-            PathValidationError, match="Access outside project directory is forbidden"
+            PathValidationError, match="Access to blocked path is forbidden"
         ):
             validate_path("/var/log/syslog")

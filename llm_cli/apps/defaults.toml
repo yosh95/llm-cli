@@ -41,7 +41,7 @@ blocked_paths = [
 
 [google.models]
 default = "gemini-3.1-pro-preview"
-lite = "gemini-flash-lite-latest"
+lite = "gemini-3.1-flash-lite-preview"
 flash = "gemini-3-flash-preview"
 pro = "gemini-3.1-pro-preview"
 tools = "gemini-3.1-pro-preview-customtools"

@@ -225,7 +225,7 @@ allowed_mcp_commands = [
 ]
 
 # WARNING: Setting this to true disables protection against shell injection
-# and allows risky patterns (e.g., Python one-liners, 'git push', backgrounding).
+# and allows risky patterns (e.g., redirection >, command substitution $(), semicolons ;).
 # Use at your own risk.
 allow_dangerous_patterns = false
 
@@ -682,7 +682,7 @@ allowed_mcp_commands = [
 ]
 
 # 警告: これを true に設定すると、シェルインジェクションに対する保護が無効になり、
-# Pythonワンライナーや 'git push'、バックグラウンド実行などのリスクのあるパターンが許可されます。
+# リダイレクト > やコマンド置換 $()、セミコロン ; などのリスクのあるパターンが許可されます。
 # 自己責任で設定してください。
 allow_dangerous_patterns = false
 

@@ -147,6 +147,11 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
         p_config["online_lr"] = float(
             prompt_input("Online Learning Rate", p_config.get("online_lr", 1e-4))
         )
+    elif provider == "brave":
+        p_config["api_key"] = prompt_input(
+            "API Key", p_config.get("api_key"), secret=True
+        )
+        return  # Brave only needs API Key
     else:
         p_config["api_key"] = prompt_input(
             "API Key", p_config.get("api_key"), secret=True
@@ -229,7 +234,8 @@ def configure_security(config: dict[str, Any]) -> None:
     # Dangerous Patterns & Sensitive Paths
     print("\nAdvanced Security (USE WITH CAUTION):")
     s_config["allow_dangerous_patterns"] = prompt_bool(
-        "Allow dangerous shell patterns (Python one-liners, git push, etc.)?",
+        "Allow dangerous shell patterns (redirection >, command substitution $(), "
+        "semicolons ;, etc.)?",
         s_config.get("allow_dangerous_patterns", False),
     )
 

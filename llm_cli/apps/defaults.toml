@@ -38,7 +38,6 @@ blocked_paths = [
 # Gemini (Google)
 # =============================================================================
 [google]
-search_model = "gemini-3-flash-preview"
 
 [google.models]
 default = "gemini-3.1-pro-preview"
@@ -46,8 +45,9 @@ lite = "gemini-flash-lite-latest"
 flash = "gemini-3-flash-preview"
 pro = "gemini-3.1-pro-preview"
 tools = "gemini-3.1-pro-preview-customtools"
-image = "gemini-3-pro-image-preview"
+image = "gemini-3.1-flash-image-preview"
 image-flash = "gemini-3.1-flash-image-preview"
+image-pro = "gemini-3-pro-image-preview"
 tts = "gemini-2.5-pro-preview-tts"
 video = "veo-3.1-generate-preview"
 

@@ -89,6 +89,7 @@ def execute_shell_command(command: str) -> str:
     mem_limit_mb = int(str(get_setting("max_command_memory_mb", "general") or "1024"))
 
     # 1. Define base safe environment variables
+    # Always include essential system variables
     safe_env_keys = {
         "PATH",
         "LANG",
@@ -101,6 +102,13 @@ def execute_shell_command(command: str) -> str:
         "TEMP",
         "TMP",
     }
+
+    # Add user-defined allowed environment variables from config
+    user_allowed_env = get_setting("allowed_env_vars", "security")
+    if isinstance(user_allowed_env, list):
+        for key in user_allowed_env:
+            if isinstance(key, str):
+                safe_env_keys.add(key)
 
     # 2. Handle Termux/Android specifically
     # On these platforms, many system variables (including LD_PRELOAD for termux-exec)

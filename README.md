@@ -91,10 +91,15 @@ The AI agent comes equipped with the following tools:
 
 > **Note**: To use `search_web`, you need to obtain a **Brave Search API Key**. This can be configured using `llm-cli-config`.
 
-### 🛡️ Tool Output Limits
-By default, tool outputs are truncated to **10,000 characters** to prevent context window overflow. You can customize this in two ways:
-1.  **Globally**: Run `llm-cli-config` and set "Default Tool Output Max Length".
-2.  **Per-call**: The AI agent can dynamically increase the limit by specifying the `max_output_length` parameter in supported tools (e.g., `execute_shell_command`, `read_file_content`). Set it to `0` for no limit.
+### 🛡️ Tool Execution & Resource Limits
+To ensure system stability and security, tool execution is subject to the following limits:
+
+1.  **Memory Limit**: Defaults to **1,024 MB**. If a process (like PyTorch) exceeds this, it will be terminated (typically resulting in an `ImportError` or `SIGABRT`).
+2.  **Timeout**: Defaults to **300 seconds** for shell commands.
+3.  **Environment Variables**: Strictly filtered. Only essential variables (`PATH`, `HOME`, `LANG`, etc.) are passed to the subprocess by default. You can allow additional variables (e.g., `PYTHONPATH`, `CUDA_VISIBLE_DEVICES`) via the `allowed_env_vars` setting in `config.toml`. Sensitive keys like `OPENAI_API_KEY` are always stripped.
+4.  **Output Length**: Truncated to **10,000 characters** by default to prevent context window overflow.
+
+You can customize these globally via `llm-cli-config`. For output length, the AI agent can also dynamically increase the limit by specifying the `max_output_length` parameter in supported tools (set it to `0` for no limit).
 
 ## Power User Tips
 
@@ -548,10 +553,15 @@ AIエージェントは以下のツールを標準で備えています：
 
 > **注**: `search_web` を使用するには、**Brave Search APIキー** が必要です。
 
-### 🛡️ ツールの出力制限について
-コンテキストウィンドウの溢れを防ぐため、ツールの出力はデフォルトで **10,000文字** に制限されています。この制限は以下の2つの方法でカスタマイズ可能です：
-1.  **グローバル設定**: `llm-cli-config` を実行し、「Default Tool Output Max Length」を設定します。
-2.  **実行時指定**: AIエージェントは、対応するツール（`execute_shell_command` や `read_file_content` など）の `max_output_length` パラメータを指定することで、動的に制限を緩和できます。制限を解除するには `0` を指定します。
+### 🛡️ ツールの実行およびリソース制限
+システムの安定性とセキュリティを確保するため、ツールの実行には以下の制限が適用されます。
+
+1.  **メモリ制限**: デフォルトは **1,024 MB** です。PyTorchなどの巨大なライブラリをロードしてこの制限を超えた場合、プロセスは強制終了されます（通常 `ImportError` や `SIGABRT` が発生します）。
+2.  **タイムアウト**: シェルコマンドの実行はデフォルトで **300秒** に制限されています。
+3.  **環境変数のフィルタリング**: 厳格なホワイトリスト制を採用しています。デフォルトでは `PATH`, `HOME`, `LANG` などの必須変数のみがサブプロセスに渡されます。必要に応じて、`config.toml` の `allowed_env_vars` 設定により追加の変数（例: `PYTHONPATH`, `CUDA_VISIBLE_DEVICES`）を許可できます。`OPENAI_API_KEY` などの機密情報は常に除去されます。
+4.  **出力文字数制限**: コンテキスト溢れを防ぐため、出力はデフォルトで **10,000文字** に制限されています。
+
+これらの値は `llm-cli-config` でグローバルに変更可能です。出力文字数については、AIエージェントが実行時に `max_output_length` パラメータを指定して動的に変更することも可能です（制限を解除する場合は `0` を指定）。
 
 ## パワーユーザー向けのヒント
 

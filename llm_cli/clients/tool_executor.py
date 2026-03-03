@@ -190,7 +190,7 @@ def execute_tool_call(
                 injected = injected_data
 
         p_str = str(result_data)
-        max_len = int(get_setting("max_tool_output_len", "general") or 10000)
+        max_len = int(get_setting("max_output_length", "general") or 10000)
 
         if len(p_str) > max_len:
             original_len = len(p_str)

@@ -204,6 +204,18 @@ def configure_general(config: dict[str, Any]) -> None:
     g_config["request_timeout"] = int(
         prompt_input("Request Timeout (seconds)", g_config.get("request_timeout", 1800))
     )
+    g_config["command_timeout"] = int(
+        prompt_input(
+            "Shell Command Timeout (seconds)",
+            g_config.get("command_timeout", 300),
+        )
+    )
+    g_config["max_command_memory_mb"] = int(
+        prompt_input(
+            "Max Command Memory (MB)",
+            g_config.get("max_command_memory_mb", 1024),
+        )
+    )
     g_config["max_output_length"] = int(
         prompt_input(
             "Default Tool Output Max Length (chars)",
@@ -224,6 +236,16 @@ def configure_security(config: dict[str, Any]) -> None:
     if prompt_bool("Modify allowed commands?", False):
         new_allowed = prompt_list("Allowed Commands", current_allowed)
         s_config["allowed_commands"] = new_allowed
+
+    # Configure Allowed Environment Variables
+    current_allowed_env = s_config.get("allowed_env_vars", [])
+    print(f"Current allowed environment variables: {current_allowed_env}")
+    if prompt_bool("Modify allowed environment variables?", False):
+        new_allowed_env = prompt_list(
+            "Allowed Environment Variables (e.g. 'PYTHONPATH, CUDA_VISIBLE_DEVICES')",
+            current_allowed_env,
+        )
+        s_config["allowed_env_vars"] = new_allowed_env
 
     # Configure Missing Token Policy
     s_config["missing_token_policy"] = prompt_input(

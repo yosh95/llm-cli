@@ -60,7 +60,7 @@ video = "veo-3.1-generate-preview"
 default = "gpt-5.2"
 nano = "gpt-5-nano"
 mini = "gpt-5-mini"
-chat = "gpt-5.2-chat-latest"
+chat = "gpt-5.3-chat-latest"
 image = "chatgpt-image-latest"
 video = "sora-2-pro"
 

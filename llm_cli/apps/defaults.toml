@@ -57,10 +57,7 @@ video = "veo-3.1-generate-preview"
 [openai]
 
 [openai.models]
-default = "gpt-5.2"
-nano = "gpt-5-nano"
-mini = "gpt-5-mini"
-chat = "gpt-5.3-chat-latest"
+default = "gpt-5.4"
 image = "chatgpt-image-latest"
 video = "sora-2-pro"
 

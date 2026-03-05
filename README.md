@@ -47,24 +47,21 @@ The AI agent can autonomously use various tools to perform complex tasks. In thi
 -   **Local LLM Support (Ollama / vLLM / Mamba)**: Use models locally without cloud API costs or privacy concerns. (**Mamba is experimental and requires training**).
 -   **Interactive Chat Mode**: A REPL-style interface with rich syntax highlighting and Markdown rendering.
 -   **Exit anytime**: Use **Ctrl+C** or **Ctrl+D** at any prompt (user input or agent confirmation) to immediately exit the session.
--   **Agent Mode (Always On)**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
+-   **Agent Mode**: Autonomous task execution. The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
 -   **Multimodal Output (Gemini / OpenAI / Grok)**:
-    -   **Image Generation**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`, `/m dall-e-3` or `/m grok-2-image`). Images are automatically saved locally.
-    -   **Video Generation**: Generate videos using supported models like **Gemini (Veo)** or **Grok**. Videos are automatically downloaded and saved locally.
+    -   **Image Generation**: Generate images mid-conversation by switching to an image generation model (e.g., via `/m image`, `/m gemini-3.1-flash-image-preview` or `/m grok-imagine-image-pro`). Images are automatically saved locally.
+    -   **Video Generation**: Generate videos using supported models like **Gemini (Veo)** or **OpenAI (Sora)**. Videos are automatically downloaded and saved locally.
 -   **Action Explanation**: All tools require the AI to provide an `explanation` parameter, describing *what* it is about to do. This improves transparency and helps users review agent actions.
 -   **Plugin-based Tool Architecture**: Easily extend the agent's capabilities by adding new tool modules.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol (MCP)**. You can connect to remote `llm-cli` instances via SSH and let the LLM manage files or run tests on a remote server as if they were local tools.
--   **OpenAI-Compatible Custom Endpoints**: Use other OpenAI-compatible services by specifying a custom `api_url` in the configuration.
 -   **User-Driven Context Management (Checkpointing)**: Manually trigger `/checkpoint` to summarize the conversation and clear history.
 -   **Multimodal Input & Support**:
     -   **Manual Attachment**: Use the `/attach <path>` command mid-session to inject images, PDFs, videos, or audio.
     -   **Autonomous Attachment**: Agents can use the `read_image_from_url`, `read_pdf_from_url` or `read_html_from_url` tools to bring media files into the context when needed.
-    -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**.
-    -   **OpenAI**: Text, local images, **PDFs (multimodal)**, and **ChatGPT image generation**.
+    -   **Gemini**: Text, local images, PDFs, Audio, and Video.
+    -   **OpenAI**: Text, local images, PDFs and ChatGPT image generation.
     -   **Claude**: Text and local images (PDFs are processed as text/Base64).
-    -   **Grok**: Text, local images (PDFs are processed as text), and **Image Generation**.
--   **Context Caching (Gemini)**: Automatically caches conversation history when it exceeds ~32k tokens, significantly reducing costs and latency for long sessions. Use `/cache` to manage manually.
--   **Text-to-Speech (Gemini)**: Generate speech from text using the `/speech` or `/tts` command.
+    -   **Grok**: Text, local images (PDFs are processed as text), and Image Generation.
 -   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
 -   **Safe Execution**: Includes a **Diff Preview** for file changes and asks for user confirmation before executing any tool (Human-in-the-Loop).
 -   **Security Guardrails**: Whitelist-based command validation protects against command injection and dangerous operations performed by the AI.
@@ -112,17 +109,6 @@ For power users who need full control over their environment:
 
 `llm-cli` implements strict security guardrails to protect against command injection and dangerous operations initiated by the AI agent:
 
-### 🛡️ Design Philosophy: Secure-by-Design Workflow
-
-While many projects use `make` for task automation, `llm-cli` intentionally avoids `Makefile` for its core development and validation workflow.
-
-#### Why we don't use `Makefile`:
-- **Command Injection Prevention**: `make` is a powerful macro-processing engine that allows variable overrides (e.g., `make VAR='$(shell command)'`). This creates a significant attack surface for command injection that is difficult for AI security validators to audit.
-- **Auditability & Transparency**: We use explicit, sequential shell scripts (like `check.sh`) instead. These scripts are easy for both humans and AI security guardrails to parse and verify before execution.
-- **Predictable Integrity**: By avoiding the complexity of `make` targets, we ensure that formatting, linting, type-checking, and testing are performed in a transparent, immutable manner.
-
-This decision reflects our commitment to **Zero Trust** for AI-assisted development—ensuring that every action the AI or developer takes is explicit, auditable, and secure.
-
 ### 🛡️ Secure MCP Orchestration (Zero Trust Architecture)
 
 This project introduces a robust security layer designed for enterprise-grade tool orchestration, especially when operating as an MCP server.
@@ -168,7 +154,7 @@ This project introduces a robust security layer designed for enterprise-grade to
 
 This is a **Context-Aware Dynamic Zero Trust** feature that uses a secondary, lightweight LLM (the "Verifier") to audit the actions of the main agent in real-time.
 
--   **Concept**: Even if the main agent (e.g., GPT-4) is compromised via prompt injection or hallucinates, the independent Verifier (e.g., Gemini Flash Lite or local Llama 3) checks if the tool call aligns with the user's original intent.
+-   **Concept**: Even if the main agent (e.g., GPT-5.3) is compromised via prompt injection or hallucinates, the independent Verifier (e.g., Gemini Flash Lite or local Llama 3) checks if the tool call aligns with the user's original intent.
 -   **How it works**:
     1.  User asks: "Read the README file."
     2.  Agent tries: `execute_command("rm -rf /")` (Malicious or Buggy).
@@ -249,20 +235,6 @@ This tool strictly follows a **Human-in-the-Loop** policy. Every destructive or 
 
 **Important**: These guardrails provide defense-in-depth but do not replace user vigilance. Always review commands before approving execution.
 
-### Risk-based Approval Skipping
-
-While most tools require explicit user approval (Human-in-the-Loop), certain non-destructive and interactive tools may execute without a confirmation prompt to ensure a seamless user experience. This is only permitted for tools specifically flagged as safe and interactive by the developer in the local codebase. External tools (like those from MCP servers) **always** require approval.
-
-**Configuring MCP Server Access**:
-You can control how unauthenticated clients are treated in `config.toml`:
-
-```toml
-[security]
-# "guest" (Default): Read-only access (Safe for Claude Desktop)
-# "deny": Reject all unauthenticated connections (Zero Trust strict mode)
-missing_token_policy = "guest"
-```
-
 ## Installation
 
 Ensure you have Python 3.11 or newer.
@@ -276,9 +248,6 @@ cd llm-cli
 
 # Install the package
 pip install .
-
-# Optional: Install MCP support
-pip install ".[mcp]"
 
 # Optional: Install Mamba support (Experimental)
 pip install ".[mamba]"
@@ -332,7 +301,7 @@ llm "Hello, world!"
 
 ## Usage
 
-### 1. Template Management (New!)
+### 1. Template Management
 You can define frequently used prompts as templates in your `config.toml` and quickly insert them into the input buffer using the `/t` command.
 
 1.  Add templates to `~/.config/llm_cli/config.toml`:
@@ -392,12 +361,7 @@ llm "Summarize this paper" https://arxiv.org/pdf/1706.03762.pdf
 -   `/template` (or `/t`): Insert a template prompt into the input buffer (e.g., `/t proofread`).
 -   `/info` (or `/i`): Show current session info (provider, model, tools, etc.).
 -   `/tools [on|off]`: Show or toggle tool status.
--   `/cache`: Manage context caching (Gemini only).
-    -   `status`: Check cache status.
-    -   `create`: Force create a cache.
-    -   `clear`: Clear local cache reference.
 -   `/reload`: Reload configuration from `config.toml` without restarting.
--   `/speech <text>` (or `/tts`): Generate audio from text (Gemini only).
 -   `/checkpoint` (or `/cp`): Summarize progress and clear conversation history.
 -   `/attach <path>`: Manually attach a file (Image, PDF, Audio, Video).
 -   `/save <path>`: Save conversation history to a JSON file.
@@ -510,24 +474,21 @@ AIエージェントは、自律的に様々なツールを使いこなしなが
 -   **ローカルLLM対応 (Ollama / vLLM / Mamba)**: クラウドAPIの料金を気にせず、プライバシーを保ったままモデルを利用できます。（**Mambaは実験的実装であり、別途学習が必要です**）。
 -   **対話型チャットモード**: シンタックスハイライトとMarkdownレンダリングに対応したREPL形式のインターフェース。
 -   **いつでも終了**: ユーザー入力やエージェントの確認プロンプトにおいて、**Ctrl+C** または **Ctrl+D** を押すことで、即座にセッションを終了できます。
--   **エージェントモード（常時有効）**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
+-   **エージェントモード**: 自律的なタスク実行。ファイルの管理、シェルコマンド実行、Web検索、**メディアファイルの動的添付**が可能です。
 -   **マルチモーダル出力 (Gemini / OpenAI / Grok)**:
-    -   **画像生成**: 画像生成モデル（例：`/m dall-e-3`、`/m grok-2-image`）に切り替えることで画像を生成できます。生成された画像は自動的にローカルに保存されます。
-    -   **動画生成**: **Gemini (Veo)** や **Grok** などの対応モデルを使用して動画を生成できます。生成された動画は自動的にダウンロードされ、ローカルに保存されます。
+    -   **画像生成**: 画像生成モデル（例：`/m gemini-3-pro-image-preview`、`/m grok-imagine-image-pro`）に切り替えることで画像を生成できます。生成された画像は自動的にローカルに保存されます。
+    -   **動画生成**: **Gemini (Veo)** や **OpenAI (Sora)** などの対応モデルを使用して動画を生成できます。生成された動画は自動的にダウンロードされ、ローカルに保存されます。
 -   **実行内容の説明**: すべてのツール実行において、AIに `explanation` パラメータ（これから何をするのかという説明）の提供を強制します。これにより、ツール実行の意図が明確になり、ユーザーがエージェントの動作を確認しやすくなります。
 -   **プラグインベースのツール設計**: デコレータを使用したプラグインシステムにより、新しいツールの追加が容易です。
 -   **Distributed Agent via MCP**: **Model Context Protocol (MCP)** をサポート。SSH経由でリモートの `llm-cli` インスタンスに接続し、リモートサーバー上のファイル操作やテスト実行をローカルツールのように行えます。
--   **OpenAI互換カスタムエンドポイント**: `api_url` を設定することで、その他のOpenAI互換サービスを利用可能。
 -   **ユーザー主導の履歴管理（チェックポイント機能）**: `/checkpoint` コマンドで会話の要約を作成し、履歴をリセットしてコンテキストを整理。
 -   **マルチモーダル対応**:
     -   **手動添付**: `/attach <path>` コマンドで画像、PDF、音声、動画を会話の途中から注入。
     -   **自律添付**: エージェントが必要に応じてツールを使い、メディアファイルをコンテキストに読み込みます（`read_image_from_url`, `read_pdf_from_url`, `read_html_from_url` など）。
-    -   **Gemini**: テキスト、ローカル画像、PDF、**音声**、**動画**をサポート。
-    -   **OpenAI**: テキスト、ローカル画像、**PDF（マルチモーダル）**、および **ChatGPT image による画像生成**をサポート。
+    -   **Gemini**: テキスト、ローカル画像、PDF、音声、動画をサポート。
+    -   **OpenAI**: テキスト、ローカル画像、PDF、および ChatGPT image による画像生成をサポート。
     -   **Claude**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
-    -   **Grok**: テキスト、ローカル画像をサポート（PDFはテキストとして処理）、および **画像生成**をサポート。
--   **コンテキストキャッシング (Gemini)**: 会話履歴が約32kトークンを超えると自動的にキャッシュを作成し、長時間のセッションにおけるコストと遅延を大幅に削減します。`/cache` で手動管理も可能です。
--   **テキスト読み上げ (Gemini)**: `/speech` または `/tts` コマンドを使用して、テキストから音声を生成します。
+    -   **Grok**: テキスト、ローカル画像をサポート（PDFはテキストとして処理）、および画像生成をサポート。
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。
 -   **安全な実行**: ファイル変更時の **Diffプレビュー** 表示と、ツール実行前のユーザー確認（Human-in-the-Loop）。
 -   **セキュリティガードレール**: ホワイトリストベースのコマンド検証により、AIによるコマンドインジェクションや危険な操作を防止。
@@ -575,17 +536,6 @@ AIエージェントは以下のツールを標準で備えています：
 
 `llm-cli` は、AIエージェントによるコマンドインジェクションや危険な操作を防ぐため、厳格なセキュリティガードレールを実装しています：
 
-### 🛡️ 設計思想：Secure-by-Design ワークフロー
-
-多くのプロジェクトではタスクの自動化に `make` を使用しますが、`llm-cli` ではコアな開発および検証ワークフローにおいて、意図的に `Makefile` の使用を避けています。
-
-#### なぜ `Makefile` を使用しないのか：
-- **コマンドインジェクションの防止**: `make` は強力なマクロ処理エンジンであり、変数の上書き（例：`make VAR='$(shell command)'`）を許容します。これは、AIセキュリティバリデータが厳格に監査することが困難な、大きなコマンドインジェクションの攻撃面（Attack Surface）を生み出します。
-- **監査性と透明性**: 代わりに、明示的で逐次的なシェルスクリプト（`check.sh` など）を使用します。これらのスクリプトは、実行前に人間とAIのセキュリティガードレールの両方が内容を解析し、検証することが容易です。
-- **予測可能な整合性**: 複雑な `make` ターゲットを避けることで、フォーマット、Lint、型チェック、テストが、環境に依存しない透過的かつ不変な方法で実行されることを保証します。
-
-この決定は、AI支援開発における **ゼロトラスト** への私たちの取り組みを反映したものです。AIや開発者が行うすべての行動が明示的で、監査可能、かつ安全であることを保証します。
-
 ### 🛡️ 安全なMCPオーケストレーション（ゼロトラストアーキテクチャ）
 
 本プロジェクトは、標準的なMCP実装に加え、特にMCPサーバーとして動作する際のエンドツーエンドの追跡可能性と堅牢なセキュリティレイヤーを提供します。
@@ -631,7 +581,7 @@ AIエージェントは以下のツールを標準で備えています：
 
 これは、メインのエージェントとは独立した軽量な「検証用LLM（Verifier）」を使用して、エージェントの行動をリアルタイムで監査する**コンテキスト認識型動的ゼロトラスト**機能です。
 
--   **コンセプト**: メインのエージェント（例：GPT-4）がプロンプトインジェクション攻撃を受けたり、ハルシネーションを起こしたりしても、独立した検証用LLM（例：Gemini Flash Lite やローカルの Llama 3）が「そのツール実行はユーザーの意図と合致しているか？」をチェックします。
+-   **コンセプト**: メインのエージェント（例：GPT-5.3）がプロンプトインジェクション攻撃を受けたり、ハルシネーションを起こしたりしても、独立した検証用LLM（例：Gemini Flash Lite やローカルの Llama 3）が「そのツール実行はユーザーの意図と合致しているか？」をチェックします。
 -   **動作例**:
     1.  ユーザー: 「READMEファイルを読んで」
     2.  エージェント: `execute_command("rm -rf /")` を実行しようとする（悪意またはバグ）。
@@ -712,20 +662,6 @@ blocked_paths = ["/etc", "/var", "/root", "/usr"]
 
 **重要**: これらのガードレールは多層防御を提供しますが、ユーザーの警戒に代わるものではありません。実行を承認する前に必ずコマンドを確認してください。
 
-### リスクベースの承認スキップ
-
-ほとんどのツールは明示的なユーザー承認（Human-in-the-Loop）を必要としますが、非破壊的で対話的な特定のツールは、シームレスなユーザーエクスペリエンスを確保するために確認プロンプトなしで実行される場合があります。これは、開発者がローカルコードベースで安全かつ対話的であると特別にフラグ付けしたツールにのみ許可されます。外部ツール（MCPサーバーからのツールなど）は、**常に**承認が必要です。
-
-**MCPサーバーアクセスの設定**:
-`config.toml` で未認証クライアントの扱いを制御できます：
-
-```toml
-[security]
-# "guest" (デフォルト): 読み取り専用アクセス（Claude Desktopに安全）
-# "deny": すべての未認証接続を拒否（ゼロトラスト厳格モード）
-missing_token_policy = "guest"
-```
-
 ## インストール
 
 Python 3.11以上が必要です。
@@ -739,9 +675,6 @@ cd llm-cli
 
 # パッケージをインストール
 pip install .
-
-# オプション: MCPサポートをインストール
-pip install ".[mcp]"
 
 # オプション: Mambaサポート（実験的）をインストール
 pip install ".[mamba]"
@@ -855,12 +788,7 @@ llm "この論文を要約して" https://arxiv.org/pdf/1706.03762.pdf
 -   `/template` (または `/t`): テンプレートプロンプトを入力バッファに挿入 (例: `/t proofread`).
 -   `/info` (または `/i`): 現在のセッション情報（プロバイダ、モデル、ツールなど）を表示。
 -   `/tools [on|off]`: ツールの状態を表示または切り替え。
--   `/cache`: コンテキストキャッシュの管理（Geminiのみ）。
-    -   `status`: キャッシュの状態を確認。
-    -   `create`: 強制的にキャッシュを作成。
-    -   `clear`: ローカルのキャッシュ参照をクリア。
 -   `/reload`: `config.toml` を再読み込みし、設定を反映（ツールを再起動せずに変更を適用）。
--   `/speech <text>` (または `/tts`): テキストから音声を生成（Geminiのみ）。
 -   `/checkpoint` (または `/cp`): 進捗を要約し、会話履歴をクリア。
 -   `/attach <path>`: ファイルを手動添付 (画像, PDF, 音声, 動画)。
 -   `/save <path>`: 会話履歴をJSONファイルに保存。

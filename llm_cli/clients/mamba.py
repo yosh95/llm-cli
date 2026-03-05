@@ -358,8 +358,8 @@ class MambaClient(BaseLlmClient):
         states = None
 
         # Generation params
-        temperature = 0.7
-        top_p = 0.9
+        max_new_tokens = 2048
+        states = None
 
         # Identify invalid control characters for masking
         invalid_ids = [i for i in range(32) if i not in self.tokenizer.safe_control_ids]
@@ -372,13 +372,12 @@ class MambaClient(BaseLlmClient):
         with torch.no_grad():
             logits, states = self.model_instance.step(input_ids, states)
 
-            # Sampling for the first token
-            logits_last = logits[:, -1, :] / temperature
+            # Greedy decoding for the first token
+            logits_last = logits[:, -1, :]
             # Mask invalid tokens
             logits_last[0, invalid_ids] = -float("Inf")
 
-            probs = torch.softmax(logits_last, dim=-1)
-            next_token = torch.multinomial(probs, num_samples=1).squeeze(-1)
+            next_token = torch.argmax(logits_last, dim=-1)
             generated_ids.append(int(next_token.item()))
 
             # ChatML end token ID
@@ -389,27 +388,12 @@ class MambaClient(BaseLlmClient):
                     next_token.unsqueeze(0), states
                 )
 
-                logits_last = logits[:, -1, :] / temperature
+                # Greedy decoding
+                logits_last = logits[:, -1, :]
                 # Mask invalid tokens
                 logits_last[0, invalid_ids] = -float("Inf")
 
-                # Top-p (nucleus) sampling
-                sorted_logits, sorted_indices = torch.sort(logits_last, descending=True)
-                cumulative_probs = torch.cumsum(
-                    torch.softmax(sorted_logits, dim=-1), dim=-1
-                )
-
-                sorted_indices_to_remove = cumulative_probs > top_p
-                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
-                    ..., :-1
-                ].clone()
-                sorted_indices_to_remove[..., 0] = 0
-
-                indices_to_remove = sorted_indices[sorted_indices_to_remove]
-                logits_last[0, indices_to_remove] = -float("Inf")
-
-                probs = torch.softmax(logits_last, dim=-1)
-                next_token = torch.multinomial(probs, num_samples=1).squeeze(-1)
+                next_token = torch.argmax(logits_last, dim=-1)
 
                 if next_token.item() == im_end_token:
                     break

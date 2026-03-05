@@ -32,7 +32,7 @@ class GrokClient(BaseLlmClient):
             initial_model_alias=initial_model_alias,
             api_key_name="api_key",
             config_section="xai",
-            pdf_as_base64=True,
+            pdf_as_base64=False,
             **kwargs,
         )
         config_url = get_setting("api_url", "xai")
@@ -428,16 +428,6 @@ class GrokClient(BaseLlmClient):
                                         },
                                     }
                                 )
-                            elif mime == "application/pdf":
-                                file_info = {
-                                    "file_data": f"data:{mime};base64,"
-                                    f"{p.inline_data.get('data', '')}"
-                                }
-                                if "filename" in p.inline_data:
-                                    file_info["filename"] = p.inline_data["filename"]
-                                content_parts.append(
-                                    {"type": "file", "file": file_info}
-                                )
 
                         if p.function_call:
                             func_call = p.function_call
@@ -485,11 +475,6 @@ class GrokClient(BaseLlmClient):
                         },
                     }
                 )
-            elif d.content_type == "application/pdf":
-                file_info = {"file_data": f"data:{d.content_type};base64,{d.content}"}
-                if "filename" in d.metadata:
-                    file_info["filename"] = d.metadata["filename"]
-                user_content.append({"type": "file", "file": file_info})
 
         if user_content:
             from typing import cast

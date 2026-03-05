@@ -1,6 +1,8 @@
 # llm_cli/modules/tools/web.py
 
 import re
+import urllib.parse
+from pathlib import Path
 
 import requests
 
@@ -111,6 +113,11 @@ def read_pdf_from_url(url: str) -> str | dict:
     if "application/pdf" not in ctype:
         return f"Error: Expected PDF but got {ctype}. Content might not be a PDF."
 
+    parsed_url = urllib.parse.urlparse(url)
+    filename = Path(parsed_url.path).name or "downloaded_file.pdf"
+    if not filename.lower().endswith(".pdf"):
+        filename += ".pdf"
+
     return {
         "result": (
             f"Successfully fetched PDF from {url}. "
@@ -121,5 +128,6 @@ def read_pdf_from_url(url: str) -> str | dict:
             "content": content,
             "content_type": ctype,
             "is_file_or_url": True,
+            "metadata": {"filename": filename},
         },
     }

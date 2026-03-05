@@ -60,9 +60,9 @@ The AI agent can autonomously use various tools to perform complex tasks. In thi
     -   **Manual Attachment**: Use the `/attach <path>` command mid-session to inject images, PDFs, videos, or audio.
     -   **Autonomous Attachment**: Agents can use the `read_image_from_url`, `read_pdf_from_url` or `read_html_from_url` tools to bring media files into the context when needed.
     -   **Gemini**: Text, local images, PDFs, **Audio**, and **Video**.
-    -   **OpenAI**: Text, local images, and **ChatGPT image generation**.
+    -   **OpenAI**: Text, local images, **PDFs (multimodal)**, and **ChatGPT image generation**.
     -   **Claude**: Text and local images (PDFs are processed as text/Base64).
-    -   **Grok**: Text, local images, and **Image Generation**.
+    -   **Grok**: Text, local images (PDFs are processed as text), and **Image Generation**.
 -   **Context Caching (Gemini)**: Automatically caches conversation history when it exceeds ~32k tokens, significantly reducing costs and latency for long sessions. Use `/cache` to manage manually.
 -   **Text-to-Speech (Gemini)**: Generate speech from text using the `/speech` or `/tts` command.
 -   **URL Support**: Directly pass website URLs to analyze their content. (Includes automatic web scraping and multimodal injection for PDFs/Images).
@@ -523,8 +523,9 @@ AIエージェントは、自律的に様々なツールを使いこなしなが
     -   **手動添付**: `/attach <path>` コマンドで画像、PDF、音声、動画を会話の途中から注入。
     -   **自律添付**: エージェントが必要に応じてツールを使い、メディアファイルをコンテキストに読み込みます（`read_image_from_url`, `read_pdf_from_url`, `read_html_from_url` など）。
     -   **Gemini**: テキスト、ローカル画像、PDF、**音声**、**動画**をサポート。
-    -   **OpenAI**: テキスト、ローカル画像、および **ChatGPT image による画像生成**をサポート。
-    -   **Claude / Grok**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
+    -   **OpenAI**: テキスト、ローカル画像、**PDF（マルチモーダル）**、および **ChatGPT image による画像生成**をサポート。
+    -   **Claude**: テキスト、ローカル画像をサポート（PDFはテキストまたはBase64として処理）。
+    -   **Grok**: テキスト、ローカル画像をサポート（PDFはテキストとして処理）、および **画像生成**をサポート。
 -   **コンテキストキャッシング (Gemini)**: 会話履歴が約32kトークンを超えると自動的にキャッシュを作成し、長時間のセッションにおけるコストと遅延を大幅に削減します。`/cache` で手動管理も可能です。
 -   **テキスト読み上げ (Gemini)**: `/speech` または `/tts` コマンドを使用して、テキストから音声を生成します。
 -   **URL直接指定**: ウェブサイトのURLを渡すことで、内容を自動的に解析可能（自動スクレイピング、PDF/画像のマルチモーダル注入を含む）。

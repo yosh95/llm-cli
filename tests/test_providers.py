@@ -18,7 +18,7 @@ class TestProviderClients:
             (GeminiClient, "google", True),
             (ClaudeClient, "anthropic", True),
             (OpenAIClient, "openai", True),
-            (GrokClient, "xai", True),
+            (GrokClient, "xai", False),
         ],
     )
     def test_client_initialization(

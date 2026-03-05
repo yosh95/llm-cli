@@ -428,6 +428,7 @@ def _process_and_return(path: str, expected_types: tuple | None = None) -> str |
                 "content": res["content"],
                 "content_type": res["content_type"],
                 "is_file_or_url": True,
+                "metadata": {"filename": res.get("filename", p.name)},
             },
         }
     except Exception as e:

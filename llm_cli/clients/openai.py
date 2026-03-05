@@ -481,9 +481,10 @@ class OpenAIClient(BaseLlmClient):
                                         f"data:{mime};base64,"
                                         f"{p.inline_data.get('data', '')}"
                                     ),
+                                    "filename": p.inline_data.get(
+                                        "filename", "attachment.pdf"
+                                    ),
                                 }
-                                if "filename" in p.inline_data:
-                                    part["filename"] = p.inline_data["filename"]
                                 content_parts.append(part)
 
                         if p.function_call:

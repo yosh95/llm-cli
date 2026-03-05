@@ -3,6 +3,7 @@
 import copy
 import datetime
 import json
+import urllib.parse
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -331,10 +332,14 @@ class BaseLlmClient(ABC):
         if source.startswith("http"):
             content, ctype = fetch_url_content(source, self.pdf_as_base64)
             if content:
+                # Try to extract filename from URL
+                parsed_url = urllib.parse.urlparse(source)
+                filename = Path(parsed_url.path).name or "downloaded_file"
                 return DataSource(
                     content=content,
                     content_type=ctype or "application/octet-stream",
                     is_file_or_url=True,
+                    metadata={"filename": filename},
                 )
             return None
 
@@ -346,6 +351,7 @@ class BaseLlmClient(ABC):
                     content=res_dict["content"],
                     content_type=res_dict["content_type"],
                     is_file_or_url=True,
+                    metadata={"filename": res_dict.get("filename", path.name)},
                 )
             return None
 

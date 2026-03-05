@@ -31,7 +31,7 @@ class OpenAIClient(BaseLlmClient):
             initial_model_alias=initial_model_alias,
             api_key_name="api_key",
             config_section="openai",
-            pdf_as_base64=False,
+            pdf_as_base64=True,
             **kwargs,
         )
         # Load custom API URL if provided, otherwise use default
@@ -402,14 +402,13 @@ class OpenAIClient(BaseLlmClient):
             if d.content_type == "text/plain":
                 user_parts.append(ContentPart(text=str(d.content)))
             else:
-                user_parts.append(
-                    ContentPart(
-                        inline_data={
-                            "mimeType": d.content_type,
-                            "data": d.content,
-                        }
-                    )
-                )
+                inline_data = {
+                    "mimeType": d.content_type,
+                    "data": d.content,
+                }
+                if "filename" in d.metadata:
+                    inline_data["filename"] = d.metadata["filename"]
+                user_parts.append(ContentPart(inline_data=inline_data))
 
         if user_parts:
             self.conversation.append(Message(role=Role.USER, parts=user_parts))
@@ -475,6 +474,18 @@ class OpenAIClient(BaseLlmClient):
                                         ),
                                     }
                                 )
+                            elif mime == "application/pdf":
+                                part: dict[str, Any] = {
+                                    "type": "input_file",
+                                    "file_data": (
+                                        f"data:{mime};base64,"
+                                        f"{p.inline_data.get('data', '')}"
+                                    ),
+                                }
+                                if "filename" in p.inline_data:
+                                    part["filename"] = p.inline_data["filename"]
+                                content_parts.append(part)
+
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
@@ -520,6 +531,14 @@ class OpenAIClient(BaseLlmClient):
                         "image_url": f"data:{d.content_type};base64,{d.content}",
                     }
                 )
+            elif d.content_type == "application/pdf":
+                part = {
+                    "type": "input_file",
+                    "file_data": f"data:{d.content_type};base64,{d.content}",
+                }
+                if "filename" in d.metadata:
+                    part["filename"] = d.metadata["filename"]
+                user_content.append(part)
 
         if user_content:
             items.append(

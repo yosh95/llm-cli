@@ -32,7 +32,7 @@ class GrokClient(BaseLlmClient):
             initial_model_alias=initial_model_alias,
             api_key_name="api_key",
             config_section="xai",
-            pdf_as_base64=False,
+            pdf_as_base64=True,
             **kwargs,
         )
         config_url = get_setting("api_url", "xai")
@@ -355,14 +355,13 @@ class GrokClient(BaseLlmClient):
             if d.content_type == "text/plain":
                 user_parts.append(ContentPart(text=str(d.content)))
             else:
-                user_parts.append(
-                    ContentPart(
-                        inline_data={
-                            "mimeType": d.content_type,
-                            "data": d.content,
-                        }
-                    )
-                )
+                inline_data = {
+                    "mimeType": d.content_type,
+                    "data": d.content,
+                }
+                if "filename" in d.metadata:
+                    inline_data["filename"] = d.metadata["filename"]
+                user_parts.append(ContentPart(inline_data=inline_data))
 
         if user_parts:
             self.conversation.append(Message(role=Role.USER, parts=user_parts))
@@ -405,17 +404,41 @@ class GrokClient(BaseLlmClient):
                             )
             else:
                 role = "assistant" if m.role == Role.MODEL else m.role.value
-                msg_content = ""
+                content_parts: list[dict[str, Any]] = []
                 tool_calls = []
 
                 for p in m.parts:
                     if isinstance(p, str):
-                        msg_content += p
+                        content_parts.append({"type": "text", "text": p})
                     elif isinstance(p, ContentPart):
                         if p.text:
-                            msg_content += p.text
+                            content_parts.append({"type": "text", "text": p.text})
                         # Note: We don't include p.thought in history for Grok
                         # as Grok 4 doesn't return reasoning_content anyway
+
+                        if p.inline_data and role == "user":
+                            mime = p.inline_data.get("mimeType", "")
+                            if mime.startswith("image/"):
+                                content_parts.append(
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:{mime};base64,"
+                                            f"{p.inline_data.get('data', '')}"
+                                        },
+                                    }
+                                )
+                            elif mime == "application/pdf":
+                                file_info = {
+                                    "file_data": f"data:{mime};base64,"
+                                    f"{p.inline_data.get('data', '')}"
+                                }
+                                if "filename" in p.inline_data:
+                                    file_info["filename"] = p.inline_data["filename"]
+                                content_parts.append(
+                                    {"type": "file", "file": file_info}
+                                )
+
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
@@ -438,8 +461,13 @@ class GrokClient(BaseLlmClient):
                                     }
                                 )
 
-                if msg_content or tool_calls:
-                    msg: dict[str, Any] = {"role": role, "content": msg_content or None}
+                if content_parts or tool_calls:
+                    # If content_parts is just text, we can use simple format or array
+                    # Grok supports array content format like OpenAI
+                    msg: dict[str, Any] = {
+                        "role": role,
+                        "content": content_parts or None,
+                    }
                     if tool_calls:
                         msg["tool_calls"] = tool_calls
                     msgs.append(msg)
@@ -457,6 +485,11 @@ class GrokClient(BaseLlmClient):
                         },
                     }
                 )
+            elif d.content_type == "application/pdf":
+                file_info = {"file_data": f"data:{d.content_type};base64,{d.content}"}
+                if "filename" in d.metadata:
+                    file_info["filename"] = d.metadata["filename"]
+                user_content.append({"type": "file", "file": file_info})
 
         if user_content:
             from typing import cast

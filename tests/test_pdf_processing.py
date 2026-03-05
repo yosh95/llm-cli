@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from llm_cli.clients.claude import ClaudeClient
 from llm_cli.clients.gemini import GeminiClient
 from llm_cli.clients.grok import GrokClient
+from llm_cli.clients.openai import OpenAIClient
 from llm_cli.modules.models import DataSource
 
 
@@ -20,9 +21,14 @@ class TestPDFProcessing:
         assert isinstance(result, DataSource)
         assert result.content_type == "application/pdf"
 
-    def test_openai_pdf_as_base64(self, mock_config, temp_pdf_file):
-        """Placeholder for OpenAI PDF support test."""
-        pass
+    def test_openai_pdf_as_base64(self, mock_config, temp_pdf_file):  # noqa: ARG002
+        """Test that OpenAI processes PDFs as base64."""
+        client = OpenAIClient(initial_model_alias="default", stdout=True)
+        assert client.pdf_as_base64 is True
+
+        result = client._process_single_source(str(temp_pdf_file))
+        assert isinstance(result, DataSource)
+        assert result.content_type == "application/pdf"
 
     def test_claude_pdf_as_base64(self, mock_config, temp_pdf_file):  # noqa: ARG002
         """Test that Claude processes PDFs as base64."""
@@ -33,15 +39,14 @@ class TestPDFProcessing:
         assert isinstance(result, DataSource)
         assert result.content_type == "application/pdf"
 
-    def test_grok_pdf_as_text(self, mock_config, temp_pdf_file):  # noqa: ARG002
-        """Test that Grok processes PDFs as text extraction."""
+    def test_grok_pdf_as_base64(self, mock_config, temp_pdf_file):  # noqa: ARG002
+        """Test that Grok processes PDFs as base64."""
         client = GrokClient(initial_model_alias="default", stdout=True)
-        assert client.pdf_as_base64 is False
+        assert client.pdf_as_base64 is True
 
         result = client._process_single_source(str(temp_pdf_file))
-        if result:
-            assert isinstance(result, DataSource)
-            assert result.content_type == "text/plain"
+        assert isinstance(result, DataSource)
+        assert result.content_type == "application/pdf"
 
     def test_gemini_build_message_with_pdf(
         self,

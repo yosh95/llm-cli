@@ -97,20 +97,24 @@ def process_file(path: Path, pdf_as_base64: bool = True) -> dict[str, Any] | Non
     mime = kind.mime if kind else "application/octet-stream"
 
     try:
+        res: dict[str, Any] = {"content_type": mime, "filename": path.name}
         if mime == "application/pdf":
             if pdf_as_base64:
-                return {"content": encode_file_base64(path), "content_type": mime}
+                res["content"] = encode_file_base64(path)
+                return res
             else:
-                return {"content": read_pdf_text(path), "content_type": "text/plain"}
+                res["content"] = read_pdf_text(path)
+                res["content_type"] = "text/plain"
+                return res
 
         if any(mime.startswith(t) for t in ["image/", "audio/", "video/"]):
-            return {"content": encode_file_base64(path), "content_type": mime}
+            res["content"] = encode_file_base64(path)
+            return res
 
         # Default to text
-        return {
-            "content": path.read_text(encoding="utf-8", errors="ignore"),
-            "content_type": "text/plain",
-        }
+        res["content"] = path.read_text(encoding="utf-8", errors="ignore")
+        res["content_type"] = "text/plain"
+        return res
     except Exception:
         return None
 

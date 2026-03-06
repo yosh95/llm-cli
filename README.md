@@ -28,7 +28,7 @@ proofread = "Proofread this text:"
 
 
 <p align="center">
-  <img src="images/llm_cli_overview_en.jpg" width="800" alt="llm-cli overview" />
+  <img src="images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
 </p>
 
 ## Screenshots
@@ -456,7 +456,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 `llm-cli` は、多様な大規模言語モデル（LLM）と対話するための、強力で汎用性の高いコマンドラインツールです。Google (Gemini)、OpenAI、Anthropic (Claude)、xAI (Grok) に加え、**Ollama や vLLM を介したローカルLLM** をサポートしており、単一の `llm` コマンドだけでプロバイダをシームレスに切り替えながら、各モデルの機能をターミナルから直接活用できます。
 
 <p align="center">
-  <img src="images/llm_cli_overview.jpg" width="800" alt="llm-cli 概要図" />
+  <img src="images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
 </p>
 
 ## スクリーンショット

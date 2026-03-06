@@ -50,7 +50,7 @@ class BaseLlmClient(ABC):
         api_key_name: str,
         config_section: str,
         pdf_as_base64: bool,
-        stdout: bool,
+        stdout: bool = False,
         render_markdown: bool = True,
         initial_tools: list[str] | None = None,
         disable_system_prompt: bool = False,
@@ -88,34 +88,27 @@ class BaseLlmClient(ABC):
             "h",
         }
         self.config_section = config_section
-        self._api_key_name = api_key_name  # Store for reloads
+        self._api_key_name = api_key_name
         self._disable_system_prompt = disable_system_prompt
         self.api_key = get_setting(api_key_name, config_section)
         self.pdf_as_base64 = pdf_as_base64
         self.stdout = stdout
         self.render_markdown = render_markdown
         self.live_debug = live_debug
-
         self.tools_enabled = True
 
-        # Load model and its specific configuration
         self.available_models: dict[str, Any] = {}
         self.current_alias = ""
         self.model = ""
 
         self._load_model_aliases()
-        if not self.set_model(initial_model_alias):
-            if initial_model_alias and initial_model_alias != "default":
-                self.set_custom_model(initial_model_alias)
-            else:
-                self.set_model("default")
-
+        self._set_initial_model(initial_model_alias)
         self._refresh_general_settings()
         self._refresh_system_prompt()
 
         self.conversation: list[Message] = []
-        self.last_usage: dict[str, int] | None = None
         self.cumulative_total_tokens = 0
+        self.last_usage: dict[str, int] | None = None
         self.last_request_duration: float | None = None
 
         from llm_cli.consts import CHAT_LOG_PATH, HISTORY_LOG_PATH
@@ -163,6 +156,7 @@ class BaseLlmClient(ABC):
         """Initializes Model Context Protocol (MCP) tools."""
         try:
             from llm_cli.clients.mcp_manager import mcp_manager
+            from llm_cli.modules.tool_registry import registry
 
             already_initialized = mcp_manager._initialized
             remote_tool_names = registry.register_remote_tools(mcp_manager)
@@ -185,10 +179,43 @@ class BaseLlmClient(ABC):
         """Expands user path symbols."""
         return str(Path(p).expanduser()) if p else None
 
-    @abstractmethod
+    def _set_initial_model(self, initial_model_alias: str) -> None:
+        """Sets the starting model for the client."""
+        if not self.set_model(initial_model_alias):
+            if initial_model_alias and initial_model_alias != "default":
+                self.set_custom_model(initial_model_alias)
+            else:
+                self.set_model("default")
+
     def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
-        pass
+        from llm_cli.clients.config import get_model_aliases
+
+        self.available_models = get_model_aliases(self.config_section)
+        if not self.available_models:
+            console.print(
+                f"[yellow]Warning: No models configured for {self.config_section}. "
+                "Check config.toml.[/yellow]"
+            )
+
+    def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
+        """
+        Standard history update for most clients.
+        Converts input data to USER messages and appends MODEL message.
+        """
+        user_parts: list[str | ContentPart] = []
+        for d in data:
+            if d.content_type == "text/plain":
+                user_parts.append(ContentPart(text=str(d.content)))
+            else:
+                inline_data = {"mimeType": d.content_type, "data": d.content}
+                if "filename" in d.metadata:
+                    inline_data["filename"] = d.metadata["filename"]
+                user_parts.append(ContentPart(inline_data=inline_data))
+
+        if user_parts:
+            self.conversation.append(Message(role=Role.USER, parts=user_parts))
+        self.conversation.append(model_msg)
 
     @abstractmethod
     def _send(

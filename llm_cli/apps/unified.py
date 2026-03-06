@@ -4,13 +4,8 @@ from typing import Any
 
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
 from llm_cli.clients.base import BaseLlmClient, console
-from llm_cli.clients.claude import ClaudeClient
 from llm_cli.clients.config import get_setting
-from llm_cli.clients.gemini import GeminiClient
-from llm_cli.clients.grok import GrokClient
-from llm_cli.clients.ollama import OllamaClient
-from llm_cli.clients.openai import OpenAIClient
-from llm_cli.clients.vllm import VLLMClient
+from llm_cli.clients.registry import client_registry
 from llm_cli.modules.models import DataSource, Message
 
 
@@ -19,22 +14,6 @@ class UnifiedClient(BaseLlmClient):
     A unified client capable of switching between multiple
     providers within a single session.
     """
-
-    # Maps aliases to (ClientClass, config_section)
-    # MambaClient is handled lazily to avoid slow torch imports
-    PROVIDER_CONFIG: dict[str, tuple[type[BaseLlmClient] | None, str]] = {
-        "google": (GeminiClient, "google"),
-        "gemini": (GeminiClient, "google"),
-        "openai": (OpenAIClient, "openai"),
-        "gpt": (OpenAIClient, "openai"),
-        "anthropic": (ClaudeClient, "anthropic"),
-        "claude": (ClaudeClient, "anthropic"),
-        "xai": (GrokClient, "xai"),
-        "grok": (GrokClient, "xai"),
-        "ollama": (OllamaClient, "ollama"),
-        "vllm": (VLLMClient, "vllm"),
-        "mamba": (None, "mamba"),
-    }
 
     def __init__(self, initial_provider: str | None = None, **kwargs: Any):
         self.clients: dict[str, BaseLlmClient] = {}
@@ -66,8 +45,39 @@ class UnifiedClient(BaseLlmClient):
             enable_mcp=kwargs.get("enable_mcp", False),
             live_debug=kwargs.get("live_debug", False),
         )
-        self.available_models = self.active_client.available_models
         self.active_client.conversation = self.conversation
+
+    def __getattr__(self, name: str) -> Any:
+        """Delegate any unknown attributes to the active client."""
+        if "active_client" in self.__dict__:
+            return getattr(self.active_client, name)
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
+
+    @property
+    def model(self) -> str:
+        return self.active_client.model
+
+    @model.setter
+    def model(self, value: str) -> None:
+        self.active_client.model = value
+
+    @property
+    def available_models(self) -> dict[str, Any]:
+        return self.active_client.available_models
+
+    @available_models.setter
+    def available_models(self, value: dict[str, Any]) -> None:
+        self.active_client.available_models = value
+
+    @property
+    def current_alias(self) -> str:
+        return self.active_client.current_alias
+
+    @current_alias.setter
+    def current_alias(self, value: str) -> None:
+        self.active_client.current_alias = value
 
     @property
     def conversation(self) -> list[Message]:
@@ -99,94 +109,71 @@ class UnifiedClient(BaseLlmClient):
         if hasattr(self, "active_client"):
             self.active_client.tools_enabled = value
 
-    @property
-    def slash_commands(self) -> set[str]:
-        """Delegate slash commands to the active client."""
-        return self.active_client.slash_commands
-
     def _activate_provider(self, provider_alias: str) -> bool:
-        if provider_alias not in self.PROVIDER_CONFIG:
+        try:
+            client_class = client_registry.get_client_class(provider_alias)
+            config_section = client_registry.get_config_section(provider_alias)
+        except ImportError as e:
+            if "torch" in str(e) or "tiktoken" in str(e):
+                console.print(
+                    f"[red]Error: {provider_alias} client could not be loaded: {e}"
+                    "[/red]"
+                )
+                console.print("[yellow]Hint: Run: pip install torch tiktoken[/yellow]")
+            else:
+                console.print(
+                    f"[red]Error loading provider {provider_alias}: {e}[/red]"
+                )
             return False
 
-        client_class, config_section = self.PROVIDER_CONFIG[provider_alias]
-
-        # Lazy load MambaClient to avoid slow torch import on startup
-        if client_class is None and config_section == "mamba":
-            try:
-                from llm_cli.clients.mamba import MambaClient
-
-                client_class = MambaClient
-                # Update the class in PROVIDER_CONFIG so we don't import again
-                self.PROVIDER_CONFIG["mamba"] = (MambaClient, "mamba")
-            except ImportError as e:
-                console.print(
-                    f"[red]Error: Mamba client could not be loaded: {e}[/red]"
-                )
-                console.print(
-                    "[yellow]Hint: Make sure 'torch' and 'tiktoken' are installed. "
-                    "Run: pip install torch tiktoken[/yellow]"
-                )
-                return False
-
-        if not client_class:
+        if not client_class or not config_section:
             return False
 
         if config_section not in self.clients:
             self.clients[config_section] = client_class(**self.client_kwargs)
 
         self.active_client = self.clients[config_section]
-        self.active_client.live_debug = self.live_debug
-        self.active_client.tools_enabled = self.tools_enabled
+
+        # Sync attributes
+        for attr in ["live_debug", "tools_enabled", "conversation", "active_tools"]:
+            if hasattr(self, attr):
+                setattr(self.active_client, attr, getattr(self, attr))
+
+        # Update own state from active client
         self.current_provider_name = config_section
         self.config_section = self.active_client.config_section
-        self.available_models = self.active_client.available_models
         self.pdf_as_base64 = self.active_client.pdf_as_base64
-        self.model = self.active_client.model
-        self.current_alias = self.active_client.current_alias
-
-        # Sync state
-        self.active_client.conversation = self.conversation
-        if hasattr(self, "active_tools"):
-            self.active_client.active_tools = self.active_tools
 
         return True
 
     def _load_model_aliases(self) -> None:
-        """Handled by sub-clients."""
-        pass
+        """Delegate to the active client."""
+        if hasattr(self, "active_client"):
+            self.active_client._load_model_aliases()
 
     def set_model(self, alias: str) -> bool:
-        if self.active_client.set_model(alias):
-            self.model = self.active_client.model
-            self.current_alias = self.active_client.current_alias
-            return True
-        return False
+        """Delegate to the active client."""
+        return self.active_client.set_model(alias)
 
     def set_custom_model(self, model_name: str) -> None:
-        """Sets a custom model for the active client."""
+        """Delegate to the active client."""
         self.active_client.set_custom_model(model_name)
-        self.model = self.active_client.model
-        self.current_alias = self.active_client.current_alias
+
+    def _process_single_source(self, source: str) -> DataSource | None:
+        """Delegate to the active client."""
+        return self.active_client._process_single_source(source)
 
     def clear_history(self) -> None:
-        """Delegate history clearing to the active client."""
+        """Delegate to the active client."""
         self.active_client.clear_history()
-        # Reset the unified client's token count as well
-        self.cumulative_total_tokens = 0
 
     def get_conversation_state(self) -> dict[str, Any]:
-        """Delegate state backup to the active client."""
+        """Delegate to the active client."""
         return self.active_client.get_conversation_state()
 
     def set_conversation_state(self, state: dict[str, Any]) -> None:
-        """Delegate state restoration to the active client."""
+        """Delegate to the active client."""
         self.active_client.set_conversation_state(state)
-        self.conversation = self.active_client.conversation
-        self.cumulative_total_tokens = self.active_client.cumulative_total_tokens
-
-    def _process_single_source(self, source: str) -> DataSource | None:
-        """Delegate source processing to the active provider client."""
-        return self.active_client._process_single_source(source)
 
     def _handle_command(
         self,
@@ -204,9 +191,8 @@ class UnifiedClient(BaseLlmClient):
         if cmd in ("p", "provider"):
             if not args:
                 console.print("[bold]Available Providers:[/bold]")
-                # Get unique provider aliases mapping to config sections
                 seen_sections = set()
-                for alias, (_, section) in self.PROVIDER_CONFIG.items():
+                for alias, section in client_registry.get_provider_info().items():
                     if section not in seen_sections:
                         active = "*" if section == self.current_provider_name else " "
                         console.print(
@@ -215,15 +201,13 @@ class UnifiedClient(BaseLlmClient):
                         seen_sections.add(section)
                 return True
 
-            provider_alias = args
-            if self._activate_provider(provider_alias):
+            if self._activate_provider(args):
                 console.print(
-                    f"[cyan]Switched to provider: {provider_alias} "
-                    f"(Model: {self.model})[/cyan]"
+                    f"[cyan]Switched to provider: {args} (Model: {self.model})[/cyan]"
                 )
                 return True
             else:
-                console.print(f"[red]Unknown provider: {provider_alias}[/red]")
+                console.print(f"[red]Unknown or unavailable provider: {args}[/red]")
                 return True
 
         return super()._handle_command(user_input, sources, pending_data)
@@ -231,14 +215,12 @@ class UnifiedClient(BaseLlmClient):
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict | None]:
+        # Ensure all synced state is up to date before sending
         self.active_client.active_tools = self.active_tools
         self.active_client.conversation = self.conversation
         self.active_client.live_debug = self.live_debug
         self.active_client.tools_enabled = self.tools_enabled
         return self.active_client._send(data)
-
-    def _has_pending_tool_calls(self) -> bool:
-        return self.active_client._has_pending_tool_calls()
 
 
 def main() -> None:
@@ -246,7 +228,7 @@ def main() -> None:
         client_class=UnifiedClient,
         description="Unified LLM CLI with multi-provider support",
         supports_provider_selection=True,
-        provider_choices=list(UnifiedClient.PROVIDER_CONFIG.keys()),
+        provider_choices=client_registry.list_aliases(),
     )
     run_client_cli(config)
 

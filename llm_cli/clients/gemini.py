@@ -4,7 +4,7 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
-from llm_cli.clients.base import BaseLlmClient, console
+from llm_cli.clients.base import BaseLlmClient
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
@@ -81,17 +81,6 @@ class GeminiClient(BaseLlmClient):
         if model_name != self.model:
             self.last_interaction_id = None
         super().set_custom_model(model_name)
-
-    def _load_model_aliases(self) -> None:
-        """Loads model aliases from the configuration."""
-        from llm_cli.clients.config import get_model_aliases
-
-        self.available_models = get_model_aliases("google")
-        if not self.available_models:
-            console.print(
-                f"[yellow]Warning: No models configured for "
-                f"'{self.config_section}'.[/yellow]"
-            )
 
     def _process_single_source(self, source: str) -> DataSource | None:
         """Override to handle Gemini-specific File API uploads for media."""

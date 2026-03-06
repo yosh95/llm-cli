@@ -55,7 +55,7 @@ def test_load_model_aliases_warning(gemini_client: GeminiClient) -> None:
     """Test warning when no models configured."""
     with patch("llm_cli.clients.config.get_model_aliases") as mock_get:
         mock_get.return_value = {}
-        with patch("llm_cli.clients.gemini.console.print") as mock_print:
+        with patch("llm_cli.clients.base.console.print") as mock_print:
             gemini_client._load_model_aliases()
             mock_print.assert_called()
             assert "Warning: No models configured" in mock_print.call_args[0][0]

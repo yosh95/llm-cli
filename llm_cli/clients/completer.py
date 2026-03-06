@@ -69,12 +69,11 @@ class LlmCliCompleter(Completer):
         start_pos = -len(arg_prefix)
 
         if cmd in self.provider_cmds:
-            if hasattr(self.client, "PROVIDER_CONFIG"):
-                # Use a set to avoid duplicates if multiple aliases point to same
-                # section. Actually keys are aliases, so just list aliases.
-                for alias in self.client.PROVIDER_CONFIG:
-                    if alias.startswith(arg_prefix):
-                        yield Completion(alias, start_position=start_pos)
+            from llm_cli.clients.registry import client_registry
+
+            for alias in client_registry.list_aliases():
+                if alias.startswith(arg_prefix):
+                    yield Completion(alias, start_position=start_pos)
 
         elif cmd in self.model_cmds:
             for alias in self.client.available_models:

@@ -32,12 +32,6 @@ class OllamaClient(BaseLlmClient):
         config_url = get_setting("api_url", "ollama")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
-    def _load_model_aliases(self) -> None:
-        """Loads model aliases from the configuration."""
-        from llm_cli.clients.config import get_model_aliases
-
-        self.available_models = get_model_aliases("ollama")
-
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:

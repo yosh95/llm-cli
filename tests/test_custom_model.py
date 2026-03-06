@@ -44,8 +44,9 @@ def test_base_client_custom_model():
 
 def test_unified_client_custom_model():
     # Setup UnifiedClient with a mock provider
-    # We need to patch get_setting to avoid config errors
     with pytest.MonkeyPatch.context() as m:
+        from llm_cli.clients.registry import client_registry
+
         m.setattr(
             "llm_cli.apps.unified.get_setting",
             lambda key, _section: (
@@ -53,10 +54,9 @@ def test_unified_client_custom_model():
             ),
         )
 
-        # We also need to mock the PROVIDER_CONFIG to use our MockClient
-        m.setattr(
-            UnifiedClient, "PROVIDER_CONFIG", {"mock": (MockClient, "mock_section")}
-        )
+        # Mock the registry methods to use our MockClient
+        m.setattr(client_registry, "get_client_class", lambda _alias: MockClient)
+        m.setattr(client_registry, "get_config_section", lambda _alias: "mock_section")
 
         client = UnifiedClient(
             initial_provider="mock",

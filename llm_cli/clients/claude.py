@@ -30,12 +30,6 @@ class ClaudeClient(BaseLlmClient):
             **kwargs,
         )
 
-    def _load_model_aliases(self) -> None:
-        """Loads model aliases from the configuration."""
-        from llm_cli.clients.config import get_model_aliases
-
-        self.available_models = get_model_aliases("anthropic")
-
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
@@ -114,26 +108,6 @@ class ClaudeClient(BaseLlmClient):
         except Exception as e:
             self._report_error("Claude", e)
             return (None, None), None
-
-    def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
-        """Updates the internal conversation history with new messages."""
-        user_parts: list[str | ContentPart] = []
-        for d in data:
-            if d.content_type == "text/plain":
-                user_parts.append(ContentPart(text=str(d.content)))
-            else:
-                user_parts.append(
-                    ContentPart(
-                        inline_data={
-                            "mimeType": d.content_type,
-                            "data": d.content,
-                        }
-                    )
-                )
-
-        if user_parts:
-            self.conversation.append(Message(role=Role.USER, parts=user_parts))
-        self.conversation.append(model_msg)
 
     def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal conversation history to Claude API format."""

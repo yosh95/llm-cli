@@ -38,12 +38,6 @@ class OpenAIClient(BaseLlmClient):
         config_url = get_setting("api_url", "openai")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
-    def _load_model_aliases(self) -> None:
-        """Loads model aliases from the configuration."""
-        from llm_cli.clients.config import get_model_aliases
-
-        self.available_models = get_model_aliases("openai")
-
     def _is_image_model(self) -> bool:
         """Determines if the current model is an image generation model."""
         m = self.model.lower()
@@ -394,25 +388,6 @@ class OpenAIClient(BaseLlmClient):
         except Exception as e:
             self._report_error("OpenAI Sora", e)
             return (None, None), None
-
-    def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
-        """Updates the internal conversation history with new messages."""
-        user_parts: list[str | ContentPart] = []
-        for d in data:
-            if d.content_type == "text/plain":
-                user_parts.append(ContentPart(text=str(d.content)))
-            else:
-                inline_data = {
-                    "mimeType": d.content_type,
-                    "data": d.content,
-                }
-                if "filename" in d.metadata:
-                    inline_data["filename"] = d.metadata["filename"]
-                user_parts.append(ContentPart(inline_data=inline_data))
-
-        if user_parts:
-            self.conversation.append(Message(role=Role.USER, parts=user_parts))
-        self.conversation.append(model_msg)
 
     def _build_input_items(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts the internal conversation history to OpenAI Responses API format."""

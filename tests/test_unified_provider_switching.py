@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from llm_cli.apps.unified import UnifiedClient
+from llm_cli.clients.registry import client_registry
 
 
 def test_unified_client_switches_provider_via_alias(mock_config):
@@ -28,27 +29,41 @@ def test_unified_client_switches_provider_via_alias(mock_config):
     mock_openai_instance.pdf_as_base64 = False
     mock_gemini_instance.pdf_as_base64 = True
 
-    # Setup the new PROVIDER_CONFIG with mocks
-    # Format: alias -> (ClientClass, config_section)
-    new_provider_config = {
-        "google": (mock_gemini_class, "google"),
-        "gemini": (mock_gemini_class, "google"),
-        "openai": (mock_openai_class, "openai"),
-        "gpt": (mock_openai_class, "openai"),
-        "anthropic": (MagicMock(), "anthropic"),
-        "claude": (MagicMock(), "anthropic"),
-        "xai": (MagicMock(), "xai"),
-        "grok": (MagicMock(), "xai"),
-    }
+    # Setup the registry with mocks
+    with (
+        patch.object(client_registry, "get_client_class") as mock_get_class,
+        patch.object(client_registry, "get_config_section") as mock_get_section,
+        patch.object(client_registry, "get_provider_info") as mock_get_info,
+    ):
 
-    # Patch the PROVIDER_CONFIG on the UnifiedClient class
-    with patch.dict(UnifiedClient.PROVIDER_CONFIG, new_provider_config):
+        def side_effect_class(alias):
+            if alias in ("google", "gemini"):
+                return mock_gemini_class
+            if alias in ("openai", "gpt"):
+                return mock_openai_class
+            return None
+
+        def side_effect_section(alias):
+            if alias in ("google", "gemini"):
+                return "google"
+            if alias in ("openai", "gpt"):
+                return "openai"
+            return None
+
+        mock_get_class.side_effect = side_effect_class
+        mock_get_section.side_effect = side_effect_section
+        mock_get_info.return_value = {
+            "google": "google",
+            "gemini": "google",
+            "openai": "openai",
+            "gpt": "openai",
+        }
+
         # Initialize UnifiedClient with google/gemini initially
         client = UnifiedClient(initial_provider="google", stdout=True)
 
         # Check initial state
         assert client.current_provider_name == "google"
-        # We need to access the client stored in the clients dict, which is the mock
         assert client.clients["google"] == mock_gemini_instance
 
         # Switch to OpenAI using /p openai

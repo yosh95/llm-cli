@@ -339,9 +339,6 @@ def handle_command(
             info_table.add_row("Intent Analyzer", "[dim]OFF[/dim]")
 
         info_table.add_row("History Length", f"{len(client.conversation)} messages")
-        info_table.add_row(
-            "Total Tokens", f"[yellow]{client.cumulative_total_tokens:,}[/yellow]"
-        )
 
         if client.last_usage:
             usage_str = ", ".join(f"{k}: {v}" for k, v in client.last_usage.items())

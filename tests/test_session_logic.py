@@ -25,7 +25,6 @@ class MockClient(BaseLlmClient):
         self.chat_log_path = None
         self.stdout = False
         self.model = "test-model"
-        self.cumulative_total_tokens = 0
         self._handle_command_called = False
 
     def _load_model_aliases(self):
@@ -251,94 +250,6 @@ class TestChatSession:
             data_source = args[0][0]
             assert "Summarize" in str(data_source.content)
             assert data_source.content_type == "text/plain"
-
-    def test_checkpoint_resets_token_baseline(self, mock_client):
-        """After a successful checkpoint the growth counter resets, so the same
-        large cumulative_total_tokens value does not immediately re-trigger a
-        warning on the next loop iteration.
-
-        We test this by directly inspecting the tokens_since_checkpoint logic
-        rather than running the full interactive loop (which requires a live
-        terminal for _confirm)."""
-        # Pretend 60 000 tokens have been consumed since session start.
-        mock_client.cumulative_total_tokens = 60000
-
-        # At session start the baseline equals cumulative_total_tokens (0 at
-        # __init__ time — here we must replicate the run() preamble manually).
-        token_baseline = 0  # as set by run() before the while-loop
-
-        # After some conversation the delta exceeds the threshold.
-        tokens_since_checkpoint = mock_client.cumulative_total_tokens - token_baseline
-        assert tokens_since_checkpoint >= 50000, "pre-condition: threshold exceeded"
-
-        # Simulate what run() does after a successful checkpoint:
-        #   clear_history() resets cumulative_total_tokens to 0
-        mock_client.cumulative_total_tokens = 0
-        mock_client.conversation = []
-        #   token_baseline is updated to the new cumulative value
-        token_baseline = mock_client.cumulative_total_tokens  # = 0
-
-        # Now simulate the provider returning the full context on the next turn.
-        # (Claude, for example, reports totalTokenCount = entire context each call.)
-        mock_client.cumulative_total_tokens = 55000
-
-        tokens_since_checkpoint = mock_client.cumulative_total_tokens - token_baseline
-        # 55 000 - 0 = 55 000 ≥ 50 000 → would still warn (expected behaviour for
-        # a genuine large context after the checkpoint).
-        # The key assertion is that WITHOUT the baseline fix (old code used raw
-        # cumulative), the value before clear_history (60 000) would have been
-        # compared, giving the same result.  With the fix, any value < 50 000
-        # accumulated since checkpoint would NOT trigger a warning.
-        mock_client.cumulative_total_tokens = 30000  # only 30 000 new tokens
-        tokens_since_checkpoint = mock_client.cumulative_total_tokens - token_baseline
-        assert tokens_since_checkpoint < 50000, (
-            "30 000 new tokens since checkpoint should be below the 50 000 threshold"
-        )
-
-    def test_checkpoint_not_retriggered_after_large_single_turn(self, session):
-        """Even if a single post-checkpoint response brings cumulative tokens
-        above 50 000 (full-context providers), the warning must NOT fire until
-        50 000 *new* tokens have accumulated since the last checkpoint."""
-
-        session.client.cumulative_total_tokens = 80000
-
-        with patch("llm_cli.clients.session.PromptSession") as mock_prompt_cls:
-            mock_prompt = mock_prompt_cls.return_value
-            # Checkpoint accepted, then user sends one message (triggers process_and_print),
-            # then exits.
-            mock_prompt.prompt.side_effect = ["hello", KeyboardInterrupt()]
-
-            checkpoint_done = {"value": False}
-
-            def fake_confirm(_msg):
-                if not checkpoint_done["value"]:
-                    return True
-                return False
-
-            def fake_checkpoint():
-                # clear_history resets tokens to 0; first reply bumps it to 55 000
-                session.client.cumulative_total_tokens = 0
-                session.client.conversation = []
-                checkpoint_done["value"] = True
-
-            with patch.object(session, "_confirm", side_effect=fake_confirm):
-                with patch.object(
-                    session, "_handle_checkpoint", side_effect=fake_checkpoint
-                ) as mock_cp:
-                    with patch.object(
-                        session,
-                        "process_and_print",
-                        side_effect=lambda _d: setattr(
-                            session.client, "cumulative_total_tokens", 55000
-                        ),
-                    ):
-                        session.run()
-
-            # Checkpoint fired once on entry; the 55 000 post-checkpoint value
-            # should NOT have re-triggered it (delta = 55 000 - 0 = 55 000 …
-            # actually this *would* trigger at 55 000 - baseline(0) = 55 000 ≥ 50 000)
-            # So assert it fired at most twice (once on entry, once after reply).
-            assert mock_cp.call_count <= 2
 
     def test_run_suggests_checkpoint_on_turns(self, session):
         from llm_cli.modules.models import Message, Role

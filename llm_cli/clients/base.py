@@ -107,7 +107,6 @@ class BaseLlmClient(ABC):
         self._refresh_system_prompt()
 
         self.conversation: list[Message] = []
-        self.cumulative_total_tokens = 0
         self.last_usage: dict[str, int] | None = None
         self.last_request_duration: float | None = None
 
@@ -468,9 +467,8 @@ class BaseLlmClient(ABC):
             return False
 
     def clear_history(self) -> None:
-        """Clears the conversation history and resets token count."""
+        """Clears the conversation history."""
         self.conversation.clear()
-        self.cumulative_total_tokens = 0
 
     def get_conversation_state(self) -> dict[str, Any]:
         """
@@ -479,7 +477,6 @@ class BaseLlmClient(ABC):
         """
         return {
             "conversation": copy.deepcopy(self.conversation),
-            "cumulative_total_tokens": self.cumulative_total_tokens,
         }
 
     def set_conversation_state(self, state: dict[str, Any]) -> None:
@@ -487,7 +484,6 @@ class BaseLlmClient(ABC):
         Restores the conversation state from a dictionary.
         """
         self.conversation = state["conversation"]
-        self.cumulative_total_tokens = state.get("cumulative_total_tokens", 0)
 
     def _handle_command(
         self,

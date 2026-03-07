@@ -286,11 +286,9 @@ class TestBaseClientCommands:
     def test_clear(self, client: BaseLlmClient) -> None:
         """Test clear command."""
         client.conversation = [Message(role=Role.USER, parts=["Hi"])]
-        client.cumulative_total_tokens = 100
         with patch("llm_cli.clients.base.console.print") as mock_print:
             assert client._handle_command("/clear", None) is True
             assert len(client.conversation) == 0
-            assert client.cumulative_total_tokens == 0
             mock_print.assert_called_with(
                 "[yellow]Conversation history cleared.[/yellow]"
             )

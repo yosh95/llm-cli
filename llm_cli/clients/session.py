@@ -125,35 +125,22 @@ class ChatSession:
         data = initial_data or []
         prompt_default = ""
 
-        # Baseline token count for checkpoint threshold calculation.
-        # Some providers (e.g. Claude) report the *total context size* per
-        # response rather than the incremental tokens, so cumulative_total_tokens
-        # can jump past 50 000 in a single turn even right after a checkpoint.
-        # By anchoring to the value at the last checkpoint we measure the
-        # *growth since the last reset* instead of the raw cumulative value.
-        token_baseline = self.client.cumulative_total_tokens
         while True:
             try:
                 # Suggest checkpoint if conversation is getting long.
-                # Use total tokens processed or turn count as metrics.
+                # Use turn count as the metric.
                 # We count MODEL messages to include ReAct loop steps.
                 model_turns = len(
                     [m for m in self.client.conversation if m.role == Role.MODEL]
                 )
-                tokens_since_checkpoint = (
-                    self.client.cumulative_total_tokens - token_baseline
-                )
-                if tokens_since_checkpoint >= 50000 or model_turns >= 40:
+                if model_turns >= 40:
                     msg = (
                         f"Context is large "
-                        f"({self.client.cumulative_total_tokens:,} tokens, "
-                        f"{model_turns} turns). "
+                        f"({model_turns} turns). "
                         "Summarize and compress? (y/N): "
                     )
                     if self._confirm(msg):
                         self._handle_checkpoint()
-                        # Reset baseline so that the growth counter starts fresh.
-                        token_baseline = self.client.cumulative_total_tokens
                         # If history was cleared, continue to next prompt
                         if len(self.client.conversation) <= 1:
                             continue
@@ -190,7 +177,6 @@ class ChatSession:
                         continue
                 except CheckpointRequest:
                     self._handle_checkpoint()
-                    token_baseline = self.client.cumulative_total_tokens
                     continue
                 except TemplateRequest as e:
                     prompt_default = e.text
@@ -232,20 +218,6 @@ class ChatSession:
             response_text, thought_text = response_tuple
 
             if usage:
-                # Update cumulative tokens across providers.
-                # OpenAI: 'total_tokens'
-                # Claude: 'input_tokens' + 'output_tokens' or 'total_tokens'
-                # Gemini: 'totalTokenCount'
-                # Ollama: 'prompt_eval_count' + 'eval_count'
-                total = (
-                    usage.get("total_tokens")
-                    or usage.get("totalTokenCount")
-                    or (usage.get("input_tokens", 0) + usage.get("output_tokens", 0))
-                    or (usage.get("prompt_eval_count", 0) + usage.get("eval_count", 0))
-                    or 0
-                )
-                if total > 0:
-                    self.client.cumulative_total_tokens += total
                 self.client.last_usage = usage
 
             # Display thought content in a separate panel if available

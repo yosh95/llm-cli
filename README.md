@@ -23,16 +23,6 @@ Detailed architectural insights and security analysis are available in the follo
 
 `llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama or vLLM**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
 
-### Quick config.toml Example
-```toml
-[security]
-allowed_commands = ["my_safe_script"]  # Add custom (user responsibility)
-
-[templates]
-proofread = "Proofread this text:"
-```
-
-
 <p align="center">
   <img src="images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
 </p>
@@ -740,7 +730,7 @@ llm "こんにちは！"
 
 ## 使用方法
 
-### 1. テンプレート管理（新機能！）
+### 1. テンプレート管理
 頻繁に使用するプロンプトを `config.toml` でテンプレートとして定義し、`/t` コマンドを使って入力バッファに素早く挿入できます。
 
 1.  `~/.config/llm_cli/config.toml` にテンプレートを追加：

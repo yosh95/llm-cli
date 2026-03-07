@@ -1,11 +1,21 @@
 # tests/test_path_validator.py
 
 from pathlib import Path
-
+from unittest.mock import patch
 import pytest
 
 from llm_cli.security.path_validator import PathValidationError, validate_path
 
+@pytest.fixture(autouse=True)
+def mock_path_config():
+    with patch("llm_cli.security.path_validator._load_config_from_file") as mock_load:
+        mock_load.return_value = {
+            "security": {
+                "allowed_paths": [".", "/var"],
+                "blocked_paths": ["/etc", "/var/log/syslog"]
+            }
+        }
+        yield
 
 class TestPathValidator:
     def test_sandbox_within_cwd(self):

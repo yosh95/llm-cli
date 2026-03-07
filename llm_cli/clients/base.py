@@ -217,6 +217,46 @@ class BaseLlmClient(ABC):
             self.conversation.append(Message(role=Role.USER, parts=user_parts))
         self.conversation.append(model_msg)
 
+    def _get_responded_tool_ids(self) -> set[str]:
+        """
+        Returns the set of tool_call IDs that already have a corresponding
+        function_response in the conversation history.
+
+        This is used by _build_messages() / _build_input_items() in each provider
+        client to skip orphaned tool calls (calls without a response).
+        """
+        responded: set[str] = set()
+        for msg in self.conversation:
+            if msg.role == Role.TOOL:
+                for part in msg.parts:
+                    if isinstance(part, ContentPart) and part.function_response:
+                        tool_id = part.function_response.get("id")
+                        if tool_id and tool_id != "unknown":
+                            responded.add(tool_id)
+        return responded
+
+    def _build_prompt_from_history(self, data: list[DataSource]) -> str:
+        """
+        Collects all text from the conversation history and the incoming data
+        into a single prompt string.
+
+        Used by image/video generation methods that require a flat text prompt
+        rather than a structured message list.
+        """
+        prompt_parts: list[str] = []
+        for msg in self.conversation:
+            for part in msg.parts:
+                if isinstance(part, ContentPart) and part.text:
+                    prompt_parts.append(part.text)
+                elif isinstance(part, str):
+                    prompt_parts.append(part)
+        for d in data:
+            if d.content_type == "text/plain":
+                prompt_parts.append(str(d.content))
+            else:
+                prompt_parts.append(f"[Attached {d.content_type}]")
+        return "\n".join(prompt_parts)
+
     @abstractmethod
     def _send(
         self, data: list[DataSource]

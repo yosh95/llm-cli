@@ -114,14 +114,7 @@ class ClaudeClient(BaseLlmClient):
         msgs: list[dict[str, Any]] = []
 
         # Track tool_use_ids that have responses
-        responded_tool_ids = set()
-        for m in self.conversation:
-            if m.role == Role.TOOL:
-                for p in m.parts:
-                    if isinstance(p, ContentPart) and p.function_response:
-                        tool_id = p.function_response.get("id")
-                        if tool_id and tool_id != "unknown":
-                            responded_tool_ids.add(tool_id)
+        responded_tool_ids = self._get_responded_tool_ids()
 
         for m in self.conversation:
             if m.role == Role.TOOL:

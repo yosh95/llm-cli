@@ -138,23 +138,7 @@ class GrokClient(BaseLlmClient):
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict | None]:
         """Handles image generation via Grok API."""
-        # Extract prompt from conversation and new data
-        prompt_parts = []
-        for m in self.conversation:
-            for p in m.parts:
-                if isinstance(p, ContentPart) and p.text:
-                    prompt_parts.append(p.text)
-                elif isinstance(p, str):
-                    prompt_parts.append(p)
-
-        for d in data:
-            if d.content_type == "text/plain":
-                prompt_parts.append(str(d.content))
-            else:
-                # Include a placeholder for non-text data to maintain context
-                prompt_parts.append(f"[Attached {d.content_type}]")
-
-        full_prompt = "\n".join(prompt_parts)
+        full_prompt = self._build_prompt_from_history(data)
         payload = {
             "model": self.model,
             "prompt": full_prompt,
@@ -227,19 +211,7 @@ class GrokClient(BaseLlmClient):
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict | None]:
         """Handles video generation via Grok API (deferred)."""
-        # Extract prompt from conversation and new data
-        prompt_parts = []
-        for m in self.conversation:
-            for p in m.parts:
-                if isinstance(p, ContentPart) and p.text:
-                    prompt_parts.append(p.text)
-                elif isinstance(p, str):
-                    prompt_parts.append(p)
-        for d in data:
-            if d.content_type == "text/plain":
-                prompt_parts.append(str(d.content))
-
-        full_prompt = "\n".join(prompt_parts)
+        full_prompt = self._build_prompt_from_history(data)
         payload = {
             "model": self.model,
             "prompt": full_prompt,
@@ -348,39 +320,13 @@ class GrokClient(BaseLlmClient):
             self._report_error("Grok Video", e)
             return ((None, None), None)
 
-    def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
-        """Updates internal history."""
-        user_parts: list[str | ContentPart] = []
-        for d in data:
-            if d.content_type == "text/plain":
-                user_parts.append(ContentPart(text=str(d.content)))
-            else:
-                inline_data = {
-                    "mimeType": d.content_type,
-                    "data": d.content,
-                }
-                if "filename" in d.metadata:
-                    inline_data["filename"] = d.metadata["filename"]
-                user_parts.append(ContentPart(inline_data=inline_data))
-
-        if user_parts:
-            self.conversation.append(Message(role=Role.USER, parts=user_parts))
-        self.conversation.append(model_msg)
-
     def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal history to Grok (OpenAI-compatible) format."""
         msgs: list[dict[str, Any]] = []
         if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
-        responded_tool_ids = set()
-        for m in self.conversation:
-            if m.role == Role.TOOL:
-                for p in m.parts:
-                    if isinstance(p, ContentPart) and p.function_response:
-                        tool_id = p.function_response.get("id")
-                        if tool_id and tool_id != "unknown":
-                            responded_tool_ids.add(tool_id)
+        responded_tool_ids = self._get_responded_tool_ids()
 
         for m in self.conversation:
             if m.role == Role.TOOL:

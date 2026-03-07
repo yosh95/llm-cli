@@ -125,6 +125,13 @@ class ChatSession:
         data = initial_data or []
         prompt_default = ""
 
+        # Baseline token count for checkpoint threshold calculation.
+        # Some providers (e.g. Claude) report the *total context size* per
+        # response rather than the incremental tokens, so cumulative_total_tokens
+        # can jump past 50 000 in a single turn even right after a checkpoint.
+        # By anchoring to the value at the last checkpoint we measure the
+        # *growth since the last reset* instead of the raw cumulative value.
+        token_baseline = self.client.cumulative_total_tokens
         while True:
             try:
                 # Suggest checkpoint if conversation is getting long.
@@ -133,7 +140,10 @@ class ChatSession:
                 model_turns = len(
                     [m for m in self.client.conversation if m.role == Role.MODEL]
                 )
-                if self.client.cumulative_total_tokens >= 50000 or model_turns >= 40:
+                tokens_since_checkpoint = (
+                    self.client.cumulative_total_tokens - token_baseline
+                )
+                if tokens_since_checkpoint >= 50000 or model_turns >= 40:
                     msg = (
                         f"Context is large "
                         f"({self.client.cumulative_total_tokens:,} tokens, "
@@ -142,6 +152,8 @@ class ChatSession:
                     )
                     if self._confirm(msg):
                         self._handle_checkpoint()
+                        # Reset baseline so that the growth counter starts fresh.
+                        token_baseline = self.client.cumulative_total_tokens
                         # If history was cleared, continue to next prompt
                         if len(self.client.conversation) <= 1:
                             continue
@@ -178,6 +190,7 @@ class ChatSession:
                         continue
                 except CheckpointRequest:
                     self._handle_checkpoint()
+                    token_baseline = self.client.cumulative_total_tokens
                     continue
                 except TemplateRequest as e:
                     prompt_default = e.text

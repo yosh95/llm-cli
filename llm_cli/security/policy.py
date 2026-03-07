@@ -17,22 +17,6 @@ class PolicyEngine:
     """
 
     def __init__(self, config: dict[str, Any] | None = None):
-        # Allow passing config directly, or load from global settings
-        provided_config = config or {}
-
-        # 1. Load base security settings from global config
-        self.config = {}
-        try:
-            from llm_cli.clients.config import _load_config_from_file
-
-            full_conf = _load_config_from_file()
-            self.config.update(full_conf.get("security", {}))
-        except ImportError:
-            pass
-
-        # 2. Override with provided config
-        self.config.update(provided_config)
-
         self.intent_analyzer: Any = None
 
         # Default Policy Definitions
@@ -74,10 +58,34 @@ class PolicyEngine:
             },
         }
 
-        # Subject-specific overrides (e.g., specific user@host)
+        self._load_security_config(config)
+
+    def _load_security_config(self, config: dict[str, Any] | None = None) -> None:
+        """
+        Loads security configuration from the config file and merges any
+        provided overrides.  Updates ``self.config``, ``self.subjects``, and
+        ``self.roles`` in-place so that both ``__init__`` and ``reinitialize``
+        share identical logic.
+        """
+        provided_config = config or {}
+
+        # 1. Load base security settings from the global config file
+        self.config: dict[str, Any] = {}
+        try:
+            from llm_cli.clients.config import _load_config_from_file
+
+            full_conf = _load_config_from_file()
+            self.config.update(full_conf.get("security", {}))
+        except ImportError:
+            pass
+
+        # 2. Override with caller-supplied values
+        self.config.update(provided_config)
+
+        # 3. Subject-specific overrides (e.g., specific user@host)
         self.subjects: dict[str, dict[str, Any]] = self.config.get("subjects", {})
 
-        # Merge user config into roles if provided
+        # 4. Merge user-defined roles into the defaults
         if "roles" in self.config:
             for role_name, role_def in self.config["roles"].items():
                 if role_name in self.roles:
@@ -87,25 +95,8 @@ class PolicyEngine:
 
     def reinitialize(self, config: dict[str, Any] | None = None) -> None:
         """Reload configuration and reset the engine state."""
-        self.config = config or {}
-        if not self.config:
-            try:
-                from llm_cli.clients.config import _load_config_from_file
-
-                full_conf = _load_config_from_file()
-                self.config.update(full_conf.get("security", {}))
-            except ImportError:
-                pass
-
         self.intent_analyzer = None
-        self.subjects = self.config.get("subjects", {})
-
-        if "roles" in self.config:
-            for role_name, role_def in self.config["roles"].items():
-                if role_name in self.roles:
-                    self.roles[role_name].update(role_def)
-                else:
-                    self.roles[role_name] = role_def
+        self._load_security_config(config)
 
     def _analyze_intent(
         self, user_prompt: str, tool_name: str, args: dict[str, Any]

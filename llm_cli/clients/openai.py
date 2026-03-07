@@ -157,23 +157,8 @@ class OpenAIClient(BaseLlmClient):
     def _send_image_generation(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
-        """Handles image generation via OpenAI's ."""
-        # Extract prompt from conversation and new data
-        prompt_parts = []
-        for m in self.conversation:
-            for p in m.parts:
-                if isinstance(p, ContentPart) and p.text:
-                    prompt_parts.append(p.text)
-                elif isinstance(p, str):
-                    prompt_parts.append(p)
-
-        for d in data:
-            if d.content_type == "text/plain":
-                prompt_parts.append(str(d.content))
-            else:
-                prompt_parts.append(f"[Attached {d.content_type}]")
-
-        full_prompt = "\n".join(prompt_parts)
+        """Handles image generation via OpenAI's Images API."""
+        full_prompt = self._build_prompt_from_history(data)
         payload = {
             "model": self.model,
             "prompt": full_prompt,
@@ -251,19 +236,7 @@ class OpenAIClient(BaseLlmClient):
 
         from llm_cli.clients.base import console
 
-        # Extract prompt from conversation and new data
-        prompt_parts = []
-        for m in self.conversation:
-            for p in m.parts:
-                if isinstance(p, ContentPart) and p.text:
-                    prompt_parts.append(p.text)
-                elif isinstance(p, str):
-                    prompt_parts.append(p)
-        for d in data:
-            if d.content_type == "text/plain":
-                prompt_parts.append(str(d.content))
-
-        full_prompt = "\n".join(prompt_parts)
+        full_prompt = self._build_prompt_from_history(data)
         payload = {
             "model": self.model,
             "prompt": full_prompt,
@@ -394,14 +367,7 @@ class OpenAIClient(BaseLlmClient):
         items = []
 
         # Track tool_call_ids that have responses
-        responded_tool_ids = set()
-        for m in self.conversation:
-            if m.role == Role.TOOL:
-                for p in m.parts:
-                    if isinstance(p, ContentPart) and p.function_response:
-                        tool_id = p.function_response.get("id")
-                        if tool_id and tool_id != "unknown":
-                            responded_tool_ids.add(tool_id)
+        responded_tool_ids = self._get_responded_tool_ids()
 
         for m in self.conversation:
             if m.role == Role.TOOL:

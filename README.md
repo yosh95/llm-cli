@@ -1,6 +1,12 @@
-# llm-cli: A Unified Command-Line Interface for Multiple LLMs (v0.1.0)
+# llm-cli: A Unified Command-Line Interface for Multiple LLMs
 
 ![CI](https://github.com/yosh95/llm-cli/actions/workflows/ci.yml/badge.svg?branch=main)
+
+## 📄 Technical Reports (Pre-prints)
+Detailed architectural insights and security analysis are available in the following reports:
+- **[Post-Quantum AI Governance: Context-Adaptive Security Scaling and Bi-directional Verification for AI Agents](paper/pqc/pqc_in_ai_agents.pdf)**
+- **[Zero-Trust Tool Orchestration: Securing Autonomous Agents via Asymmetric Identity and Dual-LLM Intent Analysis](paper/zero-trust/llm_cli_zero_trust.pdf)**
+- **[Autonomous Guardrails: Multi-Layered Security for LLM Command-Line Interfaces](paper/guardrail/llm_cli_tech_report.pdf)**
 
 ## TL;DR (Quick Start)
 - **Install**: `pip install .` then `llm-cli-config` for API keys.
@@ -452,6 +458,12 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 <a name="japanese-description"></a>
 # llm-cli: 複数LLM対応 統合コマンドラインインターフェース
+
+## 📄 技術レポート (Pre-prints)
+詳細なアーキテクチャの解説とセキュリティ分析については、以下のレポート（英語）を参照してください。
+- **[Post-Quantum AI Governance: AIエージェントのための動的セキュリティスケーリングと双方向検証](paper/pqc/pqc_in_ai_agents.pdf)**
+- **[Zero-Trust Tool Orchestration: 非対称アイデンティティとDual-LLM意図解析によるエージェントの保護](paper/zero-trust/llm_cli_zero_trust.pdf)**
+- **[Autonomous Guardrails: LLMコマンドラインインターフェースのための多層防御セキュリティ](paper/guardrail/llm_cli_tech_report.pdf)**
 
 `llm-cli` は、多様な大規模言語モデル（LLM）と対話するための、強力で汎用性の高いコマンドラインツールです。Google (Gemini)、OpenAI、Anthropic (Claude)、xAI (Grok) に加え、**Ollama や vLLM を介したローカルLLM** をサポートしており、単一の `llm` コマンドだけでプロバイダをシームレスに切り替えながら、各モデルの機能をターミナルから直接活用できます。
 

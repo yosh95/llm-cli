@@ -1,6 +1,6 @@
 [project]
 name = "llm_cli"
-version = "0.1.0"
+version = "1.0.0"
 description = "A Unified Command-Line Interface for Multiple LLMs"
 authors = [
     {name = "Yoshihiro Ando", email = "yosh5295@gmail.com"}

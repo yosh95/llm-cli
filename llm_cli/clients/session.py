@@ -36,6 +36,8 @@ from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 kb = KeyBindings()
 kb_exit = KeyBindings()
 
+MAX_TURNS = 20
+
 
 @kb.add("c-delete")
 def _(_event: Any) -> None:
@@ -133,7 +135,7 @@ class ChatSession:
                 model_turns = len(
                     [m for m in self.client.conversation if m.role == Role.MODEL]
                 )
-                if model_turns >= 40:
+                if model_turns >= MAX_TURNS:
                     msg = (
                         f"Context is large "
                         f"({model_turns} turns). "
@@ -446,7 +448,7 @@ class ChatSession:
             return ""
 
     def _confirm(self, message: str) -> bool:
-        return self._get_input(message, exit_on_escape=True).lower() == "y"
+        return self._get_input(message, exit_on_escape=True).lower() in ("y", "ｙ")
 
     def _execute_tool_call(
         self, part: ContentPart, duration: float | None = None

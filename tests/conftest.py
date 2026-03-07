@@ -2,14 +2,28 @@
 
 import base64
 import os
+import pathlib
 from unittest.mock import Mock
 
 import pytest
 
+import llm_cli.apps.configure
 import llm_cli.clients.config
+from llm_cli import consts
 
 # Disable strict mode during tests to allow dynamic key/manifest generation
 os.environ["LLM_CLI_STRICT_SECURITY"] = "0"
+
+# Redirect CONFIG_FILE_PATH to a non-existent path in a temporary directory
+# to prevent leakage of real configuration during tests.
+consts.LLM_CLI_BASE_DIR = pathlib.Path("/tmp/llm-cli-test")
+consts.CONFIG_DIR = consts.LLM_CLI_BASE_DIR
+consts.CONFIG_FILE_PATH = consts.CONFIG_DIR / "config.toml"
+llm_cli.clients.config.CONFIG_FILE_PATH = consts.CONFIG_FILE_PATH
+
+# Also patch apps.configure which imports it as CONFIG_FILE
+llm_cli.apps.configure.CONFIG_FILE = consts.CONFIG_FILE_PATH
+llm_cli.apps.configure.CONFIG_DIR = consts.CONFIG_DIR
 
 # Inject dummy configuration to allow module-level checks in tools/web.py to pass
 # during test collection.

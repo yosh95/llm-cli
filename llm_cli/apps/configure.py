@@ -96,7 +96,7 @@ def prompt_bool(prompt_text: str, current_value: bool = False) -> bool:
 
     if not val:
         return current_value
-    return val.startswith("y")
+    return val.startswith(("y", "ｙ"))
 
 
 def prompt_list(prompt_text: str, current_value: list[str] | None = None) -> list[str]:

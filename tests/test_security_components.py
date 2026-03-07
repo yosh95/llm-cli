@@ -1,5 +1,6 @@
 import time
 from unittest.mock import patch
+
 import jwt
 import pytest
 
@@ -8,18 +9,17 @@ from llm_cli.security.identity import IdentityManager
 from llm_cli.security.integrity import IntegrityVerifier
 from llm_cli.security.policy import PolicyEngine
 
+
 @pytest.fixture(autouse=True)
 def mock_policy_config():
     with patch("llm_cli.clients.config._load_config_from_file") as mock_load:
         mock_load.return_value = {
-            "security": {
-                "allowed_paths": ["."],
-                "blocked_paths": ["/etc"]
-            }
+            "security": {"allowed_paths": ["."], "blocked_paths": ["/etc"]}
         }
         # Also need to make sure the cache is cleared if it was already loaded
         with patch("llm_cli.clients.config._config_cache", None):
             yield
+
 
 class TestIdentityManager:
     def test_generate_and_verify_token(self):

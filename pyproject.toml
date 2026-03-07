@@ -66,10 +66,6 @@ module = "tests.*"
 disallow_untyped_defs = false
 
 
-[tool.pytest.ini_options]
-addopts = "--cov=llm_cli --cov-report=term-missing"
-testpaths = ["tests"]
-
 [tool.ruff]
 line-length = 88
 target-version = "py313"

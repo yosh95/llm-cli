@@ -1,17 +1,18 @@
 from unittest.mock import patch
+
 import pytest
+
 from llm_cli.modules.tools.file_ops import search_files
+
 
 @pytest.fixture(autouse=True)
 def mock_search_config():
     with patch("llm_cli.security.path_validator._load_config_from_file") as mock_load:
         mock_load.return_value = {
-            "security": {
-                "allowed_paths": ["."],
-                "blocked_paths": ["/etc"]
-            }
+            "security": {"allowed_paths": ["."], "blocked_paths": ["/etc"]}
         }
         yield
+
 
 def test_search_files_success(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)

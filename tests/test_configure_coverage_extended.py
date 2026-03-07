@@ -50,6 +50,14 @@ def test_prompt_bool_logic():
         mock_prompt.return_value = "no"
         assert prompt_bool("Test", True) is False
 
+    with patch("llm_cli.apps.configure.prompt") as mock_prompt:
+        mock_prompt.return_value = "ｙ"
+        assert prompt_bool("Test", False) is True
+
+    with patch("llm_cli.apps.configure.prompt") as mock_prompt:
+        mock_prompt.return_value = "ｎ"
+        assert prompt_bool("Test", True) is False
+
 
 def test_prompt_bool_interrupt():
     with patch("llm_cli.apps.configure.prompt", side_effect=EOFError):

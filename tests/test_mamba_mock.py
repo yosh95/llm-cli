@@ -56,55 +56,66 @@ modules_to_patch = {
 }
 
 with patch.dict("sys.modules", modules_to_patch):
-    from llm_cli.clients.mamba import ByteTokenizer, MambaClient
     from llm_cli.modules.models import DataSource
 
 
 def test_byte_tokenizer():
-    tokenizer = ByteTokenizer()
-    text = "Hello <|im_start|>world<|im_end|>"
-    encoded = tokenizer.encode(text)
-    assert isinstance(encoded, list)
-    assert 256 in encoded
-    assert 257 in encoded
+    with patch.dict("sys.modules", modules_to_patch):
+        from llm_cli.clients.mamba import ByteTokenizer
 
-    decoded = tokenizer.decode(encoded)
-    assert "Hello" in decoded
-    assert "world" in decoded
+        tokenizer = ByteTokenizer()
+        text = "Hello <|im_start|>world<|im_end|>"
+        encoded = tokenizer.encode(text)
+        assert isinstance(encoded, list)
+        assert 256 in encoded
+        assert 257 in encoded
+
+        decoded = tokenizer.decode(encoded)
+        assert "Hello" in decoded
+        assert "world" in decoded
 
 
 def test_mamba_client_init():
+    from llm_cli.clients.mamba import MambaClient
+
     with patch.dict("sys.modules", modules_to_patch):
         with patch("llm_cli.clients.mamba.get_setting", return_value=None):
-            client = MambaClient(initial_model_alias="default")
-            assert client.config_section == "mamba"
+            with patch.object(MambaClient, "_initialize_model"):
+                client = MambaClient(initial_model_alias="default")
+                assert client.config_section == "mamba"
 
 
 @patch("llm_cli.clients.mamba.MambaLM")
 def test_mamba_client_send(mock_mamba_lm_class):
-    mock_instance = mock_mamba_lm_class.return_value
-    # step should return (logits, states)
-    mock_logits = MagicMock()
-    mock_states = MagicMock()
-    mock_instance.step.return_value = (mock_logits, mock_states)
-
     with patch.dict("sys.modules", modules_to_patch):
-        with patch("llm_cli.clients.mamba.get_setting", return_value=None):
-            with patch("torch.load", return_value={}):
-                client = MambaClient(initial_model_alias="default")
-                client.model_instance = mock_instance
+        from llm_cli.clients.mamba import MambaClient
+        from llm_cli.modules.models import Role
 
-                # Setup mocks for generate loop
-                # next_token.item() should return im_end_token (257) to exit the loop
-                mock_next_token = MagicMock()
-                mock_next_token.item.return_value = 257
-                mock_torch.argmax.return_value = mock_next_token
+        # Initialize with mocked methods to avoid real torch/heavy work
+        with patch.object(MambaClient, "_initialize_model"):
+            with patch.object(MambaClient, "_initialize_teacher"):
+                with patch("llm_cli.clients.mamba.get_setting", return_value=None):
+                    client = MambaClient(initial_model_alias="default")
+                    client.model_instance = MagicMock()
+                    client.optimizer = MagicMock()
+                    client.conversation = []
+                    client.turn_count = 0
+                    client.teacher_enabled = False
 
-                # Mock decode to return some text
-                with patch.object(
-                    ByteTokenizer, "decode", return_value='{"message": "Hello"}'
-                ):
-                    data = [DataSource(content="Hi", is_file_or_url=False)]
-                    (resp, thought), usage = client._send(data)
+                    # Mock _generate_mamba and _log_metrics
+                    with patch.object(
+                        client,
+                        "_generate_mamba",
+                        return_value=('{"message": "Hello"}', None),
+                    ) as mock_gen:
+                        with patch.object(client, "_log_metrics") as mock_log:
+                            data = [DataSource(content="Hi", is_file_or_url=False)]
+                            (resp, thought), usage = client._send(data)
 
-                    assert "Hello" in resp
+                            assert "Hello" in resp
+                            assert mock_gen.called
+                            assert mock_log.called
+                            # Verify conversation history update
+                            assert len(client.conversation) == 2  # User + Model
+                            assert client.conversation[0].role == Role.USER
+                            assert client.conversation[1].role == Role.MODEL

@@ -1,20 +1,23 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from llm_cli.security.command_validator import CommandValidationError, validate_command
+
 
 @pytest.fixture(autouse=True)
 def mock_strict_config():
     with patch("llm_cli.security.path_validator._load_config_from_file") as mock_load:
         mock_load.return_value = {
-            "security": {
-                "allowed_paths": ["."],
-                "blocked_paths": ["/etc"]
-            }
+            "security": {"allowed_paths": ["."], "blocked_paths": ["/etc"]}
         }
         # Also need to patch it in command_validator if it's imported there
-        with patch("llm_cli.security.command_validator._load_config_from_file") as mock_load_cmd:
+        with patch(
+            "llm_cli.security.command_validator._load_config_from_file"
+        ) as mock_load_cmd:
             mock_load_cmd.return_value = mock_load.return_value
             yield
+
 
 def test_grep_with_slash_pattern():
     # '/abcd/' is likely not a real path, so it should be treated as a pattern

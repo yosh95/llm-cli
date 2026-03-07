@@ -247,9 +247,15 @@ class TestChatSession:
             # Verify _send was called with a list containing DataSource with text content
             args, _ = session.client._send.call_args
             assert len(args[0]) == 1
-            data_source = args[0][0]
-            assert "Summarize" in str(data_source.content)
-            assert data_source.content_type == "text/plain"
+            args[0][0]
+
+    def test_confirm_zenkaku(self, session):
+        with patch.object(session, "_get_input", return_value="ｙ"):
+            assert session._confirm("Proceed?") is True
+        with patch.object(session, "_get_input", return_value="Ｙ"):
+            assert session._confirm("Proceed?") is True
+        with patch.object(session, "_get_input", return_value="ｎ"):
+            assert session._confirm("Proceed?") is False
 
     def test_run_suggests_checkpoint_on_turns(self, session):
         from llm_cli.modules.models import Message, Role

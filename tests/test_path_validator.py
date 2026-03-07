@@ -2,9 +2,11 @@
 
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 from llm_cli.security.path_validator import PathValidationError, validate_path
+
 
 @pytest.fixture(autouse=True)
 def mock_path_config():
@@ -12,10 +14,11 @@ def mock_path_config():
         mock_load.return_value = {
             "security": {
                 "allowed_paths": [".", "/var"],
-                "blocked_paths": ["/etc", "/var/log/syslog"]
+                "blocked_paths": ["/etc", "/var/log/syslog"],
             }
         }
         yield
+
 
 class TestPathValidator:
     def test_sandbox_within_cwd(self):

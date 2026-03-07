@@ -136,8 +136,8 @@ def execute_tool_call(
             exit_on_escape=True,
             raise_on_interrupt=True,
         )
-        if user_input.lower() != "y":
-            feedback = user_input if user_input.lower() != "n" else ""
+        if user_input.lower() not in ("y", "ｙ"):
+            feedback = user_input if user_input.lower() not in ("n", "ｎ") else ""
             console.print("[red]Operation denied.[/red]")
             if feedback:
                 result_msg = f"Rejected by user. Feedback: {feedback}"

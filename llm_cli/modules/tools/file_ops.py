@@ -2,7 +2,7 @@
 
 import difflib
 import fnmatch
-import subprocess
+import os
 from pathlib import Path
 
 from llm_cli.modules.media_utils import process_file
@@ -39,12 +39,24 @@ def search_files(
     file_pattern: str | None = None,
 ) -> str:
     """
-    Search for a pattern using grep, excluding common cache and junk directories.
+    Search for a pattern in files using Python, excluding common cache directories.
+    This is more portable and allows better control over file types and sizes.
     """
     try:
         validate_path(directory or ".")
+        base_path = Path(directory or ".")
+        if not base_path.exists():
+            return f"Error: Directory '{directory}' does not exist."
 
-        exclude_dirs = [
+        import re
+        import time
+
+        try:
+            regex = re.compile(query, re.MULTILINE)
+        except re.error as e:
+            return f"Error: Invalid regex pattern: {e}"
+
+        exclude_dirs = {
             ".git",
             "node_modules",
             "cache",
@@ -57,49 +69,70 @@ def search_files(
             ".ruff_cache",
             "dist",
             "build",
-        ]
+            ".tox",
+            ".idea",
+            ".vscode",
+        }
 
-        # Use -rnP: recursive, line number, Perl-compatible regex
-        cmd = ["grep", "-rnP"]
-        for d in exclude_dirs:
-            cmd.append(f"--exclude-dir={d}")
+        results = []
+        max_results = 300
+        max_file_size = 5 * 1024 * 1024  # 5MB
+        start_time = time.time()
+        timeout = 55  # Slightly less than 60 to be safe
 
-        if file_pattern:
-            cmd.append(f"--include={file_pattern}")
+        for root, dirs, files in os.walk(base_path, topdown=True):
+            # Check timeout
+            if time.time() - start_time > timeout:
+                results.append("Error: Search timed out after 60 seconds.")
+                break
 
-        cmd.extend(["--", query, directory or "."])
+            # Filter directories in-place
+            dirs[:] = [
+                d for d in dirs if d not in exclude_dirs and not d.startswith(".")
+            ]
 
-        # Limit execution time and capture output
-        process = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+            for file in files:
+                if file.startswith("."):
+                    continue
 
-        if process.returncode == 1:
+                if file_pattern and not fnmatch.fnmatch(file, file_pattern):
+                    continue
+
+                file_path = Path(root) / file
+
+                try:
+                    # Skip if too large
+                    if file_path.stat().st_size > max_file_size:
+                        continue
+
+                    # Check for binary content by reading first 1KB
+                    with file_path.open("rb") as bf:
+                        chunk = bf.read(1024)
+                        if b"\0" in chunk:
+                            continue
+
+                    # Read and search
+                    with file_path.open("r", encoding="utf-8", errors="ignore") as f:
+                        for line_no, line in enumerate(f, 1):
+                            if regex.search(line):
+                                rel_path = file_path.relative_to(base_path)
+                                results.append(f"{rel_path}:{line_no}:{line.strip()}")
+                                if len(results) >= max_results:
+                                    summary = (
+                                        f"\n\n... (Total {len(results)} "
+                                        "matches, truncated)"
+                                    )
+                                    return "\n".join(results) + summary
+                except (PermissionError, OSError):
+                    continue
+
+        if not results:
             return "No matches found."
-        if process.returncode > 1:
-            # grep returns 2 if an error occurred
-            return (
-                f"Error: grep failed with exit code {process.returncode}\n"
-                f"{process.stderr}"
-            )
 
-        lines = process.stdout.splitlines()
-        max_lines = 300
-        if len(lines) > max_lines:
-            summary = (
-                f"\n\n... (Total {len(lines)} matches, truncated to {max_lines} lines)"
-            )
-            return "\n".join(lines[:max_lines]) + summary
-
-        return process.stdout or "No matches found."
+        return "\n".join(results)
 
     except PathValidationError as e:
         return f"Security Error: {e}"
-    except subprocess.TimeoutExpired:
-        return "Error: Search timed out after 60 seconds."
     except Exception as e:
         return f"Error: {e}"
 

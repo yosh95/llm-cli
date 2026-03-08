@@ -9,7 +9,7 @@ from torch import Tensor
 class Mamba(nn.Module):
     def __init__(
         self,
-        d_model: int = 512,
+        d_model: int = 128,
         d_state: int = 16,
         d_conv: int = 3,
         expand: int = 2,
@@ -54,7 +54,7 @@ class Mamba(nn.Module):
 class CustomMamba(nn.Module):
     def __init__(
         self,
-        d_model: int = 512,
+        d_model: int = 128,
         d_state: int = 16,
         d_conv: int = 3,
         expand: int = 2,
@@ -84,8 +84,8 @@ class CustomMamba(nn.Module):
             padding=d_conv - 1,
         )
 
-        # Mamba-3 x_proj: delta, complex B (re/im), complex C (re/im), lambda_gate
-        self.x_proj = nn.Linear(self.d_inner, dt_rank + 4 * d_state + 1, bias=False)
+        # Mamba-3 x_proj: delta, complex B (re/im), complex C (re/im), lambda_gate, evo_gate
+        self.x_proj = nn.Linear(self.d_inner, dt_rank + 4 * d_state + 2, bias=False)
         self.dt_proj = nn.Linear(dt_rank, self.d_inner, bias=True)
 
         # Initialize dt_proj
@@ -126,20 +126,21 @@ class CustomMamba(nn.Module):
         A = torch.complex(A_real, A_imag)
 
         proj_out = self.x_proj(x_proj)
-        delta_raw, B_re, B_im, C_re, C_im, lambda_gate = torch.split(
+        delta_raw, B_re, B_im, C_re, C_im, lambda_gate, evo_gate = torch.split(
             proj_out,
-            [self.dt_rank, self.d_state, self.d_state, self.d_state, self.d_state, 1],
+            [self.dt_rank, self.d_state, self.d_state, self.d_state, self.d_state, 1, 1],
             dim=-1,
         )
 
         delta = F.linear(delta_raw, self.dt_proj.weight, self.dt_proj.bias)
         delta = F.softplus(delta)
         lambda_gate = torch.sigmoid(lambda_gate)
+        evo_gate = torch.sigmoid(evo_gate)
 
         B = torch.complex(B_re, B_im)
         C = torch.complex(C_re, C_im)
 
-        y = self.selective_scan_v3(x_proj, delta, A, B, C, lambda_gate)
+        y = self.selective_scan_v3(x_proj, delta, A, B, C, lambda_gate, evo_gate)
 
         z = F.silu(z)
         output = y * z
@@ -154,30 +155,26 @@ class CustomMamba(nn.Module):
         B: Tensor,
         C: Tensor,
         lambda_gate: Tensor,
+        evo_gate: Tensor,
     ) -> Tensor:
         # 1. Discretization
-        # alpha = exp(delta * A)
         dtA = delta.unsqueeze(-1) * A.unsqueeze(0).unsqueeze(0)
         alpha = torch.exp(dtA)
 
-        # 2. Input term Bx_t = B_t * x_t (MIMO-like broadcasting)
-        # x: (B, L, D_inner) -> (B, L, D_inner, 1)
-        # B: (B, L, D_state) -> (B, L, 1, D_state)
-        Bx = B.unsqueeze(2) * x.unsqueeze(-1)  # (B, L, D_inner, D_state)
+        # 2. SASM Input Bx_t = x_t * B_t
+        Bx = x.unsqueeze(-1) * B.unsqueeze(2)  # (B, L, D, N)
 
-        # 3. Trapezoidal Terms
-        # h_t = alpha_t * h_{t-1} + beta_t * Bx_{t-1} + gamma_t * Bx_t
+        # 3. Trapezoidal Terms with Evolution Gate
         beta = (1 - lambda_gate.unsqueeze(-1)) * delta.unsqueeze(-1) * alpha
-        gamma = lambda_gate.unsqueeze(-1) * delta.unsqueeze(-1)
+        gamma = lambda_gate.unsqueeze(-1) * delta.unsqueeze(-1) * evo_gate.unsqueeze(-1)
 
         Bx_prev = F.pad(Bx[:, :-1], (0, 0, 0, 0, 1, 0))
         u = beta * Bx_prev + gamma * Bx
 
         # 4. Scan
-        # Using Associative Scan for GPU acceleration (O(log L) steps)
         hs = associative_scan_complex(alpha, u)
 
-        # 5. Output
+        # 5. Output (C is Read-Key)
         y_complex = (hs * C.unsqueeze(2).conj()).sum(dim=-1)
         y = y_complex.real
         y = y + self.D * x
@@ -211,15 +208,16 @@ class CustomMamba(nn.Module):
 
         # SSM
         proj_out = self.x_proj(x_conv)
-        delta_raw, B_re, B_im, C_re, C_im, lambda_gate = torch.split(
+        delta_raw, B_re, B_im, C_re, C_im, lambda_gate, evo_gate = torch.split(
             proj_out,
-            [self.dt_rank, self.d_state, self.d_state, self.d_state, self.d_state, 1],
+            [self.dt_rank, self.d_state, self.d_state, self.d_state, self.d_state, 1, 1],
             dim=-1,
         )
 
         delta = F.linear(delta_raw, self.dt_proj.weight, self.dt_proj.bias)
         delta = F.softplus(delta)
         lambda_gate = torch.sigmoid(lambda_gate)
+        evo_gate = torch.sigmoid(evo_gate)
 
         A_real = -torch.exp(self.A_log.float())
         A_imag = self.A_imag.float()
@@ -228,7 +226,7 @@ class CustomMamba(nn.Module):
         C = torch.complex(C_re, C_im)
 
         alpha = torch.exp(delta.unsqueeze(-1) * A.unsqueeze(0))
-        current_Bx = B.unsqueeze(1) * x_conv.unsqueeze(-1)
+        current_Bx = x_conv.unsqueeze(-1) * B.unsqueeze(1) # SASM: (B, D, N)
 
         if ssm_state is None:
             ssm_state = torch.zeros(
@@ -241,9 +239,9 @@ class CustomMamba(nn.Module):
         if prev_Bx is None:
             prev_Bx = torch.zeros_like(current_Bx)
 
-        # Mamba-3 Trapezoidal update
+        # Mamba-3 Trapezoidal update with Evolution Gate
         beta = (1 - lambda_gate.unsqueeze(-1)) * delta.unsqueeze(-1) * alpha
-        gamma = lambda_gate.unsqueeze(-1) * delta.unsqueeze(-1)
+        gamma = lambda_gate.unsqueeze(-1) * delta.unsqueeze(-1) * evo_gate.unsqueeze(-1)
 
         ssm_state = alpha * ssm_state + beta * prev_Bx + gamma * current_Bx
 

@@ -84,7 +84,8 @@ class CustomMamba(nn.Module):
             padding=d_conv - 1,
         )
 
-        # Mamba-3 x_proj: delta, complex B (re/im), complex C (re/im), lambda_gate, evo_gate
+        # Mamba-3 x_proj: delta, complex B (re/im), complex C (re/im),
+        # lambda_gate, evo_gate
         self.x_proj = nn.Linear(self.d_inner, dt_rank + 4 * d_state + 2, bias=False)
         self.dt_proj = nn.Linear(dt_rank, self.d_inner, bias=True)
 
@@ -128,7 +129,15 @@ class CustomMamba(nn.Module):
         proj_out = self.x_proj(x_proj)
         delta_raw, B_re, B_im, C_re, C_im, lambda_gate, evo_gate = torch.split(
             proj_out,
-            [self.dt_rank, self.d_state, self.d_state, self.d_state, self.d_state, 1, 1],
+            [
+                self.dt_rank,
+                self.d_state,
+                self.d_state,
+                self.d_state,
+                self.d_state,
+                1,
+                1,
+            ],
             dim=-1,
         )
 
@@ -210,7 +219,15 @@ class CustomMamba(nn.Module):
         proj_out = self.x_proj(x_conv)
         delta_raw, B_re, B_im, C_re, C_im, lambda_gate, evo_gate = torch.split(
             proj_out,
-            [self.dt_rank, self.d_state, self.d_state, self.d_state, self.d_state, 1, 1],
+            [
+                self.dt_rank,
+                self.d_state,
+                self.d_state,
+                self.d_state,
+                self.d_state,
+                1,
+                1,
+            ],
             dim=-1,
         )
 
@@ -226,7 +243,7 @@ class CustomMamba(nn.Module):
         C = torch.complex(C_re, C_im)
 
         alpha = torch.exp(delta.unsqueeze(-1) * A.unsqueeze(0))
-        current_Bx = x_conv.unsqueeze(-1) * B.unsqueeze(1) # SASM: (B, D, N)
+        current_Bx = x_conv.unsqueeze(-1) * B.unsqueeze(1)  # SASM: (B, D, N)
 
         if ssm_state is None:
             ssm_state = torch.zeros(

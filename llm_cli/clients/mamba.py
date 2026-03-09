@@ -128,10 +128,10 @@ class MambaClient(BaseLlmClient):
             self.teacher_enabled = False
             return
 
-        if provider not in ["ollama", "vllm"]:
+        if provider not in ["huggingface"]:
             console.print(
                 f"[red]Error: Teacher provider '{provider}' is not allowed. "
-                "Distillation/Mentor mode is restricted to 'ollama' or 'vllm' "
+                "Distillation/Mentor mode is restricted to 'huggingface' "
                 "to comply with ToS of commercial providers.[/red]"
             )
             self.teacher_enabled = False

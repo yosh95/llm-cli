@@ -11,7 +11,7 @@ from typing import Any
 import requests
 from rich.console import Console
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import get_model_config, get_setting
 from llm_cli.modules.media_utils import fetch_url_content, process_file
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
@@ -40,6 +40,7 @@ class BaseLlmClient(ABC):
         available_models (Dict[str, str]): Map of aliases to model strings.
         current_alias (str): The currently active model alias.
         model (str): The currently active model string.
+        model_config (Dict[str, Any]): Full configuration for the current model.
         conversation (List[Message]): The message history.
         active_tools (List[str]): List of enabled tool names.
     """
@@ -100,6 +101,7 @@ class BaseLlmClient(ABC):
         self.available_models: dict[str, Any] = {}
         self.current_alias = ""
         self.model = ""
+        self.model_config: dict[str, Any] = {}
 
         self._load_model_aliases()
         self._set_initial_model(initial_model_alias)
@@ -334,10 +336,8 @@ class BaseLlmClient(ABC):
         """
         if alias in self.available_models:
             self.current_alias = alias
-            self.model = self.available_models[alias]
-
-            # Load additional settings for this specific alias/model
-            # config = get_model_config(self.config_section, alias)
+            self.model_config = get_model_config(self.config_section, alias)
+            self.model = self.model_config.get("model", self.available_models[alias])
             return True
         return False
 
@@ -352,7 +352,7 @@ class BaseLlmClient(ABC):
         sources: list[str] | None = None,
     ) -> None:
         """Starts an interactive chat session."""
-        if not self.api_key and self.config_section not in ("ollama", "mamba"):
+        if not self.api_key and self.config_section not in ("huggingface", "mamba"):
             console.print(
                 f"[bold red]Error: API key for '{self.config_section}' "
                 "is missing.[/bold red]\n"
@@ -555,8 +555,10 @@ class BaseLlmClient(ABC):
             return "🌿"
         if "xai" in provider or "grok" in provider:
             return "🌌"
-        if "ollama" in provider:
-            return "🦙"
+        if "huggingface" in provider:
+            return "🤗"
+        if "mamba" in provider:
+            return "🐍"
         return "💡"
 
     def get_display_name(self) -> str:

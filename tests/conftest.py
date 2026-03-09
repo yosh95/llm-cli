@@ -229,8 +229,6 @@ def mock_config(monkeypatch, mock_api_key, tmp_path):
         "llm_cli.clients.claude",
         "llm_cli.clients.grok",
         "llm_cli.clients.gemini",
-        "llm_cli.clients.ollama",
-        "llm_cli.clients.vllm",
         "llm_cli.modules.tools.web",
         "llm_cli.modules.tools.system",
         "llm_cli.apps.unified",

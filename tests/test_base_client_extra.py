@@ -145,8 +145,10 @@ class TestBaseClientExtra:
         assert client.get_model_icon() == "🌿"
         client.config_section = "grok"
         assert client.get_model_icon() == "🌌"
-        client.config_section = "ollama"
-        assert client.get_model_icon() == "🦙"
+        client.config_section = "huggingface"
+        assert client.get_model_icon() == "🤗"
+        client.config_section = "mamba"
+        assert client.get_model_icon() == "🐍"
         client.config_section = "other"
         assert client.get_model_icon() == "💡"
 

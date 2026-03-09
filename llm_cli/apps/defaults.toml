@@ -91,22 +91,16 @@ video = "grok-imagine-video"
 [brave]
 
 # =============================================================================
-# Ollama (Local LLMs)
+# Hugging Face (Local LLMs)
 # =============================================================================
-[ollama]
-api_url = "http://localhost:11434/v1/chat/completions"
+[huggingface]
+load_in_4bit = true
+trust_remote_code = false
+max_new_tokens = 2048
+temperature = 0.7
 
-[ollama.models]
-# No default model configs for Ollama
-
-# =============================================================================
-# vLLM
-# =============================================================================
-[vllm]
-api_url = "http://localhost:8000/v1/chat/completions"
-
-[vllm.models]
-# No default model configs for vLLM
+[huggingface.models]
+default = "Qwen/Qwen3.5-0.8B"
 
 # =============================================================================
 # Mamba (Local Distilled Model)

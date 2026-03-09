@@ -48,8 +48,9 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
                 "claude",
                 "xai",
                 "grok",
-                "ollama",
-                "vllm",
+                "huggingface",
+                "hf",
+                "mamba",
             ],
             help="Provider to use",
         )

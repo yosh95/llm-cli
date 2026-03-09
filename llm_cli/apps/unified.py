@@ -114,12 +114,18 @@ class UnifiedClient(BaseLlmClient):
             client_class = client_registry.get_client_class(provider_alias)
             config_section = client_registry.get_config_section(provider_alias)
         except ImportError as e:
-            if "torch" in str(e) or "tiktoken" in str(e):
+            if any(
+                pkg in str(e)
+                for pkg in ["torch", "tiktoken", "transformers", "accelerate"]
+            ):
                 console.print(
                     f"[red]Error: {provider_alias} client could not be loaded: {e}"
                     "[/red]"
                 )
-                console.print("[yellow]Hint: Run: pip install torch tiktoken[/yellow]")
+                console.print(
+                    "[yellow]Hint: Run: pip install torch transformers "
+                    "accelerate bitsandbytes[/yellow]"
+                )
             else:
                 console.print(
                     f"[red]Error loading provider {provider_alias}: {e}[/red]"
@@ -190,15 +196,28 @@ class UnifiedClient(BaseLlmClient):
 
         if cmd in ("p", "provider"):
             if not args:
-                console.print("[bold]Available Providers:[/bold]")
-                seen_sections = set()
-                for alias, section in client_registry.get_provider_info().items():
-                    if section not in seen_sections:
-                        active = "*" if section == self.current_provider_name else " "
-                        console.print(
-                            f" {active} [cyan]{alias:15}[/cyan] -> [dim]{section}[/dim]"
-                        )
-                        seen_sections.add(section)
+                from rich.table import Table
+
+                table = Table(
+                    title="Available Providers",
+                    show_header=True,
+                    header_style="bold magenta",
+                )
+                table.add_column("Status", justify="center", width=4)
+                table.add_column("Alias", style="cyan", width=15)
+                table.add_column("Config Section", style="dim")
+
+                # Get provider info and sort by alias for consistency
+                info = client_registry.get_provider_info()
+                for alias in sorted(info.keys()):
+                    section = info[alias]
+                    is_active = section == self.current_provider_name
+                    active_mark = "[bold green]*[/bold green]" if is_active else ""
+
+                    table.add_row(active_mark, alias, section)
+
+                console.print(table)
+                console.print("[dim]Usage: /p <alias> to switch provider[/dim]")
                 return True
 
             if self._activate_provider(args):

@@ -225,7 +225,7 @@ def list_files_in_directory(
             for entry in entries:
                 if file_count >= max_files:
                     if file_count == max_files:
-                        results.append("... (Too many files, listing truncated)")
+                        results.append("\n\n... (Too many files, listing truncated)")
                         file_count += 1
                     break
 

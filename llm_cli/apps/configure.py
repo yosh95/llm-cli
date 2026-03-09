@@ -116,30 +116,14 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
 
     p_config = config.setdefault(provider, {})
 
-    if provider == "ollama":
-        p_config["api_key"] = prompt_input(
-            "API Key (Optional)", p_config.get("api_key"), secret=True
-        )
-        default_url = DEFAULTS.get("ollama", {}).get("api_url")
-        p_config["api_url"] = prompt_input(
-            "API URL", p_config.get("api_url", default_url)
-        )
-    elif provider == "vllm":
-        p_config["api_key"] = prompt_input(
-            "API Key (Optional)", p_config.get("api_key"), secret=True
-        )
-        default_url = DEFAULTS.get("vllm", {}).get("api_url")
-        p_config["api_url"] = prompt_input(
-            "API URL", p_config.get("api_url", default_url)
-        )
-    elif provider == "mamba":
+    if provider == "mamba":
         p_config["teacher_enabled"] = prompt_bool(
             "Enable Mentor/Teacher mode?", p_config.get("teacher_enabled", False)
         )
         if p_config["teacher_enabled"]:
             p_config["teacher_provider"] = prompt_input(
-                "Teacher Provider (ollama/vllm)",
-                p_config.get("teacher_provider", "ollama"),
+                "Teacher Provider (huggingface)",
+                p_config.get("teacher_provider", "huggingface"),
             )
             p_config["teacher_model"] = prompt_input(
                 "Teacher Model Name", p_config.get("teacher_model")
@@ -152,6 +136,39 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
             "API Key", p_config.get("api_key"), secret=True
         )
         return  # Brave only needs API Key
+    elif provider == "huggingface":
+        p_config["load_in_4bit"] = prompt_bool(
+            "Enable 4-bit quantization (bitsandbytes)?",
+            p_config.get(
+                "load_in_4bit",
+                DEFAULTS.get("huggingface", {}).get("load_in_4bit", True),
+            ),
+        )
+        p_config["trust_remote_code"] = prompt_bool(
+            "Trust remote code?",
+            p_config.get(
+                "trust_remote_code",
+                DEFAULTS.get("huggingface", {}).get("trust_remote_code", False),
+            ),
+        )
+        p_config["max_new_tokens"] = int(
+            prompt_input(
+                "Max new tokens",
+                p_config.get(
+                    "max_new_tokens",
+                    DEFAULTS.get("huggingface", {}).get("max_new_tokens", 2048),
+                ),
+            )
+        )
+        p_config["temperature"] = float(
+            prompt_input(
+                "Temperature",
+                p_config.get(
+                    "temperature",
+                    DEFAULTS.get("huggingface", {}).get("temperature", 0.7),
+                ),
+            )
+        )
     else:
         p_config["api_key"] = prompt_input(
             "API Key", p_config.get("api_key"), secret=True
@@ -195,7 +212,7 @@ def configure_general(config: dict[str, Any]) -> None:
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
 
-    providers = ["google", "openai", "anthropic", "xai", "ollama", "vllm"]
+    providers = ["google", "openai", "anthropic", "xai", "huggingface", "mamba"]
     current_p = g_config.get("unified_default_provider", "google")
     print(f"Available providers: {', '.join(providers)}")
     g_config["unified_default_provider"] = prompt_input("Default Provider", current_p)
@@ -289,7 +306,7 @@ def configure_security(config: dict[str, Any]) -> None:
 
         current_ia_provider = s_config.get("intent_analyzer_provider", "google")
         s_config["intent_analyzer_provider"] = prompt_input(
-            "Verifier Provider (e.g., google, ollama)", current_ia_provider
+            "Verifier Provider (e.g., google, huggingface)", current_ia_provider
         )
 
         current_ia_model = s_config.get(
@@ -402,8 +419,7 @@ def main() -> None:
         configure_provider(config, "anthropic", "Anthropic Claude")
         configure_provider(config, "xai", "xAI Grok")
         configure_provider(config, "brave", "Brave Search")
-        configure_provider(config, "ollama", "Ollama (Local)")
-        configure_provider(config, "vllm", "vLLM")
+        configure_provider(config, "huggingface", "Hugging Face (Local)")
         configure_provider(config, "mamba", "Mamba (Local)")
 
         # General and Security

@@ -12,7 +12,7 @@ Detailed architectural insights and security analysis are available in the follo
 
 ---
 
-`llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Ollama or vLLM**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
+`llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **local LLMs via Hugging Face Transformers**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
 
 <p align="center">
   <img src="images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
@@ -20,6 +20,7 @@ Detailed architectural insights and security analysis are available in the follo
 
 ## TL;DR (Quick Start)
 - **Install**: `pip install .`
+- **Optional**: `pip install ".[huggingface]"` for local LLM support.
 - **Configure**: `llm-cli-config` (Set API keys).
 - **Chat**: `llm` (Agent mode is ON by default).
 - **One-shot**: `llm "Summarize this" file.pdf`.
@@ -28,8 +29,8 @@ Detailed architectural insights and security analysis are available in the follo
 
 ## Key Features
 
--   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, **Ollama**, and **vLLM** through a single `llm` command.
--   **Local LLM Support**: Use models locally without cloud API costs or privacy concerns.
+-   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, and **Hugging Face (Local)** through a single `llm` command.
+-   **Local LLM Support**: Use models locally via Hugging Face Transformers without external API servers, cloud costs or privacy concerns.
 -   **Autonomous Agent**: The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
 -   **Multimodal Input & Output**:
     -   **Input**: Manual (`/attach`) or autonomous (`read_pdf_from_url`, etc.) attachment of Images, PDFs, Audio, and Video.
@@ -102,7 +103,7 @@ proofread = "Proofread the following text for grammar and clarity:"
 Use them in chat: `> /t proofread`.
 
 ### 4. CLI Options
-- `-p, --provider <provider>`: Specify provider (`google`, `openai`, `anthropic`, `xai`, `ollama`, `vllm`).
+- `-p, --provider <provider>`: Specify provider (`google`, `openai`, `anthropic`, `xai`, `huggingface`).
 - `-m, --model <alias>`: Specify model alias (e.g., `pro`, `flash`, `mini`, `opus`).
 - `-s, --stdout`: Print response directly to stdout and exit.
 - `--mcp`: Enable MCP integration.
@@ -171,7 +172,7 @@ args = ["user@host", "python3", "-m", "llm_cli.apps.mcp_server"]
 ```
 
 ### 🐍 Mamba Agent (Experimental)
-A lightweight, local agent powered by the Mamba architecture. Supports **Mentor-Led Evolution** where it learns from critiques provided by a larger model (e.g., via Ollama).
+A lightweight, local agent powered by the Mamba architecture. Supports **Mentor-Led Evolution** where it learns from critiques provided by a larger model (e.g., via Hugging Face).
 
 ### 💡 Power User Tips
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
@@ -191,7 +192,7 @@ Licensed under [Apache License 2.0](LICENSE).
 - **[Zero-Trust Tool Orchestration: 非対称アイデンティティとDual-LLM意図解析](paper/zero-trust/llm_cli_zero_trust.pdf)**
 - **[Autonomous Guardrails: LLM-CLIのための多層防御セキュリティ](paper/guardrail/llm_cli_tech_report.pdf)**
 
-`llm-cli` は、Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), および **Ollama/vLLM を介したローカルLLM** を一元的に操作できるコマンドラインツールです。
+`llm-cli` は、Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), および **Hugging Face を介したローカルLLM** を一元的に操作できるコマンドラインツールです。
 
 <p align="center">
   <img src="images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
@@ -199,6 +200,7 @@ Licensed under [Apache License 2.0](LICENSE).
 
 ## クイックスタート
 - **インストール**: `pip install .`
+- **オプション**: `pip install ".[huggingface]"` (ローカルLLMサポート)
 - **初期設定**: `llm-cli-config` (APIキーの設定)
 - **チャット**: `llm` (デフォルトでエージェントモード有効)
 - **ワンショット**: `llm "要約して" file.pdf`
@@ -207,9 +209,10 @@ Licensed under [Apache License 2.0](LICENSE).
 
 ## 主な機能
 - **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLMとローカルLLMにアクセス。
+- **ローカルLLM対応**: Hugging Face Transformers を利用し、外部サーバー不要でローカルモデルを実行。
 - **自律型エージェント**: ファイル操作、シェル実行、Web検索、メディア添付を自律的に実行。
 - **マルチモーダル入出力**: 画像、PDF、音声、動画の入力をサポート。画像・動画生成も可能。
-- **MCP対応**: Model Context Protocol により、リモートサーバーの操作もローカル同様に可能。
+- **Distributed Agent via MCP**: Model Context Protocol により、リモートサーバーの操作もローカル同様に可能。
 - **URL解析**: WebサイトのURLを渡すだけで、内容をスクレイピングして解析。
 - **堅牢なセキュリティ**: PQC（耐量子暗号）署名、Zero-Trust、Dual-LLMによる意図解析。
 
@@ -313,7 +316,7 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 SSH経由のリモート開発や、Docker経由のGitHub連携などをサポート。
 
 ### 🐍 Mamba Agent (実験的)
-軽量なMambaアーキテクチャによるローカルエージェント。巨大モデルによる「添削（Mentor）」を通じたオンライン学習が可能。
+軽量なMambaアーキテクチャによるローカルエージェント。巨大モデル（Hugging Face等）による「添削（Mentor）」を通じたオンライン学習が可能。
 
 ### 💡 パワーユーザー向け
 - **バックグラウンド実行 (`Ctrl+Z`)**: 一時停止してシェルに戻り、`fg` で復帰。

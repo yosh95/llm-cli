@@ -82,6 +82,10 @@ client_registry.register(
 )
 client_registry.register("xai", "llm_cli.clients.grok", "GrokClient", "xai")
 client_registry.register("grok", "llm_cli.clients.grok", "GrokClient", "xai")
-client_registry.register("ollama", "llm_cli.clients.ollama", "OllamaClient", "ollama")
-client_registry.register("vllm", "llm_cli.clients.vllm", "VLLMClient", "vllm")
 client_registry.register("mamba", "llm_cli.clients.mamba", "MambaClient", "mamba")
+client_registry.register(
+    "huggingface", "llm_cli.clients.huggingface", "HuggingFaceClient", "huggingface"
+)
+client_registry.register(
+    "hf", "llm_cli.clients.huggingface", "HuggingFaceClient", "huggingface"
+)

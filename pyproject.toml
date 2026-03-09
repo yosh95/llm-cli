@@ -38,6 +38,12 @@ dev = [
 mamba = [
     "torch",
 ]
+huggingface = [
+    "transformers",
+    "accelerate",
+    "bitsandbytes",
+    "sentencepiece",
+]
 
 [project.scripts]
 llm-cli-config = "llm_cli.apps.configure:main"
@@ -47,8 +53,6 @@ gemini-models= "llm_cli.apps.gemini_models:main"
 openai-models = "llm_cli.apps.openai_models:main"
 claude-models = "llm_cli.apps.claude_models:main"
 grok-models = "llm_cli.apps.grok_models:main"
-ollama-models = "llm_cli.apps.ollama_models:main"
-vllm-models = "llm_cli.apps.vllm_models:main"
 
 [tool.setuptools]
 packages = ["llm_cli"]

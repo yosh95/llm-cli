@@ -85,8 +85,6 @@ def get_setting(key: str, section: str) -> Any | None:
             env_vars = ["OPENAI_API_KEY"]
         elif section == "xai":
             env_vars = ["XAI_API_KEY"]
-        elif section == "vllm":
-            env_vars = ["VLLM_API_KEY"]
         else:
             env_vars = [f"{section.upper()}_API_KEY"]
 
@@ -175,7 +173,7 @@ def get_all_model_aliases() -> dict[str, dict[str, str]]:
     """
     config = _load_config_from_file()
     all_aliases = {}
-    providers = ["google", "openai", "anthropic", "xai", "ollama", "vllm"]
+    providers = ["google", "openai", "anthropic", "xai", "huggingface", "mamba"]
     for provider in providers:
         all_aliases[provider] = config.get(provider, {}).get("models", {})
     return all_aliases

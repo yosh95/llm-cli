@@ -171,7 +171,7 @@ class MambaClient(BaseLlmClient):
         if model_path.exists():
             try:
                 self.model_instance.load_state_dict(
-                    torch.load(model_path, map_location=self.device)
+                    torch.load(model_path, map_location=self.device, weights_only=True)
                 )
                 console.print(
                     f"[green]Loaded Mamba model from {model_path} "

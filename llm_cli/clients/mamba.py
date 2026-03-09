@@ -84,6 +84,7 @@ class MambaClient(BaseLlmClient):
 
         # Teacher LLM for online learning/critique
         self.teacher_enabled = get_setting("teacher_enabled", "mamba") or False
+        self.teacher_verbose = get_setting("teacher_verbose", "mamba") or False
         self.teacher_client: BaseLlmClient | None = None
         if self.teacher_enabled:
             self._initialize_teacher()
@@ -447,11 +448,37 @@ class MambaClient(BaseLlmClient):
             if not res_text:
                 return True, "", ""
 
-            # Extract JSON more robustly
+            if self.teacher_verbose:
+                console.print("[dim cyan]Raw Mentor Response:[/dim cyan]")
+                console.print(res_text, style="dim", highlight=False)
+
+            # Try greedy extraction first (legacy/default behavior)
+            result = None
             json_match = re.search(r"\{.*\}", res_text, re.DOTALL)
             if json_match:
-                res_text = json_match.group(0)
+                try:
+                    result = json.loads(json_match.group(0))
+                except json.JSONDecodeError:
+                    # Fallback to non-greedy extraction if greedy fails
+                    # to handle cases where mentor prepends/appends JSON-like text
+                    non_greedy_matches = re.finditer(r"\{.*?\}", res_text, re.DOTALL)
+                    for m in non_greedy_matches:
+                        try:
+                            data = json.loads(m.group(0))
+                            if isinstance(data, dict) and "valid" in data:
+                                result = data
+                                break
+                        except json.JSONDecodeError:
+                            continue
 
+            if result:
+                return (
+                    bool(result.get("valid", True)),
+                    str(result.get("critique", "") or ""),
+                    str(result.get("correction", "") or ""),
+                )
+
+            # If no JSON block found or parsed, fallback to parsing whole response
             result = json.loads(res_text)
             return (
                 bool(result.get("valid", True)),
@@ -459,6 +486,10 @@ class MambaClient(BaseLlmClient):
                 str(result.get("correction", "") or ""),
             )
         except Exception as e:
+            if not self.teacher_verbose:
+                console.print(f"[red]Mentor review failed to parse JSON: {e}[/red]")
+                console.print("[dim]Raw Mentor Output:[/dim]")
+                console.print(res_text, style="dim", highlight=False)
             logger.error(f"Mentor review failed: {e}")
             return True, "", ""
 

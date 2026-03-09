@@ -128,6 +128,10 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
             p_config["teacher_model"] = prompt_input(
                 "Teacher Model Name", p_config.get("teacher_model")
             )
+            p_config["teacher_verbose"] = prompt_bool(
+                "Enable verbose Mentor output (for debugging)?",
+                p_config.get("teacher_verbose", False),
+            )
         p_config["online_lr"] = float(
             prompt_input("Online Learning Rate", p_config.get("online_lr", 1e-4))
         )

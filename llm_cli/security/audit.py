@@ -18,9 +18,11 @@ def log_audit(
     exit_code: int | None = None,
     error: str | None = None,
     context: dict[str, Any] | None = None,
+    reasoning_integrity_score: float | None = None,
 ) -> None:
     """
-    Enhanced structured audit logging with Chained Hashing for tamper evidence.
+    Enhanced structured audit logging with Chained Hashing and
+    Reasoning Integrity scoring.
     """
     path = AUDIT_LOG_PATH
     max_lines = int(get_setting("max_audit_log_lines", "general") or 10000)
@@ -51,6 +53,7 @@ def log_audit(
             "status": "SUCCESS" if not error else f"FAILED: {error}",
             "exit_code": exit_code,
             "prev_hash": prev_hash,
+            "reasoning_integrity": reasoning_integrity_score,
         }
 
         # Calculate hash of the current entry (excluding the hash itself and PQC sig)

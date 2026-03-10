@@ -115,6 +115,8 @@ class ToolRegistry:
                     except Exception:
                         pass
 
+                from llm_cli.security.integrity import current_integrity_score
+
                 log_audit(
                     tool_name=name,
                     args=kwargs,
@@ -122,15 +124,19 @@ class ToolRegistry:
                     exit_code=exit_code,
                     error=None,
                     context={"model": audit_model},
+                    reasoning_integrity_score=current_integrity_score,
                 )
                 return result
             except Exception as e:
+                from llm_cli.security.integrity import current_integrity_score
+
                 log_audit(
                     tool_name=name,
                     args=kwargs,
                     _output="",
                     error=str(e),
                     context={"model": audit_model},
+                    reasoning_integrity_score=current_integrity_score,
                 )
                 raise e
 

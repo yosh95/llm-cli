@@ -91,24 +91,19 @@ video = "grok-imagine-video"
 [brave]
 
 # =============================================================================
-# Hugging Face (Local LLMs)
+# Ollama (Local LLMs)
 # =============================================================================
-[huggingface]
-load_in_4bit = true
-trust_remote_code = false
-max_new_tokens = 2048
-temperature = 0.7
+[ollama]
+api_url = "http://localhost:11434/v1/chat/completions"
 
-[huggingface.models]
-default = "Qwen/Qwen3.5-0.8B"
+[ollama.models]
+default = "llama3.2:3b"
 
 # =============================================================================
-# Mamba (Local Distilled Model)
+# Reasoning Sentinel (Mamba-SSM Guard)
 # =============================================================================
-[mamba]
-d_model = 256
-n_layers = 8
-online_lr = 1e-4
-
-[mamba.models]
-default = "mamba-local"
+[sentinel]
+enabled = true
+mode = "collect"
+threshold_yellow = 3.5
+threshold_red = 5.0

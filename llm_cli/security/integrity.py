@@ -10,6 +10,107 @@ from llm_cli.consts import LLM_CLI_BASE_DIR
 
 logger = logging.getLogger(__name__)
 
+# Global state to track the latest reasoning integrity score for audit logging
+current_integrity_score: float | None = None
+
+
+class ReasoningSentinelManager:
+    """
+    Manages the MambaSentinel for real-time anomaly detection in AI reasoning.
+    Integrates with the audit log to provide 'Reasoning Integrity' scores.
+    """
+
+    def __init__(self, d_model: int = 128, n_layers: int = 2):
+
+        from llm_cli.clients.config import get_setting
+        from llm_cli.security.sentinel import MambaSentinel
+
+        # Load settings
+        self.enabled = get_setting("enabled", "sentinel")
+        if self.enabled is None:
+            self.enabled = True
+
+        mode = get_setting("mode", "sentinel") or "collect"
+        t_yellow = float(get_setting("threshold_yellow", "sentinel") or 3.5)
+        t_red = float(get_setting("threshold_red", "sentinel") or 5.0)
+
+        checkpoint_path = str(LLM_CLI_BASE_DIR / "sentinel_state.npz")
+        self.sentinel = MambaSentinel(
+            d_model=d_model,
+            n_layers=n_layers,
+            checkpoint_path=checkpoint_path,
+            mode=mode,
+            threshold_yellow=t_yellow,
+            threshold_red=t_red,
+        )
+        self.sentinel.load()
+        self.history_tokens: list[int] = []
+        self.max_history = 2048  # Increased history for better context
+        self.score_history: list[float] = []  # For Trust Trend visualization
+
+    def process_chunk(self, chunk: str) -> float:
+        """
+        Process a text chunk from the LLM stream.
+        Returns the average anomaly score for the chunk.
+        """
+        import numpy as np
+
+        global current_integrity_score
+
+        if not self.enabled or not chunk:
+            return 0.0
+
+        bytes_data = chunk.encode("utf-8")
+        scores: list[float] = []
+
+        for byte in bytes_data:
+            # Step the sentinel: it returns the score for THIS byte based
+            # on PREVIOUS logits, and then updates its internal logits
+            # for the NEXT byte.
+            score, _status = self.sentinel.step(byte)
+            scores.append(score)
+            self.history_tokens.append(byte)
+
+        # Truncate history if needed
+        if len(self.history_tokens) > self.max_history:
+            self.history_tokens = self.history_tokens[-self.max_history :]
+
+        avg_score = float(np.mean(scores)) if scores else 0.0
+        current_integrity_score = avg_score
+
+        # Track history for visualization
+        if scores:
+            self.score_history.append(avg_score)
+            if len(self.score_history) > 20:
+                self.score_history.pop(0)
+
+        return avg_score
+
+    def finalize_session(self, learn: bool | None = None) -> None:
+        """
+        Finalize the session, optionally performing online learning update.
+        """
+        import numpy as np
+
+        # Determine if we should learn based on mode or explicit override
+        if learn is None:
+            learn = self.sentinel.mode == "collect"
+
+        if learn and len(self.history_tokens) > 1:
+            # Perform online learning on the collected session history
+            # input: 0..N-1, target: 1..N
+            input_ids = np.array([self.history_tokens[:-1]], dtype=np.int32)
+            targets = np.array([self.history_tokens[1:]], dtype=np.int32)
+            self.sentinel.update(input_ids, targets)
+            self.sentinel.save()
+
+        # Reset session state for next turn
+        self.sentinel.reset_state()
+        # We keep history_tokens within max_history to allow cross-turn context,
+        # but for clean turns we might want to clear it.
+        # For Sentinel, cross-turn context is usually better.
+        # self.history_tokens = []
+
 
 class IntegrityVerifier:
     """

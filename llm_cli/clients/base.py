@@ -120,6 +120,7 @@ class BaseLlmClient(ABC):
         self.active_tools: list[str] = (
             initial_tools if initial_tools is not None else list(registry.tools.keys())
         )
+        self._session: Any = None
 
         if enable_mcp:
             self._init_mcp(initial_tools is None)
@@ -555,16 +556,15 @@ class BaseLlmClient(ABC):
             return "🌿"
         if "xai" in provider or "grok" in provider:
             return "🌌"
-        if "huggingface" in provider:
-            return "🤗"
-        if "mamba" in provider:
-            return "🐍"
+        if "ollama" in provider:
+            return "🦙"
         return "💡"
 
     def get_display_name(self) -> str:
-        """Get the formatted display name including icon and model path."""
+        """Get the formatted display name including icon and model alias."""
         icon = self.get_model_icon()
-        return f"{icon} ({self.model})"
+        name = self.current_alias if self.current_alias else self.model
+        return f"{icon} ({name})"
 
     def _format_response_text(self, text: str | None) -> str | None:
         if text is None:

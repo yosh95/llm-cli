@@ -340,6 +340,40 @@ def handle_command(
 
         info_table.add_row("History Length", f"{len(client.conversation)} messages")
 
+        session = getattr(client, "_session", None)
+        if session and hasattr(session, "sentinel"):
+            sentinel = session.sentinel
+            from llm_cli.security.integrity import current_integrity_score
+
+            if current_integrity_score is not None:
+                color = (
+                    "green"
+                    if current_integrity_score < 3.5
+                    else "yellow"
+                    if current_integrity_score < 5.0
+                    else "red"
+                )
+                info_table.add_row(
+                    "Reasoning Integrity",
+                    f"[{color}]{current_integrity_score:.4f}[/{color}] (Anomaly Score)",
+                )
+
+                # Trust Trend Visualization
+                if sentinel.score_history:
+                    trend_chars = []
+                    for s in sentinel.score_history:
+                        if s < 3.5:
+                            trend_chars.append("[green]█[/green]")
+                        elif s < 5.0:
+                            trend_chars.append("[yellow]█[/yellow]")
+                        else:
+                            trend_chars.append("[red]█[/red]")
+                    info_table.add_row("Trust Trend", "".join(trend_chars))
+            else:
+                info_table.add_row(
+                    "Reasoning Integrity", "[dim]N/A (No reasoning analyzed)[/dim]"
+                )
+
         if client.last_usage:
             usage_str = ", ".join(f"{k}: {v}" for k, v in client.last_usage.items())
             info_table.add_row("Last Usage", f"[yellow]{usage_str}[/yellow]")

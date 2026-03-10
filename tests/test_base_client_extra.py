@@ -145,16 +145,15 @@ class TestBaseClientExtra:
         assert client.get_model_icon() == "🌿"
         client.config_section = "grok"
         assert client.get_model_icon() == "🌌"
-        client.config_section = "huggingface"
-        assert client.get_model_icon() == "🤗"
-        client.config_section = "mamba"
-        assert client.get_model_icon() == "🐍"
+        client.config_section = "ollama"
+        assert client.get_model_icon() == "🦙"
         client.config_section = "other"
         assert client.get_model_icon() == "💡"
 
     def test_format_response_text(self, client: BaseLlmClient) -> None:
         """Test response text formatting."""
         client.model = "gpt-4"
+        client.current_alias = "gpt-4"
         client.config_section = "openai"
         text = client._format_response_text(" hello ")
         assert text is not None

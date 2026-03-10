@@ -116,62 +116,18 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
 
     p_config = config.setdefault(provider, {})
 
-    if provider == "mamba":
-        p_config["teacher_enabled"] = prompt_bool(
-            "Enable Mentor/Teacher mode?", p_config.get("teacher_enabled", False)
-        )
-        if p_config["teacher_enabled"]:
-            p_config["teacher_provider"] = prompt_input(
-                "Teacher Provider (huggingface)",
-                p_config.get("teacher_provider", "huggingface"),
-            )
-            p_config["teacher_model"] = prompt_input(
-                "Teacher Model Name", p_config.get("teacher_model")
-            )
-            p_config["teacher_verbose"] = prompt_bool(
-                "Enable verbose Mentor output (for debugging)?",
-                p_config.get("teacher_verbose", False),
-            )
-        p_config["online_lr"] = float(
-            prompt_input("Online Learning Rate", p_config.get("online_lr", 1e-4))
-        )
-    elif provider == "brave":
+    if provider == "brave":
         p_config["api_key"] = prompt_input(
             "API Key", p_config.get("api_key"), secret=True
         )
         return  # Brave only needs API Key
-    elif provider == "huggingface":
-        p_config["load_in_4bit"] = prompt_bool(
-            "Enable 4-bit quantization (bitsandbytes)?",
-            p_config.get(
-                "load_in_4bit",
-                DEFAULTS.get("huggingface", {}).get("load_in_4bit", True),
-            ),
+    elif provider == "ollama":
+        p_config["api_url"] = prompt_input(
+            "Ollama API URL",
+            p_config.get("api_url", "http://localhost:11434/v1/chat/completions"),
         )
-        p_config["trust_remote_code"] = prompt_bool(
-            "Trust remote code?",
-            p_config.get(
-                "trust_remote_code",
-                DEFAULTS.get("huggingface", {}).get("trust_remote_code", False),
-            ),
-        )
-        p_config["max_new_tokens"] = int(
-            prompt_input(
-                "Max new tokens",
-                p_config.get(
-                    "max_new_tokens",
-                    DEFAULTS.get("huggingface", {}).get("max_new_tokens", 2048),
-                ),
-            )
-        )
-        p_config["temperature"] = float(
-            prompt_input(
-                "Temperature",
-                p_config.get(
-                    "temperature",
-                    DEFAULTS.get("huggingface", {}).get("temperature", 0.7),
-                ),
-            )
+        p_config["api_key"] = prompt_input(
+            "API Key (optional)", p_config.get("api_key"), secret=True
         )
     else:
         p_config["api_key"] = prompt_input(
@@ -216,7 +172,7 @@ def configure_general(config: dict[str, Any]) -> None:
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
 
-    providers = ["google", "openai", "anthropic", "xai", "huggingface", "mamba"]
+    providers = ["google", "openai", "anthropic", "xai", "ollama"]
     current_p = g_config.get("unified_default_provider", "google")
     print(f"Available providers: {', '.join(providers)}")
     g_config["unified_default_provider"] = prompt_input("Default Provider", current_p)
@@ -407,6 +363,33 @@ def mask_secrets(data: Any) -> Any:
     return data
 
 
+def configure_sentinel(config: dict[str, Any]) -> None:
+    """Configures the Reasoning Sentinel settings."""
+    print("\n--- Reasoning Sentinel (Mamba-SSM Guard) ---")
+    s_config = config.setdefault("sentinel", {})
+
+    s_config["enabled"] = prompt_bool(
+        "Enable Reasoning Sentinel monitoring?", s_config.get("enabled", True)
+    )
+
+    if s_config["enabled"]:
+        s_config["mode"] = prompt_input(
+            "Sentinel Mode (detect/collect)", s_config.get("mode", "collect")
+        )
+        s_config["threshold_yellow"] = float(
+            prompt_input(
+                "Yellow Anomaly Threshold (Entropy)",
+                s_config.get("threshold_yellow", 3.5),
+            )
+        )
+        s_config["threshold_red"] = float(
+            prompt_input(
+                "Red Anomaly Threshold (Entropy)",
+                s_config.get("threshold_red", 5.0),
+            )
+        )
+
+
 def main() -> None:
     try:
         print("========================================")
@@ -423,12 +406,12 @@ def main() -> None:
         configure_provider(config, "anthropic", "Anthropic Claude")
         configure_provider(config, "xai", "xAI Grok")
         configure_provider(config, "brave", "Brave Search")
-        configure_provider(config, "huggingface", "Hugging Face (Local)")
-        configure_provider(config, "mamba", "Mamba (Local)")
+        configure_provider(config, "ollama", "Ollama (Local)")
 
         # General and Security
         configure_general(config)
         configure_security(config)
+        configure_sentinel(config)
         configure_mcp(config)
 
         print("\nSummary of changes:")

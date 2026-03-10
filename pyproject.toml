@@ -20,6 +20,7 @@ dependencies = [
     "PyJWT[crypto]",
     "cryptography>=46.0.0",
     "dilithium-py",
+    "numpy",
 ]
 
 [project.optional-dependencies]
@@ -34,15 +35,6 @@ test = [
 dev = [
     "mypy",
     "ruff",
-]
-mamba = [
-    "torch",
-]
-huggingface = [
-    "transformers",
-    "accelerate",
-    "bitsandbytes",
-    "sentencepiece",
 ]
 
 [project.scripts]

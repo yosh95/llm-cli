@@ -32,6 +32,7 @@ from llm_cli.clients.exceptions import (
 )
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
+from llm_cli.security.integrity import ReasoningSentinelManager
 
 kb = KeyBindings()
 kb_exit = KeyBindings()
@@ -92,6 +93,8 @@ class ChatSession:
 
     def __init__(self, client: BaseLlmClient) -> None:
         self.client = client
+        # Attach session to client so commands can access it
+        self.client._session = self
         self.history_path = client.history_path
 
         self.prompt_history: Any
@@ -103,6 +106,7 @@ class ChatSession:
 
         self.prompt_session: PromptSession = PromptSession(history=self.prompt_history)
         self.completer = LlmCliCompleter(client)
+        self.sentinel = ReasoningSentinelManager()
 
     def _print_block(
         self, renderable: Any, title: str | None = None, style: str | None = None
@@ -216,6 +220,22 @@ class ChatSession:
             # Response is now expected to be a tuple ((text, thought), usage)
             response_tuple, usage = res if res else ((None, None), None)
             response_text, thought_text = response_tuple
+
+            # --- Reasoning Sentinel Integration ---
+            score_t = self.sentinel.process_chunk(thought_text) if thought_text else 0.0
+            score_r = (
+                self.sentinel.process_chunk(response_text) if response_text else 0.0
+            )
+            # Average score for the turn
+            self.last_integrity_score = (
+                (score_t + score_r) / 2.0
+                if thought_text and response_text
+                else (score_t or score_r)
+            )
+
+            # Finalize turn for the sentinel
+            # (triggers online learning if in collect mode)
+            self.sentinel.finalize_session()
 
             if usage:
                 self.client.last_usage = usage

@@ -236,9 +236,10 @@ class MambaNumpy:
 
         for t in range(L):
             dt = delta[:, t, :, None]
-            # Clip exponent input to prevent numerical explosion
-            # -20 to 20 range is generally safe for exp()
-            exponent = np.clip(dt * A[None, :, :], -20.0, 20.0)
+            # Clip only the real part of the exponent to prevent numerical explosion
+            exponent = dt * A[None, :, :]
+            exponent_real = np.clip(exponent.real, -20.0, 20.0)
+            exponent = exponent_real + 1j * exponent.imag
             alpha = np.exp(exponent).astype(np.complex128)
             current_Bx = (x[:, t, :, None] * B[:, t, None, :]).astype(np.complex128)
 
@@ -329,7 +330,11 @@ class MambaNumpy:
         B = B_re + 1j * B_im
         C = C_re + 1j * C_im
 
-        alpha = np.exp(delta[..., None] * A[None, :, :])
+        # Clip exponent for numerical stability
+        exponent = delta[..., None] * A[None, :, :]
+        exponent_real = np.clip(exponent.real, -20.0, 20.0)
+        alpha = np.exp(exponent_real + 1j * exponent.imag)
+
         current_Bx = x_conv[..., None] * B[..., None, :]
 
         if ssm_state is None:

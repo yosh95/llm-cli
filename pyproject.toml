@@ -44,6 +44,7 @@ llm = "llm_cli.apps.unified:main"
 gemini-models= "llm_cli.apps.gemini_models:main"
 openai-models = "llm_cli.apps.openai_models:main"
 claude-models = "llm_cli.apps.claude_models:main"
+ollama-models = "llm_cli.apps.ollama_models:main"
 grok-models = "llm_cli.apps.grok_models:main"
 
 [tool.setuptools]
@@ -83,12 +84,6 @@ ignore = ["E203"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501", "ARG001"]
-
-[tool.coverage.run]
-omit = [
-    "llm_cli/mamba_core/*",
-    "llm_cli/clients/mamba.py",
-]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

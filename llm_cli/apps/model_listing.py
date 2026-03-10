@@ -69,7 +69,7 @@ def list_models(config: ModelListingConfig) -> None:
     """
     # Get API key
     api_key = get_setting(config.api_key_setting, config.config_section)
-    if api_key is None:
+    if api_key is None and config.config_section not in ("ollama", "mamba"):
         console.print(f"[red]{config.provider_name} API Key not found in config.[/red]")
         console.print("[yellow]Please run 'llm-cli-config' to set it up.[/yellow]")
         sys.exit(1)
@@ -81,13 +81,13 @@ def list_models(config: ModelListingConfig) -> None:
 
     # Build URL
     if config.build_url:
-        api_url = config.build_url(config.api_url, api_key)
+        api_url = config.build_url(config.api_url, api_key or "")
     else:
         api_url = config.api_url
 
     # Build headers
     if config.build_headers:
-        headers = config.build_headers(api_key)
+        headers = config.build_headers(api_key or "")
     else:
         headers = {}
     headers["Connection"] = "close"

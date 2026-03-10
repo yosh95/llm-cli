@@ -161,6 +161,16 @@ class TestBaseClientExtra:
         assert "hello" in text
         assert client._format_response_text(None) is None
 
+    def test_format_response_text_ollama(self, client: BaseLlmClient) -> None:
+        """Test response text formatting for Ollama uses model name instead of alias."""
+        client.model = "llama3.2:3b"
+        client.current_alias = "llama"
+        client.config_section = "ollama"
+        text = client._format_response_text(" hello ")
+        assert text is not None
+        assert "**🦙 (llama3.2:3b):**" in text
+        assert "hello" in text
+
     def test_init_mcp(self, client: BaseLlmClient) -> None:
         """Test MCP initialization."""
         # Mock sys.modules to simulate import

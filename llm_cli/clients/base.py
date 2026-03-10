@@ -563,7 +563,11 @@ class BaseLlmClient(ABC):
     def get_display_name(self) -> str:
         """Get the formatted display name including icon and model alias."""
         icon = self.get_model_icon()
-        name = self.current_alias if self.current_alias else self.model
+        # For Ollama, the user wants the actual model name displayed
+        if "ollama" in self.config_section.lower():
+            name = self.model
+        else:
+            name = self.current_alias if self.current_alias else self.model
         return f"{icon} ({name})"
 
     def _format_response_text(self, text: str | None) -> str | None:

@@ -156,6 +156,11 @@ Uses a secondary, lightweight LLM (Verifier) to audit the actions of the main ag
 - **Human-in-the-Loop**: All destructive actions **must be approved by a human**.
 - **Limits**: Default 300s timeout, 1GB memory limit, and 10,000 character output truncation.
 
+### 🔑 Role-Based Access Control (RBAC)
+- **Roles**: Tools can be restricted based on assigned roles (e.g., `admin`, `user`).
+- **Configuration**: You can define default roles via `llm-cli-config`.
+- **Note**: If `admin` is not included in the default roles, some powerful tools (like `create_or_overwrite_file`) may be restricted.
+
 ## Advanced Features
 
 ### 🔌 Plugin Architecture: Adding New Tools
@@ -317,6 +322,11 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 - **ホワイトリスト**: `ls`, `cat` 等の安全なコマンドのみ許可。
 - **Human-in-the-Loop**: すべての書き込み・実行操作は**人間の承認が必要**。
 - **リソース制限**: メモリ1GB、タイムアウト300秒の制限。
+
+### 🔑 ロールベースアクセス制御 (RBAC)
+- **ロール**: 各ツールは割り当てられたロール（`admin`, `user`など）に基づいて制限されます。
+- **設定**: `llm-cli-config` を通じて、デフォルトロールを設定可能です。
+- **注意**: デフォルトロールに `admin` が含まれていない場合、一部の強力なツール（`create_or_overwrite_file` など）が制限されることがあります。
 
 ## アドバンスド機能
 

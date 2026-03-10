@@ -12,6 +12,7 @@ import tomli_w
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import PathCompleter
 from prompt_toolkit.shortcuts import CompleteStyle
+from rich import print
 
 from llm_cli.consts import CONFIG_DIR, CONFIG_FILE_PATH
 
@@ -229,6 +230,19 @@ def configure_security(config: dict[str, Any]) -> None:
         "Missing Token Policy (guest/deny)",
         s_config.get("missing_token_policy", "guest"),
     )
+
+    # Configure Default Roles
+    current_roles = s_config.get("default_roles", [])
+    if not current_roles:
+        current_roles = DEFAULTS.get("security", {}).get("default_roles", ["user"])
+    print(f"Current default roles: {current_roles}")
+    print(
+        "[yellow]Warning: If 'admin' is not included in the roles, "
+        "some sensitive tools may be restricted.[/yellow]"
+    )
+    if prompt_bool("Modify default roles?", False):
+        new_roles = prompt_list("Default Roles (e.g. 'admin, user')", current_roles)
+        s_config["default_roles"] = new_roles
 
     # Dangerous Patterns & Sensitive Paths
     print("\nAdvanced Security (USE WITH CAUTION):")

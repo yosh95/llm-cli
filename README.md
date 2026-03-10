@@ -57,8 +57,6 @@ Ensure you have Python 3.11 or newer.
 git clone https://github.com/yosh95/llm-cli.git
 cd llm-cli
 pip install .
-# Optional: Install Mamba support (Experimental)
-pip install ".[mamba]"
 ```
 
 ### 2. Configuration
@@ -103,20 +101,26 @@ proofread = "Proofread the following text for grammar and clarity:"
 Use them in chat: `> /t proofread`.
 
 ### 4. CLI Options
-- `-p, --provider <provider>`: Specify provider (`google`, `openai`, `anthropic`, `xai`, `huggingface`).
+- `-p, --provider <provider>`: Specify provider (`google`, `openai`, `anthropic`, `xai`, `ollama`).
 - `-m, --model <alias>`: Specify model alias (e.g., `pro`, `flash`, `mini`, `opus`).
 - `-s, --stdout`: Print response directly to stdout and exit.
+- `--raw`: Disable Markdown rendering in output.
 - `--mcp`: Enable MCP integration.
+- `--mcp-server`: Run as an MCP server.
 - `--session <path>`: Load a saved session JSON.
 
 ### 5. In-Chat Commands
 - `/p`, `/m`: Switch provider/model.
-- `/t`: Insert a template.
-- `/i`: Show session info.
+- `/t <template>`: Insert a template.
+- `/i`: Show session info & Reasoning Integrity scores.
 - `/cp`: Checkpoint (Summarize and clear history).
-- `/attach <path>`: Manually attach a file.
+- `/attach <path>`: Manually attach a file/URL.
 - `/save` / `/load`: Manage conversation history.
-- `/q`: Exit. (Or use **Ctrl+C** / **Ctrl+D** anytime).
+- `/tools on|off`: Toggle tool execution.
+- `/debug`: Toggle live debug mode.
+- `/reload`: Reload configuration from disk.
+- `/clear`: Clear conversation history.
+- `/q` / `/quit`: Exit. (Or use **Ctrl+C** / **Ctrl+D** anytime).
 
 ## Built-in Tools
 
@@ -171,8 +175,8 @@ command = "ssh"
 args = ["user@host", "python3", "-m", "llm_cli.apps.mcp_server"]
 ```
 
-### 🐍 Mamba Agent (Experimental)
-A lightweight, local agent powered by the Mamba architecture. Supports **Mentor-Led Evolution** where it learns from critiques provided by a larger model (e.g., via Hugging Face).
+### 🧠 Reasoning Integrity & Sentinel Updates
+The built-in Reasoning Sentinel (SSM) continuously learns from verified reasoning patterns. It provides real-time protection against semantic shifts and prompt injection without external dependencies.
 
 ### 💡 Power User Tips
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
@@ -232,8 +236,6 @@ Python 3.11以上が必要です。
 git clone https://github.com/yosh95/llm-cli.git
 cd llm-cli
 pip install .
-# オプション: Mambaサポート（実験的）
-pip install ".[mamba]"
 ```
 
 ### 2. APIキーの設定
@@ -268,17 +270,26 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 `config.toml` に定義したテンプレートを `/t` で呼び出せます。
 
 ### 4. コマンドラインオプション
-- `-p, --provider`: プロバイダ指定。
+- `-p, --provider`: プロバイダ指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`)。
 - `-m, --model`: モデル指定。
 - `-s, --stdout`: 結果を標準出力に表示して終了。
+- `--raw`: 出力のMarkdownレンダリングを無効化。
 - `--mcp`: MCP統合を有効化。
+- `--mcp-server`: MCPサーバーとして実行。
+- `--session <path>`: 保存されたセッションJSONを読み込み。
 
 ### 5. チャット内コマンド
 - `/p`, `/m`: プロバイダ/モデル切り替え。
-- `/t`: テンプレート挿入。
+- `/t <template>`: テンプレート挿入。
+- `/i`: セッション情報と Reasoning Integrity（推論整合性）スコアの表示。
 - `/cp`: チェックポイント（履歴要約とクリア）。
-- `/attach <path>`: ファイル添付。
-- `/q`: 終了（**Ctrl+C** / **Ctrl+D** も可）。
+- `/attach <path>`: ファイルまたはURLの添付。
+- `/save` / `/load`: 会話履歴の保存と読み込み。
+- `/tools on|off`: ツールの有効/無効切り替え。
+- `/debug`: デバッグモードの切り替え。
+- `/reload`: 設定ファイルの再読み込み。
+- `/clear`: 会話履歴のクリア。
+- `/q` / `/quit`: 終了（**Ctrl+C** / **Ctrl+D** も可）。
 
 ## 組み込みツール一覧
 | ツール | 説明 |
@@ -315,8 +326,8 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 ### 🌐 MCP (Model Context Protocol)
 SSH経由のリモート開発や、Docker経由のGitHub連携などをサポート。
 
-### 🐍 Mamba Agent (実験的)
-軽量なMambaアーキテクチャによるローカルエージェント。巨大モデル（Hugging Face等）による「添削（Mentor）」を通じたオンライン学習が可能。
+### 🧠 Reasoning Integrity と Sentinel の学習
+組み込みの Reasoning Sentinel (SSM) は、検証された推論パターンから継続的に学習します。外部依存なしで、意味の乖離やプロンプト注入に対するリアルタイムの保護を提供します。
 
 ### 💡 パワーユーザー向け
 - **バックグラウンド実行 (`Ctrl+Z`)**: 一時停止してシェルに戻り、`fg` で復帰。

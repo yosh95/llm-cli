@@ -195,7 +195,7 @@ def execute_tool_call(
         if len(p_str) > max_len:
             original_len = len(p_str)
             p_str = p_str[:max_len] + (
-                f"\n... (Output truncated by system safety limit. "
+                f"\n\n... (Output truncated by system safety limit. "
                 f"Shown {max_len} of {original_len} characters. "
                 "Use tool parameters (e.g., start_line, start_offset) "
                 "to read the rest.)"

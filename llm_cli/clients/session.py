@@ -75,11 +75,9 @@ def _(event: Any) -> None:
             with tf_path.open(encoding="utf-8") as f:
                 new_text = f.read()
                 buffer.text = new_text
+            buffer.validate_and_handle()
         else:
             # Editor exited with error/abort status (e.g. :cq in vim)
-            console.print(
-                "\n[yellow]Editor aborted. Restoring previous text...[/yellow]"
-            )
             buffer.text = original_text
     except Exception as e:
         console.print(f"\n[red]Failed to open editor: {e}[/red]")

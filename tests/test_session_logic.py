@@ -110,7 +110,18 @@ class TestChatSession:
     # ... (other tests)
 
     def test_execute_tool_call_no_approval(self, session):
-        with patch("llm_cli.clients.tool_executor.registry") as mock_registry:
+        def mock_get_setting(key, section):
+            if key == "default_roles":
+                return ["admin"]
+            return None
+
+        with (
+            patch("llm_cli.clients.tool_executor.registry") as mock_registry,
+            patch(
+                "llm_cli.clients.tool_executor.get_setting",
+                side_effect=mock_get_setting,
+            ),
+        ):
             mock_tool_func = MagicMock(return_value="Tool Result")
             tool_entry = {
                 "skip_approval": True,
@@ -132,7 +143,18 @@ class TestChatSession:
             assert res_part.function_response["response"]["result"] == "Tool Result"
 
     def test_execute_tool_call_with_approval_granted(self, session):
-        with patch("llm_cli.clients.tool_executor.registry") as mock_registry:
+        def mock_get_setting(key, section):
+            if key == "default_roles":
+                return ["admin"]
+            return None
+
+        with (
+            patch("llm_cli.clients.tool_executor.registry") as mock_registry,
+            patch(
+                "llm_cli.clients.tool_executor.get_setting",
+                side_effect=mock_get_setting,
+            ),
+        ):
             mock_tool_func = MagicMock(return_value="Tool Result")
             tool_entry = {
                 "skip_approval": False,
@@ -155,7 +177,18 @@ class TestChatSession:
                 assert res_part.function_response["response"]["result"] == "Tool Result"
 
     def test_execute_tool_call_with_approval_denied(self, session):
-        with patch("llm_cli.clients.tool_executor.registry") as mock_registry:
+        def mock_get_setting(key, section):
+            if key == "default_roles":
+                return ["admin"]
+            return None
+
+        with (
+            patch("llm_cli.clients.tool_executor.registry") as mock_registry,
+            patch(
+                "llm_cli.clients.tool_executor.get_setting",
+                side_effect=mock_get_setting,
+            ),
+        ):
             tool_entry = {
                 "skip_approval": False,
                 "func": MagicMock(),

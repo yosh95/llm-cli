@@ -11,7 +11,7 @@ max_output_length = 10000
 # =============================================================================
 [security]
 # Default roles for local session tools. Note: Policy engine still evaluates these.
-default_roles = ["admin"]
+default_roles = ["user"]
 default_user_id = "current_user"
 
 # Path-based access control (Whitelist/Blacklist)

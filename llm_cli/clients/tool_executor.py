@@ -52,7 +52,7 @@ def execute_tool_call(
     # Evaluate policy (includes Role-Based check and Intent Analysis)
     context = {
         "user_id": get_setting("default_user_id", "security") or "current_user",
-        "roles": get_setting("default_roles", "security") or ["admin"],
+        "roles": get_setting("default_roles", "security") or ["user"],
         "user_prompt": user_prompt,
     }
 

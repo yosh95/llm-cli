@@ -227,7 +227,8 @@ class MambaNumpy:
         bs, L, d_inner = x.shape
         d_state = self.config.d_state
 
-        h = np.zeros((bs, d_inner, d_state), dtype=np.complex64)
+        # Use float128/complex128 for better numerical stability during scan
+        h = np.zeros((bs, d_inner, d_state), dtype=np.complex128)
         prev_Bx = np.zeros_like(h)
 
         hs, prev_Bxs, alphas, betas, gammas, current_Bxs = [], [], [], [], [], []
@@ -235,8 +236,11 @@ class MambaNumpy:
 
         for t in range(L):
             dt = delta[:, t, :, None]
-            alpha = np.exp(dt * A[None, :, :])
-            current_Bx = x[:, t, :, None] * B[:, t, None, :]
+            # Clip exponent input to prevent numerical explosion
+            # -20 to 20 range is generally safe for exp()
+            exponent = np.clip(dt * A[None, :, :], -20.0, 20.0)
+            alpha = np.exp(exponent).astype(np.complex128)
+            current_Bx = (x[:, t, :, None] * B[:, t, None, :]).astype(np.complex128)
 
             l_gate = lambda_gate[:, t, :, None]
             e_gate = evo_gate[:, t, :, None]

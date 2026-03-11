@@ -200,6 +200,18 @@ class ChatSession:
                 console.print(f"[bold red]Error: {e}[/bold red]")
                 data = []
 
+        # At the end of the session, perform External Anchoring of the Audit Chain
+        try:
+            from llm_cli.security.pqc import AuditAnchoring
+
+            anchor_root = AuditAnchoring.create_external_anchor()
+            if anchor_root:
+                console.print(
+                    f"[dim]🔗 [Post-Quantum Anchor] Merkle Root: {anchor_root}[/dim]"
+                )
+        except Exception:
+            pass
+
     def process_and_print(self, data: list[DataSource]) -> None:
         self._log_chat(data, role="User")
 
@@ -251,6 +263,34 @@ class ChatSession:
 
             # Display the response
             if response_text:
+                # --- Bi-directional Verification (PQC) ---
+                try:
+                    from llm_cli.security.identity import IdentityManager
+                    from llm_cli.security.pqc import ResponseSigner
+
+                    # We use the trace_id as a base verification ID
+                    # or the last hash of the audit log if available.
+                    verification_id = "initial"
+                    if (
+                        self.client.conversation
+                        and self.client.conversation[-1].role == Role.TOOL
+                    ):
+                        last_part = self.client.conversation[-1].parts[0]
+                        if isinstance(last_part, ContentPart):
+                            fr = last_part.function_response
+                            if isinstance(fr, dict):
+                                verification_id = fr.get("id", "root")
+
+                    pqc_priv = IdentityManager._get_pqc_private_key_content()
+                    signed_res = ResponseSigner.sign_response(
+                        response_text, verification_id, pqc_priv
+                    )
+                    # The signature is stored in the background for audit/verification
+                    # In a real UI, this could be displayed as a 'Verified' badge.
+                    self.last_response_signature = signed_res["pqc_signature"]
+                except Exception:
+                    pass
+
                 if self.client.stdout:
                     print(response_text)
                 else:

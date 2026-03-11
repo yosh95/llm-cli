@@ -1,6 +1,7 @@
 # llm_cli/clients/tool_executor.py
 
 import difflib
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -13,6 +14,8 @@ from llm_cli.modules.tool_registry import registry
 
 if TYPE_CHECKING:
     from llm_cli.clients.session import ChatSession
+
+logger = logging.getLogger(__name__)
 
 
 def execute_tool_call(
@@ -185,6 +188,41 @@ def execute_tool_call(
                 )
             elif isinstance(injected_data, DataSource):
                 injected = injected_data
+
+        # --- Signature Stripping & Verification ---
+        if isinstance(result_data, dict) and "pqc_signature" in result_data:
+            from llm_cli.security.identity import IdentityManager
+            from llm_cli.security.pqc import PQCProvider
+
+            sig_b64 = result_data.get("pqc_signature", "")
+            v_id = result_data.get("verification_id", "unknown")
+            # The actual content is usually in "result" or similar
+            content_to_verify = str(result_data.get("result", result_data))
+
+            try:
+                import base64
+
+                pqc_pub = IdentityManager._get_pqc_public_key_content()
+                sig = base64.urlsafe_b64decode(str(sig_b64) + "==")
+                message = f"{v_id}:{content_to_verify}".encode()
+
+                if PQCProvider.verify(message, sig, pqc_pub):
+                    session._print_block(
+                        f"[bold green]✓ PQC Signature Verified[/bold green] "
+                        f"(ID: {v_id})",
+                        style="green",
+                    )
+                    # Strip the signature and metadata before passing to LLM
+                    # to maintain context efficiency.
+                    result_data = content_to_verify
+                else:
+                    session._print_block(
+                        f"[bold red]❌ PQC Signature Verification Failed[/bold red] "
+                        f"(ID: {v_id})",
+                        style="red",
+                    )
+            except Exception as e:
+                logger.warning(f"Signature verification error: {e}")
 
         p_str = str(result_data)
         max_len = int(get_setting("max_output_length", "general") or 10000)

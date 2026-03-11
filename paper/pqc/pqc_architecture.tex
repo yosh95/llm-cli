@@ -11,6 +11,7 @@
 
     % --- Column 0: Agent Orchestrator ---
     \node [block] (llm) {\textbf{LLM Engine} \\ (Reasoning Trace)};
+    \node [action, right=of llm, xshift=-1cm, scale=0.8, fill=orange!10] (sentinel) {Reasoning Sentinel \\ (Mamba Anomaly)};
     \node [block, below=of llm] (agent) {Agent Orchestrator \\ (llm-cli)};
     \node [data, left=of agent] (pqc_id) {\textbf{ML-DSA-65 ID} \\ Private Key};
 
@@ -30,7 +31,8 @@
     \node [data] (clean_result) at (stripper |- llm) {Sanitized Context \\ for Reasoning};
 
     % Paths
-    \path [line] (llm) -- (agent);
+    \path [line] (llm) -- (sentinel);
+    \path [line] (sentinel) -- (agent);
     \path [line] (agent) -- (payload);
     \path [line] (pqc_id) -- (agent);
     \path [line] (payload) -- (signer);
@@ -44,7 +46,7 @@
     \path [line] (clean_result) -- (llm);
     
     % Grouping boxes
-    \node [draw, dashed, thick, blue!50, fit=(llm) (agent) (pqc_id) (stripper) (clean_result), inner sep=0.5cm, label=above:Agent Trusted Execution Boundary] (agent_env) {};
+    \node [draw, dashed, thick, blue!50, fit=(llm) (agent) (pqc_id) (stripper) (clean_result) (sentinel), inner sep=0.5cm, label=above:Agent Trusted Execution Boundary] (agent_env) {};
     \node [draw, dashed, thick, red!50, fit=(mcp_server) (pdp) (verifier) (tool_result), inner sep=0.6cm, label=below:Target MCP Resource (Untrusted)] (mcp_env) {};
 
     % Highlighting

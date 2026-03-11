@@ -151,10 +151,12 @@ class AuditAnchoring:
             return "0" * 64
 
         # 1. Generate leaves (hash of each entry)
-        hashes = [
-            hashlib.sha256(json.dumps(e, sort_keys=True).encode()).hexdigest()
-            for e in log_entries
-        ]
+        hashes = []
+        for e in log_entries:
+            # Canonicalize entry for hashing
+            entry_to_hash = {k: v for k, v in e.items() if k != "pqc_signature"}
+            entry_str = json.dumps(entry_to_hash, sort_keys=True)
+            hashes.append(hashlib.sha256(entry_str.encode()).hexdigest())
 
         # 2. Build the tree level by level
         while len(hashes) > 1:
@@ -168,6 +170,36 @@ class AuditAnchoring:
             hashes = new_level
 
         return hashes[0]
+
+    @classmethod
+    def create_external_anchor(cls) -> str | None:
+        """
+        Performs the anchoring process: reads the audit log, generates Merkle Root,
+        and provides it as an immutable anchor.
+        """
+        from llm_cli.consts import AUDIT_LOG_PATH
+
+        if not AUDIT_LOG_PATH.exists():
+            return None
+
+        entries = []
+        with AUDIT_LOG_PATH.open("r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entries.append(json.loads(line))
+                except Exception:
+                    continue
+
+        if not entries:
+            return None
+
+        root = cls.generate_anchor_root(entries)
+
+        # In a production system, this root would be sent to a Blockchain or
+        # a Managed Immutable Log Service.
+        # For this implementation, we log it as a 'Security Anchor Point'.
+        logger.info(f"🔗 [POST-QUANTUM ANCHOR] Merkle Root: {root}")
+        return root
 
 
 class HybridSigner:

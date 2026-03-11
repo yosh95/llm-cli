@@ -11,8 +11,8 @@
 
     % --- Column 0: Agent Orchestrator ---
     \node [block] (llm) {\textbf{LLM Engine} \\ (Reasoning Trace)};
-    \node [action, right=of llm, xshift=-1cm, scale=0.8, fill=orange!10] (sentinel) {Reasoning Sentinel \\ (Mamba Anomaly)};
-    \node [block, below=of llm] (agent) {Agent Orchestrator \\ (llm-cli)};
+    \node [action, below=0.5cm of llm, scale=0.8, fill=orange!10] (sentinel) {Reasoning Sentinel \\ (Mamba Anomaly)};
+    \node [block, below=0.5cm of sentinel] (agent) {Agent Orchestrator \\ (llm-cli)};
     \node [data, left=of agent] (pqc_id) {\textbf{ML-DSA-65 ID} \\ Private Key};
 
     % --- Column 1: Outgoing ---

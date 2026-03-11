@@ -2,17 +2,23 @@
 
 import logging
 import os
+from typing import Any
 
 try:
     import resource
 except ImportError:
     resource = None  # type: ignore
 
+try:
+    import psutil
+except ImportError:
+    psutil = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 
 def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
-    """Sets resource limits for the child process. (Linux/Unix only)"""
+    """Sets resource limits for the current/child process (Unix-only via preexec_fn)."""
     if resource is None:
         return
 
@@ -35,4 +41,25 @@ def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
         resource.setrlimit(resource.RLIMIT_FSIZE, (file_limit, file_limit))
 
     except Exception as e:
-        logger.warning(f"Failed to set resource limits: {e}")
+        logger.warning(f"Failed to set Unix resource limits: {e}")
+
+
+def limit_process_resources(process: Any, _mem_limit_mb: int) -> None:
+    """Sets resource limits on an already running process object (Best effort)."""
+    if psutil is None:
+        return
+
+    try:
+        p = psutil.Process(process.pid)
+        # Memory limit on Windows is harder but we can set working set size
+        if os.name == "nt":
+            # Best effort limit (soft limit)
+            # On Windows, we can't strictly enforce address space limit like RLIMIT_AS
+            # but we can set the process priority to avoid CPU hogging
+            p.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+        else:
+            # For Unix, we can also use nice
+            p.nice(10)
+
+    except Exception as e:
+        logger.debug(f"Failed to apply psutil limits: {e}")

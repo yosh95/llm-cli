@@ -21,6 +21,7 @@ dependencies = [
     "cryptography>=46.0.0",
     "dilithium-py",
     "numpy",
+    "psutil",
 ]
 
 [project.optional-dependencies]
@@ -47,8 +48,9 @@ claude-models = "llm_cli.apps.claude_models:main"
 ollama-models = "llm_cli.apps.ollama_models:main"
 grok-models = "llm_cli.apps.grok_models:main"
 
-[tool.setuptools]
-packages = ["llm_cli"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["llm_cli*"]
 
 [tool.mypy]
 python_version = "3.13"

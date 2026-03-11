@@ -11,7 +11,10 @@ from typing import Any
 
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.tool_registry import tool
-from llm_cli.security.resource_manager import set_resource_limits
+from llm_cli.security.resource_manager import (
+    limit_process_resources,
+    set_resource_limits,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +125,8 @@ def execute_python(code: str) -> str:
     try:
         # We use shell=False for security, running the script file directly
         with subprocess.Popen([python_exe, tmp_path], **kwargs) as proc:
+            # Best effort resource limits (e.g., nice on Windows/Unix)
+            limit_process_resources(proc, mem_limit_mb)
             try:
                 stdout, stderr = proc.communicate(timeout=timeout)
                 exit_code = proc.returncode

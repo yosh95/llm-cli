@@ -29,6 +29,7 @@ class IntentAnalyzer:
         from llm_cli.clients.claude import ClaudeClient
         from llm_cli.clients.gemini import GeminiClient
         from llm_cli.clients.grok import GrokClient
+        from llm_cli.clients.ollama import OllamaClient
         from llm_cli.clients.openai import OpenAIClient
 
         # Add other clients as needed
@@ -61,6 +62,11 @@ class IntentAnalyzer:
             return client
         elif provider in ("grok", "xai"):
             client = GrokClient(**client_kwargs)  # type: ignore
+            client.model = model
+            client.tools_enabled = False
+            return client
+        elif provider == "ollama":
+            client = OllamaClient(**client_kwargs)  # type: ignore
             client.model = model
             client.tools_enabled = False
             return client

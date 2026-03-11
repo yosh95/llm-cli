@@ -75,40 +75,52 @@ class MambaNumpy:
         c = self.config
         rng = np.random.default_rng(42)
 
+        # Use float64 for all real parameters
+        dtype_real = np.float64
+
         # in_proj weights
         self.params["in_proj.weight"] = (
-            rng.standard_normal((2 * c.d_inner, c.d_model)) * 0.02
+            rng.standard_normal((2 * c.d_inner, c.d_model), dtype=dtype_real) * 0.02
         )
         if c.bias:
-            self.params["in_proj.bias"] = np.zeros(2 * c.d_inner)
+            self.params["in_proj.bias"] = np.zeros(2 * c.d_inner, dtype=dtype_real)
 
         # conv1d weights (depthwise)
-        self.params["conv1d.weight"] = rng.standard_normal((c.d_inner, c.d_conv)) * 0.02
+        self.params["conv1d.weight"] = (
+            rng.standard_normal((c.d_inner, c.d_conv), dtype=dtype_real) * 0.02
+        )
         if c.conv_bias:
-            self.params["conv1d.bias"] = np.zeros(c.d_inner)
+            self.params["conv1d.bias"] = np.zeros(c.d_inner, dtype=dtype_real)
 
         # x_proj and dt_proj weights
         out_dim = c.dt_rank + 4 * c.d_state + 2
-        self.params["x_proj.weight"] = rng.standard_normal((out_dim, c.d_inner)) * 0.02
-        self.params["dt_proj.weight"] = (
-            rng.standard_normal((c.d_inner, c.dt_rank)) * 0.02
+        self.params["x_proj.weight"] = (
+            rng.standard_normal((out_dim, c.d_inner), dtype=dtype_real) * 0.02
         )
-        self.params["dt_proj.bias"] = rng.standard_normal(c.d_inner) * 0.02
+        self.params["dt_proj.weight"] = (
+            rng.standard_normal((c.d_inner, c.dt_rank), dtype=dtype_real) * 0.02
+        )
+        self.params["dt_proj.bias"] = (
+            rng.standard_normal(c.d_inner, dtype=dtype_real) * 0.02
+        )
 
-        # Complex A parameters
-        A_real = np.arange(1, c.d_state + 1, dtype=np.float32)
+        # Complex A parameters - Initializing as float64,
+        # they will form complex128 later
+        A_real = np.arange(1, c.d_state + 1, dtype=dtype_real)
         self.params["A_log"] = np.log(A_real)[None, :].repeat(c.d_inner, axis=0)
-        self.params["A_imag"] = np.pi * rng.random((c.d_inner, c.d_state))
+        self.params["A_imag"] = np.pi * rng.random(
+            (c.d_inner, c.d_state), dtype=dtype_real
+        )
 
         # D parameter (skip connection)
-        self.params["D"] = np.ones(c.d_inner)
+        self.params["D"] = np.ones(c.d_inner, dtype=dtype_real)
 
         # out_proj weights
         self.params["out_proj.weight"] = (
-            rng.standard_normal((c.d_model, c.d_inner)) * 0.02
+            rng.standard_normal((c.d_model, c.d_inner), dtype=dtype_real) * 0.02
         )
         if c.bias:
-            self.params["out_proj.bias"] = np.zeros(c.d_model)
+            self.params["out_proj.bias"] = np.zeros(c.d_model, dtype=dtype_real)
 
     def forward(self, x: np.ndarray, training: bool = False) -> np.ndarray:
         B, L, _ = x.shape
@@ -333,12 +345,12 @@ class MambaNumpy:
         # Clip exponent for numerical stability
         exponent = delta[..., None] * A[None, :, :]
         exponent_real = np.clip(exponent.real, -20.0, 20.0)
-        alpha = np.exp(exponent_real + 1j * exponent.imag)
+        alpha = np.exp(exponent_real + 1j * exponent.imag).astype(np.complex128)
 
-        current_Bx = x_conv[..., None] * B[..., None, :]
+        current_Bx = (x_conv[..., None] * B[..., None, :]).astype(np.complex128)
 
         if ssm_state is None:
-            ssm_state = np.zeros((batch, c.d_inner, c.d_state), dtype=np.complex64)
+            ssm_state = np.zeros((batch, c.d_inner, c.d_state), dtype=np.complex128)
         if prev_Bx is None:
             prev_Bx = np.zeros_like(current_Bx)
 
@@ -466,17 +478,17 @@ class MambaNumpy:
         d_x_input = d_y * self.params["D"][None, None, :]
 
         # Initialize gradients for scan parameters
-        dh_next = np.zeros((B, D, N), dtype=np.complex64)
-        d_B = np.zeros((B, L, N), dtype=np.complex64)
-        d_C = np.zeros((B, L, N), dtype=np.complex64)
-        d_A = np.zeros((D, N), dtype=np.complex64)
-        d_delta = np.zeros((B, L, D))
-        d_lambda = np.zeros((B, L, 1))
-        d_evo = np.zeros((B, L, 1))
-        d_x_ssm_core = np.zeros((B, L, D))
+        dh_next = np.zeros((B, D, N), dtype=np.complex128)
+        d_B = np.zeros((B, L, N), dtype=np.complex128)
+        d_C = np.zeros((B, L, N), dtype=np.complex128)
+        d_A = np.zeros((D, N), dtype=np.complex128)
+        d_delta = np.zeros((B, L, D), dtype=np.float64)
+        d_lambda = np.zeros((B, L, 1), dtype=np.float64)
+        d_evo = np.zeros((B, L, 1), dtype=np.float64)
+        d_x_ssm_core = np.zeros((B, L, D), dtype=np.float64)
 
         # Gradient from next step's beta path
-        d_curr_Bx_next = np.zeros((B, D, N), dtype=np.complex64)
+        d_curr_Bx_next = np.zeros((B, D, N), dtype=np.complex128)
 
         # Reverse loop over sequence
         for t in reversed(range(L)):

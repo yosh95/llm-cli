@@ -98,12 +98,7 @@ def execute_tool_call(
         or name.endswith("__create_or_overwrite_file")
     )
     is_edit = name == "edit_file" or name.endswith("__edit_file")
-    is_exec = (
-        name == "execute_command"
-        or name == "execute_shell_command"
-        or name.endswith("__execute_command")
-        or name.endswith("__execute_shell_command")
-    )
+    is_exec = name == "execute_python" or name.endswith("__execute_python")
 
     if not skip_approval:
         if is_write or is_edit or is_exec:
@@ -129,7 +124,7 @@ def execute_tool_call(
         elif is_edit:
             preview_edit_diff(session, args)
         elif is_exec:
-            preview_command(session, args)
+            preview_python_code(session, args)
 
         user_input = session._get_input(
             "Allow execution? (y/N or feedback): ",
@@ -322,16 +317,16 @@ def preview_edit_diff(session: "ChatSession", args: dict[str, Any]) -> None:
         pass
 
 
-def preview_command(session: "ChatSession", args: dict[str, Any]) -> None:
+def preview_python_code(session: "ChatSession", args: dict[str, Any]) -> None:
     try:
-        command = args.get("command", "")
-        if not command:
+        code = args.get("code", "")
+        if not code:
             return
 
-        syn = Syntax(command, "bash", theme="monokai", word_wrap=True)
+        syn = Syntax(code, "python", theme="monokai", word_wrap=True)
         session._print_block(
             syn,
-            title="[bold]Execute Command[/bold]",
+            title="[bold]Execute Python Script[/bold]",
             style="magenta",
         )
     except Exception:

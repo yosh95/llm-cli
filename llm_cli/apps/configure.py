@@ -203,17 +203,9 @@ def configure_general(config: dict[str, Any]) -> None:
 
 
 def configure_security(config: dict[str, Any]) -> None:
-    """Configures security settings, including allowed commands."""
+    """Configures security settings."""
     print("\n--- Security Settings ---")
     s_config = config.setdefault("security", {})
-
-    # Configure Allowed Commands
-    current_allowed = s_config.get("allowed_commands", [])
-    print(f"Current allowed commands: {current_allowed}")
-
-    if prompt_bool("Modify allowed commands?", False):
-        new_allowed = prompt_list("Allowed Commands", current_allowed)
-        s_config["allowed_commands"] = new_allowed
 
     # Configure Allowed Environment Variables
     current_allowed_env = s_config.get("allowed_env_vars", [])
@@ -243,14 +235,6 @@ def configure_security(config: dict[str, Any]) -> None:
     if prompt_bool("Modify default roles?", False):
         new_roles = prompt_list("Default Roles (e.g. 'admin, user')", current_roles)
         s_config["default_roles"] = new_roles
-
-    # Dangerous Patterns & Sensitive Paths
-    print("\nAdvanced Security (USE WITH CAUTION):")
-    s_config["allow_dangerous_patterns"] = prompt_bool(
-        "Allow dangerous shell patterns (redirection >, command substitution $(), "
-        "semicolons ;, etc.)?",
-        s_config.get("allow_dangerous_patterns", False),
-    )
 
     # Configure Allowed Paths
     current_allowed_paths = s_config.get("allowed_paths", ["."])

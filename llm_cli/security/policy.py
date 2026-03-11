@@ -1,7 +1,6 @@
 import fnmatch
 import logging
 import os
-import re
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +33,7 @@ class PolicyEngine:
                     "read_html_from_url",
                     "search_web",
                     "edit_file",
-                    "execute_shell_command",
+                    "execute_python",
                 ],
                 "scopes": {
                     "edit_file": {"allowed_paths": [str(Path.home() / "*"), "./*"]},
@@ -122,7 +121,7 @@ class PolicyEngine:
                 # Configurable fail-open/closed.
                 # Zero-Trust default should be fail-closed for high-risk tools.
                 high_risk_tools = {
-                    "execute_shell_command",
+                    "execute_python",
                     "edit_file",
                     "create_or_overwrite_file",
                 }
@@ -299,19 +298,9 @@ class PolicyEngine:
                     )
                     return False
 
-        # Command-based restriction
-        if "allowed_commands" in tool_scope and tool_name == "execute_command":
-            command = arguments.get("command", "")
-            allowed_cmds = tool_scope["allowed_commands"]
-            if not any(re.search(p, command) for p in allowed_cmds):
-                logger.warning(
-                    f"Scope Violation: Command '{command}' not in allowed patterns"
-                )
-                return False
-
         return True
 
-    def _global_guardrails(self, tool_name: str, arguments: dict[str, Any]) -> bool:
+    def _global_guardrails(self, _tool_name: str, arguments: dict[str, Any]) -> bool:
         """Safety checks that apply to everyone, including admins."""
         # 1. Path Blacklist Check
         # We check any argument that might be a path.
@@ -340,22 +329,6 @@ class PolicyEngine:
                 # a sensitive system path as a fallback,
                 # but we prefer the configured blocked_paths.
                 pass
-
-        # 2. Command Pattern Check
-        if tool_name == "execute_command" or tool_name == "execute_shell_command":
-            command = arguments.get("command", "").lower()
-            dangerous_patterns = [
-                r"rm\s+-rf\s+/",
-                r"mkfs",
-                r"dd\s+if=",
-                r"chmod\s+777",
-                r"> /dev/sd",
-            ]
-            if any(re.search(p, command) for p in dangerous_patterns):
-                logger.warning(
-                    f"Guardrail: Dangerous command pattern detected: {command}"
-                )
-                return False
 
         return True
 

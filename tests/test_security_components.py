@@ -177,25 +177,35 @@ class TestPolicyEngine:
     def test_evaluate_guest_denied(self):
         engine = PolicyEngine()
         context = {"roles": ["guest"]}
-        assert engine.evaluate("execute_command", {}, context) is False
+        assert engine.evaluate("execute_python", {}, context) is False
 
     def test_evaluate_custom_roles(self):
         config = {
             "roles": {
-                "developer": {"allow_all": False, "allowed_tools": ["execute_command"]}
+                "developer": {"allow_all": False, "allowed_tools": ["execute_python"]}
             }
         }
         engine = PolicyEngine(config)
-        assert engine.evaluate("execute_command", {}, {"roles": ["developer"]}) is True
-        assert engine.evaluate("write_file", {}, {"roles": ["developer"]}) is False
+        assert engine.evaluate("execute_python", {}, {"roles": ["developer"]}) is True
+        assert (
+            engine.evaluate("create_or_overwrite_file", {}, {"roles": ["developer"]})
+            is False
+        )
 
     def test_validate_dangerous_args(self):
         engine = PolicyEngine()
         # Admin trying to write to /etc
         context = {"roles": ["admin"]}
-        assert engine.evaluate("write_file", {"path": "/etc/passwd"}, context) is False
         assert (
-            engine.evaluate("write_file", {"path": "/home/user/test.txt"}, context)
+            engine.evaluate(
+                "create_or_overwrite_file", {"path": "/etc/passwd"}, context
+            )
+            is False
+        )
+        assert (
+            engine.evaluate(
+                "create_or_overwrite_file", {"path": "/home/user/test.txt"}, context
+            )
             is True
         )
 

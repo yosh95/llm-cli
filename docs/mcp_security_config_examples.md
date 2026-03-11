@@ -53,7 +53,7 @@ intent_analyzer_fail_open = false
 intent_analyzer_fail_open_tools = ["read_file", "list_files"]
 
 # Enforce fail-closed explicitly for high-risk tools (example)
-intent_analyzer_fail_closed_tools = ["execute_command", "edit_file", "write_file", "delete_file"]
+intent_analyzer_fail_closed_tools = ["execute_python", "edit_file", "create_or_overwrite_file"]
 ```
 
 ## 3) Trust boundary / TCB assumptions (MCP)

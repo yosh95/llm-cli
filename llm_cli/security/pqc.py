@@ -75,7 +75,7 @@ class PQCAgilityManager:
 
         # Risk levels for specific tools
         high_risk_tools = {
-            "execute_shell_command",
+            "execute_python",
             "edit_file",
             "create_or_overwrite_file",
             "delete_file",

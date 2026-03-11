@@ -31,13 +31,13 @@ Detailed architectural insights and security analysis are available in the follo
 -   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, and **Ollama (Local)** through a single `llm` command.
 -   **Quantum-Resistant Reasoning Sentinel**: A lightweight, **pure NumPy SSM** that monitors AI reasoning processes for anomalies (e.g., intent shifts or prompt injection) in real-time without heavy ML dependencies like Torch.
 -   **Local LLM Support**: Use models locally via **Ollama** for maximum privacy and zero latency.
--   **Autonomous Agent**: The AI can manage files, execute shell commands, search the web, and **dynamically attach media files**.
+-   **Autonomous Agent**: The AI can manage files, **interact with the system via Python**, search the web, and **dynamically attach media files**.
 -   **Multimodal Input & Output**:
     -   **Input**: Manual (`/attach`) or autonomous (`read_pdf_from_url`, etc.) attachment of Images, PDFs, Audio, and Video.
     -   **Output**: Generate images (DALL-E 3, Grok-Imagine, Gemini) and videos (Veo, Sora) mid-conversation.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol**. Connect to remote instances via SSH to manage files or run tests as if they were local.
 -   **URL Support**: Directly pass website URLs to analyze content with automatic scraping.
--   **Safe Execution**: Whitelist-based command validation, **Diff Preview** for file changes, and **Human-in-the-Loop** confirmation.
+-   **Safe Execution**: **No-Shell Architecture** (structural injection prevention), **Diff Preview** for file changes, and **Human-in-the-Loop** confirmation.
 -   **Advanced Security**: Hybrid PQC (Post-Quantum Cryptography) signatures, Zero-Trust orchestration, and **Reasoning Integrity** tracking.
 
 ## Screenshots
@@ -129,7 +129,7 @@ Use them in chat: `> /t proofread`.
 | `list_files_in_directory` | List files in a directory tree. |
 | `search_files` | Search for a regex pattern in files. |
 | `read_file_content` | Read content from a text file. |
-| `execute_shell_command` | Execute shell commands (validated against whitelist). |
+| `execute_python` | Execute Python code for system interaction (Replaces shell commands). |
 | `edit_file` | Edit a file with Diff preview. |
 | `create_or_overwrite_file` | Create a new file. |
 | `read_pdf_content` | Read a local PDF file. |
@@ -139,7 +139,10 @@ Use them in chat: `> /t proofread`.
 
 ## Security & Guardrails
 
-`llm-cli` implements strict security guardrails to protect against command injection and dangerous operations:
+`llm-cli` implements strict security guardrails to protect against unauthorized operations:
+
+### 🛡️ No-Shell Architecture (Zero-Injection)
+Unlike other AI agents, `llm-cli` does not provide a direct shell environment. Instead, all system interactions are performed via **Python code execution** (`shell=False`). This structurally eliminates shell-injection vulnerabilities.
 
 ### 🛡️ Secure MCP Orchestration (Zero Trust)
 - **Asymmetric Identity**: Uses **RS256** signatures for tool execution. No shared secrets.
@@ -148,13 +151,13 @@ Use them in chat: `> /t proofread`.
 - **Audit Logging**: Tamper-evident logs with chained hashing and Merkle Root protection.
 
 ### 🧠 Intent Analyzer (Dual-LLM)
-Uses a secondary, lightweight LLM (Verifier) to audit the actions of the main agent in real-time. If the agent's tool call doesn't match the user's intent (e.g., user asks to "read" but agent tries to "delete"), the execution is blocked.
+Uses a secondary, lightweight LLM (Verifier) to audit the actions of the main agent (including generated Python code) in real-time. If the agent's action doesn't match the user's intent (e.g., user asks to "read" but agent tries to "delete"), the execution is blocked.
 
-### 🛡️ Command Validation & Resource Limits
-- **Whitelist**: All commands are checked against a safe whitelist (e.g., `ls`, `cat`, `grep`).
+### 🛡️ Resource Limits & Sandboxing
+- **Resource Limits**: Default 300s timeout, 1GB memory limit (RLIMIT_AS), and CPU time limits.
 - **Path Guardrails**: Restricts operations to `allowed_paths` defined in your config.
-- **Human-in-the-Loop**: All destructive actions **must be approved by a human**.
-- **Limits**: Default 300s timeout, 1GB memory limit, and 10,000 character output truncation.
+- **Human-in-the-Loop**: All code execution and file modifications **must be approved by a human**.
+- **Output Truncation**: Prevents resource exhaustion by truncating large tool outputs.
 
 ### 🔑 Role-Based Access Control (RBAC)
 - **Roles**: Tools can be restricted based on assigned roles (e.g., `admin`, `user`).
@@ -219,7 +222,7 @@ Licensed under [Apache License 2.0](LICENSE).
 - **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
 - **Quantum-Resistant Reasoning Sentinel**: **NumPyのみで実装された軽量SSM**が、AIの推論プロセス（思考プロセス）をリアルタイムで監視。Torchなどの重い依存関係なしに、意図の乖離やインジェクションを検知。
 - **ローカルLLM対応**: **Ollama** を利用し、プライバシーを確保しながらオフラインでもモデルを実行。
-- **自律型エージェント**: ファイル操作、シェル実行、Web検索、メディア添付を自律的に実行。
+- **自律型エージェント**: ファイル操作、**Python実行**、Web検索、メディア添付を自律的に実行。
 - **マルチモーダル入出力**: 画像、PDF、音声、動画の入力をサポート。画像・動画生成も可能。
 - **Distributed Agent via MCP**: Model Context Protocol により、リモートサーバーの操作もローカル同様に可能。
 - **URL解析**: WebサイトのURLを渡すだけで、内容をスクレイピングして解析。
@@ -302,7 +305,7 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 | `list_files_in_directory` | ファイル一覧を表示。 |
 | `search_files` | 正規表現でファイルを検索。 |
 | `read_file_content` | テキストファイルを読み込み。 |
-| `execute_shell_command` | シェルコマンドを実行（検証済みのみ）。 |
+| `execute_python` | Pythonコードによるシステム操作 (シェルの代替)。 |
 | `edit_file` | Diff表示付きのファイル編集。 |
 | `create_or_overwrite_file` | ファイルの新規作成。 |
 | `search_web` | Brave SearchによるWeb検索。 |
@@ -310,18 +313,21 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ## セキュリティ
 
+### 🛡️ No-Shell アーキテクチャ (インジェクションの構造的排除)
+他のエージェントツールとは異なり、`llm-cli` はシェル環境を直接提供しません。すべてのシステム操作は **Pythonコードの実行** (`shell=False`) を介して行われるため、シェルインジェクション脆弱性を構造的に排除しています。
+
 ### 🛡️ 安全なMCPオーケストレーション（Zero Trust）
 - **非対称鍵認証**: RS256署名による実行主体確認。
 - **耐量子暗号 (PQC)**: RS256 + ML-DSA のハイブリッド署名。
 - **監査ログ**: ハッシュ連鎖とMerkle Rootによる改ざん検知。
 
 ### 🧠 Intent Analyzer (Dual-LLM)
-メインエージェントの行動を別の軽量LLMがリアルタイムで監査。ユーザーの意図に反する破壊的行為を未然に防ぎます。
+メインエージェントの行動（生成されたPythonコードを含む）を別の軽量LLMがリアルタイムで監査。ユーザーの意図に反する破壊的行為を未然に防ぎます。
 
-### 🛡️ ガードレールと制限
-- **ホワイトリスト**: `ls`, `cat` 等の安全なコマンドのみ許可。
-- **Human-in-the-Loop**: すべての書き込み・実行操作は**人間の承認が必要**。
-- **リソース制限**: メモリ1GB、タイムアウト300秒の制限。
+### 🛡️ リソース制限とガードレール
+- **リソース制限**: メモリ1GB、タイムアウト300秒の制限に加え、CPU時間のハード制限を適用。
+- **Human-in-the-Loop**: すべてのコード実行およびファイル操作は**人間の承認が必要**。
+- **出力制限**: 大量出力を制限し、リソース枯渇を防止。
 
 ### 🔑 ロールベースアクセス制御 (RBAC)
 - **ロール**: 各ツールは割り当てられたロール（`admin`, `user`など）に基づいて制限されます。

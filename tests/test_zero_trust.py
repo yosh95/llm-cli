@@ -108,9 +108,9 @@ def test_global_guardrails(policy_engine):
     # Admin context
     context = {"roles": ["admin"], "user_id": "admin"}
 
-    # Dangerous command should be blocked globally
+    # Blocked path should be blocked globally
     assert (
-        policy_engine.evaluate("execute_command", {"command": "rm -rf /"}, context)
+        policy_engine.evaluate("read_file_content", {"path": "/etc/passwd"}, context)
         is False
     )
 

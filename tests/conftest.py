@@ -51,8 +51,6 @@ llm_cli.clients.config._config_cache = {
             "/sys",
             "/boot",
         ],
-        "allowed_commands": ["ls", "cat", "grep", "find", "sleep", "pwd"],
-        "allow_dangerous_patterns": False,
     },
 }
 
@@ -231,7 +229,7 @@ def mock_config(monkeypatch, mock_api_key, tmp_path):
         "llm_cli.clients.grok",
         "llm_cli.clients.gemini",
         "llm_cli.modules.tools.web",
-        "llm_cli.modules.tools.system",
+        "llm_cli.modules.tools.interpreter",
         "llm_cli.apps.unified",
     ]
 

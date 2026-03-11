@@ -16,12 +16,6 @@ pip install -e ".[test]"
 pytest
 ```
 
-Or using the command shortcut:
-
-```bash
-llm-test
-```
-
 Or directly with Python:
 
 ```bash

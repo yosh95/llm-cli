@@ -84,18 +84,7 @@ class PQCAgilityManager:
 
         # Dynamic context analysis (e.g., sensitive file access)
         # Defaults to a reasonable set if not specified in config
-        sensitive_patterns = security_config.get(
-            "scaling_patterns",
-            [
-                ".ssh/",
-                ".env",
-                "config",
-                "credential",
-                "password",
-                "sudo",
-                "rm -rf",
-            ],
-        )
+        sensitive_patterns = security_config.get("scaling_patterns", [])
         # Also include blocked_paths as sensitive for scaling
         sensitive_patterns.extend(security_config.get("blocked_paths", []))
 

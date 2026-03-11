@@ -264,7 +264,7 @@ def configure_security(config: dict[str, Any]) -> None:
 
         current_ia_provider = s_config.get("intent_analyzer_provider", "google")
         s_config["intent_analyzer_provider"] = prompt_input(
-            "Verifier Provider (e.g., google, huggingface)", current_ia_provider
+            "Verifier Provider (e.g., google, openai)", current_ia_provider
         )
 
         current_ia_model = s_config.get(

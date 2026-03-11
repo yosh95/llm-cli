@@ -1,8 +1,6 @@
 # llm_cli/clients/base.py
 
-import copy
 import datetime
-import json
 import urllib.parse
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -11,7 +9,9 @@ from typing import Any
 import requests
 from rich.console import Console
 
+from llm_cli.clients.command_handler import SUPPORTED_COMMANDS
 from llm_cli.clients.config import get_model_config, get_setting
+from llm_cli.clients.session_manager import SessionManager
 from llm_cli.modules.media_utils import fetch_url_content, process_file
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
@@ -41,7 +41,7 @@ class BaseLlmClient(ABC):
         current_alias (str): The currently active model alias.
         model (str): The currently active model string.
         model_config (Dict[str, Any]): Full configuration for the current model.
-        conversation (List[Message]): The message history.
+        conversation (List[Message]): Message history (proxied from session manager).
         active_tools (List[str]): List of enabled tool names.
     """
 
@@ -59,35 +59,7 @@ class BaseLlmClient(ABC):
         live_debug: bool = False,
     ):
         """Initializes the LLM client with configuration and state."""
-        self._slash_commands = {
-            "attach",
-            "save",
-            "load",
-            "dump",
-            "raw",
-            "view",
-            "v",
-            "clear",
-            "c",
-            "quit",
-            "q",
-            "info",
-            "i",
-            "debug",
-            "d",
-            "model",
-            "m",
-            "provider",
-            "p",
-            "template",
-            "t",
-            "checkpoint",
-            "cp",
-            "reload",
-            "tools",
-            "help",
-            "h",
-        }
+        self._slash_commands = SUPPORTED_COMMANDS
         self.config_section = config_section
         self._api_key_name = api_key_name
         self._disable_system_prompt = disable_system_prompt
@@ -108,7 +80,7 @@ class BaseLlmClient(ABC):
         self._refresh_general_settings()
         self._refresh_system_prompt()
 
-        self.conversation: list[Message] = []
+        self._session_manager = SessionManager()
         self.last_usage: dict[str, int] | None = None
         self.last_request_duration: float | None = None
 
@@ -124,6 +96,16 @@ class BaseLlmClient(ABC):
 
         if enable_mcp:
             self._init_mcp(initial_tools is None)
+
+    @property
+    def conversation(self) -> list[Message]:
+        """Accessor for conversation history managed by SessionManager."""
+        return self._session_manager.conversation
+
+    @conversation.setter
+    def conversation(self, value: list[Message]) -> None:
+        """Setter for conversation history."""
+        self._session_manager.conversation = value
 
     def _refresh_general_settings(self) -> None:
         """Reloads settings that can change at runtime."""
@@ -205,19 +187,7 @@ class BaseLlmClient(ABC):
         Standard history update for most clients.
         Converts input data to USER messages and appends MODEL message.
         """
-        user_parts: list[str | ContentPart] = []
-        for d in data:
-            if d.content_type == "text/plain":
-                user_parts.append(ContentPart(text=str(d.content)))
-            else:
-                inline_data = {"mimeType": d.content_type, "data": d.content}
-                if "filename" in d.metadata:
-                    inline_data["filename"] = d.metadata["filename"]
-                user_parts.append(ContentPart(inline_data=inline_data))
-
-        if user_parts:
-            self.conversation.append(Message(role=Role.USER, parts=user_parts))
-        self.conversation.append(model_msg)
+        self._session_manager.update_history(data, model_msg)
 
     def _get_responded_tool_ids(self) -> set[str]:
         """
@@ -353,7 +323,7 @@ class BaseLlmClient(ABC):
         sources: list[str] | None = None,
     ) -> None:
         """Starts an interactive chat session."""
-        if not self.api_key and self.config_section not in ("huggingface", "mamba"):
+        if not self.api_key and self.config_section not in ("ollama",):
             console.print(
                 f"[bold red]Error: API key for '{self.config_section}' "
                 "is missing.[/bold red]\n"
@@ -435,56 +405,38 @@ class BaseLlmClient(ABC):
 
     def load_session(self, path_str: str) -> bool:
         """Loads a conversation session from a JSON file."""
-        try:
-            load_path = Path(path_str)
-            if not load_path.exists():
-                console.print(f"[red]File not found: {load_path}[/red]")
-                return False
+        success, message = self._session_manager.load_session(path_str)
+        if success:
+            console.print(f"[green]{message}[/green]")
+        else:
+            console.print(f"[red]{message}[/red]")
+        return success
 
-            with load_path.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            # Convert list of dicts back to list of Message objects
-            loaded_conversation = []
-            for msg_data in data:
-                role = Role(msg_data["role"])
-                parts: list[str | ContentPart] = []
-                for p in msg_data["parts"]:
-                    if isinstance(p, str):
-                        parts.append(p)
-                    elif isinstance(p, dict):
-                        parts.append(ContentPart(**p))
-                loaded_conversation.append(Message(role=role, parts=parts))
-
-            self.clear_history()
-            self.conversation = loaded_conversation
-            console.print(
-                f"[green]Session loaded from {load_path} "
-                f"({len(self.conversation)} messages)[/green]"
-            )
-            return True
-        except Exception as e:
-            console.print(f"[red]Failed to load session: {e}[/red]")
-            return False
+    def save_session(self, path_str: str) -> bool:
+        """Saves a conversation session to a JSON file."""
+        success, message = self._session_manager.save_session(path_str)
+        if success:
+            console.print(f"[green]{message}[/green]")
+        else:
+            console.print(f"[red]{message}[/red]")
+        return success
 
     def clear_history(self) -> None:
         """Clears the conversation history."""
-        self.conversation.clear()
+        self._session_manager.clear_history()
 
     def get_conversation_state(self) -> dict[str, Any]:
         """
         Returns the current state of the conversation.
         Override this to include provider-specific state (like interaction IDs).
         """
-        return {
-            "conversation": copy.deepcopy(self.conversation),
-        }
+        return self._session_manager.get_state()
 
     def set_conversation_state(self, state: dict[str, Any]) -> None:
         """
         Restores the conversation state from a dictionary.
         """
-        self.conversation = state["conversation"]
+        self._session_manager.set_state(state)
 
     def _handle_command(
         self,

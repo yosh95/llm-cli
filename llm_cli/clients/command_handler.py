@@ -25,6 +25,37 @@ if TYPE_CHECKING:
     from llm_cli.modules.models import DataSource
 
 
+SUPPORTED_COMMANDS = {
+    "attach",
+    "save",
+    "load",
+    "dump",
+    "raw",
+    "view",
+    "v",
+    "clear",
+    "c",
+    "quit",
+    "q",
+    "info",
+    "i",
+    "debug",
+    "d",
+    "model",
+    "m",
+    "provider",
+    "p",
+    "template",
+    "t",
+    "checkpoint",
+    "cp",
+    "reload",
+    "tools",
+    "help",
+    "h",
+}
+
+
 def handle_command(
     client: "BaseLlmClient",
     user_input: str,

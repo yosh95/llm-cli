@@ -50,9 +50,11 @@ def execute_tool_call(
                 break
 
     # Evaluate policy (includes Role-Based check and Intent Analysis)
-    context = {
-        "user_id": get_setting("default_user_id", "security") or "current_user",
-        "roles": get_setting("default_roles", "security") or ["user"],
+    from llm_cli.security.policy import EvaluationContext
+
+    context: EvaluationContext = {
+        "user_id": str(get_setting("default_user_id", "security") or "current_user"),
+        "roles": list(get_setting("default_roles", "security") or ["user"]),
         "user_prompt": user_prompt,
     }
 

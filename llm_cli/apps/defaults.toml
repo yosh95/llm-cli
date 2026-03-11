@@ -34,6 +34,52 @@ blocked_paths = [
     "/boot"
 ]
 
+# Dynamic scaling patterns for PQC security escalation.
+scaling_patterns = [
+    ".ssh/",
+    ".env",
+    "config",
+    "credential",
+    "password",
+    "sudo",
+    "rm -rf"
+]
+
+[security.roles.admin]
+description = "Full access with guardrails"
+allow_all = true
+
+[security.roles.user]
+description = "Standard user access"
+allowed_tools = [
+    "list_files_in_directory",
+    "search_files",
+    "read_file_content",
+    "read_html_from_url",
+    "search_web",
+    "edit_file",
+    "execute_python"
+]
+# Scopes defined in sub-sections (tomli-w handles this)
+[security.roles.user.scopes.edit_file]
+allowed_paths = ["~/*", "./*"]
+[security.roles.user.scopes.read_file_content]
+allowed_paths = ["~/*", "./*"]
+[security.roles.user.scopes.search_files]
+allowed_paths = ["~/*", "./*"]
+
+[security.roles.guest]
+description = "Read-only access"
+allowed_tools = [
+    "list_files_in_directory",
+    "search_files",
+    "read_file_content"
+]
+[security.roles.guest.scopes.read_file_content]
+allowed_paths = ["./docs/*", "*.md"]
+[security.roles.guest.scopes.search_files]
+allowed_paths = ["./docs/*", "./llm_cli/*"]
+
 # =============================================================================
 # Gemini (Google)
 # =============================================================================

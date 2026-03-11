@@ -1,12 +1,14 @@
 # llm_cli/apps/unified.py
 
-from typing import Any
+from typing import Any, TypeVar
 
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
 from llm_cli.clients.base import BaseLlmClient, console
 from llm_cli.clients.config import get_setting
 from llm_cli.clients.registry import client_registry
 from llm_cli.modules.models import DataSource, Message
+
+T = TypeVar("T")
 
 
 class UnifiedClient(BaseLlmClient):
@@ -81,11 +83,11 @@ class UnifiedClient(BaseLlmClient):
 
     @property
     def conversation(self) -> list[Message]:
-        return getattr(self, "_conversation", [])
+        return self._session_manager.conversation
 
     @conversation.setter
     def conversation(self, value: list[Message]) -> None:
-        self._conversation = value
+        self._session_manager.conversation = value
         if hasattr(self, "active_client"):
             self.active_client.conversation = value
 

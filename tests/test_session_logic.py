@@ -10,6 +10,13 @@ from llm_cli.modules.models import ContentPart
 
 class MockClient(BaseLlmClient):
     def __init__(self):
+        # We need to call super().__init__ or manually init _session_manager
+        # to satisfy the property access to self.conversation.
+        # But BaseLlmClient.__init__ does a lot of config loading we want to avoid.
+        from llm_cli.clients.session_manager import SessionManager
+
+        self._session_manager = SessionManager()
+
         self._slash_commands = {
             "attach",
             "save",
@@ -18,16 +25,41 @@ class MockClient(BaseLlmClient):
             "model",
             "template",
         }
-        self.PROVIDER_CONFIG = {"google": {}, "openai": {}}
+        self.config_section = "test"
+        self.pdf_as_base64 = False
         self.available_models = {"gemini": "gemini-pro", "gpt4": "gpt-4"}
+        self.current_alias = "gemini"
         self.history_path = None
-        self.conversation = []
         self.chat_log_path = None
         self.stdout = False
         self.model = "test-model"
         self._handle_command_called = False
+        self.active_tools = []
+        self.max_chat_log_lines = 1000
+        self.live_debug = False
+        self.tools_enabled = True
+        self.system_prompt = ""
+        self.system_prompt_enabled = True
+        self.render_markdown = True
+
+    @property
+    def conversation(self):
+        return self._session_manager.conversation
+
+    @conversation.setter
+    def conversation(self, value):
+        self._session_manager.conversation = value
 
     def _load_model_aliases(self):
+        pass
+
+    def _set_initial_model(self, alias):
+        pass
+
+    def _refresh_general_settings(self):
+        pass
+
+    def _refresh_system_prompt(self):
         pass
 
     def _send(self, _data):

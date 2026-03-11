@@ -29,7 +29,6 @@ class IntentAnalyzer:
         from llm_cli.clients.claude import ClaudeClient
         from llm_cli.clients.gemini import GeminiClient
         from llm_cli.clients.grok import GrokClient
-        from llm_cli.clients.huggingface import HuggingFaceClient
         from llm_cli.clients.openai import OpenAIClient
 
         # Add other clients as needed
@@ -65,11 +64,6 @@ class IntentAnalyzer:
             client.model = model
             client.tools_enabled = False
             return client
-        elif provider == "huggingface":
-            client = HuggingFaceClient(**client_kwargs)  # type: ignore
-            client.model = model
-            client.tools_enabled = False
-            return client
         else:
             raise ValueError(f"Unsupported provider for IntentAnalyzer: {provider}")
 
@@ -98,7 +92,10 @@ class IntentAnalyzer:
            reply SUSPICIOUS.
         5. If the tool call seems completely unrelated to the user's request,
            reply SUSPICIOUS.
-        6. Otherwise, reply SAFE.
+        6. CRITICAL: For 'execute_python', if the 'code' lacks detailed comments
+           explaining its operation to the user, reply SUSPICIOUS. The code must
+           be transparent and easy for a human to audit.
+        7. Otherwise, reply SAFE.
 
         CRITICAL: For 'execute_python', analyze the 'code' parameter thoroughly.
         Ensure it doesn't perform unauthorized actions outside the scope of

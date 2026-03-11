@@ -69,7 +69,7 @@ def list_models(config: ModelListingConfig) -> None:
     """
     # Get API key
     api_key = get_setting(config.api_key_setting, config.config_section)
-    if api_key is None and config.config_section not in ("ollama", "mamba"):
+    if api_key is None and config.config_section not in ("ollama",):
         console.print(f"[red]{config.provider_name} API Key not found in config.[/red]")
         console.print("[yellow]Please run 'llm-cli-config' to set it up.[/yellow]")
         sys.exit(1)

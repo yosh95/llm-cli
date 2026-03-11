@@ -224,3 +224,7 @@ class IdentityManager:
         import base64
 
         return base64.b64encode(cls._get_pqc_public_key_content()).decode("utf-8")
+
+
+# Create a singleton instance for backward compatibility or easier access if needed
+id_manager = IdentityManager()

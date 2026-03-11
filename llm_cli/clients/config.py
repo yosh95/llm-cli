@@ -173,7 +173,7 @@ def get_all_model_aliases() -> dict[str, dict[str, str]]:
     """
     config = _load_config_from_file()
     all_aliases = {}
-    providers = ["google", "openai", "anthropic", "xai", "huggingface", "mamba"]
+    providers = ["google", "openai", "anthropic", "xai", "ollama"]
     for provider in providers:
         all_aliases[provider] = config.get(provider, {}).get("models", {})
     return all_aliases

@@ -197,7 +197,30 @@ class AuditAnchoring:
 
         # In a production system, this root would be sent to a Blockchain or
         # a Managed Immutable Log Service.
-        # For this implementation, we log it as a 'Security Anchor Point'.
+        # For this implementation, we log it to a dedicated security log.
+        try:
+            import datetime
+
+            from llm_cli.clients.config import get_setting
+            from llm_cli.consts import SECURITY_LOG_PATH
+
+            SECURITY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with SECURITY_LOG_PATH.open("a", encoding="utf-8") as f:
+                ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{ts}] 🔗 [POST-QUANTUM ANCHOR] Merkle Root: {root}\n")
+
+            # Trim the security log to prevent it from growing indefinitely
+            max_lines = int(get_setting("max_security_log_lines", "general") or 1000)
+            with SECURITY_LOG_PATH.open("r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+            if len(lines) > max_lines:
+                with SECURITY_LOG_PATH.open(
+                    "w", encoding="utf-8", errors="replace"
+                ) as f:
+                    f.writelines(lines[-max_lines:])
+        except Exception:
+            pass
+
         logger.info(f"🔗 [POST-QUANTUM ANCHOR] Merkle Root: {root}")
         return root
 

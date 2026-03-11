@@ -204,11 +204,7 @@ class ChatSession:
         try:
             from llm_cli.security.pqc import AuditAnchoring
 
-            anchor_root = AuditAnchoring.create_external_anchor()
-            if anchor_root:
-                console.print(
-                    f"[dim]🔗 [Post-Quantum Anchor] Merkle Root: {anchor_root}[/dim]"
-                )
+            AuditAnchoring.create_external_anchor()
         except Exception:
             pass
 

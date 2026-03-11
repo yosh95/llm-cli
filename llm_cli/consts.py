@@ -9,6 +9,7 @@ KEY_DIR = LLM_CLI_BASE_DIR / "keys"
 
 CONFIG_FILE_PATH = CONFIG_DIR / "config.toml"
 AUDIT_LOG_PATH = LOG_DIR / "audit.jsonl"
+SECURITY_LOG_PATH = LOG_DIR / "security.log"
 HISTORY_LOG_PATH = LOG_DIR / "history.log"
 CHAT_LOG_PATH = LOG_DIR / "chat.log"
 TRAINING_METRICS_LOG_PATH = LOG_DIR / "training_metrics.jsonl"

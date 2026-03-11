@@ -124,7 +124,7 @@ This mechanism ensures that even if a remote MCP server is accessed (e.g., via S
 The \texttt{PolicyEngine} implements a hybrid Role-Based Access Control (RBAC) and Attribute-Based Access Control (ABAC) model.
 
 \subsubsection{Role Definitions}
-Users are assigned roles such as \texttt{guest}, \texttt{user}, or \texttt{admin}. A \texttt{guest} role, for instance, is restricted to read-only tools like \texttt{search_files} and \texttt{read_file_content}, effectively neutralizing the risk of destructive actions.
+Users are assigned roles such as \texttt{guest}, \texttt{user}, or \texttt{admin}. A \texttt{guest} role, for instance, is restricted to read-only tools like \texttt{search\_files} and \texttt{read\_file\_content}, effectively neutralizing the risk of destructive actions.
 
 \subsubsection{Scope Verification}
 \textbf{Path normalization.} Scope checks must use canonical paths. We normalize tool arguments using the same expansion and resolution strategy as tool-level path validation (e.g., \texttt{expanduser} + \texttt{resolve}) before applying pattern matching.
@@ -162,7 +162,7 @@ Transparency is a core tenet of Zero Trust. \texttt{llm-cli} implements a chaine
 \end{lstlisting}
 
 \subsection{Dynamic Intent Verification (Verify Explicitly)}
-\textbf{Availability and failure policy.} Our implementation supports configurable \emph{fail-closed by default} when the intent analyzer cannot be initialized. Specifically, \texttt{execute_python} and \texttt{edit_file} are designated as high-risk and are blocked if the verifier is unavailable.
+\textbf{Availability and failure policy.} Our implementation supports configurable \emph{fail-closed by default} when the intent analyzer cannot be initialized. Specifically, \texttt{execute\_python} and \texttt{edit\_file} are designated as high-risk and are blocked if the verifier is unavailable.
 
 Before executing any tool, the \texttt{IntentAnalyzer} compares the user's original prompt with the agent's proposed action using a strict system prompt (Listing \ref{lst:intent_prompt}).
 
@@ -179,7 +179,7 @@ Your task:
 """
 \end{lstlisting}
 
-If a user asks to "Summarize this paper" and the agent attempts to call \texttt{execute_python(code="import os; os.system('curl malicious.site')")}, the intent analyzer detects the semantic mismatch and blocks the execution.
+If a user asks to "Summarize this paper" and the agent attempts to call \texttt{execute\_python(code="import os; os.system('curl malicious.site')")}, the intent analyzer detects the semantic mismatch and blocks the execution.
 
 \subsection{Assume Breach: Global Guardrails}
 Finally, hard-coded global guardrails serve as the last line of defense. These rules block known dangerous patterns such as accessing system roots (e.g., \texttt{/root}, \texttt{/etc/shadow}) regardless of user role.

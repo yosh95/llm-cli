@@ -72,6 +72,20 @@ export GOOGLE_API_KEY="AIza..."
 export XAI_API_KEY="xai-..."
 ```
 
+## Development
+
+A `Makefile` is provided for common development tasks:
+- `make install`: Install the package in editable mode with dev/test dependencies.
+- `make lint`: Run `ruff` and `mypy` for static analysis.
+- `make format`: Run `ruff format` to format code.
+- `make test`: Run tests with coverage report.
+- `make clean`: Remove temporary files, caches (`.ruff_cache`, `__pycache__`, etc.), and build artifacts.
+
+Alternatively, you can run the cleanup script directly:
+```bash
+python scripts/clean.py
+```
+
 ## Usage & Commands
 
 ### 1. Interactive Chat
@@ -255,6 +269,20 @@ llm-cli-config
 ```bash
 export OPENAI_API_KEY="sk-..."
 export GOOGLE_API_KEY="AIza..."
+```
+
+## 開発用コマンド
+
+開発時に便利な `Makefile` を用意しています。
+- `make install`: 開発・テスト用依存関係を含めてインストール。
+- `make lint`: `ruff` と `mypy` による静的解析を実行。
+- `make format`: `ruff` によるコードフォーマット。
+- `make test`: カバレッジレポート付きでテストを実行。
+- `make clean`: 一時ファイル、キャッシュ（`.ruff_cache`, `__pycache__` など）、ビルド生成物を削除。
+
+また、以下のコマンドで直接クリーンアップスクリプトを実行することも可能です：
+```bash
+python scripts/clean.py
 ```
 
 ## 使用方法とコマンド

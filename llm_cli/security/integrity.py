@@ -20,7 +20,7 @@ class ReasoningSentinelManager:
     Integrates with the audit log to provide 'Reasoning Integrity' scores.
     """
 
-    def __init__(self, d_model: int = 128, n_layers: int = 2):
+    def __init__(self, **kwargs: Any):
 
         from llm_cli.clients.config import get_setting
         from llm_cli.security.sentinel import MambaSentinel
@@ -34,10 +34,30 @@ class ReasoningSentinelManager:
         t_yellow = float(get_setting("threshold_yellow", "sentinel") or 3.5)
         t_red = float(get_setting("threshold_red", "sentinel") or 5.0)
 
-        checkpoint_path = str(LLM_CLI_BASE_DIR / "sentinel_state.npz")
+        # Mamba-specific parameters from defaults
+        d_model = int(get_setting("d_model", "sentinel") or 128)
+        n_layers = int(get_setting("n_layers", "sentinel") or 2)
+        d_state = int(get_setting("d_state", "sentinel") or 16)
+        d_conv = int(get_setting("d_conv", "sentinel") or 4)
+        expand = int(get_setting("expand", "sentinel") or 2)
+        lr = float(get_setting("lr", "sentinel") or 1e-3)
+
+        # Override with kwargs if provided
+        d_model = kwargs.get("d_model", d_model)
+        n_layers = kwargs.get("n_layers", n_layers)
+
+        checkpoint_name = (
+            get_setting("checkpoint_path", "sentinel") or "sentinel_state.npz"
+        )
+        checkpoint_path = str(LLM_CLI_BASE_DIR / checkpoint_name)
+
         self.sentinel = MambaSentinel(
             d_model=d_model,
             n_layers=n_layers,
+            d_state=d_state,
+            d_conv=d_conv,
+            expand=expand,
+            lr=lr,
             checkpoint_path=checkpoint_path,
             mode=mode,
             threshold_yellow=t_yellow,

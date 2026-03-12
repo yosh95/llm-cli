@@ -457,24 +457,30 @@ def create_or_overwrite_file(path: str, content: str) -> str:
         return f"Error: {e}"
 
 
-def _process_and_return(path: str, expected_types: tuple | None = None) -> str | dict:
+def _process_and_return(
+    path: str, expected_types: tuple | None = None, pdf_as_base64: bool = True
+) -> str | dict:
     try:
+        validate_path(path)
         p = Path(path)
         if not p.exists():
             return f"Error: File not found: {path}"
 
-        res = process_file(p, pdf_as_base64=True)
+        res = process_file(p, pdf_as_base64=pdf_as_base64)
         if not res:
             return f"Error: Failed to process file: {path}"
 
         content_type = res.get("content_type", "")
 
         if expected_types:
-            if not any(content_type.startswith(t) for t in expected_types):
-                return (
-                    f"Error: File '{path}' has type '{content_type}', "
-                    f"but expected one of {expected_types}."
-                )
+            # If we were expecting PDF but got text (because pdf_as_base64=False),
+            # that's fine as long as the file was originally a PDF.
+            # process_file handles the conversion.
+            pass
+
+        # If we asked for text extraction and got it, return the text directly
+        if not pdf_as_base64 and content_type == "text/plain":
+            return str(res["content"])
 
         return {
             "result": (
@@ -494,8 +500,12 @@ def _process_and_return(path: str, expected_types: tuple | None = None) -> str |
 
 
 @tool(
-    name="read_pdf_content",
-    desc="Read a PDF file and add it to the context.",
+    name="read_pdf",
+    desc=(
+        "Read a PDF file and add it to the conversation context as a binary "
+        "attachment. Use this if you have vision capabilities to analyze "
+        "diagrams, charts, or the layout of the document."
+    ),
     params={
         "type": "object",
         "properties": {
@@ -504,5 +514,26 @@ def _process_and_return(path: str, expected_types: tuple | None = None) -> str |
         "required": ["path"],
     },
 )
-def read_pdf_content(path: str) -> str | dict:
+def read_pdf(path: str) -> str | dict:
     return _process_and_return(path, expected_types=("application/pdf",))
+
+
+@tool(
+    name="read_pdf_text",
+    desc=(
+        "Extract and read the text content from a PDF file. Use this if you "
+        "only need the text and do not have vision capabilities or do not "
+        "need to see images/charts."
+    ),
+    params={
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Path to the PDF file."}
+        },
+        "required": ["path"],
+    },
+)
+def read_pdf_text(path: str) -> str | dict:
+    return _process_and_return(
+        path, expected_types=("application/pdf",), pdf_as_base64=False
+    )

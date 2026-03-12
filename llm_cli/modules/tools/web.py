@@ -1,6 +1,5 @@
 # llm_cli/modules/tools/web.py
 
-import re
 import urllib.parse
 from pathlib import Path
 
@@ -84,19 +83,19 @@ def read_html_from_url(url: str) -> str:
     if "text/html" not in ctype and "text/plain" not in ctype:
         return (
             f"Error: URL returned {ctype}, expected text/html or text/plain. "
-            "Use 'read_pdf_from_url' for PDFs or 'read_image_from_url' for images."
+            "Use 'read_pdf_from_url' for PDFs or 'read_pdf_text_from_url' for text."
         )
-
-    # Post-processing to remove excessive newlines
-    # fetch_url_content already handles markdownify for HTML
-    content = re.sub(r"\n{3,}", "\n\n", content).strip()
 
     return content
 
 
 @tool(
     name="read_pdf_from_url",
-    description=("Download a PDF from a URL and add it to the context. "),
+    description=(
+        "Download a PDF from a URL and add it to the conversation context "
+        "as a binary attachment. Use this if you have vision capabilities "
+        "to analyze diagrams or charts."
+    ),
     parameters={
         "type": "object",
         "properties": {"url": {"type": "string", "description": "Target PDF URL."}},
@@ -131,3 +130,28 @@ def read_pdf_from_url(url: str) -> str | dict:
             "metadata": {"filename": filename},
         },
     }
+
+
+@tool(
+    name="read_pdf_text_from_url",
+    description=(
+        "Download a PDF from a URL and extract its text content. Use this "
+        "if you only need the text or do not have vision capabilities."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {"url": {"type": "string", "description": "Target PDF URL."}},
+        "required": ["url"],
+    },
+)
+def read_pdf_text_from_url(url: str) -> str:
+    # Use fetch_url_content with pdf_as_base64=False to get text
+    content, ctype = fetch_url_content(url, pdf_as_base64=False)
+
+    if content is None or ctype is None:
+        return "Error: Failed to fetch content or invalid URL."
+
+    if "application/pdf" not in ctype and ctype != "text/plain":
+        return f"Error: Expected PDF but got {ctype}."
+
+    return content

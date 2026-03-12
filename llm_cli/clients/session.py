@@ -215,14 +215,14 @@ class ChatSession:
             # Prefix for the model response
             display_name = self.client.get_display_name()
 
-            # Use status context for spinner (clears automatically after exit)
+            # Display static thinking message
             start_time = datetime.datetime.now()
             status_msg = (
                 f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan] "
                 "[dim](Ctrl+C to interrupt)[/dim]"
             )
-            with console.status(status_msg, spinner="dots"):
-                res = self.client._send(data)
+            console.print(status_msg)
+            res = self.client._send(data)
             duration = (datetime.datetime.now() - start_time).total_seconds()
 
             # Response is now expected to be a tuple ((text, thought), usage)
@@ -367,10 +367,10 @@ class ChatSession:
                 f"[bold cyan]🤔 Summarizing ({self.client.model})...[/bold cyan] "
                 "[dim](Ctrl+C to interrupt)[/dim]"
             )
-            with console.status(status_msg, spinner="dots"):
-                # Pass the prompt as data so it is correctly processed by all clients
-                # (especially Gemini which requires 'input' payload)
-                res = self.client._send([prompt_source])
+            console.print(status_msg)
+            # Pass the prompt as data so it is correctly processed by all clients
+            # (especially Gemini which requires 'input' payload)
+            res = self.client._send([prompt_source])
 
             response_tuple, _ = res if res else ((None, None), None)
             summary = response_tuple[0]

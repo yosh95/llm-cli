@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from llm_cli.modules.tools.web import (
     read_html_from_url,
     read_pdf_from_url,
+    read_pdf_text_from_url,
     search_web,
 )
 
@@ -23,6 +24,18 @@ def test_read_pdf_from_url_success(mock_curl_requests):
     # "fake pdf content" base64 encoded is "ZmFrZSBwZGYgY29udGVudA=="
     assert result["__llm_cli_data__"]["content"] == "ZmFrZSBwZGYgY29udGVudA=="
     assert result["__llm_cli_data__"]["is_file_or_url"] is True
+
+
+@patch("llm_cli.modules.media_utils.read_pdf_text")
+def test_read_pdf_text_from_url_success(mock_read_text, mock_curl_requests):
+    """Test read_pdf_text_from_url returns extracted text."""
+    mock_curl_requests.headers = {"Content-Type": "application/pdf"}
+    mock_curl_requests.content = b"fake pdf content"
+    mock_read_text.return_value = "Extracted Text Content"
+
+    result = read_pdf_text_from_url("https://example.com/doc.pdf")
+
+    assert result == "Extracted Text Content"
 
 
 def test_read_pdf_from_url_not_pdf(mock_curl_requests):

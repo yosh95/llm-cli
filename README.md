@@ -146,10 +146,12 @@ Use them in chat: `> /t proofread`.
 | `execute_python` | Execute Python code for system interaction (Replaces shell commands). |
 | `edit_file` | Edit a file with Diff preview. |
 | `create_or_overwrite_file` | Create a new file. |
-| `read_pdf_content` | Read a local PDF file. |
+| `read_pdf` | Read a PDF file for visual analysis (added as binary attachment). |
+| `read_pdf_text` | Extract and read text from a local PDF file. |
 | `search_web` | Search the web using Brave Search. |
 | `read_html_from_url` | Fetch a URL and convert it to Markdown. |
-| `read_pdf_from_url` | Download and extract text from a PDF URL. |
+| `read_pdf_from_url` | Download a PDF URL for visual analysis (binary). |
+| `read_pdf_text_from_url` | Download and extract text from a PDF URL. |
 
 ## Security & Guardrails
 

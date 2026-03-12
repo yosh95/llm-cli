@@ -45,6 +45,7 @@ def test_initialization(client):
     assert client.api_key == "sk-test"
     # Should use custom URL if provided in config
     assert client.api_url == "https://custom.api/v1"
+    assert client.pdf_as_base64 is False
 
 
 def test_build_input_items_text(client):

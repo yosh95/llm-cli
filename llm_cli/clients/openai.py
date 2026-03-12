@@ -31,7 +31,7 @@ class OpenAIClient(BaseLlmClient):
             initial_model_alias=initial_model_alias,
             api_key_name="api_key",
             config_section="openai",
-            pdf_as_base64=True,
+            pdf_as_base64=False,
             **kwargs,
         )
         # Load custom API URL if provided, otherwise use default

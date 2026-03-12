@@ -16,8 +16,8 @@ class TestProviderClients:
         "client_class,config_section,expected_base64",
         [
             (GeminiClient, "google", True),
-            (ClaudeClient, "anthropic", False),
-            (OpenAIClient, "openai", False),
+            (ClaudeClient, "anthropic", True),
+            (OpenAIClient, "openai", True),
             (GrokClient, "xai", False),
         ],
     )

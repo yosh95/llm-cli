@@ -36,7 +36,7 @@ def test_initialization(client):
     """Test that the client initializes correctly with default values."""
     assert client.model == "claude-3-opus-20240229"
     assert client.api_key == "test-key"
-    assert client.pdf_as_base64 is False
+    assert client.pdf_as_base64 is True
 
 
 def test_build_messages_simple_text(client):

@@ -22,22 +22,22 @@ class TestPDFProcessing:
         assert result.content_type == "application/pdf"
 
     def test_openai_pdf_extraction(self, mock_config, temp_pdf_file):  # noqa: ARG002
-        """Test that OpenAI processes PDFs via text extraction."""
+        """Test that OpenAI processes PDFs as base64."""
         client = OpenAIClient(initial_model_alias="default", stdout=True)
-        assert client.pdf_as_base64 is False
+        assert client.pdf_as_base64 is True
 
         result = client._process_single_source(str(temp_pdf_file))
         assert isinstance(result, DataSource)
-        assert result.content_type == "text/plain"
+        assert result.content_type == "application/pdf"
 
     def test_claude_pdf_extraction(self, mock_config, temp_pdf_file):  # noqa: ARG002
-        """Test that Claude processes PDFs via text extraction."""
+        """Test that Claude processes PDFs as base64."""
         client = ClaudeClient(initial_model_alias="default", stdout=True)
-        assert client.pdf_as_base64 is False
+        assert client.pdf_as_base64 is True
 
         result = client._process_single_source(str(temp_pdf_file))
         assert isinstance(result, DataSource)
-        assert result.content_type == "text/plain"
+        assert result.content_type == "application/pdf"
 
     def test_grok_pdf_extraction(self, mock_config, temp_pdf_file):  # noqa: ARG002
         """Test that Grok processes PDFs via text extraction."""

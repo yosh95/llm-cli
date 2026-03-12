@@ -12,8 +12,8 @@ from typing import Any
 
 import filetype
 import markdownify
+import pdfplumber
 from curl_cffi import requests as curl_requests
-from pypdf import PdfReader
 
 
 def validate_url(url: str) -> bool:
@@ -34,11 +34,48 @@ def validate_url(url: str) -> bool:
 
 
 def read_pdf_text(source: Path | BytesIO) -> str:
+    """Reads PDF text using pdfplumber, prioritizing Japanese text continuity."""
     try:
-        reader = PdfReader(source)
-        return "\n".join(
-            page.extract_text() for page in reader.pages if page.extract_text()
-        )
+        with pdfplumber.open(source) as pdf:
+            text_list = []
+            for page in pdf.pages:
+                # Use x_tolerance=3 and y_tolerance=3 to keep characters together.
+                # layout=False (default) is generally better for sentence continuity.
+                text = page.extract_text(x_tolerance=3, y_tolerance=3)
+                if text:
+                    # Simple heuristic to join lines for better Japanese continuity.
+                    lines = text.splitlines()
+                    joined_lines = []
+                    current = ""
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            if current:
+                                joined_lines.append(current)
+                                current = ""
+                            continue
+                        if current:
+                            # Join lines that don't end with sentence-ending
+                            # punctuation.
+                            if re.search(r"[。！？」』）\)\!\?]$", current):
+                                joined_lines.append(current)
+                                current = line
+                            else:
+                                # Join without space if Japanese characters
+                                # are detected.
+                                if re.search(
+                                    r"[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]",
+                                    current + line,
+                                ):
+                                    current += line
+                                else:
+                                    current += " " + line
+                        else:
+                            current = line
+                    if current:
+                        joined_lines.append(current)
+                    text_list.append("\n".join(joined_lines))
+            return "\n".join(text_list)
     except Exception:
         return ""
 

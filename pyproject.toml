@@ -13,7 +13,7 @@ dependencies = [
     "filetype",
     "markdownify",
     "prompt-toolkit",
-    "pypdf",
+    "pdfplumber",
     "requests",
     "rich",
     "tomli-w",

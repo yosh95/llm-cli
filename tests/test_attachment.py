@@ -18,17 +18,15 @@ class MockClient(BaseLlmClient):
 @patch("llm_cli.modules.tools.file_ops.Path")
 def test_read_pdf_success(mock_path, mock_process):
     mock_path.return_value.exists.return_value = True
+    # When pdf_as_base64=False, process_file returns text/plain
     mock_process.return_value = {
-        "content": "pdf_base64",
-        "content_type": "application/pdf",
+        "content": "extracted text",
+        "content_type": "text/plain",
     }
 
     res = read_pdf("doc.pdf")
 
-    assert "Successfully read" in res["result"]
-    assert "content has been added to the conversation context" in res["result"]
-    assert res["__llm_cli_data__"]["content"] == "pdf_base64"
-    assert res["__llm_cli_data__"]["content_type"] == "application/pdf"
+    assert res == "extracted text"
 
 
 def test_handle_attach_command():

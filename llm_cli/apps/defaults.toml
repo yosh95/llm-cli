@@ -57,9 +57,8 @@ allowed_tools = [
     "search_files",
     "read_file_content",
     "read_html_from_url",
-    "search_web",
     "edit_file",
-    "execute_python"
+    "search_web"
 ]
 # Scopes defined in sub-sections (tomli-w handles this)
 [security.roles.user.scopes.edit_file]

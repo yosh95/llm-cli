@@ -4,58 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from llm_cli.modules.tools.web import (
     read_html_from_url,
-    read_pdf_from_url,
-    read_pdf_text_from_url,
     search_web,
 )
-
-
-def test_read_pdf_from_url_success(mock_curl_requests):
-    """Test read_pdf_from_url returns base64 content."""
-    mock_curl_requests.headers = {"Content-Type": "application/pdf"}
-    mock_curl_requests.content = b"fake pdf content"
-
-    result = read_pdf_from_url("https://example.com/doc.pdf")
-
-    assert isinstance(result, dict)
-    assert "Successfully fetched PDF" in result["result"]
-    assert "content has been added to the conversation context" in result["result"]
-    assert result["__llm_cli_data__"]["content_type"] == "application/pdf"
-    # "fake pdf content" base64 encoded is "ZmFrZSBwZGYgY29udGVudA=="
-    assert result["__llm_cli_data__"]["content"] == "ZmFrZSBwZGYgY29udGVudA=="
-    assert result["__llm_cli_data__"]["is_file_or_url"] is True
-
-
-@patch("llm_cli.modules.media_utils.read_pdf_text")
-def test_read_pdf_text_from_url_success(mock_read_text, mock_curl_requests):
-    """Test read_pdf_text_from_url returns extracted text."""
-    mock_curl_requests.headers = {"Content-Type": "application/pdf"}
-    mock_curl_requests.content = b"fake pdf content"
-    mock_read_text.return_value = "Extracted Text Content"
-
-    result = read_pdf_text_from_url("https://example.com/doc.pdf")
-
-    assert result == "Extracted Text Content"
-
-
-def test_read_pdf_from_url_not_pdf(mock_curl_requests):
-    """Test read_pdf_from_url handles non-pdf content type."""
-    mock_curl_requests.headers = {"Content-Type": "text/html"}
-    mock_curl_requests.content = b"<html></html>"
-
-    result = read_pdf_from_url("https://example.com/doc.html")
-
-    assert isinstance(result, str)
-    assert "Error: Expected PDF but got" in result
-
-
-def test_read_pdf_from_url_fetch_error(mock_curl_requests):
-    """Test read_pdf_from_url handles fetch errors."""
-    with patch("curl_cffi.requests.get", side_effect=Exception("Fetch failed")):
-        result = read_pdf_from_url("https://example.com/doc.pdf")
-
-    assert isinstance(result, str)
-    assert "Error: Failed to fetch content" in result
 
 
 def test_read_html_from_url_basic(mock_curl_requests):

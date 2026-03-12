@@ -502,9 +502,8 @@ def _process_and_return(
 @tool(
     name="read_pdf",
     desc=(
-        "Read a PDF file and add it to the conversation context as a binary "
-        "attachment. Use this if you have vision capabilities to analyze "
-        "diagrams, charts, or the layout of the document."
+        "Extract and read the text content from a PDF file. Use this if you "
+        "need to analyze the text content of a local PDF document."
     ),
     params={
         "type": "object",
@@ -515,25 +514,9 @@ def _process_and_return(
     },
 )
 def read_pdf(path: str) -> str | dict:
-    return _process_and_return(path, expected_types=("application/pdf",))
-
-
-@tool(
-    name="read_pdf_text",
-    desc=(
-        "Extract and read the text content from a PDF file. Use this if you "
-        "only need the text and do not have vision capabilities or do not "
-        "need to see images/charts."
-    ),
-    params={
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Path to the PDF file."}
-        },
-        "required": ["path"],
-    },
-)
-def read_pdf_text(path: str) -> str | dict:
     return _process_and_return(
         path, expected_types=("application/pdf",), pdf_as_base64=False
     )
+
+
+# End of file or next content

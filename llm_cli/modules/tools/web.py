@@ -1,12 +1,8 @@
 # llm_cli/modules/tools/web.py
 
-import urllib.parse
-from pathlib import Path
-
 import requests
 
 from llm_cli.clients.config import get_setting
-from llm_cli.modules.media_utils import fetch_url_content
 from llm_cli.modules.tool_registry import tool
 
 # Check for Brave Search configuration
@@ -75,83 +71,14 @@ if _brave_api_key:
     },
 )
 def read_html_from_url(url: str) -> str:
+    from llm_cli.modules.media_utils import fetch_url_content
+
     content, ctype = fetch_url_content(url, pdf_as_base64=False)
 
     if content is None or ctype is None:
         return f"Error: Failed to fetch content from {url} or invalid URL."
 
     if "text/html" not in ctype and "text/plain" not in ctype:
-        return (
-            f"Error: URL returned {ctype}, expected text/html or text/plain. "
-            "Use 'read_pdf_from_url' for PDFs or 'read_pdf_text_from_url' for text."
-        )
-
-    return content
-
-
-@tool(
-    name="read_pdf_from_url",
-    description=(
-        "Download a PDF from a URL and add it to the conversation context "
-        "as a binary attachment. Use this if you have vision capabilities "
-        "to analyze diagrams or charts."
-    ),
-    parameters={
-        "type": "object",
-        "properties": {"url": {"type": "string", "description": "Target PDF URL."}},
-        "required": ["url"],
-    },
-)
-def read_pdf_from_url(url: str) -> str | dict:
-    # Use fetch_url_content with pdf_as_base64=True to get base64
-    content, ctype = fetch_url_content(url, pdf_as_base64=True)
-
-    if content is None or ctype is None:
-        return "Error: Failed to fetch content or invalid URL."
-
-    if "application/pdf" not in ctype:
-        return f"Error: Expected PDF but got {ctype}. Content might not be a PDF."
-
-    parsed_url = urllib.parse.urlparse(url)
-    filename = Path(parsed_url.path).name or "downloaded_file.pdf"
-    if not filename.lower().endswith(".pdf"):
-        filename += ".pdf"
-
-    return {
-        "result": (
-            f"Successfully fetched PDF from {url}. "
-            "The content has been added to the conversation context "
-            "as a binary attachment. Please analyze the attached file."
-        ),
-        "__llm_cli_data__": {
-            "content": content,
-            "content_type": ctype,
-            "is_file_or_url": True,
-            "metadata": {"filename": filename},
-        },
-    }
-
-
-@tool(
-    name="read_pdf_text_from_url",
-    description=(
-        "Download a PDF from a URL and extract its text content. Use this "
-        "if you only need the text or do not have vision capabilities."
-    ),
-    parameters={
-        "type": "object",
-        "properties": {"url": {"type": "string", "description": "Target PDF URL."}},
-        "required": ["url"],
-    },
-)
-def read_pdf_text_from_url(url: str) -> str:
-    # Use fetch_url_content with pdf_as_base64=False to get text
-    content, ctype = fetch_url_content(url, pdf_as_base64=False)
-
-    if content is None or ctype is None:
-        return "Error: Failed to fetch content or invalid URL."
-
-    if "application/pdf" not in ctype and ctype != "text/plain":
-        return f"Error: Expected PDF but got {ctype}."
+        return f"Error: URL returned {ctype}, expected text/html or text/plain."
 
     return content

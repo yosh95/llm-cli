@@ -25,6 +25,9 @@ class ReasoningSentinelManager:
         from llm_cli.clients.config import get_setting
         from llm_cli.security.sentinel import MambaSentinel
 
+        global current_integrity_score
+        current_integrity_score = None  # Reset global score on new manager init
+
         # Load settings
         self.enabled = get_setting("enabled", "sentinel")
         if self.enabled is None:

@@ -25,7 +25,7 @@ class MambaSentinel:
         expand: int = 1,
         lr: float = 1e-3,
         checkpoint_path: str = "sentinel_state.npz",
-        mode: str = "detect",
+        mode: str = "collect",
         threshold_yellow: float = 3.5,
         threshold_red: float = 5.0,
     ):
@@ -35,7 +35,7 @@ class MambaSentinel:
         self.n_layers = n_layers
         self.vocab_size = 256
         self.checkpoint_path = checkpoint_path
-        self.mode = mode  # "collect" (training) or "detect" (blocking/reporting)
+        self.mode = mode  # "collect" (training) or "block" (forced approval/reporting)
         self.thresholds = {"yellow": threshold_yellow, "red": threshold_red}
 
         # Layers

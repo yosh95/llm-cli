@@ -135,9 +135,9 @@ def execute_tool_call(
     tool_entry = registry.tools.get(name, {})
     skip_approval = tool_entry.get("skip_approval", False)
 
-    # Force approval if Sentinel detects RED status
+    # Force approval if Sentinel detects RED status and is in block mode
     # (Real-time Intent Deviation Detection)
-    if status == "red":
+    if status == "red" and session.sentinel.sentinel.mode == "block":
         skip_approval = False
 
     is_write = (

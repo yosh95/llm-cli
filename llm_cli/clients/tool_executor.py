@@ -28,6 +28,45 @@ def execute_tool_call(
     if not call:
         return None
 
+    # --- Real-time Anomaly Detection (Mamba Sentinel) ---
+    score, status = session.sentinel.get_sentinel_status()
+    is_anomaly = status != "green"
+
+    if is_anomaly:
+        from rich.panel import Panel
+        from rich.text import Text
+
+        color = "red" if status == "red" else "yellow"
+        title = (
+            "🚨 [bold]Sentinel: Intent Deviation Detected[/bold]"
+            if status == "red"
+            else "⚠️ [bold]Sentinel: Unusual Reasoning Pattern[/bold]"
+        )
+        sentinel_msg = Text()
+        sentinel_msg.append(
+            "The Mamba Sentinel has detected a potential deviation in the "
+            "model's reasoning process.\n",
+            style="bold",
+        )
+        sentinel_msg.append(
+            f"Anomaly Score: {score:.2f} (Status: {status.upper()})\n", style="cyan"
+        )
+
+        if status == "red":
+            sentinel_msg.append(
+                "\n[CRITICAL] High probability of intent drift or safety violation. "
+                "Manual override required.",
+                style="bold red",
+            )
+        else:
+            sentinel_msg.append(
+                "\n[WARNING] Moderate deviation detected. Please review the request "
+                "carefully.",
+                style="yellow",
+            )
+
+        console.print(Panel(sentinel_msg, title=title, border_style=color))
+
     tool_id, name, args = (
         call.get("id", "unknown"),
         call["name"],
@@ -95,6 +134,11 @@ def execute_tool_call(
 
     tool_entry = registry.tools.get(name, {})
     skip_approval = tool_entry.get("skip_approval", False)
+
+    # Force approval if Sentinel detects RED status
+    # (Real-time Intent Deviation Detection)
+    if status == "red":
+        skip_approval = False
 
     is_write = (
         name == "write_file"

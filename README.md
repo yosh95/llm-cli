@@ -163,6 +163,11 @@ Unlike other AI agents, `llm-cli` does not provide a direct shell environment. I
 - **Context-Adaptive Security Scaling (CASS)**: Dynamically scales security levels based on tool risk.
 - **Audit Logging**: Tamper-evident logs with chained hashing and Merkle Root protection.
 
+### 🛡️ Mamba Sentinel: Real-time Intent Deviation Detection
+Using a **pure NumPy implementation of Mamba (State Space Model)**, this system monitors the LLM's reasoning process at a byte level.
+- **State-Based Monitoring**: Leverages Mamba's "internal state" to detect subtle logic drifts or injection attempts during generation.
+- **Dynamic Intervention**: Automatically escalates to **Forced Human-in-the-Loop** mode if high-confidence anomalies (RED status) are detected, ensuring the agent cannot proceed without explicit user approval.
+
 ### 🧠 Intent Analyzer (Dual-LLM)
 Uses a secondary, lightweight LLM (Verifier) to audit the actions of the main agent (including generated Python code) in real-time. If the agent's action doesn't match the user's intent (e.g., user asks to "read" but agent tries to "delete"), the execution is blocked.
 
@@ -347,6 +352,11 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 - **非対称鍵認証**: RS256署名による実行主体確認。
 - **耐量子暗号 (PQC)**: RS256 + ML-DSA のハイブリッド署名。
 - **監査ログ**: ハッシュ連鎖とMerkle Rootによる改ざん検知。
+
+### 🛡️ Mamba Sentinel: リアルタイム意図逸脱検知
+**NumPyのみで実装された Mamba (State Space Model)** を用い、LLMの推論プロセスをバイトレベルでリアルタイム監視します。
+- **状態ベースの監視**: Mambaの内部状態（State）を活用し、生成中の微細なロジックの乖離やインジェクション試行を検知。
+- **動的介入**: 重大な異常（REDステータス）を検知した場合、自動的に**強制手動承認モード**へ移行。ユーザーの明示的な許可なしにはエージェントが次のステップに進むことを防ぎます。
 
 ### 🧠 Intent Analyzer (Dual-LLM)
 メインエージェントの行動（生成されたPythonコードを含む）を別の軽量LLMがリアルタイムで監査。ユーザーの意図に反する破壊的行為を未然に防ぎます。

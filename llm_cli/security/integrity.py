@@ -106,6 +106,18 @@ class ReasoningSentinelManager:
 
         return avg_score
 
+    def get_sentinel_status(self) -> tuple[float, str]:
+        """
+        Returns the current average score and its status (green, yellow, red).
+        """
+        score = current_integrity_score if current_integrity_score is not None else 0.0
+        status = "green"
+        if score > self.sentinel.thresholds["red"]:
+            status = "red"
+        elif score > self.sentinel.thresholds["yellow"]:
+            status = "yellow"
+        return score, status
+
     def finalize_session(self, learn: bool | None = None) -> None:
         """
         Finalize the session, optionally performing online learning update.

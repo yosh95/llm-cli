@@ -26,7 +26,7 @@ class ClaudeClient(BaseLlmClient):
             initial_model_alias=initial_model_alias,
             api_key_name="api_key",
             config_section="anthropic",
-            pdf_as_base64=False,
+            pdf_as_base64=True,
             **kwargs,
         )
 

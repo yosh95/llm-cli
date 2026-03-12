@@ -442,7 +442,7 @@ def print_help() -> None:
         "  /info (i)      Show session info\n"
         "  /debug (d)     Toggle live debug mode\n"
         "  /model (m)     List available models or switch model\n"
-        "                 (e.g. /m mage)\n"
+        "                 (e.g. /m pro)\n"
         "  /provider (p)  List available providers or switch provider\n"
         "                 (e.g. /p openai)\n"
         "  /tools on|off  Show or toggle tool status\n"

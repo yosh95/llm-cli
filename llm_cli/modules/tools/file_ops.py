@@ -160,6 +160,14 @@ def search_files(
                     "'*.pyc', '.git'])."
                 ),
             },
+            "include_hidden": {
+                "type": "boolean",
+                "description": (
+                    "If true, show hidden files and directories "
+                    "(those starting with a dot)."
+                ),
+                "default": False,
+            },
             "max_files": {
                 "type": "integer",
                 "description": "Maximum number of files to list.",
@@ -174,6 +182,7 @@ def list_files_in_directory(
     depth: int = 1,
     ignore_patterns: list[str] | None = None,
     max_files: int = 500,
+    include_hidden: bool = False,
 ) -> str:
     """
     Lists files in a directory tree, excluding specified patterns
@@ -202,6 +211,8 @@ def list_files_in_directory(
         results, file_count = [], 0
 
         def should_ignore(name: str) -> bool:
+            if not include_hidden and name.startswith("."):
+                return True
             return any(fnmatch.fnmatch(name, pattern) for pattern in ignore_patterns)
 
         def walk(current_path: Path, current_depth: int) -> None:
@@ -210,11 +221,16 @@ def list_files_in_directory(
                 return
 
             try:
-                # Filter out ignored directories before iterating
-                entries = sorted(
+                # Filter out ignored entries and sort them
+                all_entries = sorted(
                     [e for e in current_path.iterdir() if not should_ignore(e.name)],
-                    key=lambda x: (not x.is_dir(), x.name),
+                    key=lambda x: x.name.lower(),
                 )
+
+                # Separate files and directories to ensure files
+                # at this level are listed first
+                files = [e for e in all_entries if not e.is_dir()]
+                dirs = [e for e in all_entries if e.is_dir()]
             except PermissionError:
                 results.append(
                     f"{'  ' * (current_depth - 1)}⚠️ "
@@ -222,22 +238,31 @@ def list_files_in_directory(
                 )
                 return
 
-            for entry in entries:
+            # List files at the current level
+            for entry in files:
                 if file_count >= max_files:
                     if file_count == max_files:
                         results.append("\n\n... (Too many files, listing truncated)")
                         file_count += 1
-                    break
+                    return
 
                 rel_path = entry.relative_to(base_path)
                 prefix = "  " * (current_depth - 1)
+                results.append(f"{prefix}📄 {rel_path}")
+                file_count += 1
 
-                if entry.is_dir():
-                    results.append(f"{prefix}📁 {rel_path}/")
-                    walk(entry, current_depth + 1)
-                else:
-                    results.append(f"{prefix}📄 {rel_path}")
-                    file_count += 1
+            # List directories and recurse
+            for entry in dirs:
+                if file_count >= max_files:
+                    if file_count == max_files:
+                        results.append("\n\n... (Too many files, listing truncated)")
+                        file_count += 1
+                    return
+
+                rel_path = entry.relative_to(base_path)
+                prefix = "  " * (current_depth - 1)
+                results.append(f"{prefix}📁 {rel_path}/")
+                walk(entry, current_depth + 1)
 
         walk(base_path, 1)
         final_result = "\n".join(results) or "No files found."

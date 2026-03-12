@@ -372,7 +372,7 @@ def configure_sentinel(config: dict[str, Any]) -> None:
 
     if s_config["enabled"]:
         s_config["mode"] = prompt_input(
-            "Sentinel Mode (block/collect)", s_config.get("mode", "collect")
+            "Sentinel Mode (detect/collect)", s_config.get("mode", "collect")
         )
         s_config["threshold_yellow"] = float(
             prompt_input(

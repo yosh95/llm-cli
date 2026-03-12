@@ -35,7 +35,9 @@ class MambaSentinel:
         self.n_layers = n_layers
         self.vocab_size = 256
         self.checkpoint_path = checkpoint_path
-        self.mode = mode  # "collect" (training) or "block" (forced approval/reporting)
+        self.mode = (
+            mode  # "collect" (training) or "detect" (active monitoring/alerting)
+        )
         self.thresholds = {"yellow": threshold_yellow, "red": threshold_red}
 
         # Layers

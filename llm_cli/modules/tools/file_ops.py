@@ -5,7 +5,6 @@ import fnmatch
 import os
 from pathlib import Path
 
-from llm_cli.modules.media_utils import process_file
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
 
@@ -455,68 +454,6 @@ def create_or_overwrite_file(path: str, content: str) -> str:
         return f"Security Error: {e}"
     except Exception as e:
         return f"Error: {e}"
-
-
-def _process_and_return(
-    path: str, expected_types: tuple | None = None, pdf_as_base64: bool = True
-) -> str | dict:
-    try:
-        validate_path(path)
-        p = Path(path)
-        if not p.exists():
-            return f"Error: File not found: {path}"
-
-        res = process_file(p, pdf_as_base64=pdf_as_base64)
-        if not res:
-            return f"Error: Failed to process file: {path}"
-
-        content_type = res.get("content_type", "")
-
-        if expected_types:
-            # If we were expecting PDF but got text (because pdf_as_base64=False),
-            # that's fine as long as the file was originally a PDF.
-            # process_file handles the conversion.
-            pass
-
-        # If we asked for text extraction and got it, return the text directly
-        if not pdf_as_base64 and content_type == "text/plain":
-            return str(res["content"])
-
-        return {
-            "result": (
-                f"Successfully read {path} ({content_type}). "
-                "The file content has been added to the conversation context "
-                "as a binary attachment. Please analyze the attached file."
-            ),
-            "__llm_cli_data__": {
-                "content": res["content"],
-                "content_type": res["content_type"],
-                "is_file_or_url": True,
-                "metadata": {"filename": res.get("filename", p.name)},
-            },
-        }
-    except Exception as e:
-        return f"Error: {e}"
-
-
-@tool(
-    name="read_pdf",
-    desc=(
-        "Extract and read the text content from a PDF file. Use this if you "
-        "need to analyze the text content of a local PDF document."
-    ),
-    params={
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Path to the PDF file."}
-        },
-        "required": ["path"],
-    },
-)
-def read_pdf(path: str) -> str | dict:
-    return _process_and_return(
-        path, expected_types=("application/pdf",), pdf_as_base64=False
-    )
 
 
 # End of file or next content

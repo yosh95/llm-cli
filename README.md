@@ -33,7 +33,7 @@ Detailed architectural insights and security analysis are available in the follo
 -   **Local LLM Support**: Use models locally via **Ollama** for maximum privacy and zero latency.
 -   **Autonomous Agent**: The AI can manage files, **interact with the system via Python**, search the web, and **dynamically attach media files**.
 -   **Multimodal Input & Output**:
-    -   **Input**: Manual (`/attach`) or autonomous (`read_pdf`, etc.) attachment of Images, PDFs, Audio, and Video.
+    -   **Input**: Manual (`/attach`) attachment of Images, PDFs, Audio, and Video.
     -   **Output**: Generate images (DALL-E 3, Grok-Imagine, Gemini) and videos (Veo, Sora) mid-conversation.
 -   **Distributed Agent via MCP**: Support for **Model Context Protocol**. Connect to remote instances via SSH to manage files or run tests as if they were local.
 -   **URL Support**: Directly pass website URLs to analyze content with automatic scraping.
@@ -146,7 +146,6 @@ Use them in chat: `> /t proofread`.
 | `execute_python` | Execute Python code for system interaction (Replaces shell commands). |
 | `edit_file` | Edit a file with Diff preview. |
 | `create_or_overwrite_file` | Create a new file. |
-| `read_pdf` | Extract and read text from a local PDF file. |
 | `search_web` | Search the web using Brave Search. |
 | `read_html_from_url` | Fetch a URL and convert it to Markdown. |
 
@@ -336,7 +335,6 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 | `execute_python` | Pythonコードによるシステム操作 (シェルの代替)。 |
 | `edit_file` | Diff表示付きのファイル編集。 |
 | `create_or_overwrite_file` | ファイルの新規作成。 |
-| `read_pdf` | ローカルPDFファイルからテキストを抽出して読み込み。 |
 | `search_web` | Brave SearchによるWeb検索。 |
 | `read_html_from_url` | URLをMarkdownとして取得。 |
 

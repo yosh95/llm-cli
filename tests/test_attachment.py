@@ -3,7 +3,6 @@
 from unittest.mock import patch
 
 from llm_cli.clients.base import BaseLlmClient
-from llm_cli.modules.tools.file_ops import read_pdf
 
 
 class MockClient(BaseLlmClient):
@@ -12,21 +11,6 @@ class MockClient(BaseLlmClient):
 
     def _send(self, _data):
         return "response", {}
-
-
-@patch("llm_cli.modules.tools.file_ops.process_file")
-@patch("llm_cli.modules.tools.file_ops.Path")
-def test_read_pdf_success(mock_path, mock_process):
-    mock_path.return_value.exists.return_value = True
-    # When pdf_as_base64=False, process_file returns text/plain
-    mock_process.return_value = {
-        "content": "extracted text",
-        "content_type": "text/plain",
-    }
-
-    res = read_pdf("doc.pdf")
-
-    assert res == "extracted text"
 
 
 def test_handle_attach_command():

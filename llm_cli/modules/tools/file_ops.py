@@ -3,10 +3,23 @@
 import difflib
 import fnmatch
 import os
+from datetime import datetime
 from pathlib import Path
 
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
+
+
+def format_size(size_bytes: int) -> str:
+    """Helper to format file size in human-readable form."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
 
 
 @tool(
@@ -184,8 +197,8 @@ def list_files_in_directory(
     include_hidden: bool = False,
 ) -> str:
     """
-    Lists files in a directory tree, excluding specified patterns
-    and limiting the output size for safety.
+    Lists files in a directory tree with metadata, using a flat full-path format.
+    Excludes specified patterns and limits the output size for safety.
     """
     try:
         validate_path(directory or ".")
@@ -208,6 +221,11 @@ def list_files_in_directory(
             ]
 
         results, file_count = [], 0
+        header = (
+            f"{'[Type]':<7} {'[Last Modified (UTC)]':<20} "
+            f"{'[Size]':>10}  {'[Full Path]'}"
+        )
+        results.append(header)
 
         def should_ignore(name: str) -> bool:
             if not include_hidden and name.startswith("."):
@@ -220,52 +238,50 @@ def list_files_in_directory(
                 return
 
             try:
-                # Filter out ignored entries and sort them
+                # Sort: Directories first, then files, both alphabetically
                 all_entries = sorted(
                     [e for e in current_path.iterdir() if not should_ignore(e.name)],
-                    key=lambda x: x.name.lower(),
+                    key=lambda x: (not x.is_dir(), x.name.lower()),
                 )
-
-                # Separate files and directories to ensure files
-                # at this level are listed first
-                files = [e for e in all_entries if not e.is_dir()]
-                dirs = [e for e in all_entries if e.is_dir()]
             except PermissionError:
                 results.append(
-                    f"{'  ' * (current_depth - 1)}⚠️ "
+                    f"{'[ERR]':<7} {' ' * 20} {' ' * 10}  "
                     f"Permission Denied: {current_path.name}"
                 )
                 return
 
-            # List files at the current level
-            for entry in files:
+            for entry in all_entries:
                 if file_count >= max_files:
                     if file_count == max_files:
-                        results.append("\n\n... (Too many files, listing truncated)")
+                        results.append("\n... (Too many files, listing truncated)")
                         file_count += 1
                     return
 
-                rel_path = entry.relative_to(base_path)
-                prefix = "  " * (current_depth - 1)
-                results.append(f"{prefix}📄 {rel_path}")
-                file_count += 1
+                try:
+                    stat = entry.stat()
+                    mtime = datetime.fromtimestamp(stat.st_mtime).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                    rel_path = entry.relative_to(base_path)
 
-            # List directories and recurse
-            for entry in dirs:
-                if file_count >= max_files:
-                    if file_count == max_files:
-                        results.append("\n\n... (Too many files, listing truncated)")
+                    if entry.is_dir():
+                        results.append(f"{'[D]':<7} {mtime:<20} {'-':>10}  {rel_path}/")
                         file_count += 1
-                    return
-
-                rel_path = entry.relative_to(base_path)
-                prefix = "  " * (current_depth - 1)
-                results.append(f"{prefix}📁 {rel_path}/")
-                walk(entry, current_depth + 1)
+                        walk(entry, current_depth + 1)
+                    else:
+                        size_str = format_size(stat.st_size)
+                        results.append(
+                            f"{'[F]':<7} {mtime:<20} {size_str:>10}  {rel_path}"
+                        )
+                        file_count += 1
+                except (PermissionError, OSError):
+                    continue
 
         walk(base_path, 1)
-        final_result = "\n".join(results) or "No files found."
-        return final_result
+        if len(results) == 1:  # Only header
+            return "No files found."
+
+        return "\n".join(results)
 
     except PathValidationError as e:
         return f"Security Error: {e}"

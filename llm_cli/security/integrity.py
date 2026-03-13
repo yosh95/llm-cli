@@ -71,17 +71,26 @@ class ReasoningSentinelManager:
         self.max_history = 2048  # Increased history for better context
         self.score_history: list[float] = []  # For Trust Trend visualization
 
+        # Performance metrics
+        self.last_processing_time: float = 0.0
+        self.total_processing_time: float = 0.0
+        self.processing_count: int = 0
+
     def process_chunk(self, chunk: str) -> float:
         """
         Process a text chunk from the LLM stream.
         Returns the average anomaly score for the chunk.
         """
+        import time
+
         import numpy as np
 
         global current_integrity_score
 
         if not self.enabled or not chunk:
             return 0.0
+
+        start_time = time.perf_counter()
 
         bytes_data = chunk.encode("utf-8")
         scores: list[float] = []
@@ -100,6 +109,12 @@ class ReasoningSentinelManager:
 
         avg_score = float(np.mean(scores)) if scores else 0.0
         current_integrity_score = avg_score
+
+        # Track performance
+        elapsed = time.perf_counter() - start_time
+        self.last_processing_time = elapsed
+        self.total_processing_time += elapsed
+        self.processing_count += 1
 
         # Track history for visualization
         if scores:

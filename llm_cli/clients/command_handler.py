@@ -400,6 +400,17 @@ def handle_command(
                         else:
                             trend_chars.append("[red]█[/red]")
                     info_table.add_row("Trust Trend", "".join(trend_chars))
+
+                # Sentinel Latency
+                if sentinel.processing_count > 0:
+                    avg_time = (
+                        sentinel.total_processing_time / sentinel.processing_count
+                    )
+                    info_table.add_row(
+                        "Sentinel Latency",
+                        f"[dim]{sentinel.last_processing_time * 1000:.2f}ms[/dim] "
+                        f"(avg: [dim]{avg_time * 1000:.2f}ms[/dim])",
+                    )
             else:
                 info_table.add_row(
                     "Reasoning Integrity", "[dim]N/A (No reasoning analyzed)[/dim]"

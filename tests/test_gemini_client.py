@@ -272,11 +272,10 @@ def test_send_parses_response(gemini_client: GeminiClient) -> None:
 
 
 def test_send_with_system_prompt(gemini_client: GeminiClient) -> None:
-    """Test system prompt inclusion in the first turn."""
+    """Test system prompt inclusion via system_instruction field."""
     gemini_client.model = "gemini-pro"
     gemini_client.system_prompt = "Sys Prompt"
     gemini_client.system_prompt_enabled = True
-    gemini_client.last_interaction_id = None  # Ensure first turn
 
     with patch("llm_cli.clients.base.BaseLlmClient._post") as mock_post:
         mock_res = MagicMock()
@@ -289,9 +288,8 @@ def test_send_with_system_prompt(gemini_client: GeminiClient) -> None:
         call_args = mock_post.call_args
         payload = call_args[1]["json_data"]
 
-        # System prompt should be prepended to inputs
-        assert len(payload["input"]) >= 2
-        assert payload["input"][0]["text"] == "System: Sys Prompt"
+        # System prompt should be in system_instruction field
+        assert payload["system_instruction"] == "Sys Prompt"
 
 
 def test_send_with_tool_result(gemini_client: GeminiClient) -> None:

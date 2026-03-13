@@ -210,14 +210,18 @@ class GeminiClient(BaseLlmClient):
                 # Text content
                 interaction_input.append({"type": "text", "text": str(item.content)})
 
+        is_tts_model = "tts" in self.model.lower()
+        is_image_model = self._is_image_model()
+
         # Construct request payload
         payload: dict[str, Any] = {
             "model": self.model,
             "input": interaction_input,
         }
 
-        is_tts_model = "tts" in self.model.lower()
-        is_image_model = self._is_image_model()
+        # Add system instruction if enabled
+        if self.system_prompt and self.system_prompt_enabled and not is_tts_model:
+            payload["system_instruction"] = self.system_prompt
 
         # For image models, consolidate all text input into a single prompt
         # while preserving other media types (e.g. for image-to-image or context)
@@ -244,9 +248,6 @@ class GeminiClient(BaseLlmClient):
             # We also inject context if it's an image model but we have
             # multiple inputs (e.g. image + text), as it's likely a vision-related task.
             context_text_parts = []
-            # ... (rest of context logic)
-            if self.system_prompt and self.system_prompt_enabled and not is_tts_model:
-                context_text_parts.append(f"System: {self.system_prompt}")
 
             if self.conversation:
                 for msg in self.conversation:

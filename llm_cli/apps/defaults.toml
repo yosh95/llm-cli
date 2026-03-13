@@ -149,7 +149,7 @@ default = "llama3.2:3b"
 # Reasoning Sentinel (Mamba-SSM Guard)
 # =============================================================================
 [sentinel]
-enabled = true
+enabled = false
 mode = "collect"
 threshold_yellow = 3.5
 threshold_red = 5.0

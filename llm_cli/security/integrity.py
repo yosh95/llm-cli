@@ -1,8 +1,11 @@
 import hashlib
 import json
 import logging
+import math
 import os
+import re
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +78,58 @@ class ReasoningSentinelManager:
         self.last_processing_time: float = 0.0
         self.total_processing_time: float = 0.0
         self.processing_count: int = 0
+        self.suspected_secrets: list[str] = []
+
+    def _calculate_shannon_entropy(self, data: bytes) -> float:
+        """Calculate Shannon entropy of a byte sequence."""
+        if not data:
+            return 0.0
+        counter = Counter(data)
+        len_data = len(data)
+        entropy = 0.0
+        for count in counter.values():
+            p = count / len_data
+            entropy -= p * math.log2(p)
+        return entropy
+
+    def _analyze_for_secrets(self, data: bytes, scores: list[float]) -> list[str]:
+        """
+        Analyze a sequence of bytes and their Mamba surprise scores for secrets.
+        Uses a combination of Shannon Entropy and Model Surprise.
+        """
+        # Match secret-like tokens at byte level to ensure indices match 'scores'
+        # Pattern: Alphanumeric + common Base64/Key symbols, length 16+
+        pattern = b"[A-Za-z0-9+/=_\\-\\.]{16,}"
+        potential_tokens = re.finditer(pattern, data)
+        suspected = []
+
+        for match in potential_tokens:
+            token_bytes = match.group()
+            start, end = match.span()
+
+            # 1. Calculate Shannon Entropy (0.0 to 8.0)
+            entropy = self._calculate_shannon_entropy(token_bytes)
+
+            # 2. Calculate average Mamba surprise (cross-entropy) for this token
+            token_scores = scores[start:end]
+            avg_surprise = (
+                sum(token_scores) / len(token_scores) if token_scores else 0.0
+            )
+
+            # --- Heuristics ---
+            # Thresholds are chosen to be conservative to minimize false positives
+            # while catching random keys.
+            is_high_entropy = entropy > 4.7
+            is_surprising = avg_surprise > self.sentinel.thresholds["yellow"]
+
+            # If both entropy and surprise are high, it's likely a secret/key
+            if is_high_entropy and is_surprising:
+                try:
+                    suspected.append(token_bytes.decode("utf-8"))
+                except UnicodeDecodeError:
+                    suspected.append(str(token_bytes))
+
+        return list(set(suspected))
 
     def process_chunk(self, chunk: str) -> float:
         """
@@ -109,6 +164,9 @@ class ReasoningSentinelManager:
 
         avg_score = float(np.mean(scores)) if scores else 0.0
         current_integrity_score = avg_score
+
+        # Secret detection (Entropy + Mamba Surprise)
+        self.suspected_secrets.extend(self._analyze_for_secrets(bytes_data, scores))
 
         # Track performance
         elapsed = time.perf_counter() - start_time
@@ -440,6 +498,37 @@ class IntegrityVerifier:
         # Calling verify() with allow_tofu=True will trigger TOFU logic
         # since manifest is gone
         return self.verify(allow_tofu=True)
+
+    def generate_attestation_token(self) -> dict:
+        """
+        Generates a PQC-signed attestation object of the current system integrity.
+        This is embedded into identity tokens for Zero-Trust propagation.
+        """
+        import base64
+        import time
+
+        from llm_cli.security.identity import IdentityManager
+        from llm_cli.security.pqc import PQCProvider
+
+        # Collect current state
+        state = {
+            "ts": time.time(),
+            "integrity_ok": True,
+            "workload": IdentityManager.get_local_identity(),
+        }
+
+        # Create message to sign
+        message = json.dumps(state, sort_keys=True)
+        pqc_priv = IdentityManager._get_pqc_private_key_content()
+
+        # Sign with PQC
+        signature = PQCProvider.sign(message.encode(), pqc_priv)
+
+        return {
+            "evidence": state,
+            "pqc_signature": base64.b64encode(signature).decode(),
+            "pqc_algorithm": PQCProvider.ALGORITHM_NAME,
+        }
 
 
 def verify_installation() -> None:

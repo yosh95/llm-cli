@@ -120,6 +120,62 @@ class ChatSession:
         if title:
             console.print(Rule(style=style or "white"))
 
+    def _print_secret_warning(self, secrets: list[str]) -> None:
+        """Displays a warning when potential secrets are detected."""
+        from rich.panel import Panel
+        from rich.text import Text
+
+        unique_secrets = sorted(set(secrets))
+        msg = (
+            "The following high-entropy sequences were detected in the AI's output. "
+            "They might be API keys, passwords, or other sensitive secrets:\n\n"
+        )
+
+        secret_markup = "\n".join(
+            [f"• [bold red]{s}[/bold red]" for s in unique_secrets]
+        )
+
+        console.print(
+            Panel(
+                Text.from_markup(msg + secret_markup),
+                title="[bold yellow]⚠️  Secret Detection (Entropy-Based)[/bold yellow]",
+                border_style="yellow",
+            )
+        )
+
+    def _confirm_secret_transmission(self, secrets: list[str]) -> bool:
+        """Confirms whether the user wants to send detected secrets to external AI."""
+        from rich.panel import Panel
+        from rich.text import Text
+
+        unique_secrets = sorted(set(secrets))
+        msg = (
+            "[bold red]DANGER:[/bold red] The following sensitive sequences were "
+            "detected in your message. Sending these to an external AI provider "
+            "may compromise your security:\n\n"
+        )
+        secret_markup = "\n".join(
+            [f"• [bold red]{s}[/bold red]" for s in unique_secrets]
+        )
+
+        console.print(
+            Panel(
+                Text.from_markup(msg + secret_markup),
+                title="[bold red]🚨 Data Leak Prevention[/bold red]",
+                border_style="red",
+            )
+        )
+
+        confirm = self._get_input(
+            "Do you still want to send this message? (y/N): ", exit_on_escape=True
+        )
+        return confirm.lower() in ("y", "ｙ")
+
+    def _confirm(self, message: str, exit_on_escape: bool = False) -> bool:
+        """Helper to ask for a y/n confirmation."""
+        ans = self._get_input(message, exit_on_escape=exit_on_escape)
+        return ans.lower() in ("y", "ｙ")
+
     def run(
         self,
         initial_data: list[DataSource] | None = None,
@@ -169,6 +225,19 @@ class ChatSession:
                     enable_suspend=True,
                 ).strip()
                 prompt_default = ""  # Reset default after use
+
+                # --- Pre-transmission Secret Detection ---
+                if user_input and not user_input.startswith("/"):
+                    self.sentinel.process_chunk(user_input)
+                    if self.sentinel.suspected_secrets:
+                        if not self._confirm_secret_transmission(
+                            self.sentinel.suspected_secrets
+                        ):
+                            # Cancel sending, keep input in prompt for editing
+                            prompt_default = user_input
+                            self.sentinel.suspected_secrets = []
+                            continue
+                        self.sentinel.suspected_secrets = []
             except (KeyboardInterrupt, EOFError):
                 break
 
@@ -244,6 +313,11 @@ class ChatSession:
             # Finalize turn for the sentinel
             # (triggers online learning if in collect mode)
             self.sentinel.finalize_session()
+
+            # --- Secret Redaction/Warning Integration ---
+            if self.sentinel.suspected_secrets:
+                self._print_secret_warning(self.sentinel.suspected_secrets)
+                self.sentinel.suspected_secrets = []
 
             if usage:
                 self.client.last_usage = usage
@@ -500,9 +574,6 @@ class ChatSession:
                 "Returning empty.[/yellow]"
             )
             return ""
-
-    def _confirm(self, message: str) -> bool:
-        return self._get_input(message, exit_on_escape=True).lower() in ("y", "ｙ")
 
     def _execute_tool_call(
         self, part: ContentPart, duration: float | None = None

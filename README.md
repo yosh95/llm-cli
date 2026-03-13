@@ -28,17 +28,17 @@ Detailed architectural insights and security analysis are available in the follo
 
 ## Key Features
 
--   **Unified Interface**: Access Gemini, OpenAI, Claude, Grok, and **Ollama (Local)** through a single `llm` command.
--   **Quantum-Resistant Reasoning Sentinel**: A lightweight, **pure NumPy SSM** that monitors AI reasoning processes for anomalies (e.g., intent shifts or prompt injection) in real-time without heavy ML dependencies like Torch.
--   **Local LLM Support**: Use models locally via **Ollama** for maximum privacy and zero latency.
--   **Autonomous Agent**: The AI can manage files, **interact with the system via Python**, search the web, and **dynamically attach media files**.
--   **Multimodal Input & Output**:
+- **Quantum-Resistant Reasoning Sentinel**: A lightweight, **pure NumPy SSM** that monitors AI reasoning processes for anomalies (e.g., intent shifts or prompt injection) in real-time. It acts as an **IDS for LLMs**, tracking "Reasoning Integrity" without heavy ML dependencies like Torch.
+- **PQC Remote Attestation**: Proves client-side integrity to remote MCP servers. The client verifies its own source code and generates a PQC-signed "Attestation Token" automatically embedded in every tool call.
+- **Local LLM Support**: Use models locally via **Ollama** for maximum privacy and zero latency.
+- **Autonomous Agent**: The AI can manage files, **interact with the system via Python**, search the web, and **dynamically attach media files**.
+- **Multimodal Input & Output**:
     -   **Input**: Manual (`/attach`) attachment of Images, PDFs, Audio, and Video.
     -   **Output**: Generate images (DALL-E 3, Grok-Imagine, Gemini) and videos (Veo, Sora) mid-conversation.
--   **Distributed Agent via MCP**: Support for **Model Context Protocol**. Connect to remote instances via SSH to manage files or run tests as if they were local.
--   **URL Support**: Directly pass website URLs to analyze content with automatic scraping.
--   **Safe Execution**: **No-Shell Architecture** (structural injection prevention), **Diff Preview** for file changes, and **Human-in-the-Loop** confirmation.
--   **Advanced Security**: Hybrid PQC (Post-Quantum Cryptography) signatures, Zero-Trust orchestration, and **Reasoning Integrity** tracking.
+- **Distributed Agent via MCP**: Support for **Model Context Protocol**. Connect to remote instances via SSH to manage files or run tests as if they were local.
+- **URL Support**: Directly pass website URLs to analyze content with automatic scraping.
+- **Safe Execution**: **No-Shell Architecture** (structural injection prevention), **Diff Preview** for file changes, and **Human-in-the-Loop** confirmation.
+- **Advanced Security**: Hybrid PQC (Post-Quantum Cryptography) signatures, **Remote Attestation**, **Entropy-Based Secret Detection**, Zero-Trust orchestration, and **Reasoning Integrity** tracking.
 
 ## Screenshots
 
@@ -160,16 +160,26 @@ Unlike other AI agents, `llm-cli` does not provide a direct shell environment. I
 ### 🛡️ Secure MCP Orchestration (Zero Trust)
 - **Asymmetric Identity**: Uses **RS256** signatures for tool execution. No shared secrets.
 - **Post-Quantum Cryptography (PQC)**: Hybrid signatures (RSA + ML-DSA) ensure security against future quantum threats.
+- **Remote Attestation**: The client verifies its own source code integrity (via SHA-256 hashing) and generates a PQC-signed "Attestation Token". This token is embedded into the **Hybrid Identity Token (JWT)**, proving to remote servers that the client is untampered.
 - **Context-Adaptive Security Scaling (CASS)**: Dynamically scales security levels based on tool risk.
 - **Audit Logging**: Tamper-evident logs with chained hashing and Merkle Root protection.
 
-### 🛡️ Mamba Sentinel: Real-time Intent Deviation Detection
-Using a **pure NumPy implementation of Mamba (State Space Model)**, this system monitors the LLM's reasoning process at a byte level.
-- **State-Based Monitoring**: Leverages Mamba's "internal state" to detect subtle logic drifts or injection attempts during generation.
-- **Dynamic Intervention**: Automatically escalates to **Forced Human-in-the-Loop** mode if high-confidence anomalies (RED status) are detected, ensuring the agent cannot proceed without explicit user approval.
+### 🛡️ Mamba Sentinel: IDS for LLM Reasoning
+Using a **pure NumPy implementation of Mamba (State Space Model)**, this system monitors the LLM's reasoning process at a byte level. It provides an **Intrusion Detection System (IDS)** specifically for AI logic.
+- **State-Based Monitoring**: Leverages Mamba's "internal state" to detect subtle logic drifts, statistical anomalies, or injection attempts during generation.
+- **Reasoning Integrity**: Tracks the "sanity" of the AI's thoughts. If the reasoning pattern deviates from expected statistical norms, the sentinel flags it.
+- **Dynamic Intervention**: Automatically escalates to **Forced Human-in-the-Loop** mode if high-confidence anomalies (RED status) are detected.
 
-### 🧠 Intent Analyzer (Dual-LLM)
-Uses a secondary, lightweight LLM (Verifier) to audit the actions of the main agent (including generated Python code) in real-time. If the agent's action doesn't match the user's intent (e.g., user asks to "read" but agent tries to "delete"), the execution is blocked.
+### 🧠 Intent Analyzer (Dual-LLM): Semantic Firewall
+Acts as a **Semantic Firewall** pre-execution. It uses a secondary, lightweight LLM (Verifier) to audit the actions of the main agent (including generated Python code) in real-time. If the agent's action doesn't match the user's intent (e.g., user asks to "read" but agent tries to "delete"), the execution is blocked. This complements Mamba Sentinel as part of a **Defense in Depth** strategy.
+
+### 🛡️ Entropy-Based Secret Leak Prevention
+Protects sensitive data (API keys, passwords) from being leaked to or from external AI providers.
+- **Hybrid Detection**: Combines **Shannon Entropy** analysis with **Mamba Surprise scores** to accurately identify random-looking secrets while minimizing false positives from natural language.
+- **Bi-directional Guarding**:
+    - **Pre-transmission**: Scans user prompts before they are sent to the AI, preventing accidental data uploads.
+    - **Post-generation**: Scans AI responses for leaked secrets (e.g., found via tools) before they are displayed.
+- **Human-in-the-Loop**: Instead of silent redaction, it alerts the user and requires explicit confirmation to proceed, ensuring the user maintains control over their data.
 
 ### 🛡️ Resource Limits & Sandboxing
 - **Resource Limits**: Default 300s timeout, 1GB memory limit (RLIMIT_AS), and CPU time limits.
@@ -238,13 +248,14 @@ Licensed under [Apache License 2.0](LICENSE).
 
 ## 主な機能
 - **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
-- **Quantum-Resistant Reasoning Sentinel**: **NumPyのみで実装された軽量SSM**が、AIの推論プロセス（思考プロセス）をリアルタイムで監視。Torchなどの重い依存関係なしに、意図の乖離やインジェクションを検知。
+- **Quantum-Resistant Reasoning Sentinel**: **NumPyのみで実装された軽量SSM**が、AIの推論プロセス（思考プロセス）をリアルタイムで監視。**LLM専用のIDS (侵入検知システム)** として機能し、Torchなどの重い依存関係なしに、推論の整合性（Reasoning Integrity）を追跡。
+- **PQC Remote Attestation (リモートアテステーション)**: クライアントが自身のソースコードの整合性を検証し、PQC署名された「アテステーショントークン」を発行。これをMCPツール実行時のJWTに埋め込むことで、リモートサーバーに対してクライアントが改ざんされていないことを証明します。
 - **ローカルLLM対応**: **Ollama** を利用し、プライバシーを確保しながらオフラインでもモデルを実行。
 - **自律型エージェント**: ファイル操作、**Python実行**、Web検索、メディア添付を自律的に実行。
 - **マルチモーダル入出力**: 画像、PDF、音声、動画の入力をサポート。画像・動画生成も可能。
 - **Distributed Agent via MCP**: Model Context Protocol により、リモートサーバーの操作もローカル同様に可能。
 - **URL解析**: WebサイトのURLを渡すだけで、内容をスクレイピングして解析。
-- **堅牢なセキュリティ**: PQC（耐量子暗号）署名、Zero-Trust、および **Reasoning Integrity** トラッキング。
+- **堅牢なセキュリティ**: PQC（耐量子暗号）署名、**Remote Attestation**、**エントロピーベースの機密情報検知**、Zero-Trust、および **Reasoning Integrity** トラッキング。
 
 ## スクリーンショット
 ### 🤖 自律型エージェントのツール実行
@@ -351,15 +362,25 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 ### 🛡️ 安全なMCPオーケストレーション（Zero Trust）
 - **非対称鍵認証**: RS256署名による実行主体確認。
 - **耐量子暗号 (PQC)**: RS256 + ML-DSA のハイブリッド署名。
+- **PQC Remote Attestation**: クライアント側のソースコード整合性をSHA-256で検証し、PQC署名付きトークンを生成。これを **Hybrid Identity Token (JWT)** に埋め込み、ツール実行のたびに「自身の健全性」をリモートサーバーに証明します。
 - **監査ログ**: ハッシュ連鎖とMerkle Rootによる改ざん検知。
 
-### 🛡️ Mamba Sentinel: リアルタイム意図逸脱検知
-**NumPyのみで実装された Mamba (State Space Model)** を用い、LLMの推論プロセスをバイトレベルでリアルタイム監視します。
-- **状態ベースの監視**: Mambaの内部状態（State）を活用し、生成中の微細なロジックの乖離やインジェクション試行を検知。
-- **動的介入**: 重大な異常（REDステータス）を検知した場合、自動的に**強制手動承認モード**へ移行。ユーザーの明示的な許可なしにはエージェントが次のステップに進むことを防ぎます。
+### 🛡️ Mamba Sentinel: 推論プロセスのIDS
+**NumPyのみで実装された Mamba (State Space Model)** を用い、LLMの推論プロセスをバイトレベルでリアルタイム監視します。これはAIの論理構造に特化した**侵入検知システム (IDS)** として機能します。
+- **状態ベースの監視**: Mambaの内部状態（State）を活用し、生成中の微細なロジックの乖離や、統計的な異常、インジェクション試行を検知。
+- **Reasoning Integrity (推論の整合性)**: AIの「思考の健全性」を追跡。推論パターンが統計的なノルムから外れた場合、センチネルが警告を発します。
+- **動的介入**: 重大な異常（REDステータス）を検知した場合、自動的に**強制手動承認モード**へ移行し、ユーザーの許可なしにエージェントが進行するのを阻止します。
 
-### 🧠 Intent Analyzer (Dual-LLM)
-メインエージェントの行動（生成されたPythonコードを含む）を別の軽量LLMがリアルタイムで監査。ユーザーの意図に反する破壊的行為を未然に防ぎます。
+### 🧠 Intent Analyzer (Dual-LLM): セマンティック・ファイアウォール
+実行前の**セマンティック・ファイアウォール**として機能します。メインエージェントの行動（生成されたPythonコードを含む）を別の軽量LLMがリアルタイムで監査。ユーザーの意図に反する破壊的行為を未然に防ぎます。Mamba Sentinelと組み合わせることで、「多層防御（Defense in Depth）」を実現します。
+
+### 🛡️ エントロピーベースの機密情報漏洩防止
+APIキーやパスワードなどの機密情報が、外部AIプロバイダーへ送信されたり、回答として表示されたりするのを防ぎます。
+- **ハイブリッド検知**: **シャノン・エントロピー解析**と**Mambaサプライズスコア**を組み合わせ、自然言語と区別してランダムな秘密情報を高精度に特定します。
+- **双方向ガード**:
+    *   **送信前検知**: ユーザーのプロンプトを送信前にスキャンし、うっかりAPIキーなどをアップロードするのを防ぎます。
+    *   **回答時検知**: AIがツール（MCP等）で読み取った機密情報を回答に含めてしまった際、表示前に警告します。
+- **Human-in-the-Loop**: 勝手に書き換えるのではなく、ユーザーに警告と確認を求めることで、データの制御権をユーザーが維持できるようにします。
 
 ### 🛡️ リソース制限とガードレール
 - **リソース制限**: メモリ1GB、タイムアウト300秒の制限に加え、CPU時間のハード制限を適用。

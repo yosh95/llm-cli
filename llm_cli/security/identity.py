@@ -149,7 +149,7 @@ class IdentityManager:
         audience: str | None = None,
     ) -> str:
         """
-        Generate a signed Hybrid token (RSA + PQC).
+        Generate a signed Hybrid token (RSA + PQC) with Integrity Attestation.
         """
         now = time.time()
         uid = user_id or cls.get_local_identity()
@@ -162,6 +162,19 @@ class IdentityManager:
             "roles": roles or ["user"],
             "pqc": True,  # Flag indicating PQC coverage
         }
+
+        # Embed PQC Integrity Attestation (Remote Attestation)
+        try:
+            from pathlib import Path
+
+            from llm_cli.security.integrity import IntegrityVerifier
+
+            # Reach up to the project root where critical files are checked
+            root_path = Path(__file__).resolve().parent.parent.parent
+            verifier = IntegrityVerifier(root_path)
+            payload["integrity_attestation"] = verifier.generate_attestation_token()
+        except Exception as e:
+            logger.warning(f"Could not attach integrity attestation to token: {e}")
 
         if audience:
             payload["aud"] = audience

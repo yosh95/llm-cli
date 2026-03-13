@@ -4,8 +4,108 @@ import logging
 from typing import Any
 
 from dilithium_py.ml_dsa import ML_DSA_44, ML_DSA_65, ML_DSA_87
+from kyber_py.ml_kem import ML_KEM_512, ML_KEM_768, ML_KEM_1024
 
 logger = logging.getLogger(__name__)
+
+
+class KEMProvider:
+    """
+    NIST-compliant Post-Quantum Key Encapsulation Mechanism (KEM).
+    Supports ML-KEM (FIPS 203) variants (formerly Kyber).
+    """
+
+    VARIANTS = {
+        "ML-KEM-512": ML_KEM_512,  # NIST Level 1
+        "ML-KEM-768": ML_KEM_768,  # NIST Level 3 (Default)
+        "ML-KEM-1024": ML_KEM_1024,  # NIST Level 5
+    }
+
+    DEFAULT_VARIANT = "ML-KEM-768"
+
+    @classmethod
+    def generate_keypair(cls, variant: str = DEFAULT_VARIANT) -> tuple[bytes, bytes]:
+        """Generate a KEM keypair (public_key, private_key)."""
+        algo = cls.VARIANTS.get(variant, ML_KEM_768)
+        return algo.keygen()  # type: ignore[no-any-return]
+
+    @classmethod
+    def encapsulate(
+        cls, public_key_bytes: bytes, variant: str = DEFAULT_VARIANT
+    ) -> tuple[bytes, bytes]:
+        """
+        Derives a shared secret and encapsulates it using the public key.
+        Returns: (ciphertext, shared_secret)
+        """
+        algo = cls.VARIANTS.get(variant, ML_KEM_768)
+        return algo.encaps(public_key_bytes)  # type: ignore[no-any-return]
+
+    @classmethod
+    def decapsulate(
+        cls, ciphertext: bytes, private_key_bytes: bytes, variant: str = DEFAULT_VARIANT
+    ) -> bytes:
+        """
+        Decrypts the ciphertext to retrieve the shared secret.
+        """
+        algo = cls.VARIANTS.get(variant, ML_KEM_768)
+        return algo.decaps(private_key_bytes, ciphertext)  # type: ignore[no-any-return]
+
+
+class SecureStorage:
+    """
+    Hybrid Encryption: ML-KEM (for key exchange) + AES-256-GCM (for data).
+    Ensures long-term confidentiality against quantum adversaries.
+    """
+
+    @classmethod
+    def encrypt(cls, data: bytes, recipient_public_key: bytes) -> dict:
+        """
+        Encrypts data using a hybrid PQC approach.
+        Returns: { 'kem_ct': b64, 'aes_ct': b64, 'nonce': b64, 'tag': b64 }
+        """
+        import os
+
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        # 1. KEM Encapsulation
+        kem_ct, shared_secret = KEMProvider.encapsulate(recipient_public_key)
+
+        # 2. Symmetric Encryption (AES-256-GCM)
+        # Use first 32 bytes of shared secret for AES-256
+        aesgcm = AESGCM(shared_secret[:32])
+        nonce = os.urandom(12)
+        ct_with_tag = aesgcm.encrypt(nonce, data, None)
+
+        # Split CT and Tag (cryptography appends tag at the end)
+        tag = ct_with_tag[-16:]
+        actual_ct = ct_with_tag[:-16]
+
+        return {
+            "kem_ct": base64.b64encode(kem_ct).decode(),
+            "aes_ct": base64.b64encode(actual_ct).decode(),
+            "nonce": base64.b64encode(nonce).decode(),
+            "tag": base64.b64encode(tag).decode(),
+            "algo": "ML-KEM-768/AES-256-GCM",
+        }
+
+    @classmethod
+    def decrypt(cls, encrypted_packet: dict, private_key: bytes) -> bytes:
+        """
+        Decrypts a hybrid PQC packet using the recipient's private key.
+        """
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        # 1. KEM Decapsulation
+        kem_ct = base64.b64decode(encrypted_packet["kem_ct"])
+        shared_secret = KEMProvider.decapsulate(kem_ct, private_key)
+
+        # 2. Symmetric Decryption
+        nonce = base64.b64decode(encrypted_packet["nonce"])
+        aes_ct = base64.b64decode(encrypted_packet["aes_ct"])
+        tag = base64.b64decode(encrypted_packet["tag"])
+
+        aesgcm = AESGCM(shared_secret[:32])
+        return aesgcm.decrypt(nonce, aes_ct + tag, None)
 
 
 class PQCProvider:

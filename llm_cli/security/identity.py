@@ -28,10 +28,12 @@ class IdentityManager:
     _PUBLIC_KEY_PATH = _KEY_DIR / "id_rsa.pub"
     _PQC_PRIVATE_KEY_PATH = _KEY_DIR / "id_pqc.key"
     _PQC_PUBLIC_KEY_PATH = _KEY_DIR / "id_pqc.pub"
+    _PQC_KEM_PRIVATE_KEY_PATH = _KEY_DIR / "id_kem.key"
+    _PQC_KEM_PUBLIC_KEY_PATH = _KEY_DIR / "id_kem.pub"
 
     @classmethod
     def _ensure_keys(cls, force: bool = False) -> None:
-        """Ensure RSA and PQC keys exist, generate them if not (unless strict mode)."""
+        """Ensure RSA, ML-DSA, and ML-KEM keys exist."""
         # Default to strict mode (1) unless explicitly disabled (0)
         strict_mode = os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1"
 
@@ -81,15 +83,33 @@ class IdentityManager:
         if not cls._PQC_PRIVATE_KEY_PATH.exists():
             if strict_mode:
                 raise FileNotFoundError(
-                    f"Strict Mode: PQC key missing at {cls._PQC_PRIVATE_KEY_PATH}. "
+                    f"Strict Mode: ML-DSA key missing at {cls._PQC_PRIVATE_KEY_PATH}. "
                     "Keys must be pre-provisioned."
                 )
-            logger.info("Generating new Post-Quantum (PQC) key pair...")
+            logger.info("Generating new Post-Quantum Signature (ML-DSA) key pair...")
             pub_pqc, priv_pqc = PQCProvider.generate_keypair()
             with cls._PQC_PRIVATE_KEY_PATH.open("wb") as f:
                 f.write(priv_pqc)
             with cls._PQC_PUBLIC_KEY_PATH.open("wb") as f:
                 f.write(pub_pqc)
+
+        # Post-Quantum KEM Keys (ML-KEM)
+        if not cls._PQC_KEM_PRIVATE_KEY_PATH.exists():
+            if strict_mode:
+                msg = (
+                    f"Strict Mode: ML-KEM key missing at "
+                    f"{cls._PQC_KEM_PRIVATE_KEY_PATH}. "
+                    "Keys must be pre-provisioned."
+                )
+                raise FileNotFoundError(msg)
+            logger.info("Generating new Post-Quantum Encryption (ML-KEM) key pair...")
+            from llm_cli.security.pqc import KEMProvider
+
+            pub_kem, priv_kem = KEMProvider.generate_keypair()
+            with cls._PQC_KEM_PRIVATE_KEY_PATH.open("wb") as f:
+                f.write(priv_kem)
+            with cls._PQC_KEM_PUBLIC_KEY_PATH.open("wb") as f:
+                f.write(pub_kem)
 
     @classmethod
     def _get_private_key_content(cls) -> bytes:
@@ -101,6 +121,12 @@ class IdentityManager:
     def _get_pqc_private_key_content(cls) -> bytes:
         cls._ensure_keys()
         with cls._PQC_PRIVATE_KEY_PATH.open("rb") as f:
+            return f.read()
+
+    @classmethod
+    def _get_kem_private_key_content(cls) -> bytes:
+        cls._ensure_keys()
+        with cls._PQC_KEM_PRIVATE_KEY_PATH.open("rb") as f:
             return f.read()
 
     @classmethod
@@ -127,6 +153,21 @@ class IdentityManager:
 
         if cls._PQC_PUBLIC_KEY_PATH.exists():
             with cls._PQC_PUBLIC_KEY_PATH.open("rb") as f:
+                return f.read()
+
+        return b""  # Fallback
+
+    @classmethod
+    def _get_kem_public_key_content(cls) -> bytes:
+        cls._ensure_keys()
+        env_kem_pub = os.getenv("LLM_CLI_KEM_PUBLIC_KEY")
+        if env_kem_pub:
+            import base64
+
+            return base64.b64decode(env_kem_pub)
+
+        if cls._PQC_KEM_PUBLIC_KEY_PATH.exists():
+            with cls._PQC_KEM_PUBLIC_KEY_PATH.open("rb") as f:
                 return f.read()
 
         return b""  # Fallback
@@ -161,6 +202,7 @@ class IdentityManager:
             "jti": str(uuid.uuid4()),
             "roles": roles or ["user"],
             "pqc": True,  # Flag indicating PQC coverage
+            "pqc_kem_pub": cls.get_kem_public_key(),  # Advertise KEM capability
         }
 
         # Embed PQC Integrity Attestation (Remote Attestation)
@@ -237,6 +279,13 @@ class IdentityManager:
         import base64
 
         return base64.b64encode(cls._get_pqc_public_key_content()).decode("utf-8")
+
+    @classmethod
+    def get_kem_public_key(cls) -> str:
+        """Expose the ML-KEM public key for distribution to remote servers."""
+        import base64
+
+        return base64.b64encode(cls._get_kem_public_key_content()).decode("utf-8")
 
 
 # Create a singleton instance for backward compatibility or easier access if needed

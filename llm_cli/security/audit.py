@@ -41,6 +41,27 @@ def log_audit(
         # Get previous hash to create a chain
         prev_hash = _get_last_log_hash(path)
 
+        # --- PQC-Confidentiality: Encrypt 'args' with ML-KEM ---
+        final_args = args
+        pqc_encrypted = False
+        try:
+            from llm_cli.security.identity import IdentityManager
+            from llm_cli.security.pqc import SecureStorage
+
+            # Encrypt high-risk tool arguments
+            high_risk_tools = {
+                "execute_python",
+                "edit_file",
+                "create_or_overwrite_file",
+            }
+            if tool_name in high_risk_tools:
+                pub_kem = IdentityManager._get_kem_public_key_content()
+                args_bytes = json.dumps(args).encode()
+                final_args = SecureStorage.encrypt(args_bytes, pub_kem)
+                pqc_encrypted = True
+        except Exception as e:
+            logger.debug(f"PQC encryption skipped for audit log: {e}")
+
         log_entry = {
             "timestamp": timestamp,
             "trace_id": trace_id,
@@ -48,7 +69,8 @@ def log_audit(
             "audience": audience,
             "model": model,
             "tool": tool_name,
-            "args": args,
+            "args": final_args,
+            "pqc_confidential": pqc_encrypted,
             # "output": str(_output)[:256] if _output else None, # Truncate output
             "status": "SUCCESS" if not error else f"FAILED: {error}",
             "exit_code": exit_code,

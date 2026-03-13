@@ -116,6 +116,57 @@ class JSONRPCProtocol:
         }
 
     def create_response(self, request_id: int, result: Any) -> dict[str, Any]:
+        return {
+            "jsonrpc": "2.0",
+            "result": result,
+            "id": request_id,
+        }
+
+    def create_error(
+        self, request_id: int | None, code: int, message: str, data: Any = None
+    ) -> dict[str, Any]:
+        error = {"code": code, "message": message}
+        if data:
+            error["data"] = data
+        return {
+            "jsonrpc": "2.0",
+            "error": error,
+            "id": request_id,
+        }
+
+
+class PQCEncryptionHelper:
+    """
+    Assists in secure data exchange via MCP by using ML-KEM.
+    """
+
+    @classmethod
+    def encrypt_data(cls, data: Any, recipient_public_key_b64: str) -> dict:
+        """
+        Encrypts a data object using ML-KEM for the specific recipient.
+        """
+        import base64
+
+        from llm_cli.security.pqc import SecureStorage
+
+        pub_kem = base64.b64decode(recipient_public_key_b64)
+        data_bytes = json.dumps(data).encode()
+
+        return SecureStorage.encrypt(data_bytes, pub_kem)
+
+    @classmethod
+    def decrypt_data(cls, encrypted_packet: dict) -> Any:
+        """
+        Decrypts an incoming ML-KEM encrypted packet using local private key.
+        """
+        from llm_cli.security.identity import IdentityManager
+        from llm_cli.security.pqc import SecureStorage
+
+        priv_kem = IdentityManager._get_kem_private_key_content()
+        decrypted_bytes = SecureStorage.decrypt(encrypted_packet, priv_kem)
+        return json.loads(decrypted_bytes.decode())
+
+    def create_response(self, request_id: int, result: Any) -> dict[str, Any]:
         return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
     def create_error(self, request_id: int, code: int, message: str) -> dict[str, Any]:

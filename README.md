@@ -159,10 +159,12 @@ Unlike other AI agents, `llm-cli` does not provide a direct shell environment. I
 
 ### 🛡️ Secure MCP Orchestration (Zero Trust)
 - **Asymmetric Identity**: Uses **RS256** signatures for tool execution. No shared secrets.
-- **Post-Quantum Cryptography (PQC)**: Hybrid signatures (RSA + ML-DSA) ensure security against future quantum threats.
+- **Post-Quantum Cryptography (PQC)**: 
+    - **Signatures (ML-DSA)**: Hybrid signatures (RSA + ML-DSA) ensure long-term non-repudiability against future quantum threats.
+    - **Encryption (ML-KEM)**: Hybrid encryption (ML-KEM + AES-256-GCM) protects sensitive data in transit and at rest (audit logs).
 - **Remote Attestation**: The client verifies its own source code integrity (via SHA-256 hashing) and generates a PQC-signed "Attestation Token". This token is embedded into the **Hybrid Identity Token (JWT)**, proving to remote servers that the client is untampered.
 - **Context-Adaptive Security Scaling (CASS)**: Dynamically scales security levels based on tool risk.
-- **Audit Logging**: Tamper-evident logs with chained hashing and Merkle Root protection.
+- **Audit Logging**: Tamper-evident logs with chained hashing and **ML-KEM encrypted sensitive arguments**.
 
 ### 🛡️ Mamba Sentinel: IDS for LLM Reasoning
 Using a **pure NumPy implementation of Mamba (State Space Model)**, this system monitors the LLM's reasoning process at a byte level. It provides an **Intrusion Detection System (IDS)** specifically for AI logic.
@@ -217,6 +219,19 @@ The built-in Reasoning Sentinel (SSM) continuously learns from verified reasonin
 ### 💡 Power User Tips
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
 - **External Editor (`Ctrl+X, Ctrl+E`)**: Open the current prompt in `vim` or `nano` for complex editing.
+
+### 🔑 Security Key Management
+Manage your RSA and PQC (ML-DSA/ML-KEM) identity keys:
+```bash
+# Generate all keys (RSA, ML-DSA, ML-KEM)
+llm-cli-security keygen
+
+# Rebuild integrity manifest for remote attestation
+llm-cli-security manifest
+
+# Decrypt PQC-encrypted audit logs (ML-KEM)
+llm-cli-security decrypt-log ~/.llm_cli/audit.jsonl -o decrypted.jsonl
+```
 
 ## License
 Licensed under [Apache License 2.0](LICENSE).
@@ -361,9 +376,11 @@ llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 
 ### 🛡️ 安全なMCPオーケストレーション（Zero Trust）
 - **非対称鍵認証**: RS256署名による実行主体確認。
-- **耐量子暗号 (PQC)**: RS256 + ML-DSA のハイブリッド署名。
+- **耐量子暗号 (PQC)**: 
+    - **デジタル署名 (ML-DSA)**: RS256 + ML-DSA のハイブリッド署名により、将来の量子脅威に対する非否認性を確保。
+    - **暗号化 (ML-KEM)**: ML-KEM + AES-256-GCM のハイブリッド暗号により、通信路および保存データ（監査ログ）を保護。
 - **PQC Remote Attestation**: クライアント側のソースコード整合性をSHA-256で検証し、PQC署名付きトークンを生成。これを **Hybrid Identity Token (JWT)** に埋め込み、ツール実行のたびに「自身の健全性」をリモートサーバーに証明します。
-- **監査ログ**: ハッシュ連鎖とMerkle Rootによる改ざん検知。
+- **監査ログ**: ハッシュ連鎖による改ざん検知に加え、機密性の高い引数 (`args`) を **ML-KEM で自動暗号化**。
 
 ### 🛡️ Mamba Sentinel: 推論プロセスのIDS
 **NumPyのみで実装された Mamba (State Space Model)** を用い、LLMの推論プロセスをバイトレベルでリアルタイム監視します。これはAIの論理構造に特化した**侵入検知システム (IDS)** として機能します。
@@ -406,6 +423,19 @@ SSH経由のリモート開発や、Docker経由のGitHub連携などをサポ�
 ### 💡 パワーユーザー向け
 - **バックグラウンド実行 (`Ctrl+Z`)**: 一時停止してシェルに戻り、`fg` で復帰。
 - **外部エディタ (`Ctrl+X, Ctrl+E`)**: `vim` 等でプロンプトを編集。
+
+### 🔑 セキュリティキーの管理
+RSAおよびPQC（ML-DSA/ML-KEM）アイデンティティキーを管理します。
+```bash
+# すべての鍵（RSA, ML-DSA, ML-KEM）を生成
+llm-cli-security keygen
+
+# リモートアテステーション用の整合性マニフェストを再構築
+llm-cli-security manifest
+
+# PQCで暗号化された監査ログ（ML-KEM）を復号
+llm-cli-security decrypt-log ~/.llm_cli/audit.jsonl -o decrypted.jsonl
+```
 
 ## ライセンス
 [Apache License 2.0](LICENSE) に基づき公開されています。

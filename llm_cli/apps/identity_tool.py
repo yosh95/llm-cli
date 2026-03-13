@@ -22,14 +22,26 @@ def main() -> None:
     # manifest command
     subparsers.add_parser("manifest", help="Generate/Update integrity manifest")
 
+    # decrypt-log command
+    decrypt_parser = subparsers.add_parser(
+        "decrypt-log", help="Decrypt PQC-encrypted (ML-KEM) audit logs"
+    )
+    decrypt_parser.add_argument(
+        "input", help="Path to the encrypted audit log (.jsonl)"
+    )
+    decrypt_parser.add_argument("-o", "--output", help="Path to save the decrypted log")
+
     args = parser.parse_args()
 
     if args.command == "keygen":
         print("🛡️  Generating Identity Keys...")
         IdentityManager._ensure_keys(force=True)
         print(f"✅ Keys generated in {IdentityManager._KEY_DIR}")
-        print(f"RSA Public Key: {IdentityManager._PUBLIC_KEY_PATH}")
-        print(f"PQC Public Key: {IdentityManager._PQC_PUBLIC_KEY_PATH}")
+        print(
+            f"RSA Public Key: {IdentityManager._PRIVATE_KEY_PATH.with_suffix('.pub')}"
+        )
+        print(f"ML-DSA Public Key: {IdentityManager._PQC_PUBLIC_KEY_PATH}")
+        print(f"ML-KEM Public Key: {IdentityManager._PQC_KEM_PUBLIC_KEY_PATH}")
         print(
             "\n[Action Required] Copy the PQC Public Key to your remote "
             "servers if using Strict Zero Trust."
@@ -45,6 +57,12 @@ def main() -> None:
         else:
             print("❌ Failed to generate manifest.")
             sys.exit(1)
+
+    elif args.command == "decrypt-log":
+        from llm_cli.apps.pqc_decrypt import decrypt_log_file
+
+        print(f"🛡️  Decrypting log file: {args.input}...")
+        decrypt_log_file(Path(args.input), Path(args.output) if args.output else None)
     else:
         parser.print_help()
 

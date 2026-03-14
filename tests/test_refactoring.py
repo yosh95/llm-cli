@@ -402,7 +402,9 @@ class TestProcessAndPrintDecomposition:
             patch.object(
                 session, "_run_single_turn", return_value=("reply", 0.1)
             ) as mock_run,
-            patch.object(session, "_process_tool_loop", return_value=None) as mock_tool_loop,
+            patch.object(
+                session, "_process_tool_loop", return_value=None
+            ) as mock_tool_loop,
             patch.object(session, "_log_chat"),
         ):
             session.process_and_print([])

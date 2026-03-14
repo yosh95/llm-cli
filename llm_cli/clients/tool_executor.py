@@ -11,6 +11,7 @@ from rich.syntax import Syntax
 from llm_cli.clients.config import get_setting
 from llm_cli.modules.models import ContentPart, DataSource, Role
 from llm_cli.modules.tool_registry import registry
+from llm_cli.security.static_analyzer import analyze_python_safety
 
 if TYPE_CHECKING:
     from llm_cli.clients.session import ChatSession
@@ -420,6 +421,16 @@ def preview_python_code(session: "ChatSession", args: dict[str, Any]) -> None:
         code = args.get("code", "")
         if not code:
             return
+
+        # Perform static analysis before approval
+        is_safe, issues = analyze_python_safety(code)
+        if not is_safe:
+            issue_str = "\n".join(f"• {i}" for i in issues)
+            session._print_block(
+                f"[bold red]⚠️  Security Warning (Static Analysis):[/bold red]\n{issue_str}",
+                title="[bold red]Potential Risk Detected[/bold red]",
+                style="red",
+            )
 
         syn = Syntax(code, "python", theme="monokai", word_wrap=True)
         session._print_block(

@@ -3,6 +3,7 @@
 import difflib
 import fnmatch
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -60,7 +61,6 @@ def search_files(
         if not base_path.exists():
             return f"Error: Directory '{directory}' does not exist."
 
-        import re
         import time
 
         try:
@@ -355,9 +355,9 @@ def read_file_content(
 @tool(
     name="edit_file",
     desc=(
-        "Edit a file by replacing a specific block of text. This is safer than "
-        "create_or_overwrite_file for bug fixes as it prevents unintended changes "
-        "to other parts of the file."
+        "Edit a file by replacing a specific block of text. "
+        "Supports exact match, fuzzy whitespace match, or "
+        "anchor-based match (search_start/search_end)."
     ),
     params={
         "type": "object",
@@ -366,22 +366,50 @@ def read_file_content(
             "search": {
                 "type": "string",
                 "description": (
-                    "The exact block of text to find. "
-                    "Must match exactly including indentation. "
+                    "The block of text to find and replace. "
+                    "If provided, the tool looks for this block. "
+                    "Minor whitespace differences are ignored if "
+                    "an exact match isn't found."
                 ),
             },
             "replace": {
                 "type": "string",
-                "description": ("The new block of text to replace 'search' with. "),
+                "description": "The new text to replace the found block with.",
+            },
+            "search_start": {
+                "type": "string",
+                "description": (
+                    "Start anchor of the block to replace. "
+                    "Use with search_end to define a range to replace."
+                ),
+            },
+            "search_end": {
+                "type": "string",
+                "description": (
+                    "End anchor of the block to replace. "
+                    "Use with search_start to define a range to replace."
+                ),
+            },
+            "dry_run": {
+                "type": "boolean",
+                "description": "If true, show diff without applying changes.",
+                "default": False,
             },
         },
-        "required": ["path", "search", "replace"],
+        "required": ["path", "replace"],
     },
 )
-def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> str:
+def edit_file(
+    path: str,
+    replace: str,
+    search: str | None = None,
+    search_start: str | None = None,
+    search_end: str | None = None,
+    dry_run: bool = False,
+) -> str:
     """
     Search and replace a specific block of text in a file.
-    Ensures that only the intended part is modified.
+    Supports flexible matching to avoid common LLM errors.
     """
     try:
         validate_path(path)
@@ -390,37 +418,73 @@ def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> st
             return f"Error: '{path}' is not a file."
 
         content = p.read_text(encoding="utf-8")
-        if search not in content:
-            # Check for potential whitespace-only mismatch to provide better feedback
-            import re
+        match_start, match_end = -1, -1
 
-            def normalize(s: str) -> str:
-                return re.sub(r"\s+", " ", s).strip()
+        if search_start and search_end:
+            # Anchor mode: Match everything between start and end anchors
+            pattern = (
+                re.escape(search_start) + r"(?P<inner>.*?)" + re.escape(search_end)
+            )
+            matches = list(re.finditer(pattern, content, re.DOTALL))
 
-            if normalize(search) in normalize(content):
+            if not matches:
                 return (
-                    "Error: The 'search' block was not found exactly, but a similar "
-                    "match was found ignoring whitespace/indentation. "
-                    "Ensure the search block matches the file content exactly, "
-                    "including the specific number of spaces, tabs, and newlines."
+                    f"Error: No match found for the anchor pair: "
+                    f"'{search_start}' ... '{search_end}'"
                 )
+            if len(matches) > 1:
+                return (
+                    f"Error: {len(matches)} matches found for the anchor pair. "
+                    "Please provide more specific (unique) anchors."
+                )
+            match_start, match_end = matches[0].span()
 
+        elif search:
+            # Search mode: Try exact match first
+            if search in content:
+                count = content.count(search)
+                if count > 1:
+                    return (
+                        f"Error: {count} exact matches found. "
+                        "Please provide a more unique search block."
+                    )
+                match_start = content.find(search)
+                match_end = match_start + len(search)
+            else:
+                # Fuzzy match: Ignore whitespace/indentation differences
+                stripped_search = search.strip()
+                if not stripped_search:
+                    return "Error: 'search' block is empty or contains only whitespace."
+
+                # Construct a regex that allows any whitespace
+                # between non-whitespace sequences
+                # We split by whitespace and join with \s+
+                parts = [re.escape(part) for part in re.split(r"\s+", stripped_search)]
+                pattern = r"\s+".join(parts)
+
+                matches = list(re.finditer(pattern, content, re.DOTALL))
+
+                if not matches:
+                    return (
+                        "Error: The 'search' block was not found exactly or fuzzily. "
+                        "Check for typos or significant differences."
+                    )
+                if len(matches) > 1:
+                    return (
+                        f"Error: {len(matches)} fuzzy matches found. "
+                        "Please provide a more unique search block."
+                    )
+                match_start, match_end = matches[0].span()
+        else:
             return (
-                "Error: The 'search' block was not found in the file. "
-                "Ensure the search block matches the file content exactly, "
-                "including indentation and whitespace."
+                "Error: You must provide either 'search' or both "
+                "'search_start' and 'search_end'."
             )
 
-        # Count occurrences to avoid ambiguous replacements
-        count = content.count(search)
-        if count > 1:
-            return (
-                f"Error: Found {count} occurrences of the search block. "
-                "Please provide a more unique/specific search block."
-            )
+        # Generate new content
+        new_content = content[:match_start] + replace + content[match_end:]
 
         # Generate Diff Preview
-        new_content = content.replace(search, replace)
         diff = list(
             difflib.unified_diff(
                 content.splitlines(keepends=True),
@@ -436,7 +500,7 @@ def edit_file(path: str, search: str, replace: str, dry_run: bool = False) -> st
             return f"Dry run enabled. No changes made.\n\n{diff_str}"
 
         p.write_text(new_content, encoding="utf-8")
-        return f"Successfully updated {path}."
+        return f"Successfully updated {path}.\n\n{diff_str}"
 
     except PathValidationError as e:
         return f"Security Error: {e}"
@@ -470,6 +534,3 @@ def create_or_overwrite_file(path: str, content: str) -> str:
         return f"Security Error: {e}"
     except Exception as e:
         return f"Error: {e}"
-
-
-# End of file or next content

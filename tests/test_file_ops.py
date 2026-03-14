@@ -65,4 +65,4 @@ def test_edit_file_search_block_not_found(tmp_path, monkeypatch):
     (tmp_path / test_path).write_text("Line A\nLine B", encoding="utf-8")
 
     result = edit_file(test_path, search="Line C", replace="Line D")
-    assert "not found in the file" in result
+    assert "not found exactly or fuzzily" in result

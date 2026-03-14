@@ -27,13 +27,7 @@ logger = logging.getLogger(__name__)
         "This tool is the replacement for shell commands. "
         "Use this for ANY system interaction, including tasks "
         "traditionally done via shell (e.g., 'ls', 'git', 'grep', 'find'). "
-        "You MUST write complete, self-contained Python code. "
-        "CRITICAL: You MUST include detailed comments in the code, "
-        "explaining what each major block of code does. The user will "
-        "read these comments to understand the script before approving it. "
-        "To run external binaries, use 'subprocess.run' with a list of "
-        "arguments and shell=False. Do not assume a shell environment exists. "
-        "The code will be displayed to the user for manual approval before execution."
+        "You MUST write complete, self-contained Python code."
     ),
     parameters={
         "type": "object",
@@ -42,9 +36,7 @@ logger = logging.getLogger(__name__)
                 "type": "string",
                 "description": (
                     "Complete Python code to execute. "
-                    "Use standard libraries for most tasks. "
-                    "Every major logic block MUST be accompanied by "
-                    "a clear, detailed comment explaining its purpose."
+                    "Use standard libraries for most tasks."
                 ),
             }
         },

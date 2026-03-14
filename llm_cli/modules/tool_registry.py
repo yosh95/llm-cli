@@ -91,6 +91,9 @@ class ToolRegistry:
             # Extract explanation for logging (internal audit)
             _ = kwargs.get("explanation", "No explanation provided.")
             audit_model = kwargs.pop("__audit_model__", "-")
+            # __audit_sentinel__ is injected by tool_executor with the current
+            # ReasoningSentinelManager instance so we never touch a global variable.
+            sentinel_manager = kwargs.pop("__audit_sentinel__", None)
 
             # Filter kwargs to match the wrapped function's signature
             sig = inspect.signature(func)
@@ -104,6 +107,12 @@ class ToolRegistry:
                 )
             }
 
+            # Resolve the integrity score from the injected sentinel instance.
+            # Falls back to None if no sentinel is available (e.g. in unit tests).
+            integrity_score: float | None = (
+                sentinel_manager.current_score if sentinel_manager is not None else None
+            )
+
             try:
                 result = func(**filtered_kwargs)
 
@@ -115,8 +124,6 @@ class ToolRegistry:
                     except Exception:
                         pass
 
-                from llm_cli.security.integrity import current_integrity_score
-
                 log_audit(
                     tool_name=name,
                     args=kwargs,
@@ -124,19 +131,17 @@ class ToolRegistry:
                     exit_code=exit_code,
                     error=None,
                     context={"model": audit_model},
-                    reasoning_integrity_score=current_integrity_score,
+                    reasoning_integrity_score=integrity_score,
                 )
                 return result
             except Exception as e:
-                from llm_cli.security.integrity import current_integrity_score
-
                 log_audit(
                     tool_name=name,
                     args=kwargs,
                     _output="",
                     error=str(e),
                     context={"model": audit_model},
-                    reasoning_integrity_score=current_integrity_score,
+                    reasoning_integrity_score=integrity_score,
                 )
                 raise e
 

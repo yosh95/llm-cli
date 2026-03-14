@@ -277,151 +277,194 @@ class ChatSession:
         except Exception:
             pass
 
+    # ------------------------------------------------------------------
+    # Single-responsibility helpers extracted from process_and_print
+    # ------------------------------------------------------------------
+
+    def _run_single_turn(self, data: list[DataSource]) -> tuple[str | None, float]:
+        """
+        Execute one LLM round-trip and handle Sentinel + display side-effects.
+
+        Responsibilities:
+        - Call client._send(data) and measure wall-clock duration.
+        - Run Reasoning Sentinel on thought + response text.
+        - Display thought panel and response block.
+        - Perform PQC bi-directional response signing (background).
+        - Log the model response to the chat log.
+
+        Returns:
+            (response_text, duration)
+            response_text is None when the API returned nothing.
+        """
+        display_name = self.client.get_display_name()
+
+        # Show a static "thinking" indicator while waiting for the API.
+        start_time = datetime.datetime.now()
+        console.print(
+            f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan] "
+            "[dim](Ctrl+C to interrupt)[/dim]"
+        )
+        res = self.client._send(data)
+        duration = (datetime.datetime.now() - start_time).total_seconds()
+
+        # Unpack the (text, thought) / usage envelope.
+        response_tuple, usage = res if res else ((None, None), None)
+        response_text, thought_text = response_tuple
+
+        # --- Reasoning Sentinel ---
+        score_t = self.sentinel.process_chunk(thought_text) if thought_text else 0.0
+        score_r = self.sentinel.process_chunk(response_text) if response_text else 0.0
+        self.last_integrity_score = (
+            (score_t + score_r) / 2.0
+            if thought_text and response_text
+            else (score_t or score_r)
+        )
+        # Triggers online learning when the sentinel is in "collect" mode.
+        self.sentinel.finalize_session()
+
+        # --- Secret detection warning ---
+        if self.sentinel.suspected_secrets:
+            self._print_secret_warning(self.sentinel.suspected_secrets)
+            self.sentinel.suspected_secrets = []
+
+        if usage:
+            self.client.last_usage = usage
+
+        # --- Display thought panel ---
+        if thought_text:
+            duration_str = f" ({duration:.1f}s)"
+            self._print_block(
+                CustomMarkdown(thought_text),
+                title=f"[bold dim]Thought{duration_str}[/bold dim]",
+                style="dim",
+            )
+
+        # --- Display response + PQC background signing ---
+        if response_text:
+            # Bi-directional verification: sign the response so it can be
+            # correlated with the tool-execution audit trail later.
+            try:
+                from llm_cli.security.identity import IdentityManager
+                from llm_cli.security.pqc import ResponseSigner
+
+                verification_id = "initial"
+                if (
+                    self.client.conversation
+                    and self.client.conversation[-1].role == Role.TOOL
+                ):
+                    last_part = self.client.conversation[-1].parts[0]
+                    if isinstance(last_part, ContentPart):
+                        fr = last_part.function_response
+                        if isinstance(fr, dict):
+                            verification_id = fr.get("id", "root")
+
+                pqc_priv = IdentityManager._get_pqc_private_key_content()
+                signed_res = ResponseSigner.sign_response(
+                    response_text, verification_id, pqc_priv
+                )
+                # Stored for external audit / "Verified" badge display.
+                self.last_response_signature = signed_res["pqc_signature"]
+            except Exception:
+                pass
+
+            if self.client.stdout:
+                print(response_text)
+            else:
+                duration_str = f" ({duration:.1f}s)"
+                title_str = f"[bold cyan]{display_name}{duration_str}[/bold cyan]"
+                if self.client._has_pending_tool_calls():
+                    # Inside a ReAct loop: use a titled block so turns are distinct.
+                    self._print_block(
+                        CustomMarkdown(response_text),
+                        title=title_str,
+                        style="cyan",
+                    )
+                else:
+                    console.print(Rule(title=title_str, style="cyan"))
+                    console.print(CustomMarkdown(response_text))
+                    console.print(Rule(style="cyan"))
+
+            self._log_chat(response_text, role=self.client.model)
+
+        return response_text, duration
+
+    def _process_tool_loop(self, duration: float) -> list[DataSource] | None:
+        """
+        Collect and execute all pending tool calls from the last MODEL message.
+
+        Responsibilities:
+        - Iterate over function_call parts in the last conversation message.
+        - Delegate each call to _execute_tool_call (which handles approval, policy,
+          diff preview, etc.).
+        - Append the results as a TOOL message to the conversation history.
+        - Return the injected DataSources that must be forwarded as the next USER
+          message (or an empty list when there is nothing to inject).
+
+        Returns:
+            list[DataSource] — next-turn data (may be empty).
+            None             — signals that the loop should be aborted immediately
+                               (e.g. a tool call was cancelled by the user).
+        """
+        if not self.client._has_pending_tool_calls():
+            return None
+
+        last_msg = self.client.conversation[-1]
+        tool_results_parts: list[str | ContentPart] = []
+        injected_datas: list[DataSource] = []
+
+        for part in last_msg.parts:
+            if isinstance(part, ContentPart) and part.function_call:
+                res_tool = self._execute_tool_call(part, duration=duration)
+                if not res_tool:
+                    # User denied the tool call — abort the entire loop.
+                    return None
+                tool_result, injected = res_tool
+                tool_results_parts.append(tool_result)
+                if injected:
+                    injected_datas.append(injected)
+
+        if not tool_results_parts:
+            return None
+
+        self.client.conversation.append(
+            Message(role=Role.TOOL, parts=tool_results_parts)
+        )
+        if injected_datas:
+            self._log_chat(injected_datas, role="Tool Output")
+
+        # Injected data (e.g. file content returned by a tool) must be forwarded
+        # as the next _send payload so it becomes a USER message.  Plain tool
+        # results are already in Role.TOOL and must NOT be re-sent.
+        return injected_datas if injected_datas else []
+
+    # ------------------------------------------------------------------
+    # Public orchestrator
+    # ------------------------------------------------------------------
+
     def process_and_print(self, data: list[DataSource]) -> None:
+        """
+        Orchestrate the full ReAct loop for one user turn.
+
+        Calls _run_single_turn for each LLM round-trip, then
+        _process_tool_loop to execute any requested tools, repeating until
+        there are no more pending tool calls or the user aborts.
+        """
         self._log_chat(data, role="User")
 
         while True:
-            # Prefix for the model response
-            display_name = self.client.get_display_name()
+            _, duration = self._run_single_turn(data)
 
-            # Display static thinking message
-            start_time = datetime.datetime.now()
-            status_msg = (
-                f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan] "
-                "[dim](Ctrl+C to interrupt)[/dim]"
-            )
-            console.print(status_msg)
-            res = self.client._send(data)
-            duration = (datetime.datetime.now() - start_time).total_seconds()
+            # Execute pending tool calls and get next-turn data.
+            # _process_tool_loop returns:
+            # - a list of DataSources (possibly empty) if tools were executed.
+            # - None if there are no tools to run or the user cancelled execution.
+            next_data = self._process_tool_loop(duration)
 
-            # Response is now expected to be a tuple ((text, thought), usage)
-            response_tuple, usage = res if res else ((None, None), None)
-            response_text, thought_text = response_tuple
-
-            # --- Reasoning Sentinel Integration ---
-            score_t = self.sentinel.process_chunk(thought_text) if thought_text else 0.0
-            score_r = (
-                self.sentinel.process_chunk(response_text) if response_text else 0.0
-            )
-            # Average score for the turn
-            self.last_integrity_score = (
-                (score_t + score_r) / 2.0
-                if thought_text and response_text
-                else (score_t or score_r)
-            )
-
-            # Finalize turn for the sentinel
-            # (triggers online learning if in collect mode)
-            self.sentinel.finalize_session()
-
-            # --- Secret Redaction/Warning Integration ---
-            if self.sentinel.suspected_secrets:
-                self._print_secret_warning(self.sentinel.suspected_secrets)
-                self.sentinel.suspected_secrets = []
-
-            if usage:
-                self.client.last_usage = usage
-
-            # Display thought content in a separate panel if available
-            if thought_text:
-                duration_str = f" ({duration:.1f}s)"
-                self._print_block(
-                    CustomMarkdown(thought_text),
-                    title=f"[bold dim]Thought{duration_str}[/bold dim]",
-                    style="dim",
-                )
-
-            # Display the response
-            if response_text:
-                # --- Bi-directional Verification (PQC) ---
-                try:
-                    from llm_cli.security.identity import IdentityManager
-                    from llm_cli.security.pqc import ResponseSigner
-
-                    # We use the trace_id as a base verification ID
-                    # or the last hash of the audit log if available.
-                    verification_id = "initial"
-                    if (
-                        self.client.conversation
-                        and self.client.conversation[-1].role == Role.TOOL
-                    ):
-                        last_part = self.client.conversation[-1].parts[0]
-                        if isinstance(last_part, ContentPart):
-                            fr = last_part.function_response
-                            if isinstance(fr, dict):
-                                verification_id = fr.get("id", "root")
-
-                    pqc_priv = IdentityManager._get_pqc_private_key_content()
-                    signed_res = ResponseSigner.sign_response(
-                        response_text, verification_id, pqc_priv
-                    )
-                    # The signature is stored in the background for audit/verification
-                    # In a real UI, this could be displayed as a 'Verified' badge.
-                    self.last_response_signature = signed_res["pqc_signature"]
-                except Exception:
-                    pass
-
-                if self.client.stdout:
-                    print(response_text)
-                else:
-                    # Wrap the textual response in a Panel for clarity
-                    # if we are in a ReAct loop. Otherwise, use a simple Rule.
-                    duration_str = f" ({duration:.1f}s)"
-                    title_str = f"[bold cyan]{display_name}{duration_str}[/bold cyan]"
-                    if self.client._has_pending_tool_calls():
-                        self._print_block(
-                            CustomMarkdown(response_text),
-                            title=title_str,
-                            style="cyan",
-                        )
-                    else:
-                        console.print(Rule(title=title_str, style="cyan"))
-                        console.print(CustomMarkdown(response_text))
-                        console.print(Rule(style="cyan"))
-
-            if response_text is None and not self.client._has_pending_tool_calls():
-                return
-
-            if response_text:
-                self._log_chat(response_text, role=self.client.model)
-
-            if not self.client._has_pending_tool_calls():
+            if next_data is None:
                 break
 
-            # If there are pending tool calls, process them and continue the loop
-            last_msg = self.client.conversation[-1]
-            tool_results_parts: list[str | ContentPart] = []
-            injected_datas = []
-
-            for part in last_msg.parts:
-                if isinstance(part, ContentPart) and part.function_call:
-                    res_tool = self._execute_tool_call(part, duration=duration)
-                    if not res_tool:
-                        return
-                    tool_result, injected = res_tool
-                    # tool_result is expected to be a ContentPart with function_response
-                    tool_results_parts.append(tool_result)
-                    if injected:
-                        injected_datas.append(injected)
-
-            if tool_results_parts:
-                self.client.conversation.append(
-                    Message(role=Role.TOOL, parts=tool_results_parts)
-                )
-                if injected_datas:
-                    self._log_chat(injected_datas, role="Tool Output")
-                # Prepare for the next round of generation
-                # The tool results are already appended to the conversation
-                # history as Role.TOOL.
-                # Passing them as 'data' to _send would cause the client to
-                # append them AGAIN as a new User message, creating a
-                # duplicate and potentially confusing the LLM
-                # (especially Gemini, which enforces strict alternating roles).
-                # However, if there is injected data (like file content), we MUST
-                # pass it so it gets added as a User message.
-                data = injected_datas if injected_datas else []
-            else:
-                break
+            # Continue the ReAct loop with the (possibly empty) injected data.
+            data = next_data
 
     def _handle_checkpoint(self) -> None:
         summarize_prompt = (

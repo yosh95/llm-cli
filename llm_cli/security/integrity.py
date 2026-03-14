@@ -13,9 +13,6 @@ from llm_cli.consts import LLM_CLI_BASE_DIR
 
 logger = logging.getLogger(__name__)
 
-# Global state to track the latest reasoning integrity score for audit logging
-current_integrity_score: float | None = None
-
 
 class ReasoningSentinelManager:
     """
@@ -28,8 +25,9 @@ class ReasoningSentinelManager:
         from llm_cli.clients.config import get_setting
         from llm_cli.security.sentinel import MambaSentinel
 
-        global current_integrity_score
-        current_integrity_score = None  # Reset global score on new manager init
+        # Per-instance integrity score (replaces the former module-level global).
+        # Storing it here makes the value thread-safe and testable in isolation.
+        self.current_score: float | None = None
 
         # Load settings
         self.enabled = get_setting("enabled", "sentinel")
@@ -140,8 +138,6 @@ class ReasoningSentinelManager:
 
         import numpy as np
 
-        global current_integrity_score
-
         if not self.enabled or not chunk:
             return 0.0
 
@@ -163,7 +159,9 @@ class ReasoningSentinelManager:
             self.history_tokens = self.history_tokens[-self.max_history :]
 
         avg_score = float(np.mean(scores)) if scores else 0.0
-        current_integrity_score = avg_score
+        # Write to the instance property instead of a module-level global.
+        # This is thread-safe and allows multiple independent sessions to coexist.
+        self.current_score = avg_score
 
         # Secret detection (Entropy + Mamba Surprise)
         self.suspected_secrets.extend(self._analyze_for_secrets(bytes_data, scores))
@@ -185,8 +183,9 @@ class ReasoningSentinelManager:
     def get_sentinel_status(self) -> tuple[float, str]:
         """
         Returns the current average score and its status (green, yellow, red).
+        Reads from the instance property instead of a module-level global.
         """
-        score = current_integrity_score if current_integrity_score is not None else 0.0
+        score = self.current_score if self.current_score is not None else 0.0
         status = "green"
         if score > self.sentinel.thresholds["red"]:
             status = "red"

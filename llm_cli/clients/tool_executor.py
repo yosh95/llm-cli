@@ -217,10 +217,18 @@ def execute_tool_call(
         is_interactive = tool_entry.get("interactive", False)
 
         if is_interactive:
-            result_data = tool_entry["func"](__audit_model__=client.model, **args)
+            result_data = tool_entry["func"](
+                __audit_model__=client.model,
+                __audit_sentinel__=session.sentinel,
+                **args,
+            )
         else:
             console.print(f"[bold yellow]🏃 Executing {name}...[/bold yellow]")
-            result_data = tool_entry["func"](__audit_model__=client.model, **args)
+            result_data = tool_entry["func"](
+                __audit_model__=client.model,
+                __audit_sentinel__=session.sentinel,
+                **args,
+            )
 
         injected_data = (
             result_data.pop("__llm_cli_data__", None)

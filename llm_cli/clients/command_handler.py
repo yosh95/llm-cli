@@ -374,7 +374,8 @@ def handle_command(
         session = getattr(client, "_session", None)
         if session and hasattr(session, "sentinel"):
             sentinel = session.sentinel
-            from llm_cli.security.integrity import current_integrity_score
+            # Read the score from the sentinel instance instead of a module global.
+            current_integrity_score = sentinel.current_score
 
             if current_integrity_score is not None:
                 color = (

@@ -4,9 +4,9 @@
 
 ## 📄 Technical Reports (Pre-prints)
 Detailed architectural insights and security analysis are available in the following reports:
-- **[Post-Quantum AI Governance: Context-Adaptive Security Scaling and Bi-directional Verification for AI Agents](paper/pqc/pqc_in_ai_agents.pdf)**
-- **[Zero-Trust Tool Orchestration: Securing Autonomous Agents via Asymmetric Identity and Dual-LLM Intent Analysis](paper/zero-trust/llm_cli_zero_trust.pdf)**
-- **[Autonomous Guardrails: Multi-Layered Security for LLM Command-Line Interfaces](paper/guardrail/llm_cli_tech_report.pdf)**
+- **[Post-Quantum AI Governance: Context-Adaptive Security Scaling and Bi-directional Verification for AI Agents](paper/pqc/trilogy_phase3_temporal_pqc.pdf)**
+- **[Zero-Trust Tool Orchestration: Securing Autonomous Agents via Asymmetric Identity and Mamba-based Reasoning Integrity](paper/zero_trust/trilogy_phase2_behavioral_zero_trust.pdf)**
+- **[Autonomous Guardrails: Multi-Layered Security for LLM Command-Line Interfaces](paper/guardrail/trilogy_phase1_structural_guardrails.pdf)**
 
 [English] | [日本語](#japanese-description)
 
@@ -34,6 +34,7 @@ Detailed architectural insights and security analysis are available in the follo
 
 ## Key Features
 
+- **Unified Interface**: Access major cloud LLMs (Gemini, OpenAI, Claude, Grok) and **Local LLMs (Ollama)** via a single `llm` command.
 - **Quantum-Resistant Reasoning Sentinel**: A lightweight, **pure NumPy SSM** that monitors AI reasoning processes for anomalies (e.g., intent shifts or prompt injection) in real-time. It acts as an **IDS for LLMs**, tracking "Reasoning Integrity" without heavy ML dependencies like Torch.
 - **PQC Remote Attestation**: Proves client-side integrity to remote MCP servers. The client verifies its own source code and generates a PQC-signed "Attestation Token" automatically embedded in every tool call.
 - **Local LLM Support**: Use models locally via **Ollama** for maximum privacy and zero latency.
@@ -177,6 +178,7 @@ Using a **pure NumPy implementation of Mamba (State Space Model)**, this system 
 - **State-Based Monitoring**: Leverages Mamba's "internal state" to detect subtle logic drifts, statistical anomalies, or injection attempts during generation.
 - **Reasoning Integrity**: Tracks the "sanity" of the AI's thoughts. If the reasoning pattern deviates from expected statistical norms, the sentinel flags it.
 - **Dynamic Intervention**: Automatically escalates to **Forced Human-in-the-Loop** mode if high-confidence anomalies (RED status) are detected.
+- **Note**: Compared to traditional Dual-LLM approaches, this is significantly more lightweight, lower latency, and deterministic.
 
 ### 🧠 Intent Analyzer (Dual-LLM): Semantic Firewall
 Acts as a **Semantic Firewall** pre-execution. It uses a secondary, lightweight LLM (Verifier) to audit the actions of the main agent (including generated Python code) in real-time. If the agent's action doesn't match the user's intent (e.g., user asks to "read" but agent tries to "delete"), the execution is blocked. This complements Mamba Sentinel as part of a **Defense in Depth** strategy.
@@ -251,11 +253,15 @@ Licensed under [Apache License 2.0](LICENSE).
 
 ## 📄 技術レポート (Pre-prints)
 詳細な解説については、以下のレポート（英語）を参照してください。
-- **[Post-Quantum AI Governance: AIエージェントのための動的セキュリティスケーリング](paper/pqc/pqc_in_ai_agents.pdf)**
-- **[Zero-Trust Tool Orchestration: 非対称アイデンティティとDual-LLM意図解析](paper/zero-trust/llm_cli_zero_trust.pdf)**
-- **[Autonomous Guardrails: LLM-CLIのための多層防御セキュリティ](paper/guardrail/llm_cli_tech_report.pdf)**
+- **[Post-Quantum AI Governance: AIエージェントのための動的セキュリティスケーリング](paper/pqc/trilogy_phase3_temporal_pqc.pdf)**
+- **[Zero-Trust Tool Orchestration: 非対称アイデンティティとMambaによる推論整合性監視](paper/zero_trust/trilogy_phase2_behavioral_zero_trust.pdf)**
+- **[Autonomous Guardrails: LLM-CLIのための多層防御セキュリティ](paper/guardrail/trilogy_phase1_structural_guardrails.pdf)**
 
-`llm-cli` は、Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), および **Ollama を介したローカルLLM** を一元的に操作できるコマンドラインツールです。
+[English] | [日本語](#japanese-description)
+
+---
+
+`llm-cli` は、Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), および **Ollama を介したローカルLLM** を一元的に操作できる強力で多機能なコマンドラインツールです。プロバイダーをシームレスに切り替え、ターミナルから `llm` コマンド一つで各モデル独自の機能を活用できます。
 
 <p align="center">
   <img src="images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
@@ -267,7 +273,7 @@ Licensed under [Apache License 2.0](LICENSE).
 - **徹底した環境安定性**: ストリーミング等の複雑な表示制御に依存しないことで、あらゆるターミナル環境やSSH越しの操作において、崩れのない一貫した動作を保証します。
 - **集中を妨げないミニマリズム**: 情報を整理し、安定した形式で出力することは、ユーザーがAIとの対話や作業に最大限集中するための仕様です。
 
-## クイックスタート
+## クイックスタート (TL;DR)
 - **インストール**: `pip install .`
 - **初期設定**: `llm-cli-config` (APIキーとOllamaの設定)
 - **チャット**: `llm` (自律エージェント + Reasoning Sentinel有効)
@@ -276,7 +282,8 @@ Licensed under [Apache License 2.0](LICENSE).
 - **安全**: Diffプレビュー、人間による承認、および推論異常検知。
 
 ## 主な機能
-- **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
+
+- **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLM (Gemini, OpenAI, Claude, Grok) と **Ollama (Local)** にアクセス。
 - **Quantum-Resistant Reasoning Sentinel**: **NumPyのみで実装された軽量SSM**が、AIの推論プロセス（思考プロセス）をリアルタイムで監視。**LLM専用のIDS (侵入検知システム)** として機能し、Torchなどの重い依存関係なしに、推論の整合性（Reasoning Integrity）を追跡。
 - **PQC Remote Attestation (リモートアテステーション)**: クライアントが自身のソースコードの整合性を検証し、PQC署名された「アテステーショントークン」を発行。これをMCPツール実行時のJWTに埋め込むことで、リモートサーバーに対してクライアントが改ざんされていないことを証明します。
 - **ローカルLLM対応**: **Ollama** を利用し、プライバシーを確保しながらオフラインでもモデルを実行。
@@ -286,9 +293,11 @@ Licensed under [Apache License 2.0](LICENSE).
     - **出力**: 会話の流れで画像生成（DALL-E 3, Grok-Imagine, Gemini）や動画生成（Veo, Sora）が可能。
 - **Distributed Agent via MCP**: Model Context Protocol により、リモートサーバーの操作もローカル同様に可能。
 - **URL解析**: WebサイトのURLを渡すだけで、内容を自動的にスクレイピングして解析。
-- **堅牢なセキュリティ**: PQC（耐量子暗号）署名、**Remote Attestation**、**Linuxサンドボックス (Bubblewrap)**、**静的解析**、**エントロピーベースの機密情報検知**、Zero-Trustオーケストレーション、および **Reasoning Integrity** トラッキング。
+- **セーフ実行**: **No-Shell アーキテクチャ** (構造的なインジェクション防止)、ファイル変更の **Diff プレビュー**、**静的解析**、および **Human-in-the-Loop** による承認。
+- **堅牢なセキュリティ**: PQC（耐量子暗号）署名、**Remote Attestation**、**Linuxサンドボックス (Bubblewrap)**、**エントロピーベースの機密情報検知**、Zero-Trustオーケストレーション、および **Reasoning Integrity** トラッキング。
 
 ## スクリーンショット
+
 ### 🤖 自律型エージェントのツール実行
 AIがディレクトリ構造を確認し、コードを読み取ってから作業を行う様子。
 
@@ -336,6 +345,7 @@ python scripts/clean.py
 ## 使用方法とコマンド
 
 ### 1. 対話型チャット
+単に `llm` と入力してセッションを開始します。
 ```bash
 llm
 ```
@@ -344,9 +354,11 @@ llm
 ```bash
 # 直接実行
 llm "フランスの首都は？"
+
 # パイプ入力
 cat main.py | llm "解説して"
-# URL解析
+
+# ローカルファイルまたはURL解析
 llm "内容を要約して" https://arxiv.org/pdf/1706.03762.pdf
 ```
 
@@ -359,8 +371,8 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 チャット内で使用：`> /t proofread`。
 
 ### 4. コマンドラインオプション
-- `-p, --provider`: プロバイダ指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`)。
-- `-m, --model`: モデル指定 (例: `pro`, `flash`, `mini`, `opus`)。
+- `-p, --provider <provider>`: プロバイダ指定 (`google`, `openai`, `anthropic`, `xai`, `ollama`)。
+- `-m, --model <alias>`: モデル指定 (例: `pro`, `flash`, `mini`, `opus`)。
 - `-s, --stdout`: 結果を標準出力に表示して終了。
 - `--raw`: 出力のMarkdownレンダリングを無効化。
 - `--mcp`: MCP統合を有効化。
@@ -378,12 +390,13 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 - `/debug`: デバッグモードの切り替え。
 - `/reload`: 設定ファイルの再読み込み。
 - `/clear`: 会話履歴のクリア。
-- `/q` / `/quit`: 終了（**Ctrl+C** / **Ctrl+D** も可）。
+- `/q` / `/quit`: 終了。 (または **Ctrl+C** / **Ctrl+D** いつでも可)。
 
 ## 組み込みツール一覧
+
 | ツール | 説明 |
 | :--- | :--- |
-| `list_files_in_directory` | ファイル一覧を表示。 |
+| `list_files_in_directory` | ディレクトリツリー内のファイル一覧を表示。 |
 | `search_files` | 正規表現でファイルを検索。 |
 | `read_file_content` | テキストファイルを読み込み。 |
 | `execute_python` | Pythonコードによるシステム操作 (シェルの代替)。 |
@@ -392,7 +405,10 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 | `search_web` | Brave SearchによるWeb検索。 |
 | `read_html_from_url` | URLをMarkdownとして取得。 |
 
+
 ## セキュリティ
+
+`llm-cli` は、不正な操作を防ぐために厳格なセキュリティガードレールを実装しています：
 
 ### 🛡️ No-Shell アーキテクチャ (インジェクションの構造的排除)
 他のエージェントツールとは異なり、`llm-cli` はシェル環境を直接提供しません。すべてのシステム操作は **Pythonコードの実行** (`shell=False`) を介して行われるため、シェルインジェクション脆弱性を構造的に排除しています。
@@ -409,8 +425,9 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 ### 🛡️ Mamba Sentinel: 推論プロセスのIDS
 **NumPyのみで実装された Mamba (State Space Model)** を用い、LLMの推論プロセスをバイトレベルでリアルタイム監視します。これはAIの論理構造に特化した**侵入検知システム (IDS)** として機能します。
 - **状態ベースの監視**: Mambaの内部状態（State）を活用し、生成中の微細なロジックの乖離や、統計的な異常、インジェクション試行を検知。
-- **Reasoning Integrity (推論の整合性)**: AI's 「思考の健全性」を追跡。推論パターンが統計的なノルムから外れた場合、センチネルが警告を発します。
+- **Reasoning Integrity (推論の整合性)**: AIの「思考の健全性」を追跡。推論パターンが統計的なノルムから外れた場合、センチネルが警告を発します。
 - **動的介入**: 重大な異常（REDステータス）を検知した場合、自動的に**強制手動承認モード**へ移行し、ユーザーの許可なしにエージェントが進行するのを阻止します。
+- **備考**: 従来の2つのLLMを用いる手法（Dual-LLM）に比べ、より軽量で低遅延、かつ決定論的な監視が可能です。
 
 ### 🧠 Intent Analyzer (Dual-LLM): セマンティック・ファイアウォール
 実行前の**セマンティック・ファイアウォール**として機能します。メインエージェントの行動（生成されたPythonコードを含む）を別の軽量LLM（検証器）がリアルタイムで監査。ユーザーの意図に反する行為（例：読み取りを求めたのに削除しようとする等）を未然に防ぎます。Mamba Sentinelと組み合わせることで、「多層防御（Defense in Depth）」を実現します。
@@ -419,14 +436,14 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 APIキーやパスワードなどの機密情報が、外部AIプロバイダーへ送信されたり、回答として表示されたりするのを防ぎます。
 - **ハイブリッド検知**: **シャノン・エントロピー解析**と**Mambaサプライズスコア**を組み合わせ、自然言語と区別してランダムな秘密情報を高精度に特定します。
 - **双方向ガード**:
-    *   **送信前検知**: ユーザーのプロンプトを送信前にスキャンし、うっかりAPIキーなどをアップロードするのを防ぎます。
-    *   **回答時検知**: AIがツール（MCP等）で読み取った機密情報を回答に含めてしまった際、表示前に警告します。
+    - **送信前検知**: ユーザーのプロンプトを送信前にスキャンし、うっかりAPIキーなどをアップロードするのを防ぎます。
+    - **回答時検知**: AIがツール（MCP等）で読み取った機密情報を回答に含めてしまった際、表示前に警告します。
 - **Human-in-the-Loop**: 勝手に書き換えるのではなく、ユーザーに警告と確認を求めることで、データの制御権をユーザーが維持できるようにします。
 
 ### 🛡️ リソース制限とガードレール
 - **静的解析**: 実行前にPythonコードをスキャンし、危険なパターン（ソケットの直接操作、不審なインポートなど）を自動検知します。
 - **Linuxサンドボックス (Bubblewrap)**: Linux環境では `bubblewrap` を用いたプロセスの隔離が可能です。ネットワークやIPCの隔離、専用の `/tmp`、および読み取り専用のシステムマウントを提供します。
-- **リソース制限**: メモリ1GB (RLIMIT_AS)、タイムアウト300秒の制限に加え、CPU時間のハード制限を適用。
+- **リソース制限**: デフォルト 300秒のタイムアウト、メモリ1GB (RLIMIT_AS)、およびCPU時間の制限を適用。
 - **パス・ガードレール**: 設定ファイルで定義された `allowed_paths` 内の操作に制限。
 - **Human-in-the-Loop**: すべてのコード実行およびファイル操作は**人間の承認が必要**。
 - **出力制限**: 大量出力を切り詰め、リソース枯渇を防止。
@@ -439,7 +456,7 @@ APIキーやパスワードなどの機密情報が、外部AIプロバイダー
 ## アドバンスド機能
 
 ### 🔌 プラグイン: ツールの追加
-デコレータを使用して簡単に新しいツールを追加可能。AIへの「説明（explanation）」提供が必須となっています。
+`llm-cli` はデコレータベースのプラグインシステムを使用しています。すべてのツールは AI への「説明（explanation）」パラメータが必須となっています。
 ```python
 @tool(name="get_weather", description="天気情報を取得", parameters={...})
 def get_weather(city: str) -> dict:

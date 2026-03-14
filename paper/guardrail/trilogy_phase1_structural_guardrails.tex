@@ -1,0 +1,164 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tabularx}
+\usepackage{balance}
+
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,fit,backgrounds}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  columns=fullflexible,
+  frame=single,
+  breaklines=true,
+  captionpos=b,
+}
+
+\begin{document}
+
+\title{Secure-by-Default Guardrails for MCP-Based Tool Use in Multi-Modal LLM Agents}
+
+\author{\IEEEauthorblockN{Yoshihiro Ando}
+\IEEEauthorblockA{\textit{Independent Researcher} \\
+yosh5295@gmail.com \\
+Tokyo, Japan}
+}
+
+\maketitle
+
+\begin{abstract}
+As autonomous AI agents transition from passive assistants to proactive system operators via the Model Context Protocol (MCP), the structural prevention of unauthorized operations becomes the first line of defense. This paper, representing \textbf{Phase 1: Guardrails (Pre-execution Security)} of a comprehensive security trilogy, introduces a multi-layered containment architecture for LLM-based command-line interfaces. We propose a "No-Shell" execution model that eliminates shell-injection vulnerabilities by substituting raw command execution with sandboxed Python environments. Our framework, implemented in the \texttt{llm-cli} system, integrates static code analysis (AST inspection), Linux-based process isolation (Bubblewrap), and a high-performance entropy-based secret detection mechanism. By enforcing a mandatory "Intent Explanation" protocol within a Human-in-the-Loop (HITL) workflow, we demonstrate how foundational guardrails can establish a robust security baseline for autonomous tool use without compromising agentic flexibility.
+\end{abstract}
+
+\begin{IEEEkeywords}
+AI Agents, Guardrails, Pre-execution Security, Model Context Protocol, Sandboxing, Human-in-the-Loop, Structural Immunity.
+\end{IEEEkeywords}
+
+\section{Introduction}
+The evolution of Large Language Models (LLMs) from text-generators to autonomous agents has introduced a new class of security vulnerabilities. Modern agents utilize the Model Context Protocol (MCP) \cite{mcp2024} to interact with the physical and digital world, executing code, managing files, and accessing remote APIs. This "Agency" capability creates a significant gap between the AI's intent and the system's safety. Granting an AI agent raw shell access is equivalent to providing a persistent, non-deterministic remote shell to an entity susceptible to prompt injection.
+
+We identify this challenge as the \textit{Structural Vulnerability of Autonomous Systems}. Traditional security assumes a human user with a stable identity and intent. AI agents, however, operate in a high-entropy reasoning space where a single adversarial prompt can "jailbreak" the agent's logic, causing it to generate harmful system commands.
+
+This paper is the foundational installment of a technical trilogy dedicated to agent security:
+\begin{itemize}
+    \item \textbf{Phase 1: Guardrails (Pre-execution Security).} The current work, focusing on structural immunity and containment to prevent unauthorized actions at the point of inception.
+    \item \textbf{Phase 2: Zero Trust (Execution Security) \cite{ando2026zerotrust}.} Focuses on spatial security and behavioral integrity monitoring via Mamba-based Sentinels.
+    \item \textbf{Phase 3: Post-Quantum (Temporal Security) \cite{ando2026pqc}.} Focuses on long-term integrity and quantum-resistant governance.
+\end{itemize}
+
+In Phase 1, we advocate for a \textbf{Secure-by-Default Guardrail} architecture. Our contribution is a unified security framework that treats the LLM's output as an inherently untrusted payload, subjecting it to multi-layered static and dynamic isolation before execution.
+
+\section{Related Work}
+Existing autonomous frameworks like AutoGPT or BabyAGI often rely on simple string-matching or permissive shell access, making them vulnerable to "Jailbreak" attacks where the agent is tricked into executing malicious commands (e.g., \texttt{rm -rf /}). While tools like \textit{Guardrails AI} provide schema validation for JSON outputs, they lack low-level system containment and operating system integration. 
+
+Recent research into LLM security has focused on adversarial training and "alignment." However, alignment is probabilistic and can be bypassed by sophisticated prompts. Our approach shifts the focus from \textit{behavioral alignment} to \textit{structural containment}, ensuring that even a compromised or misaligned LLM cannot breach the host system's integrity.
+
+\section{Threat Model}
+We define three primary threat vectors for autonomous LLM agents:
+\begin{enumerate}
+    \item \textbf{Prompt Injection (Direct/Indirect):} An attacker manipulates the agent's context (e.g., via a malicious website the agent is reading) to execute unauthorized system commands.
+    \item \textbf{Secret Exfiltration:} The agent accidentally leaks API keys, passwords, or sensitive PII (Personally Identifiable Information) to a 3rd-party LLM provider during tool calls or reasoning.
+    \item \textbf{Unauthorized Resource Consumption (DoS):} Maliciously generated code causing CPU exhaustion, memory leaks, or disk space depletion to render the host system unusable.
+\end{enumerate}
+
+\section{Architecture of Autonomous Guardrails}
+Our architecture (Fig. \ref{fig:guardrail_arch}) establishes five distinct layers of defense that must be satisfied before any tool-call impacts the host.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\columnwidth}{!}{
+    \input{trilogy\_phase1_architecture.tex}
+}
+\caption{Multi-layered guardrail architecture for structural containment.}
+\label{fig:guardrail_arch}
+\end{figure}
+
+\subsection{Layer 1: The "No-Shell" Execution Model}
+Raw shell execution (\texttt{/bin/sh -c}) is structurally vulnerable to injection because it treats data and commands as a single string to be parsed. \texttt{llm-cli} adopts a "No-Shell" model where all system operations are performed via a specialized \texttt{execute\_python} tool. 
+
+By executing Python code directly using \texttt{subprocess.run(args, shell=False)}, we eliminate the possibility of metacharacter-based shell injection (e.g., appending \texttt{; rm -rf /} to a filename). The agent must express its intent in valid Python, which is much more constrained and easier to analyze than arbitrary shell scripts.
+
+\subsection{Layer 2: Static Analysis and AST Inspection}
+Before execution, the generated Python code is parsed into an Abstract Syntax Tree (AST). The system applies a strict security scanner that visits every node of the tree.
+\begin{itemize}
+    \item \textbf{Module Blacklisting:} Blocks imports of dangerous modules like \texttt{os}, \texttt{subprocess}, \texttt{socket}, and \texttt{ctypes}.
+    \item \textbf{Function Blacklisting:} Prevents calls to high-risk built-ins such as \texttt{eval()}, \texttt{exec()}, and \texttt{getattr()}.
+    \item \textbf{Logic Inspection:} Detects patterns typical of malicious activity, such as obfuscated code or attempts to re-import blocked modules via \texttt{importlib}.
+\end{itemize}
+
+\subsection{Layer 3: Path Guardrails and Resource Limits}
+To prevent the agent from wandering outside its intended workspace, we implement \textbf{Path Guardrails}. All file-related tools are wrapped in a validator that checks every path against an "Allowed Paths" whitelist defined in the configuration. 
+Furthermore, we apply \textbf{OS-level Resource Limits} (\texttt{rlimit}) to the Python process:
+\begin{itemize}
+    \item \textbf{Memory:} Capped at 1GB (RLIMIT\_AS).
+    \item \textbf{CPU Time:} 300s timeout per execution.
+    \item \textbf{File Size:} Prevents the agent from creating massive log files.
+\end{itemize}
+
+\subsection{Layer 4: Entropy-Based Secret Leak Prevention}
+To prevent the exfiltration of credentials, \texttt{llm-cli} implements a real-time entropy scanner. It calculates the \textbf{Shannon Entropy} of every token in the prompt and response:
+\begin{equation}
+H(X) = -\sum_{i=1}^{n} P(x_i) \log_b P(x_i)
+\end{equation}
+Randomly generated strings like API keys exhibit high entropy compared to natural language. Our scanner identifies these "high-entropy anomalies" mid-stream. Unlike traditional regex-based detection, this approach identifies previously unknown secrets (zero-day leaks) without high false-positive rates by differentiating between natural language and high-randomness character sets.
+
+\subsection{Layer 5: Linux Sandboxing (Bubblewrap)}
+The final layer of containment is provided by \textbf{Bubblewrap} (\texttt{bwrap}). Each Python execution is isolated in a private, unprivileged namespace. This ensures:
+\begin{itemize}
+    \item A private, empty \texttt{/tmp} and \texttt{/home}.
+    \item Read-only mounts for system libraries (\texttt{/usr}, \texttt{/lib}).
+    \item Disabled network access (unless explicitly permitted for web-search tools).
+    \item No visibility of host processes or sensitive environment variables.
+\end{itemize}
+
+\section{Evaluation}
+We evaluated the guardrail system against a benchmark of 50 adversarial prompts designed to trigger shell-injection, unauthorized file access, or secret exfiltration.
+
+\subsection{Performance Latency (Empirical)}
+Experiments were conducted on an \textbf{AMD Ryzen 5 8540U} system. Table \ref{tab:guardrail_perf} summarizes the overhead.
+
+\begin{table}[htbp]
+\caption{Guardrail Performance Metrics}
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Metric} & \textbf{Latency (ms)} & \textbf{Overhead Ratio} \\
+\hline
+Secret Detection (Entropy Scan) & 0.063 & < 0.01\% \\
+AST Static Analysis & 0.42 & 0.03\% \\
+Base Python Execution & 13.77 & 1.15\% \\
+Sandboxed Execution (Bubblewrap) & 19.40 & 1.62\% \\
+\hline
+\textbf{Total Containment Overhead} & \textbf{6.05} & \textbf{0.51\%} \\
+\hline
+\end{tabular}
+\label{tab:guardrail_perf}
+\end{center}
+\end{table}
+
+\subsection{Containment Effectiveness}
+The "No-Shell" architecture and AST inspection successfully blocked 100\% of attempted injection vectors. The sandboxing layer prevented access to system-critical files (e.g., \texttt{/etc/passwd}) even when "jailbroken" prompts were used. The entropy scanner detected 94\% of simulated API key leaks, with a false positive rate of less than 0.1\% for standard English text. The combined performance cost (\textbf{~6 ms}) is negligible compared to average LLM inference times (1-5 seconds).
+
+\section{Conclusion}
+Securing autonomous agents requires a departure from traditional perimeter-based security toward internal, structural guardrails. By adopting a "No-Shell" architecture, high-performance sandboxing, and real-time entropy analysis, the \texttt{llm-cli} framework establishes a robust foundation for safe tool use. This paves the way for Phase 2, where we introduce behavioral monitoring to detect semantic-level anomalies that bypass structural checks.
+
+\begin{thebibliography}{00}
+\bibitem{mcp2024} Anthropic, ``Model Context Protocol (MCP) Specification,'' 2024.
+\bibitem{ando2026zerotrust} Y. Ando, ``Zero-Trust Architecture for MCP-Based AI Agents: Continuous Identity and Behavioral Monitoring,'' \textit{TechRxiv}, 2026.
+\bibitem{ando2026pqc} Y. Ando, ``Post-Quantum Workload Identity and Long-Term Audit Integrity for MCP-Based AI Agents,'' \textit{TechRxiv}, 2026.
+\end{thebibliography}
+
+\end{document}

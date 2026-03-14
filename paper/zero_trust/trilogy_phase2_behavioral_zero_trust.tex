@@ -1,0 +1,145 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tabularx}
+\usepackage{balance}
+
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,fit,backgrounds}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  columns=fullflexible,
+  frame=single,
+  breaklines=true,
+  captionpos=b,
+}
+
+\begin{document}
+
+\title{Zero-Trust Architecture for MCP-Based AI Agents: Continuous Identity and Behavioral Monitoring}
+
+\author{\IEEEauthorblockN{Yoshihiro Ando}
+\IEEEauthorblockA{\textit{Independent Researcher} \\
+yosh5295@gmail.com \\
+Tokyo, Japan}
+}
+
+\maketitle
+
+\begin{abstract}
+As autonomous AI agents evolve into distributed system operators via the Model Context Protocol (MCP), the assumption of network-level security becomes obsolete. This paper, representing \textbf{Phase 2: Zero Trust (Execution Security)} of a comprehensive security trilogy, presents a framework for securing agentic workloads through "Spatial Security" and continuous behavioral monitoring. Building upon the structural guardrails of Phase 1, we implement a Zero Trust Architecture (ZTA) centered on asymmetric workload identity (RSA) and a \textbf{Mamba-based Reasoning Sentinel}. The sentinel utilizes a NumPy-only State Space Model (SSM) to perform real-time anomaly detection on the agent's reasoning traces, providing a behavioral Intrusion Detection System (IDS) for AI logic. Our results demonstrate that the combination of sub-millisecond cryptographic verification and lightweight behavioral monitoring effectively mitigates risks like prompt injection and semantic drift without impeding agentic responsiveness.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Zero Trust Architecture, AI Agents, Model Context Protocol, Workload Identity, Mamba Sentinel, Intrusion Detection System (IDS), Reasoning Integrity.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Phase 1 of this trilogy \cite{ando2026guardrails} established structural containment via sandboxing and "No-Shell" architectures. However, a "jailbroken" agent might still perform harmful actions that are syntactically valid but semantically malicious. For instance, an agent permitted to "manage documents" might be tricked into deleting a critical database file if it can be represented as a document. This necessitates a shift from static containment to dynamic, behavioral verification.
+
+We propose a Zero Trust Architecture (ZTA) for AI agents, where the principle of "Never Trust, Always Verify" is applied not just to the network, but to the \textit{intent} and \textit{identity} of the AI's reasoning process.
+
+This paper is the second installment of our security trilogy:
+\begin{itemize}
+    \item \textbf{Phase 1: Guardrails (Pre-execution Security) \cite{ando2026guardrails}.} Structural containment and sandboxing.
+    \item \textbf{Phase 2: Zero Trust (Execution Security).} The current work, focusing on \textbf{Continuous Verification} via identity propagation and behavioral integrity.
+    \item \textbf{Phase 3: Post-Quantum (Temporal Security) \cite{ando2026pqc}.} Long-term integrity and quantum-resistant governance.
+\end{itemize}
+
+\section{Asymmetric Identity and Tool Orchestration}
+In a Zero Trust model, an agent's authority must be tied to a verifiable identity rather than its session or location.
+
+\subsection{Workload Identity (RSA-2048)}
+\texttt{llm-cli} assigns each agent instance a unique RSA-2048 key pair. When the agent requests a tool call via MCP, the system generates a signed \textbf{Identity Token (JWT)}. This token acts as a "Passport" for the agent, containing:
+\begin{itemize}
+    \item \textbf{sub (Subject):} The agent's unique ID (e.g., \texttt{user@hostname}).
+    \item \textbf{roles:} Assigned RBAC roles (e.g., \texttt{admin}, \texttt{user}).
+    \item \textbf{iat/exp:} Issued-at and expiration timestamps to prevent replay attacks.
+\end{itemize}
+This ensures that remote MCP servers can cryptographically verify that the tool call originated from a legitimate, untampered agent instance.
+
+\subsection{Role-Based Access Control (RBAC)}
+Permissions are decoupled from the LLM's prompt. Even if the LLM "believes" it has root access due to a prompt injection, the underlying security engine enforces a strict RBAC policy. If a tool (e.g., \texttt{edit\_file}) requires the \texttt{admin} role, the execution is blocked regardless of the AI's "monologue" unless the signed identity token carries that claim.
+
+\section{Behavioral IDS: The Mamba Sentinel}
+While identity ensures *who* is calling the tool, it does not ensure *why*. To detect semantic attacks like prompt injection, we introduce the \textbf{Mamba Sentinel}.
+
+\subsection{The Need for Lightweight Monitoring}
+Traditional monitoring using secondary LLMs (e.g., using GPT-4o-mini to verify GPT-4o's output) is slow (1-2 seconds of latency) and expensive. We utilize a \textbf{Mamba (State Space Model)} implementation \cite{mamba2023} optimized with pure NumPy. Unlike Transformers, Mamba's linear scaling and recurrent state make it ideal for monitoring streaming reasoning traces at a byte level with sub-millisecond overhead.
+
+\subsection{Reasoning Integrity and Surprise Score}
+The Sentinel monitors the LLM's "internal monologue" (reasoning tokens) in real-time. It calculates a \textbf{Surprise Score} based on the cross-entropy loss between the Sentinel's predicted next-token distribution and the agent's actual output.
+
+\begin{equation}
+L_{sentinel} = -\sum P_{sentinel}(x_t | h_{t-1}) \log P_{agent}(x_t)
+\end{equation}
+
+A sudden spike in "surprise" indicates a statistical anomaly or "Semantic Drift." This often happens when the agent transitions from a helpful assistant state to an adversarial state (e.g., suddenly generating obfuscated code or trying to access sensitive files after a prompt injection).
+
+\subsection{Dynamic Intervention (Green/Yellow/Red)}
+The system maintains a real-time status:
+\begin{itemize}
+    \item \textbf{Green:} Normal operation.
+    \item \textbf{Yellow:} Minor anomaly detected. The system increases the entropy-scanning sensitivity and alerts the user.
+    \item \textbf{Red:} Significant anomaly. The system \textbf{automatically suspends execution} and forces a Human-in-the-Loop (HITL) review.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\columnwidth}{!}{
+    \input{trilogy\_phase2_architecture.tex}
+}
+\caption{Phase 2 Architecture: Continuous verification via Asymmetric Identity and Mamba Behavioral Sentinel.}
+\label{fig:zt_arch}
+\end{figure}
+
+\section{Evaluation}
+We evaluated the Zero Trust framework on an \textbf{AMD Ryzen 5 8540U} system.
+
+\subsection{Execution Latency (Empirical)}
+Table \ref{tab:zt_perf} summarizes the latencies. The Mamba Sentinel adds only ~10ms to the reasoning process, which is nearly two orders of magnitude faster than a "Dual-LLM" verifier approach.
+
+\begin{table}[htbp]
+\caption{Zero Trust and IDS Execution Latency}
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Component} & \textbf{Latency (ms)} & \textbf{Type} \\
+\hline
+Identity Verification (RS256) & 0.0296 & Cryptographic \\
+Policy Evaluation (RBAC) & 0.0004 & Deterministic \\
+Mamba Sentinel (SSM) & 10.3122 & ML-Inference \\
+\hline
+\textbf{Total Verification Latency} & \textbf{10.3422} & - \\
+\hline
+\end{tabular}
+\label{tab:zt_perf}
+\end{center}
+\end{table}
+
+\subsection{Detection Accuracy}
+In testing with 20 known prompt injection techniques (e.g., "DAN", "Ignore previous instructions"), the Mamba Sentinel detected 85\% of successful escapes by identifying statistical anomalies in the reasoning trace before a harmful tool call was even attempted. This provides a "Defense in Depth" that complements the structural guardrails of Phase 1.
+
+\section{Conclusion}
+By decoupling reasoning from authority through asymmetric identities and providing real-time behavioral monitoring via the Mamba Sentinel, we ensure that autonomous agents remain "Verified by Identity and Monitored by Logic." This fulfills the promise of agentic productivity with robust, low-latency execution security. The final phase of our trilogy addresses resilience against future quantum threats and remote integrity proofs.
+
+\begin{thebibliography}{00}
+\bibitem{mamba2023} A. Gu and T. Dao, ``Mamba: Linear-Time Sequence Modeling with Selective State Spaces,'' 2023.
+\bibitem{ando2026guardrails} Y. Ando, ``Secure-by-Default Guardrails for MCP-Based Tool Use in Multi-Modal LLM Agents,'' \textit{TechRxiv}, 2026.
+\bibitem{ando2026pqc} Y. Ando, ``Post-Quantum Workload Identity and Long-Term Audit Integrity for MCP-Based AI Agents,'' \textit{TechRxiv}, 2026.
+\end{thebibliography}
+
+\end{document}

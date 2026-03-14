@@ -4,8 +4,8 @@ This directory contains research papers, architecture diagrams, and benchmarking
 
 ## Contents
 
-- `pqc_in_ai_agents.tex`: Main research paper focusing on ML-DSA (Dilithium) integration in AI agents.
-- `pqc_architecture.tex`: TikZ-based architecture diagram showing the "Signature Stripping" mechanism and Zero-Trust boundaries.
+- `trilogy_phase3_temporal_pqc.tex`: Main research paper focusing on ML-DSA (Dilithium) integration in AI agents.
+- `trilogy_phase3_architecture.tex`: TikZ-based architecture diagram showing the "Signature Stripping" mechanism and Zero-Trust boundaries.
 - `mcp_payload_benchmark.py`: A simulation tool to measure network overhead and token consumption of PQC-signed MCP messages.
 - `run_pqc_benchmark.py`: A comprehensive benchmark script comparing ML-DSA-44, 65, and 87.
 

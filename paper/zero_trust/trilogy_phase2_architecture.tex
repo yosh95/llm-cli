@@ -1,0 +1,39 @@
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    auto,
+    block/.style={rectangle, draw, fill=blue!10, text width=8em, text centered, rounded corners, minimum height=3em},
+    sentinel/.style={rectangle, draw, fill=orange!10, text width=9em, text centered, rounded corners, minimum height=3.5em},
+    id_style/.style={rectangle, draw, fill=green!10, text width=8.5em, text centered, rounded corners, minimum height=3em},
+    policy/.style={diamond, draw, fill=purple!10, text width=6em, text centered, inner sep=0pt},
+    line/.style={draw, -latex', thick},
+    warning/.style={rectangle, draw, fill=red!10, text width=7em, text centered, rounded corners, minimum height=2.5em}
+]
+
+    % Nodes
+    \node [block] (llm) {\textbf{LLM Engine} \\ (Reasoning Trace)};
+    
+    % Monitoring Loop
+    \node [sentinel, below of=llm, node distance=2.5cm] (mamba) {\textbf{Mamba Sentinel} \\ (Behavioral IDS)};
+    \node [warning, right of=mamba, node distance=4.5cm] (halt) {Dynamic Halt \\ (Anomaly Detected)};
+
+    % Identity/Tool Loop
+    \node [block, below of=mamba, node distance=2.5cm] (agent) {Agent Orchestrator \\ (llm-cli)};
+    \node [id_style, left of=agent, node distance=4.5cm] (identity) {\textbf{Workload Identity} \\ (RS256 Private Key)};
+    \node [policy, right of=agent, node distance=4.5cm] (rbac) {RBAC \\ Policy};
+
+    % Target
+    \node [block, below of=agent, node distance=2.5cm, fill=green!5] (tool) {MCP Tool Execution};
+
+    % Paths
+    \path [line] (llm) -- node {Byte Stream} (mamba);
+    \path [line] (mamba) -- node {Surprise Score} (agent);
+    \path [line] (mamba) -- node [above] {Score > Threshold} (halt);
+    \path [line] (identity) -- node {Sign} (agent);
+    \path [line] (rbac) -- node {Authorize} (agent);
+    \path [line] (agent) -- (tool);
+    \path [line] (tool.west) -- ++(-1,0) |- (llm.west) node [pos=0.2, left] {Observation};
+
+    % Boundary
+    \node [draw, dashed, blue!50, fit=(llm) (mamba) (agent) (identity) (rbac), inner sep=0.5cm, label=above:Zero-Trust Execution Boundary] (boundary) {};
+
+\end{tikzpicture}

@@ -1,0 +1,38 @@
+\begin{tikzpicture}[node distance=1.8cm, auto,
+    block/.style={rectangle, draw, fill=blue!10, text width=7.5em, text centered, rounded corners, minimum height=3em},
+    guard/.style={rectangle, draw, fill=red!5, text width=8em, text centered, rounded corners, minimum height=2.5em, font=\footnotesize},
+    system/.style={rectangle, draw, fill=green!10, text width=7em, text centered, rounded corners, minimum height=3em},
+    line/.style={draw, -latex', thick}]
+
+    % Nodes
+    \node [block] (agent) {LLM Agent \\ (Tool Call Request)};
+    
+    % Layer 1: Policy
+    \node [guard, below of=agent] (policy) {Layer 1: Policy \\ (Path \& RBAC Check)};
+    
+    % Layer 2: Static Analysis
+    \node [guard, below of=policy] (static) {Layer 2: Static Analysis \\ (Code Inspection)};
+    
+    % Layer 3: Sandbox
+    \node [guard, below of=static] (sandbox) {Layer 3: Sandbox \\ (Bubblewrap/Bwrap)};
+    
+    % Layer 4: HITL
+    \node [guard, right of=static, node distance=4.5cm, fill=orange!10] (hitl) {Layer 4: HITL \\ (Human Approval)};
+
+    % System
+    \node [system, below of=sandbox] (system) {Host System \\ (Restricted Ops)};
+
+    % Paths
+    \path [line] (agent) -- (policy);
+    \path [line] (policy) -- (static);
+    \path [line] (static) -- (sandbox);
+    \path [line] (sandbox) -- (system);
+    
+    % HITL connection
+    \path [line, dashed] (static) -- (hitl);
+    \path [line, dashed] (hitl) |- (sandbox);
+
+    % Legend or grouping
+    \node[draw, dashed, blue!50, fit=(policy) (static) (sandbox) (hitl), inner sep=0.4cm, label=right:Multi-Layered Guardrails] (group) {};
+
+\end{tikzpicture}

@@ -180,6 +180,17 @@ class MambaSentinel:
 
         return results
 
+    def analyze(self, data: str | bytes) -> list[dict]:
+        """
+        High-level entry point for anomaly detection.
+        Handles both string and byte inputs.
+        """
+        if isinstance(data, bytes):
+            text = data.decode("utf-8", errors="replace")
+        else:
+            text = data
+        return self.process_text(text)
+
     def update(self, input_ids: np.ndarray, targets: np.ndarray) -> None:
         """
         Online learning update (one epoch of backprop)

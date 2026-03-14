@@ -38,7 +38,9 @@ class KEMProvider:
         Returns: (ciphertext, shared_secret)
         """
         algo = cls.VARIANTS.get(variant, ML_KEM_768)
-        return algo.encaps(public_key_bytes)  # type: ignore[no-any-return]
+        # kyber-py returns (shared_secret, ciphertext)
+        ss, ct = algo.encaps(public_key_bytes)
+        return ct, ss
 
     @classmethod
     def decapsulate(
@@ -48,6 +50,7 @@ class KEMProvider:
         Decrypts the ciphertext to retrieve the shared secret.
         """
         algo = cls.VARIANTS.get(variant, ML_KEM_768)
+        # kyber-py decaps takes (sk, ct)
         return algo.decaps(private_key_bytes, ciphertext)  # type: ignore[no-any-return]
 
 
@@ -67,7 +70,7 @@ class SecureStorage:
 
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-        # 1. KEM Encapsulation
+        # 1. KEM Encapsulation (Returns ct, ss)
         kem_ct, shared_secret = KEMProvider.encapsulate(recipient_public_key)
 
         # 2. Symmetric Encryption (AES-256-GCM)

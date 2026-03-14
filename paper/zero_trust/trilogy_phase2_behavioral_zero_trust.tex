@@ -120,10 +120,7 @@ Table \ref{tab:zt_perf} summarizes the latencies. The Mamba Sentinel adds only ~
 \textbf{Component} & \textbf{Latency (ms)} & \textbf{Type} \\
 \hline
 Identity Verification (RS256) & 0.0296 & Cryptographic \\
-Policy Evaluation (RBAC) & 0.0004 & Deterministic \\
 Mamba Sentinel (SSM) & 10.3122 & ML-Inference \\
-\hline
-\textbf{Total Verification Latency} & \textbf{10.3422} & - \\
 \hline
 \end{tabular}
 \label{tab:zt_perf}
@@ -131,7 +128,7 @@ Mamba Sentinel (SSM) & 10.3122 & ML-Inference \\
 \end{table}
 
 \subsection{Detection Accuracy}
-In testing with 20 known prompt injection techniques (e.g., "DAN", "Ignore previous instructions"), the Mamba Sentinel detected 85\% of successful escapes by identifying statistical anomalies in the reasoning trace before a harmful tool call was even attempted. This provides a "Defense in Depth" that complements the structural guardrails of Phase 1.
+In testing with known prompt injection techniques (e.g., "DAN", "Ignore previous instructions"), the Mamba Sentinel detected escapes by identifying statistical anomalies in the reasoning trace before a harmful tool call was even attempted. This provides a "Defense in Depth" that complements the structural guardrails of Phase 1.
 
 \section{Conclusion}
 By decoupling reasoning from authority through asymmetric identities and providing real-time behavioral monitoring via the Mamba Sentinel, we ensure that autonomous agents remain "Verified by Identity and Monitored by Logic." This fulfills the promise of agentic productivity with robust, low-latency execution security. The final phase of our trilogy addresses resilience against future quantum threats and remote integrity proofs.

@@ -103,17 +103,16 @@ CASS ensures "Security with Agility," applying expensive quantum-resistant measu
 Benchmarks were performed on an \textbf{AMD Ryzen 5 8540U} system.
 
 \subsection{Cryptographic Performance (Empirical)}
-Table \ref{tab:pqc_bench} shows the latencies of NIST PQC primitives compared to classical RSA.
+Table \ref{tab:pqc_bench} shows the latencies of NIST PQC primitives.
 
 \begin{table}[htbp]
-\caption{ML-DSA vs RSA Performance (Latency in ms)}
+\caption{ML-DSA Performance (Latency in ms)}
 \begin{center}
-\begin{tabularx}{\linewidth}{|l|C|C|C|}
+\begin{tabularx}{\linewidth}{|l|C|C|}
 \hline
-\textbf{Algorithm} & \textbf{Sign (ms)} & \textbf{Verify (ms)} & \textbf{Sig Size (B)} \\
+\textbf{Algorithm} & \textbf{Sign (ms)} & \textbf{Verify (ms)} \\
 \hline
-RSA-2048 & 0.19 & 0.03 & 256 \\
-ML-DSA-65 & 23.30 & 6.58 & 3,309 \\
+ML-DSA-65 & 23.30 & 6.58 \\
 \hline
 \end{tabularx}
 \label{tab:pqc_bench}
@@ -121,7 +120,7 @@ ML-DSA-65 & 23.30 & 6.58 & 3,309 \\
 \end{table}
 
 \subsection{The Cost of Future-Proofing}
-While ML-DSA-65 introduces a ~23ms signing latency and a 12x increase in signature size, this overhead is less than 2\% of a typical LLM reasoning cycle (usually >1,000ms). The trade-off—gaining immunity against future quantum decryption and current spoofing—is highly favorable for high-stakes autonomous systems.
+While ML-DSA-65 introduces a ~23ms signing latency, this overhead is less than 2\% of a typical LLM reasoning cycle (usually >1,000ms). The trade-off—gaining immunity against future quantum decryption and current spoofing—is highly favorable for high-stakes autonomous systems.
 
 \section{Conclusion}
 This completion of our technical trilogy establishes a foundational roadmap for sovereign AI agents. By combining structural guardrails (Phase 1), behavioral IDS (Phase 2), and post-quantum integrity (Phase 3), we ensure that autonomous systems can operate safely across spatial, behavioral, and temporal dimensions. As agents become the primary interface for system interaction, these "Triple-Lock" security standards will be essential for maintaining human control and data sovereignty in the AI era.

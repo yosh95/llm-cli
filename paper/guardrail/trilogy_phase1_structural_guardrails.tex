@@ -133,16 +133,13 @@ Experiments were conducted on an \textbf{AMD Ryzen 5 8540U} system. Table \ref{t
 \begin{table}[htbp]
 \caption{Guardrail Performance Metrics}
 \begin{center}
-\begin{tabular}{|l|c|c|}
+\begin{tabular}{|l|c|}
 \hline
-\textbf{Metric} & \textbf{Latency (ms)} & \textbf{Overhead Ratio} \\
+\textbf{Metric} & \textbf{Latency (ms)} \\
 \hline
-Secret Detection (Entropy Scan) & 0.063 & < 0.01\% \\
-AST Static Analysis & 0.42 & 0.03\% \\
-Base Python Execution & 13.77 & 1.15\% \\
-Sandboxed Execution (Bubblewrap) & 19.40 & 1.62\% \\
-\hline
-\textbf{Total Containment Overhead} & \textbf{6.05} & \textbf{0.51\%} \\
+Secret Detection (Entropy Scan) & 0.063 \\
+Base Python Execution & 13.77 \\
+Sandboxed Execution (Bubblewrap) & 19.40 \\
 \hline
 \end{tabular}
 \label{tab:guardrail_perf}
@@ -150,7 +147,7 @@ Sandboxed Execution (Bubblewrap) & 19.40 & 1.62\% \\
 \end{table}
 
 \subsection{Containment Effectiveness}
-The "No-Shell" architecture and AST inspection successfully blocked 100\% of attempted injection vectors. The sandboxing layer prevented access to system-critical files (e.g., \texttt{/etc/passwd}) even when "jailbroken" prompts were used. The entropy scanner detected 94\% of simulated API key leaks, with a false positive rate of less than 0.1\% for standard English text. The combined performance cost (\textbf{~6 ms}) is negligible compared to average LLM inference times (1-5 seconds).
+The "No-Shell" architecture and AST inspection successfully blocked attempted injection vectors. The sandboxing layer prevented access to system-critical files (e.g., \texttt{/etc/passwd}) even when "jailbroken" prompts were used. The entropy scanner detected simulated API key leaks with a low false positive rate for standard English text. The performance cost is negligible compared to average LLM inference times (1-5 seconds).
 
 \section{Conclusion}
 Securing autonomous agents requires a departure from traditional perimeter-based security toward internal, structural guardrails. By adopting a "No-Shell" architecture, high-performance sandboxing, and real-time entropy analysis, the \texttt{llm-cli} framework establishes a robust foundation for safe tool use. This paves the way for Phase 2, where we introduce behavioral monitoring to detect semantic-level anomalies that bypass structural checks.

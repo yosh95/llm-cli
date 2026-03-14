@@ -18,6 +18,12 @@ Detailed architectural insights and security analysis are available in the follo
   <img src="images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
 </p>
 
+## Design Philosophy: Focus & Stability
+`llm-cli` is designed for professional "deep work" environments where cognitive load and eye health are paramount.
+- **Eye-Friendly Interface**: By minimizing UI flicker and rapid text movement, we provide a comfortable environment for long-term usage.
+- **Rock-Solid Reliability**: Avoiding complex streaming TUI logic ensures 100% consistent behavior across all terminal emulators and remote SSH sessions.
+- **Cognitive Clarity**: A stable, predictable output format helps users maintain focus on the task at hand without the distraction of unnecessary animations.
+
 ## TL;DR (Quick Start)
 - **Install**: `pip install .`
 - **Configure**: `llm-cli-config` (Set API keys & Ollama URL).
@@ -252,6 +258,12 @@ Licensed under [Apache License 2.0](LICENSE).
 <p align="center">
   <img src="images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
 </p>
+
+## 設計思想：集中力と安定性の追求
+`llm-cli` は、長時間の「ディープワーク」における認知的負荷を最小限に抑えるよう設計されています。
+- **眼精疲労に配慮したUI**: 画面の激しい動きやチラつきを最小限に留めることで、長時間使用しても目が疲れにくい静かな表示環境を提供します。
+- **徹底した環境安定性**: ストリーミング等の複雑な表示制御に依存しないことで、あらゆるターミナル環境やSSH越しの操作において、崩れのない一貫した動作を保証します。
+- **集中を妨げないミニマリズム**: 情報を整理し、安定した形式で出力することは、ユーザーがAIとの対話や作業に最大限集中するための仕様です。
 
 ## クイックスタート
 - **インストール**: `pip install .`

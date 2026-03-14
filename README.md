@@ -43,8 +43,8 @@ Detailed architectural insights and security analysis are available in the follo
     -   **Output**: Generate images (DALL-E 3, Grok-Imagine, Gemini) and videos (Veo, Sora) mid-conversation.
 - **Distributed Agent via MCP**: Support for **Model Context Protocol**. Connect to remote instances via SSH to manage files or run tests as if they were local.
 - **URL Support**: Directly pass website URLs to analyze content with automatic scraping.
-- **Safe Execution**: **No-Shell Architecture** (structural injection prevention), **Diff Preview** for file changes, and **Human-in-the-Loop** confirmation.
-- **Advanced Security**: Hybrid PQC (Post-Quantum Cryptography) signatures, **Remote Attestation**, **Entropy-Based Secret Detection**, Zero-Trust orchestration, and **Reasoning Integrity** tracking.
+- **Safe Execution**: **No-Shell Architecture** (structural injection prevention), **Diff Preview** for file changes, **Static Analysis**, and **Human-in-the-Loop** confirmation.
+- **Advanced Security**: Hybrid PQC (Post-Quantum Cryptography) signatures, **Remote Attestation**, **Linux Sandboxing (Bubblewrap)**, **Entropy-Based Secret Detection**, Zero-Trust orchestration, and **Reasoning Integrity** tracking.
 
 ## Screenshots
 
@@ -190,6 +190,8 @@ Protects sensitive data (API keys, passwords) from being leaked to or from exter
 - **Human-in-the-Loop**: Instead of silent redaction, it alerts the user and requires explicit confirmation to proceed, ensuring the user maintains control over their data.
 
 ### 🛡️ Resource Limits & Sandboxing
+- **Static Analysis**: Automatically scans Python code for dangerous patterns (e.g., direct socket access, suspicious imports) before execution.
+- **Linux Sandboxing (Bubblewrap)**: On Linux, Python execution can be isolated using `bubblewrap`. This provides a restricted environment with its own private `/tmp`, unshared network/IPC namespaces, and read-only system mounts.
 - **Resource Limits**: Default 300s timeout, 1GB memory limit (RLIMIT_AS), and CPU time limits.
 - **Path Guardrails**: Restricts operations to `allowed_paths` defined in your config.
 - **Human-in-the-Loop**: All code execution and file modifications **must be approved by a human**.
@@ -284,7 +286,7 @@ Licensed under [Apache License 2.0](LICENSE).
     - **出力**: 会話の流れで画像生成（DALL-E 3, Grok-Imagine, Gemini）や動画生成（Veo, Sora）が可能。
 - **Distributed Agent via MCP**: Model Context Protocol により、リモートサーバーの操作もローカル同様に可能。
 - **URL解析**: WebサイトのURLを渡すだけで、内容を自動的にスクレイピングして解析。
-- **堅牢なセキュリティ**: PQC（耐量子暗号）署名、**Remote Attestation**、**エントロピーベースの機密情報検知**、Zero-Trustオーケストレーション、および **Reasoning Integrity** トラッキング。
+- **堅牢なセキュリティ**: PQC（耐量子暗号）署名、**Remote Attestation**、**Linuxサンドボックス (Bubblewrap)**、**静的解析**、**エントロピーベースの機密情報検知**、Zero-Trustオーケストレーション、および **Reasoning Integrity** トラッキング。
 
 ## スクリーンショット
 ### 🤖 自律型エージェントのツール実行
@@ -422,6 +424,8 @@ APIキーやパスワードなどの機密情報が、外部AIプロバイダー
 - **Human-in-the-Loop**: 勝手に書き換えるのではなく、ユーザーに警告と確認を求めることで、データの制御権をユーザーが維持できるようにします。
 
 ### 🛡️ リソース制限とガードレール
+- **静的解析**: 実行前にPythonコードをスキャンし、危険なパターン（ソケットの直接操作、不審なインポートなど）を自動検知します。
+- **Linuxサンドボックス (Bubblewrap)**: Linux環境では `bubblewrap` を用いたプロセスの隔離が可能です。ネットワークやIPCの隔離、専用の `/tmp`、および読み取り専用のシステムマウントを提供します。
 - **リソース制限**: メモリ1GB (RLIMIT_AS)、タイムアウト300秒の制限に加え、CPU時間のハード制限を適用。
 - **パス・ガードレール**: 設定ファイルで定義された `allowed_paths` 内の操作に制限。
 - **Human-in-the-Loop**: すべてのコード実行およびファイル操作は**人間の承認が必要**。

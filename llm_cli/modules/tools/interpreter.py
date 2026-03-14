@@ -15,6 +15,7 @@ from llm_cli.security.resource_manager import (
     limit_process_resources,
     set_resource_limits,
 )
+from llm_cli.security.static_analyzer import analyze_python_safety
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,18 @@ logger = logging.getLogger(__name__)
     },
 )
 def execute_python(code: str) -> str:
+    # 1. Static Security Scan
+    is_safe, issues = analyze_python_safety(code)
+    if not is_safe:
+        issue_str = "\n".join(f"- {i}" for i in issues)
+        logger.warning(f"Static analysis found potential issues:\n{issue_str}")
+        # Note: We don't necessarily block execution here if the user approves it,
+        # but we provide this info to the audit log and potentially to the UI.
+        # For now, we'll prefix the result with a warning.
+        warning_prefix = f"⚠️ SECURITY WARNING (Static Analysis):\n{issue_str}\n\n"
+    else:
+        warning_prefix = ""
+
     # Use a default timeout of 300 seconds.
     timeout = int(
         str(
@@ -110,6 +123,72 @@ def execute_python(code: str) -> str:
         tmp_file.write(code)
         tmp_path = tmp_file.name
 
+    # Prepare command for execution
+    cmd = [python_exe, tmp_path]
+
+    # Bubblewrap (bwrap) support for Linux sandboxing
+    # Only attempt if on Linux and not in a restricted environment like Termux
+    use_bwrap = (
+        platform.system() == "Linux"
+        and not is_termux
+        and not is_android
+        and get_setting("use_bwrap", "security") is not False
+    )
+
+    if use_bwrap:
+        import shutil
+
+        bwrap_path = shutil.which("bwrap")
+        if bwrap_path:
+            # Construct bwrap command
+            # --ro-bind /usr /usr: Mount system libs as read-only
+            # --dev /dev: Necessary devices
+            # --proc /proc: Necessary for some python ops
+            # --tmpfs /tmp: Private tmp
+            # --bind . /app: Bind current dir to /app
+            # --die-with-parent: Kill sandbox if parent dies
+            cwd = str(Path.cwd())
+            sandbox_cmd = [
+                bwrap_path,
+                "--ro-bind",
+                "/usr",
+                "/usr",
+                "--ro-bind",
+                "/lib",
+                "/lib",
+                "--ro-bind",
+                "/lib64",
+                "/lib64",
+                "--ro-bind",
+                "/bin",
+                "/bin",
+                "--ro-bind",
+                "/sbin",
+                "/sbin",
+                "--ro-bind",
+                "/etc/alternatives",
+                "/etc/alternatives",
+                "--proc",
+                "/proc",
+                "--dev",
+                "/dev",
+                "--tmpfs",
+                "/tmp",
+                "--unshare-all",  # Isolate network, ipc, uts, etc.
+                "--share-net",  # Allow network for now, but could be toggled
+                "--bind",
+                cwd,
+                cwd,
+                "--bind",
+                tmp_path,
+                tmp_path,
+                "--chdir",
+                cwd,
+                "--die-with-parent",
+            ]
+            cmd = sandbox_cmd + cmd
+            logger.info("Using bubblewrap sandbox for Python execution")
+
     kwargs: dict[str, Any] = {
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
@@ -124,7 +203,7 @@ def execute_python(code: str) -> str:
 
     try:
         # We use shell=False for security, running the script file directly
-        with subprocess.Popen([python_exe, tmp_path], **kwargs) as proc:
+        with subprocess.Popen(cmd, **kwargs) as proc:
             # Best effort resource limits (e.g., nice on Windows/Unix)
             limit_process_resources(proc, mem_limit_mb)
             try:
@@ -135,7 +214,7 @@ def execute_python(code: str) -> str:
                 if stderr:
                     result += f"\nSTDERR:\n{stderr}"
 
-                return f"{result}\nExit Code: {exit_code}"
+                return f"{warning_prefix}{result}\nExit Code: {exit_code}"
 
             except subprocess.TimeoutExpired:
                 if platform.system() != "Windows":

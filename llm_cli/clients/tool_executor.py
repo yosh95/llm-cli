@@ -427,7 +427,8 @@ def preview_python_code(session: "ChatSession", args: dict[str, Any]) -> None:
         if not is_safe:
             issue_str = "\n".join(f"• {i}" for i in issues)
             session._print_block(
-                f"[bold red]⚠️  Security Warning (Static Analysis):[/bold red]\n{issue_str}",
+                f"[bold red]⚠️  Security Warning (Static Analysis):[/bold red]\n"
+                f"{issue_str}",
                 title="[bold red]Potential Risk Detected[/bold red]",
                 style="red",
             )

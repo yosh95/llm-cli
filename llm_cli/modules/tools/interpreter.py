@@ -15,7 +15,6 @@ from llm_cli.security.resource_manager import (
     limit_process_resources,
     set_resource_limits,
 )
-from llm_cli.security.static_analyzer import analyze_python_safety
 
 logger = logging.getLogger(__name__)
 
@@ -44,17 +43,6 @@ logger = logging.getLogger(__name__)
     },
 )
 def execute_python(code: str) -> str:
-    # 1. Static Security Scan
-    is_safe, issues = analyze_python_safety(code)
-    if not is_safe:
-        issue_str = "\n".join(f"- {i}" for i in issues)
-        logger.warning(f"Static analysis found potential issues:\n{issue_str}")
-        # Note: We don't necessarily block execution here if the user approves it,
-        # but we provide this info to the audit log and potentially to the UI.
-        # For now, we'll prefix the result with a warning.
-        warning_prefix = f"⚠️ SECURITY WARNING (Static Analysis):\n{issue_str}\n\n"
-    else:
-        warning_prefix = ""
 
     # Use a default timeout of 300 seconds.
     timeout = int(
@@ -206,7 +194,7 @@ def execute_python(code: str) -> str:
                 if stderr:
                     result += f"\nSTDERR:\n{stderr}"
 
-                return f"{warning_prefix}{result}\nExit Code: {exit_code}"
+                return f"{result}\nExit Code: {exit_code}"
 
             except subprocess.TimeoutExpired:
                 if platform.system() != "Windows":

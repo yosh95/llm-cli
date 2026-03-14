@@ -47,6 +47,7 @@ class ClaudeClient(BaseLlmClient):
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
+            "anthropic-beta": "prompt-caching-2024-07-31",
             "content-type": "application/json",
         }
 
@@ -56,6 +57,7 @@ class ClaudeClient(BaseLlmClient):
                     {
                         "type": "text",
                         "text": self.system_prompt,
+                        "cache_control": {"type": "ephemeral"},
                     }
                 ]
 
@@ -64,6 +66,9 @@ class ClaudeClient(BaseLlmClient):
                     self.active_tools, provider=self.config_section
                 )
                 payload["tools"] = tools
+
+            # Always enable Prompt Caching (fixed implementation as requested)
+            payload["cache_control"] = {"type": "ephemeral"}
 
             response = self._post(
                 self.API_URL,

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from rich.markup import escape
 from rich.syntax import Syntax
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import get_bool_setting, get_setting
 from llm_cli.modules.models import ContentPart, DataSource, Role
 from llm_cli.modules.tool_registry import registry
 from llm_cli.security.static_analyzer import analyze_python_safety
@@ -158,6 +158,45 @@ def execute_tool_call(
     )
     is_edit = name == "edit_file" or name.endswith("__edit_file")
     is_exec = name == "execute_python" or name.endswith("__execute_python")
+
+    # --- Static Analysis Check for Python Code ---
+    is_safe = True
+    issues: list[str] = []
+    if is_exec:
+        code = args.get("code", "")
+        if code:
+            is_safe, issues = analyze_python_safety(code)
+            if not is_safe:
+                issue_str = "\n".join(f"• {i}" for i in issues)
+                session._print_block(
+                    f"[bold red]⚠️  Security Warning (Static Analysis):[/bold red]\n"
+                    f"{issue_str}",
+                    title="[bold red]Potential Risk Detected[/bold red]",
+                    style="red",
+                )
+                if get_bool_setting(
+                    "static_analysis_is_error", "security", default=True
+                ):
+                    console.print(
+                        "[red]Static analysis failed. Execution blocked.[/red]"
+                    )
+                    response = ContentPart(
+                        function_response={
+                            "id": tool_id,
+                            "name": name,
+                            "response": {
+                                "result": (
+                                    "Error: Static analysis failed. The "
+                                    "following security issues were "
+                                    "detected and the execution was "
+                                    f"blocked:\n{issue_str}"
+                                )
+                            },
+                        },
+                        thought_signature=thought_signature,
+                    )
+                    return response, None
+    # --- End Static Analysis Check ---
 
     if not skip_approval:
         if is_write or is_edit or is_exec:
@@ -421,17 +460,6 @@ def preview_python_code(session: "ChatSession", args: dict[str, Any]) -> None:
         code = args.get("code", "")
         if not code:
             return
-
-        # Perform static analysis before approval
-        is_safe, issues = analyze_python_safety(code)
-        if not is_safe:
-            issue_str = "\n".join(f"• {i}" for i in issues)
-            session._print_block(
-                f"[bold red]⚠️  Security Warning (Static Analysis):[/bold red]\n"
-                f"{issue_str}",
-                title="[bold red]Potential Risk Detected[/bold red]",
-                style="red",
-            )
 
         syn = Syntax(code, "python", theme="monokai", word_wrap=True)
         session._print_block(

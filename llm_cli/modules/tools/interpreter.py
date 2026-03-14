@@ -26,7 +26,14 @@ logger = logging.getLogger(__name__)
         "This tool is the replacement for shell commands. "
         "Use this for ANY system interaction, including tasks "
         "traditionally done via shell (e.g., 'ls', 'git', 'grep', 'find'). "
-        "You MUST write complete, self-contained Python code."
+        "You MUST write complete, self-contained Python code. "
+        "For security and reliability: "
+        "1. ALWAYS set shell=False if you use subprocess.run(). "
+        "2. Avoid high-risk functions like os.system(), os.remove(), "
+        "and subprocess.run() whenever possible. "
+        "3. Prefer using safer standard library features, such as 'pathlib' for "
+        "filesystem operations (e.g., Path.unlink() instead of os.remove()), "
+        "to avoid being blocked by security policies."
     ),
     parameters={
         "type": "object",
@@ -35,7 +42,11 @@ logger = logging.getLogger(__name__)
                 "type": "string",
                 "description": (
                     "Complete Python code to execute. "
-                    "Use standard libraries for most tasks."
+                    "Use standard libraries for most tasks. "
+                    "Avoid high-risk calls like os.system(), os.remove(), "
+                    "eval(), or exec(). "
+                    "Prefer 'pathlib' for file operations. "
+                    "If using subprocess.run(), ensure shell=False."
                 ),
             }
         },
@@ -166,6 +177,39 @@ def execute_python(code: str) -> str:
                 cwd,
                 "--die-with-parent",
             ]
+
+            # Add binds for directories in PATH that are in user's home
+            # (e.g., virtualenvs, .local/bin)
+            # This ensures tools like 'ruff' installed in these locations
+            # are accessible.
+            path_env = env.get("PATH", "")
+            home_dir = str(Path.home())
+            added_binds = set()
+            for p in path_env.split(os.pathsep):
+                if not p:
+                    continue
+                try:
+                    p_path = Path(p).resolve()
+                    if str(p_path).startswith(home_dir) and p_path.exists():
+                        target_to_bind = p_path
+                        # If it looks like a virtualenv, bind the root instead
+                        # of just 'bin'
+                        if (
+                            p_path.name == "bin"
+                            and (p_path.parent / "pyvenv.cfg").exists()
+                        ):
+                            target_to_bind = p_path.parent
+
+                        if str(target_to_bind) not in added_binds and not str(
+                            target_to_bind
+                        ).startswith(cwd):
+                            sandbox_cmd.extend(
+                                ["--ro-bind", str(target_to_bind), str(target_to_bind)]
+                            )
+                            added_binds.add(str(target_to_bind))
+                except Exception:
+                    continue
+
             cmd = sandbox_cmd + cmd
             logger.info("Using bubblewrap sandbox for Python execution")
 

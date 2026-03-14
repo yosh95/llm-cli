@@ -192,7 +192,7 @@ Protects sensitive data (API keys, passwords) from being leaked to or from exter
 - **Human-in-the-Loop**: Instead of silent redaction, it alerts the user and requires explicit confirmation to proceed, ensuring the user maintains control over their data.
 
 ### 🛡️ Resource Limits & Sandboxing
-- **Static Analysis**: Automatically scans Python code for dangerous patterns (e.g., direct socket access, suspicious imports) before execution.
+- **Static Analysis**: Automatically scans Python code for dangerous patterns (e.g., direct socket access, suspicious imports) before execution. By default, detected issues block execution and return an error to the LLM. This can be controlled via `static_analysis_is_error` in the `[security]` section of `config.toml` (default: `true`).
 - **Linux Sandboxing (Bubblewrap)**: On Linux, Python execution can be isolated using `bubblewrap`. This provides a restricted environment with its own private `/tmp`, unshared network/IPC namespaces, and read-only system mounts.
 - **Resource Limits**: Default 300s timeout, 1GB memory limit (RLIMIT_AS), and CPU time limits.
 - **Path Guardrails**: Restricts operations to `allowed_paths` defined in your config.
@@ -441,7 +441,7 @@ APIキーやパスワードなどの機密情報が、外部AIプロバイダー
 - **Human-in-the-Loop**: 勝手に書き換えるのではなく、ユーザーに警告と確認を求めることで、データの制御権をユーザーが維持できるようにします。
 
 ### 🛡️ リソース制限とガードレール
-- **静的解析**: 実行前にPythonコードをスキャンし、危険なパターン（ソケットの直接操作、不審なインポートなど）を自動検知します。
+- **静的解析**: 実行前にPythonコードをスキャンし、危険なパターン（ソケットの直接操作、不審なインポートなど）を自動検知します。デフォルトでは検知された場合に実行をブロックし、LLMにエラーを返します。この挙動は `config.toml` の `[security]` セクションにある `static_analysis_is_error` で制御可能です（デフォルト: `true`）。
 - **Linuxサンドボックス (Bubblewrap)**: Linux環境では `bubblewrap` を用いたプロセスの隔離が可能です。ネットワークやIPCの隔離、専用の `/tmp`、および読み取り専用のシステムマウントを提供します。
 - **リソース制限**: デフォルト 300秒のタイムアウト、メモリ1GB (RLIMIT_AS)、およびCPU時間の制限を適用。
 - **パス・ガードレール**: 設定ファイルで定義された `allowed_paths` 内の操作に制限。

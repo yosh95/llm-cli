@@ -20,6 +20,9 @@ default_user_id = "current_user"
 allowed_paths = ["."]
 allowed_env_vars = []
 
+# Treat static analysis warnings as errors
+static_analysis_is_error = true
+
 # Explicitly forbidden paths. Use absolute paths or "~" expansion.
 # These will be blocked even if they are within an allowed path.
 blocked_paths = [

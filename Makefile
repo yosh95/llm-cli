@@ -1,4 +1,4 @@
-.PHONY: help install lint format test clean
+.PHONY: help install lint format test clean paper
 
 # Default target
 help:
@@ -7,6 +7,7 @@ help:
 	@echo "  make lint     - Run linter (ruff, mypy)"
 	@echo "  make format   - Run formatter (ruff)"
 	@echo "  make test     - Run tests with coverage"
+	@echo "  make paper    - Build LaTeX papers"
 	@echo "  make clean    - Remove temporary files and caches"
 
 install:
@@ -22,8 +23,12 @@ format:
 test:
 	pytest --cov=llm_cli tests/
 
+paper:
+	$(MAKE) -C paper
+
 clean:
 	@echo "Cleaning up..."
+	$(MAKE) -C paper clean
 	rm -rf .ruff_cache/
 	rm -rf .pytest_cache/
 	rm -rf .mypy_cache/

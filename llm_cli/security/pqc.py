@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class KEMProvider:
     """
-    NIST-compliant Post-Quantum Key Encapsulation Mechanism (KEM).
-    Supports ML-KEM (FIPS 203) variants (formerly Kyber).
+    Key Encapsulation Mechanism (KEM) using ML-KEM.
+    Provides post-quantum cryptographic primitives for shared secret derivation.
     """
 
     VARIANTS = {
@@ -56,14 +56,14 @@ class KEMProvider:
 
 class SecureStorage:
     """
-    Hybrid Encryption: ML-KEM (for key exchange) + AES-256-GCM (for data).
-    Ensures long-term confidentiality against quantum adversaries.
+    Hybrid Encryption: ML-KEM + AES-256-GCM.
+    Uses post-quantum KEM for key exchange and AES for data encryption.
     """
 
     @classmethod
     def encrypt(cls, data: bytes, recipient_public_key: bytes) -> dict:
         """
-        Encrypts data using a hybrid PQC approach.
+        Encrypts data using a hybrid approach.
         Returns: { 'kem_ct': b64, 'aes_ct': b64, 'nonce': b64, 'tag': b64 }
         """
         import os
@@ -94,7 +94,7 @@ class SecureStorage:
     @classmethod
     def decrypt(cls, encrypted_packet: dict, private_key: bytes) -> bytes:
         """
-        Decrypts a hybrid PQC packet using the recipient's private key.
+        Decrypts a hybrid packet using the recipient's private key.
         """
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -113,8 +113,8 @@ class SecureStorage:
 
 class PQCProvider:
     """
-    NIST-compliant PQC Provider.
-    Supports ML-DSA (FIPS 204) variants for cryptographic agility.
+    Digital Signature Provider using ML-DSA.
+    Provides post-quantum cryptographic primitives for message signing.
     """
 
     VARIANTS = {
@@ -132,7 +132,7 @@ class PQCProvider:
 
     @classmethod
     def generate_keypair(cls, variant: str = DEFAULT_VARIANT) -> tuple[bytes, bytes]:
-        """Generate a PQC keypair for the specified NIST security level."""
+        """Generate a signature keypair."""
         algo = cls.VARIANTS.get(variant, ML_DSA_65)
         return algo.keygen()  # type: ignore[no-any-return]
 
@@ -140,7 +140,7 @@ class PQCProvider:
     def sign(
         cls, message: bytes, private_key_bytes: bytes, variant: str = DEFAULT_VARIANT
     ) -> bytes:
-        """Sign a message using the specified ML-DSA variant."""
+        """Sign a message using the specified variant."""
         algo = cls.VARIANTS.get(variant, ML_DSA_65)
         return algo.sign(private_key_bytes, message, deterministic=True)  # type: ignore[no-any-return]
 
@@ -152,7 +152,7 @@ class PQCProvider:
         public_key_bytes: bytes,
         variant: str = DEFAULT_VARIANT,
     ) -> bool:
-        """Verify a signature using the specified ML-DSA variant."""
+        """Verify a signature using the specified variant."""
         algo = cls.VARIANTS.get(variant, ML_DSA_65)
         try:
             return algo.verify(public_key_bytes, message, signature)  # type: ignore[no-any-return]
@@ -162,15 +162,15 @@ class PQCProvider:
 
 class PQCAgilityManager:
     """
-    Manages Context-Adaptive Security Scaling (CASS).
-    Adjusts NIST security levels based on task risk and execution environment.
+    Manages security levels based on task risk.
+    Adjusts algorithm parameters based on the tool being executed.
     """
 
     @staticmethod
     def get_required_level(
         tool_name: str, args: Any = None, environment_risk: str = "standard"
     ) -> str:
-        """Determines the required PQC security level using a risk-aware matrix."""
+        """Determines the required security level based on a risk matrix."""
         from llm_cli.clients.config import _load_config_from_file
 
         config = _load_config_from_file()

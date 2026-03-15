@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 class IdentityManager:
     """
-    Manages Workload Identity and Authentication Tokens using Hybrid Keys (RSA + PQC).
-    Implements Post-Quantum Zero Trust Identity Propagation for MCP.
+    Manages identity and authentication tokens using hybrid keys (RSA + PQC).
+    Provides verification mechanisms for tool execution and client authentication.
     """
 
     _ALGORITHM = "RS256"
@@ -44,7 +44,7 @@ class IdentityManager:
         if not cls._KEY_DIR.exists():
             if strict_mode:
                 raise FileNotFoundError(
-                    f"Strict Mode: Key directory {cls._KEY_DIR} not found. "
+                    f"Security Check: Key directory {cls._KEY_DIR} not found. "
                     "Keys must be pre-provisioned."
                 )
             cls._KEY_DIR.mkdir(parents=True, exist_ok=True)
@@ -53,7 +53,7 @@ class IdentityManager:
         if not cls._PRIVATE_KEY_PATH.exists():
             if strict_mode:
                 raise FileNotFoundError(
-                    f"Strict Mode: RSA key missing at {cls._PRIVATE_KEY_PATH}. "
+                    f"Security Check: RSA key missing at {cls._PRIVATE_KEY_PATH}. "
                     "Keys must be pre-provisioned."
                 )
             logger.info(f"Generating new RSA key pair in {cls._KEY_DIR}...")
@@ -82,11 +82,13 @@ class IdentityManager:
         # Post-Quantum Keys (ML-DSA)
         if not cls._PQC_PRIVATE_KEY_PATH.exists():
             if strict_mode:
-                raise FileNotFoundError(
-                    f"Strict Mode: ML-DSA key missing at {cls._PQC_PRIVATE_KEY_PATH}. "
+                msg = (
+                    f"Security Check: ML-DSA key missing at "
+                    f"{cls._PQC_PRIVATE_KEY_PATH}. "
                     "Keys must be pre-provisioned."
                 )
-            logger.info("Generating new Post-Quantum Signature (ML-DSA) key pair...")
+                raise FileNotFoundError(msg)
+            logger.info("Generating new Post-Quantum (ML-DSA) key pair...")
             pub_pqc, priv_pqc = PQCProvider.generate_keypair()
             with cls._PQC_PRIVATE_KEY_PATH.open("wb") as f:
                 f.write(priv_pqc)
@@ -97,12 +99,12 @@ class IdentityManager:
         if not cls._PQC_KEM_PRIVATE_KEY_PATH.exists():
             if strict_mode:
                 msg = (
-                    f"Strict Mode: ML-KEM key missing at "
+                    f"Security Check: ML-KEM key missing at "
                     f"{cls._PQC_KEM_PRIVATE_KEY_PATH}. "
                     "Keys must be pre-provisioned."
                 )
                 raise FileNotFoundError(msg)
-            logger.info("Generating new Post-Quantum Encryption (ML-KEM) key pair...")
+            logger.info("Generating new Post-Quantum (ML-KEM) key pair...")
             from llm_cli.security.pqc import KEMProvider
 
             pub_kem, priv_kem = KEMProvider.generate_keypair()

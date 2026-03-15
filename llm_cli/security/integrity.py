@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 class ReasoningSentinelManager:
     """
-    Manages the MambaSentinel for real-time anomaly detection in AI reasoning.
-    Integrates with the audit log to provide 'Reasoning Integrity' scores.
+    Manages the monitoring sentinel for real-time pattern analysis in LLM output.
+    Integrates with the audit log to provide anomaly scores.
     """
 
     def __init__(self, **kwargs: Any):
@@ -221,9 +221,8 @@ class ReasoningSentinelManager:
 
 class IntegrityVerifier:
     """
-    Implements a Root of Trust mechanism by verifying the integrity
-    of critical application files and audit logs at startup.
-    Uses TOFU (Trust On First Use) to establish a baseline.
+    Verifies the integrity of critical application files and audit logs.
+    Uses baseline hashes to detect unexpected modifications.
     """
 
     # Critical files to monitor for tampering
@@ -266,7 +265,7 @@ class IntegrityVerifier:
             return None
 
     def _save_manifest(self, manifest: dict[str, str]) -> None:
-        """Save the current hashes as the trusted manifest with PQC signature."""
+        """Save the current hashes as the manifest with PQC signature."""
         try:
             import base64
 
@@ -292,14 +291,12 @@ class IntegrityVerifier:
 
             with self.MANIFEST_PATH.open("w", encoding="utf-8") as f:
                 json.dump(output, f, indent=2, sort_keys=True)
-            logger.info(
-                f"🛡️  PQC-Signed Integrity manifest saved to {self.MANIFEST_PATH}"
-            )
+            logger.info(f"Integrity manifest saved to {self.MANIFEST_PATH}")
         except Exception as e:
             logger.error(f"Failed to save integrity manifest: {e}")
 
     def verify_audit_log(self) -> bool:
-        """Verify the chained hashes in the audit log to detect tampering."""
+        """Verify the chained hashes in the audit log to detect modifications."""
         from llm_cli.consts import AUDIT_LOG_PATH
 
         # Note: In a real app, this would use a proper config loader
@@ -308,7 +305,7 @@ class IntegrityVerifier:
         if not audit_log_path.exists():
             return True
 
-        logger.info("🛡️  Verifying audit log integrity...")
+        logger.info("Verifying audit log integrity...")
         try:
             from llm_cli.security.identity import IdentityManager
             from llm_cli.security.pqc import PQCProvider
@@ -325,7 +322,7 @@ class IntegrityVerifier:
 
                     # Check chain
                     if entry.get("prev_hash") != last_hash:
-                        logger.error(f"❌ Audit log chain broken at line {i + 1}")
+                        logger.error(f"Audit log chain broken at line {i + 1}")
                         return False
 
                     # Verify current entry's hash
@@ -333,7 +330,7 @@ class IntegrityVerifier:
                     actual_hash = hashlib.sha256(entry_str.encode()).hexdigest()
 
                     if provided_hash != actual_hash:
-                        logger.error(f"❌ Audit log tampering detected at line {i + 1}")
+                        logger.error(f"Audit log mismatch detected at line {i + 1}")
                         return False
 
                     # Verify PQC Signature of the hash
@@ -345,20 +342,20 @@ class IntegrityVerifier:
                             actual_hash.encode(), pqc_sig, pqc_pub
                         ):
                             logger.error(
-                                f"❌ Audit log PQC verification failed at line {i + 1}"
+                                f"Audit log verification failed at line {i + 1}"
                             )
                             return False
 
                     last_hash = provided_hash
-            logger.info("✅ Audit log integrity and PQC signatures verified.")
+            logger.info("Audit log integrity verified.")
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to verify audit log: {e}")
+            logger.error(f"Failed to verify audit log: {e}")
             return False
 
     def verify(self, allow_tofu: bool = False) -> bool:
-        """Verify integrity of critical files and audit log (with PQC signature)."""
-        logger.info("🛡️  Root of Trust: Verifying system integrity (PQC-enabled)...")
+        """Verify integrity of critical files and audit log."""
+        logger.info("System Integrity: Verifying application files...")
 
         raw_manifest = self._load_manifest()
         trusted_manifest: dict[str, str] | None = None
@@ -391,10 +388,10 @@ class IntegrityVerifier:
                             manifest_data.encode(), signature, pqc_pub
                         ):
                             logger.error(
-                                "❌ Integrity Violated: Manifest PQC Mismatch!"
+                                "Integrity check failed: Manifest signature mismatch"
                             )
                             return False
-                        logger.debug("✅ Manifest PQC Signature verified.")
+                        logger.debug("Manifest signature verified.")
                     except Exception as e:
                         logger.error(f"PQC verification error: {e}")
                         return False
@@ -410,13 +407,9 @@ class IntegrityVerifier:
             full_path = self.base_path / rel_path
             # Check existence
             if not full_path.exists():
-                # It might be normal if running from installed package
-                # and source files are not there in same structure
-                # But assuming standard install where files exist.
-                # If file is missing, and it was in manifest, that's an error.
                 if trusted_manifest and rel_path in trusted_manifest:
                     logger.error(
-                        f"❌ Integrity Violated: Critical file missing: {rel_path}"
+                        f"Integrity check failed: Critical file missing: {rel_path}"
                     )
                     all_ok = False
                 continue
@@ -429,14 +422,13 @@ class IntegrityVerifier:
             # Default to strict mode (1) unless explicitly disabled (0)
             if not allow_tofu and os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1":
                 logger.critical(
-                    "🚨 STRICT MODE: Integrity manifest missing. "
-                    "In strict mode, TOFU is disabled. "
+                    "Integrity manifest missing. "
                     "Please generate it using 'llm-cli-security manifest'."
                 )
                 return False
 
             logger.warning(
-                "⚠️  No integrity manifest found. Establishing trust baseline (TOFU)..."
+                "No integrity manifest found. Establishing trust baseline..."
             )
             self._save_manifest(current_manifest)
             trusted_manifest = current_manifest
@@ -447,35 +439,33 @@ class IntegrityVerifier:
 
             if current_hash is None:
                 logger.error(
-                    f"❌ Integrity Violated: Critical file missing: {rel_path}"
+                    f"Integrity check failed: Critical file missing: {rel_path}"
                 )
                 all_ok = False
                 continue
 
             if current_hash != trusted_hash:
-                logger.error(f"❌ Integrity Violated: Hash mismatch for {rel_path}")
-                logger.error(f"   Expected: {trusted_hash}")
-                logger.error(f"   Actual:   {current_hash}")
+                logger.error(f"Integrity check failed: Hash mismatch for {rel_path}")
                 all_ok = False
             else:
-                logger.debug(f"✅ Verified: {rel_path}")
+                logger.debug(f"Verified: {rel_path}")
 
         # Also verify the audit log chain
         if not self.verify_audit_log():
             all_ok = False
 
         if all_ok:
-            logger.info("✅ System Integrity Verified.")
+            logger.info("System integrity verified.")
 
         return all_ok
 
     def rebuild_manifest(self) -> bool:
         """
         Force rebuild of the integrity manifest.
-        This establishes a new root of trust based on the current system state.
+        This establishes a new trust baseline based on the current system state.
         Use with caution.
         """
-        logger.warning("🛡️  Rebuilding integrity trust anchor (TOFU)...")
+        logger.warning("Rebuilding integrity manifest...")
 
         # Ensure we have keys for signing, even in strict mode
         try:
@@ -501,7 +491,6 @@ class IntegrityVerifier:
     def generate_attestation_token(self) -> dict:
         """
         Generates a PQC-signed attestation object of the current system integrity.
-        This is embedded into identity tokens for Zero-Trust propagation.
         """
         import base64
         import time
@@ -532,15 +521,9 @@ class IntegrityVerifier:
 
 def verify_installation() -> None:
     """Helper function to run verification from current working directory."""
-    # Assuming we run from the project root
-    # Use the location of this file to determine the root project directory
-    # integrity.py is located at llm_cli/security/integrity.py
-    # so we need to go up 3 levels to reach the project root.
     root_path = Path(__file__).resolve().parent.parent.parent
 
     verifier = IntegrityVerifier(root_path)
     if not verifier.verify():
-        logger.critical(
-            "🚨 SECURITY ALERT: System integrity compromise detected! Aborting startup."
-        )
+        logger.critical("Integrity check failed. Aborting startup.")
         sys.exit(1)

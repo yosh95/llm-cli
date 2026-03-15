@@ -4,48 +4,48 @@
 
 ## 📄 Technical Reports (Pre-prints)
 Detailed architectural insights and security analysis are available in the following reports:
-- **[Post-Quantum AI Governance: Context-Adaptive Security Scaling and Bi-directional Verification for AI Agents](paper/pqc/trilogy_phase3_temporal_pqc.pdf)**
-- **[Zero-Trust Tool Orchestration: Securing Autonomous Agents via Asymmetric Identity and Mamba-based Reasoning Integrity](paper/zero_trust/trilogy_phase2_behavioral_zero_trust.pdf)**
-- **[Autonomous Guardrails: Multi-Layered Security for LLM Command-Line Interfaces](paper/guardrail/trilogy_phase1_structural_guardrails.pdf)**
+- **[Client Integrity and Adaptive Security Scaling for AI Agents](paper/pqc/trilogy_phase3_temporal_pqc.pdf)**
+- **[Verified Tool Orchestration: Securing Autonomous Agents via Asymmetric Identity and SSM-based Reasoning Monitoring](paper/zero_trust/trilogy_phase2_behavioral_zero_trust.pdf)**
+- **[Layered Security Guardrails for LLM Command-Line Interfaces](paper/guardrail/trilogy_phase1_structural_guardrails.pdf)**
 
 [English] | [日本語](#japanese-description)
 
 ---
 
-`llm-cli` is a powerful and versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **Local LLMs via Ollama**, allowing you to seamlessly switch between providers and leverage their unique capabilities right from your terminal using a single command: `llm`.
+`llm-cli` is a versatile command-line tool that provides a unified interface for interacting with various Large Language Models (LLMs). It supports services from Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **Local LLMs via Ollama**, allowing you to switch between providers and leverage their capabilities from your terminal using a single command: `llm`.
 
 <p align="center">
   <img src="images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
 </p>
 
 ## Design Philosophy: Focus & Stability
-`llm-cli` is designed for professional "deep work" environments where cognitive load and eye health are paramount.
-- **Eye-Friendly Interface**: By minimizing UI flicker and rapid text movement, we provide a comfortable environment for long-term usage.
-- **Rock-Solid Reliability**: Avoiding complex streaming TUI logic ensures 100% consistent behavior across all terminal emulators and remote SSH sessions.
-- **Cognitive Clarity**: A stable, predictable output format helps users maintain focus on the task at hand without the distraction of unnecessary animations.
+`llm-cli` is designed for "deep work" environments where stability and clarity are key.
+- **Eye-Friendly Interface**: Minimizes UI flicker and rapid text movement for long-term usage.
+- **Reliable Performance**: Simple terminal output ensures consistent behavior across various terminal emulators and SSH sessions.
+- **Cognitive Clarity**: A stable output format helps users maintain focus on the task without distracting animations.
 
 ## TL;DR (Quick Start)
 - **Install**: `pip install .`
 - **Configure**: `llm-cli-config` (Set API keys & Ollama URL).
-- **Chat**: `llm` (Agent mode + Reasoning Sentinel ON).
+- **Chat**: `llm` (Agent mode + Reasoning Monitor ON).
 - **One-shot**: `llm "Summarize this" file.pdf`.
 - **Switch**: `/p gemini` or `/m image`.
-- **Safe**: Diff preview + Human-in-the-loop approval + Reasoning Anomaly Detection.
+- **Safe**: Diff preview + Human-in-the-loop approval + Anomaly Detection.
 
 ## Key Features
 
 - **Unified Interface**: Access major cloud LLMs (Gemini, OpenAI, Claude, Grok) and **Local LLMs (Ollama)** via a single `llm` command.
-- **Quantum-Resistant Reasoning Sentinel**: A lightweight, **pure NumPy SSM** that monitors AI reasoning processes for anomalies (e.g., intent shifts or prompt injection) in real-time. It acts as an **IDS for LLMs**, tracking "Reasoning Integrity" without heavy ML dependencies like Torch.
-- **PQC Remote Attestation**: Proves client-side integrity to remote MCP servers. The client verifies its own source code and generates a PQC-signed "Attestation Token" automatically embedded in every tool call.
-- **Local LLM Support**: Use models locally via **Ollama** for maximum privacy and zero latency.
-- **Autonomous Agent**: The AI can manage files, **interact with the system via Python**, search the web, and **dynamically attach media files**.
+- **Reasoning Anomaly Monitor**: A lightweight **pure NumPy SSM** (Mamba) that monitors AI reasoning processes for statistical anomalies in real-time. It helps track "Reasoning Integrity" without heavy dependencies like Torch.
+- **PQC Client Verification**: Verifies client-side integrity and generates PQC-signed (ML-DSA) tokens embedded in tool calls to provide non-repudiation.
+- **Local LLM Support**: Use models locally via **Ollama** for privacy and offline usage.
+- **Autonomous Agent**: The AI can manage files, **interact with the system via Python**, search the web, and attach media files.
 - **Multimodal Input & Output**:
-    -   **Input**: Manual (`/attach`) attachment of Images, PDFs, Audio, and Video.
-    -   **Output**: Generate images (DALL-E 3, Grok-Imagine, Gemini) and videos (Veo, Sora) mid-conversation.
-- **Distributed Agent via MCP**: Support for **Model Context Protocol**. Connect to remote instances via SSH to manage files or run tests as if they were local.
+    -   **Input**: Images, PDFs, Audio, and Video.
+    -   **Output**: Generate images and videos mid-conversation.
+- **Distributed Agent via MCP**: Support for **Model Context Protocol**. Connect to remote instances via SSH to manage files or run tests.
 - **URL Support**: Directly pass website URLs to analyze content with automatic scraping.
-- **Safe Execution**: **No-Shell Architecture** (structural injection prevention), **Diff Preview** for file changes, **Static Analysis**, and **Human-in-the-Loop** confirmation.
-- **Advanced Security**: Hybrid PQC (Post-Quantum Cryptography) signatures, **Remote Attestation**, **Linux Sandboxing (Bubblewrap)**, **Entropy-Based Secret Detection**, Zero-Trust orchestration, and **Reasoning Integrity** tracking.
+- **Secure Execution**: **No-Shell Architecture** (avoids shell injection), **Diff Preview** for file changes, **Static Analysis**, and **Human-in-the-Loop** confirmation.
+- **Layered Security**: Hybrid PQC signatures (RSA + ML-DSA), **Client Verification**, **Linux Sandboxing (Bubblewrap)**, **Entropy-Based Secret Detection**, and **Reasoning Integrity** tracking.
 
 ## Screenshots
 
@@ -159,50 +159,45 @@ Use them in chat: `> /t proofread`.
 
 ## Security & Guardrails
 
-`llm-cli` implements strict security guardrails to protect against unauthorized operations:
+`llm-cli` implements several security measures to protect your system:
 
-### 🛡️ No-Shell Architecture (Zero-Injection)
-Unlike other AI agents, `llm-cli` does not provide a direct shell environment. Instead, all system interactions are performed via **Python code execution** (`shell=False`). This structurally eliminates shell-injection vulnerabilities.
+### 🛡️ Structured System Interaction (No-Shell)
+To reduce the risk of command injection, `llm-cli` avoids direct shell access. System interactions are performed via **Python code execution** with `shell=False`.
 
-### 🛡️ Secure MCP Orchestration (Zero Trust)
-- **Asymmetric Identity**: Uses **RS256** signatures for tool execution. No shared secrets.
+### 🛡️ Verified Tool Execution
+- **Asymmetric Identity**: Uses **RS256** signatures to verify the source of tool execution requests.
 - **Post-Quantum Cryptography (PQC)**: 
-    - **Signatures (ML-DSA)**: Hybrid signatures (RSA + ML-DSA) ensure long-term non-repudiability against future quantum threats.
-    - **Encryption (ML-KEM)**: Hybrid encryption (ML-KEM + AES-256-GCM) protects sensitive data in transit and at rest (audit logs).
-- **Remote Attestation**: The client verifies its own source code integrity (via SHA-256 hashing) and generates a PQC-signed "Attestation Token". This token is embedded into the **Hybrid Identity Token (JWT)**, proving to remote servers that the client is untampered.
-- **Context-Adaptive Security Scaling (CASS)**: Dynamically scales security levels based on tool risk.
-- **Audit Logging**: Tamper-evident logs with chained hashing and **ML-KEM encrypted sensitive arguments**.
+    - **Signatures (ML-DSA)**: Uses hybrid signatures (RSA + ML-DSA) for long-term verification.
+    - **Encryption (ML-KEM)**: Protects sensitive data in transit and audit logs using hybrid encryption (ML-KEM + AES-256-GCM).
+- **Client Verification**: The client calculates its own source code hash (SHA-256) and generates a PQC-signed token. This is included in the **Hybrid Identity Token (JWT)** to help remote servers confirm the client's state.
+- **Adaptive Security Scaling**: Adjusts PQC security levels based on the perceived risk of the tool being called.
+- **Audit Logging**: Chained hashing for tamper-evidence, with optional **ML-KEM encryption for sensitive arguments**.
 
-### 🛡️ Mamba Sentinel: IDS for LLM Reasoning
-Using a **pure NumPy implementation of Mamba (State Space Model)**, this system monitors the LLM's reasoning process at a byte level. It provides an **Intrusion Detection System (IDS)** specifically for AI logic.
-- **State-Based Monitoring**: Leverages Mamba's "internal state" to detect subtle logic drifts, statistical anomalies, or injection attempts during generation.
-- **Reasoning Integrity**: Tracks the "sanity" of the AI's thoughts. If the reasoning pattern deviates from expected statistical norms, the sentinel flags it.
-- **Dynamic Intervention**: Automatically escalates to **Forced Human-in-the-Loop** mode if high-confidence anomalies (RED status) are detected.
-- **Note**: Compared to traditional Dual-LLM approaches, this is significantly more lightweight, lower latency, and deterministic.
+### 🛡️ Reasoning Monitor (SSM-based)
+Uses a **NumPy implementation of Mamba (State Space Model)** to monitor the LLM's reasoning process.
+- **Statistical Monitoring**: Tracks the internal state of the Mamba model to detect statistical anomalies or significant shifts in the generated output pattern.
+- **Reasoning Integrity**: If the output deviates significantly from expected patterns, the monitor flags it.
+- **User Intervention**: If a high anomaly score is detected, the system can automatically switch to **Forced Human-in-the-Loop** mode.
 
-### 🧠 Intent Analyzer (Dual-LLM): Semantic Firewall
-Acts as a **Semantic Firewall** pre-execution. It uses a secondary, lightweight LLM (Verifier) to audit the actions of the main agent (including generated Python code) in real-time. If the agent's action doesn't match the user's intent (e.g., user asks to "read" but agent tries to "delete"), the execution is blocked. This complements Mamba Sentinel as part of a **Defense in Depth** strategy.
+### 🧠 Intent Analyzer: Semantic Verification
+A secondary, lightweight LLM (Verifier) can be used to audit the actions of the main agent before execution. It checks if the generated code aligns with the user's original request.
 
-### 🛡️ Entropy-Based Secret Leak Prevention
-Protects sensitive data (API keys, passwords) from being leaked to or from external AI providers.
-- **Hybrid Detection**: Combines **Shannon Entropy** analysis with **Mamba Surprise scores** to accurately identify random-looking secrets while minimizing false positives from natural language.
-- **Bi-directional Guarding**:
-    - **Pre-transmission**: Scans user prompts before they are sent to the AI, preventing accidental data uploads.
-    - **Post-generation**: Scans AI responses for leaked secrets (e.g., found via tools) before they are displayed.
-- **Human-in-the-Loop**: Instead of silent redaction, it alerts the user and requires explicit confirmation to proceed, ensuring the user maintains control over their data.
+### 🛡️ Secret Leak Prevention
+Helps prevent accidental transmission of API keys or passwords.
+- **Detection**: Combines **Entropy analysis** with model-based scoring to identify potential secrets in both prompts and AI responses.
+- **Confirmation**: Alerts the user and requires explicit approval before sending or displaying data that looks like a secret.
 
 ### 🛡️ Resource Limits & Sandboxing
-- **Static Analysis**: Automatically scans Python code for dangerous patterns (e.g., direct socket access, suspicious imports) before execution. By default, detected issues block execution and return an error to the LLM. This can be controlled via `static_analysis_is_error` in the `[security]` section of `config.toml` (default: `true`).
-- **Linux Sandboxing (Bubblewrap)**: On Linux, Python execution can be isolated using `bubblewrap`. This provides a restricted environment with its own private `/tmp`, unshared network/IPC namespaces, and read-only system mounts.
-- **Resource Limits**: Default 300s timeout, 1GB memory limit (RLIMIT_AS), and CPU time limits.
-- **Path Guardrails**: Restricts operations to `allowed_paths` defined in your config.
-- **Human-in-the-Loop**: All code execution and file modifications **must be approved by a human**.
-- **Output Truncation**: Prevents resource exhaustion by truncating large tool outputs.
+- **Static Analysis**: Scans Python code for potentially risky patterns (e.g., suspicious imports) before execution.
+- **Linux Sandboxing (Bubblewrap)**: On Linux, provides an optional isolated environment for Python execution using `bubblewrap`.
+- **Resource Constraints**: Apply timeouts and memory limits to tool execution.
+- **Path Guardrails**: Restricts file operations to `allowed_paths`.
+- **Human-in-the-Loop**: By default, code execution and file modifications **require human approval**.
+- **Output Truncation**: Prevents very large outputs from consuming too many resources.
 
-### 🔑 Role-Based Access Control (RBAC)
-- **Roles**: Tools can be restricted based on assigned roles (e.g., `admin`, `user`).
-- **Configuration**: You can define default roles via `llm-cli-config`.
-- **Note**: If `admin` is not included in the default roles, some powerful tools (like `create_or_overwrite_file`) may be restricted.
+### 🔑 Role-Based Tool Access
+- **Roles**: Tools can be assigned to different roles (e.g., `admin`, `user`).
+- **Control**: Users can restrict which tools are available in a session via configuration.
 
 ## Advanced Features
 
@@ -248,53 +243,52 @@ Licensed under [Apache License 2.0](LICENSE).
 
 ---
 
-<a name="japanese-description"></a>
 # llm-cli: 複数LLM対応 統合コマンドラインインターフェース
 
 ## 📄 技術レポート (Pre-prints)
 詳細な解説については、以下のレポート（英語）を参照してください。
-- **[Post-Quantum AI Governance: AIエージェントのための動的セキュリティスケーリング](paper/pqc/trilogy_phase3_temporal_pqc.pdf)**
-- **[Zero-Trust Tool Orchestration: 非対称アイデンティティとMambaによる推論整合性監視](paper/zero_trust/trilogy_phase2_behavioral_zero_trust.pdf)**
-- **[Autonomous Guardrails: LLM-CLIのための多層防御セキュリティ](paper/guardrail/trilogy_phase1_structural_guardrails.pdf)**
+- **[Client Integrity and Adaptive Security Scaling for AI Agents](paper/pqc/trilogy_phase3_temporal_pqc.pdf)**
+- **[Verified Tool Orchestration: Securing Autonomous Agents via Asymmetric Identity and SSM-based Reasoning Monitoring](paper/zero_trust/trilogy_phase2_behavioral_zero_trust.pdf)**
+- **[Layered Security Guardrails for LLM Command-Line Interfaces](paper/guardrail/trilogy_phase1_structural_guardrails.pdf)**
 
 [English] | [日本語](#japanese-description)
 
 ---
 
-`llm-cli` は、Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), および **Ollama を介したローカルLLM** を一元的に操作できる強力で多機能なコマンドラインツールです。プロバイダーをシームレスに切り替え、ターミナルから `llm` コマンド一つで各モデル独自の機能を活用できます。
+`llm-cli` は、Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), および **Ollama を介したローカルLLM** を一元的に操作できる、実用性を重視したコマンドラインツールです。プロバイダーをシームレスに切り替え、ターミナルから `llm` コマンド一つで各モデルを活用できます。
 
 <p align="center">
   <img src="images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
 </p>
 
 ## 設計思想：集中力と安定性の追求
-`llm-cli` は、長時間の「ディープワーク」における認知的負荷を最小限に抑えるよう設計されています。
-- **眼精疲労に配慮したUI**: 画面の激しい動きやチラつきを最小限に留めることで、長時間使用しても目が疲れにくい静かな表示環境を提供します。
-- **徹底した環境安定性**: ストリーミング等の複雑な表示制御に依存しないことで、あらゆるターミナル環境やSSH越しの操作において、崩れのない一貫した動作を保証します。
-- **集中を妨げないミニマリズム**: 情報を整理し、安定した形式で出力することは、ユーザーがAIとの対話や作業に最大限集中するための仕様です。
+`llm-cli` は、作業中の認知的負荷を抑え、安定した動作を提供することを目指しています。
+- **落ち着いたUI**: 画面の激しい動きを最小限に留め、長時間使用しても疲れにくい表示環境を提供します。
+- **環境を選ばない安定性**: シンプルなターミナル出力を採用することで、あらゆる環境やSSH越しの操作において一貫した動作を維持します。
+- **情報の明瞭さ**: 安定した形式で出力を行うことで、ユーザーがAIとの対話や本来の作業に集中できるよう配慮しています。
 
 ## クイックスタート (TL;DR)
 - **インストール**: `pip install .`
 - **初期設定**: `llm-cli-config` (APIキーとOllamaの設定)
-- **チャット**: `llm` (自律エージェント + Reasoning Sentinel有効)
+- **チャット**: `llm` (自律エージェント + 推論モニタ有効)
 - **ワンショット**: `llm "要約して" file.pdf`
 - **切り替え**: `/p gemini` または `/m image`
-- **安全**: Diffプレビュー、人間による承認、および推論異常検知。
+- **安全**: Diffプレビュー、人間による承認、および異常検知。
 
 ## 主な機能
 
 - **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLM (Gemini, OpenAI, Claude, Grok) と **Ollama (Local)** にアクセス。
-- **Quantum-Resistant Reasoning Sentinel**: **NumPyのみで実装された軽量SSM**が、AIの推論プロセス（思考プロセス）をリアルタイムで監視。**LLM専用のIDS (侵入検知システム)** として機能し、Torchなどの重い依存関係なしに、推論の整合性（Reasoning Integrity）を追跡。
-- **PQC Remote Attestation (リモートアテステーション)**: クライアントが自身のソースコードの整合性を検証し、PQC署名された「アテステーショントークン」を発行。これをMCPツール実行時のJWTに埋め込むことで、リモートサーバーに対してクライアントが改ざんされていないことを証明します。
+- **推論異常モニタ**: **NumPyのみで実装された軽量SSM** (Mamba) が、AIの推論プロセスをリアルタイムで監視。統計的な異常（Reasoning Integrity）を追跡し、意図しない挙動の早期発見をサポートします。
+- **PQC クライアント整合性検証**: クライアントのソースコードの整合性を検証し、PQC署名 (ML-DSA) されたトークンを発行。MCPツール実行時に自身の健全性を証明します。
 - **ローカルLLM対応**: **Ollama** を利用し、プライバシーを確保しながらオフラインでもモデルを実行。
 - **自律型エージェント**: ファイル操作、**Python実行**、Web検索、メディア添付を自律的に実行。
 - **マルチモーダル入出力**: 
-    - **入力**: 画像、PDF、音声、動画の手動添付（`/attach`）をサポート。
-    - **出力**: 会話の流れで画像生成（DALL-E 3, Grok-Imagine, Gemini）や動画生成（Veo, Sora）が可能。
-- **Distributed Agent via MCP**: Model Context Protocol により、リモートサーバーの操作もローカル同様に可能。
-- **URL解析**: WebサイトのURLを渡すだけで、内容を自動的にスクレイピングして解析。
-- **セーフ実行**: **No-Shell アーキテクチャ** (構造的なインジェクション防止)、ファイル変更の **Diff プレビュー**、**静的解析**、および **Human-in-the-Loop** による承認。
-- **堅牢なセキュリティ**: PQC（耐量子暗号）署名、**Remote Attestation**、**Linuxサンドボックス (Bubblewrap)**、**エントロピーベースの機密情報検知**、Zero-Trustオーケストレーション、および **Reasoning Integrity** トラッキング。
+    - **入力**: 画像、PDF、音声、動画の添付をサポート。
+    - **出力**: 会話の流れで画像や動画の生成が可能。
+- **Distributed Agent via MCP**: Model Context Protocol により、リモートサーバーの操作もサポート。
+- **URL解析**: WebサイトのURLの内容を自動的に取得して解析。
+- **安全な実行**: **No-Shell アーキテクチャ** (シェルインジェクションの防止)、ファイル変更の **Diff プレビュー**、**静的解析**、および **Human-in-the-Loop** による承認。
+- **多層的なセキュリティ**: ハイブリッドPQC署名、**クライアント検証**、**Linuxサンドボックス (Bubblewrap)**、**エントロピーベースの機密情報検知**、および **推論整合性** トラッキング。
 
 ## スクリーンショット
 
@@ -335,7 +329,7 @@ export XAI_API_KEY="xai-..."
 - `make lint`: `ruff` と `mypy` による静的解析を実行。
 - `make format`: `ruff` によるコードフォーマット。
 - `make test`: カバレッジレポート付きでテストを実行。
-- `make clean`: 一時ファイル、キャッシュ（`.ruff_cache`, `__pycache__` など）、ビルド生成物を削除。
+- `make clean`: キャッシュやビルド生成物を削除。
 
 また、以下のコマンドで直接クリーンアップスクリプトを実行することも可能です：
 ```bash
@@ -382,7 +376,7 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 ### 5. チャット内コマンド
 - `/p`, `/m`: プロバイダ/モデル切り替え。
 - `/t <template>`: テンプレート挿入。
-- `/i`: セッション情報と Reasoning Integrity（推論整合性）スコアの表示。
+- `/i`: セッション情報と推論異常スコアの表示。
 - `/cp`: チェックポイント（履歴要約とクリア）。
 - `/attach <path>`: ファイルまたはURLの添付。
 - `/save` / `/load`: 会話履歴の保存と読み込み。
@@ -390,16 +384,16 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 - `/debug`: デバッグモードの切り替え。
 - `/reload`: 設定ファイルの再読み込み。
 - `/clear`: 会話履歴のクリア。
-- `/q` / `/quit`: 終了。 (または **Ctrl+C** / **Ctrl+D** いつでも可)。
+- `/q` / `/quit`: 終了。 (または **Ctrl+C** / **Ctrl+D**)。
 
 ## 組み込みツール一覧
 
 | ツール | 説明 |
 | :--- | :--- |
-| `list_files_in_directory` | ディレクトリツリー内のファイル一覧を表示。 |
+| `list_files_in_directory` | ディレクトリ内のファイル一覧を表示。 |
 | `search_files` | 正規表現でファイルを検索。 |
 | `read_file_content` | テキストファイルを読み込み。 |
-| `execute_python` | Pythonコードによるシステム操作 (シェルの代替)。 |
+| `execute_python` | Pythonコードによるシステム操作。 |
 | `edit_file` | Diff表示付きのファイル編集。 |
 | `create_or_overwrite_file` | ファイルの新規作成。 |
 | `search_web` | Brave SearchによるWeb検索。 |
@@ -408,55 +402,50 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 
 ## セキュリティ
 
-`llm-cli` は、不正な操作を防ぐために厳格なセキュリティガードレールを実装しています：
+`llm-cli` は、安全な運用のためのガードレールを実装しています：
 
-### 🛡️ No-Shell アーキテクチャ (インジェクションの構造的排除)
-他のエージェントツールとは異なり、`llm-cli` はシェル環境を直接提供しません。すべてのシステム操作は **Pythonコードの実行** (`shell=False`) を介して行われるため、シェルインジェクション脆弱性を構造的に排除しています。
+### 🛡️ 構造的なインジェクション防止 (No-Shell)
+シェル環境を直接提供せず、すべてのシステム操作を **Pythonコードの実行** (`shell=False`) を介して行うことで、シェルインジェクションのリスクを低減しています。
 
-### 🛡️ 安全なMCPオーケストレーション（Zero Trust）
-- **非対称アイデンティティ**: RS256署名によるツール実行主体確認。共有シークレットは不要。
+### 🛡️ 検証済みツール実行
+- **非対称アイデンティティ**: RS256署名による実行主体の確認。
 - **耐量子暗号 (PQC)**: 
-    - **デジタル署名 (ML-DSA)**: RSA + ML-DSA のハイブリッド署名により、将来の量子脅威に対する非否認性を確保。
-    - **暗号化 (ML-KEM)**: ML-KEM + AES-256-GCM のハイブリッド暗号により、通信路および保存データ（監査ログ）を保護。
-- **PQC Remote Attestation**: クライアント側のソースコード整合性をSHA-256で検証し、PQC署名付きの「アテステーショントークン」を生成。これを **Hybrid Identity Token (JWT)** に埋め込み、ツール実行のたびに「自身の健全性」をリモートサーバーに証明します。
-- **Context-Adaptive Security Scaling (CASS)**: ツールのリスクに基づいてセキュリティレベルを動的にスケール。
-- **監査ログ**: ハッシュ連鎖による改ざん検知に加え、機密性の高い引数 (`args`) を **ML-KEM で自動暗号化**。
+    - **デジタル署名 (ML-DSA)**: RSA + ML-DSA のハイブリッド署名により、長期的な検証可能性を確保。
+    - **暗号化 (ML-KEM)**: ML-KEM + AES-256-GCM のハイブリッド暗号により、通信路および監査ログの保護を強化。
+- **クライアント整合性検証**: 自身のソースコード整合性をSHA-256で検証し、PQC署名付きトークンを生成。これを **Hybrid Identity Token (JWT)** に含めることで、リモートサーバーに対してクライアントの状態を証明します。
+- **動的セキュリティスケーリング**: ツールのリスクに基づいて、セキュリティレベルを動的に調整します。
+- **監査ログ**: ハッシュ連鎖による改ざん検知に加え、機密性の高い引数を **ML-KEM で暗号化**可能。
 
-### 🛡️ Mamba Sentinel: 推論プロセスのIDS
-**NumPyのみで実装された Mamba (State Space Model)** を用い、LLMの推論プロセスをバイトレベルでリアルタイム監視します。これはAIの論理構造に特化した**侵入検知システム (IDS)** として機能します。
-- **状態ベースの監視**: Mambaの内部状態（State）を活用し、生成中の微細なロジックの乖離や、統計的な異常、インジェクション試行を検知。
-- **Reasoning Integrity (推論の整合性)**: AIの「思考の健全性」を追跡。推論パターンが統計的なノルムから外れた場合、センチネルが警告を発します。
-- **動的介入**: 重大な異常（REDステータス）を検知した場合、自動的に**強制手動承認モード**へ移行し、ユーザーの許可なしにエージェントが進行するのを阻止します。
-- **備考**: 従来の2つのLLMを用いる手法（Dual-LLM）に比べ、より軽量で低遅延、かつ決定論的な監視が可能です。
+### 🛡️ 推論異常モニタ (SSM-based)
+**NumPyで実装された Mamba (State Space Model)** を用い、LLMの推論プロセスをリアルタイムで監視します。
+- **統計的監視**: Mambaの内部状態を活用し、生成中の統計的な異常やパターンの乖離を検知します。
+- **推論の整合性**: AIの出力が期待される統計的な範囲から外れた場合に警告を発します。
+- **動的介入**: 重大な異常を検知した場合、自動的に**手動承認モード**へ移行し、ユーザーの確認を求めます。
 
-### 🧠 Intent Analyzer (Dual-LLM): セマンティック・ファイアウォール
-実行前の**セマンティック・ファイアウォール**として機能します。メインエージェントの行動（生成されたPythonコードを含む）を別の軽量LLM（検証器）がリアルタイムで監査。ユーザーの意図に反する行為（例：読み取りを求めたのに削除しようとする等）を未然に防ぎます。Mamba Sentinelと組み合わせることで、「多層防御（Defense in Depth）」を実現します。
+### 🧠 Intent Analyzer: 意味論的な検証
+メインエージェントの行動を別の軽量LLM（検証器）が事前に監査します。生成されたコードがユーザーの意図に沿っているかを確認し、予期せぬ操作を防ぎます。
 
-### 🛡️ エントロピーベースの機密情報漏洩防止
-APIキーやパスワードなどの機密情報が、外部AIプロバイダーへ送信されたり、回答として表示されたりするのを防ぎます。
-- **ハイブリッド検知**: **シャノン・エントロピー解析**と**Mambaサプライズスコア**を組み合わせ、自然言語と区別してランダムな秘密情報を高精度に特定します。
-- **双方向ガード**:
-    - **送信前検知**: ユーザーのプロンプトを送信前にスキャンし、うっかりAPIキーなどをアップロードするのを防ぎます。
-    - **回答時検知**: AIがツール（MCP等）で読み取った機密情報を回答に含めてしまった際、表示前に警告します。
-- **Human-in-the-Loop**: 勝手に書き換えるのではなく、ユーザーに警告と確認を求めることで、データの制御権をユーザーが維持できるようにします。
+### 🛡️ 機密情報漏洩の防止
+APIキーなどが外部へ送信されたり、回答に含まれたりするのを防ぐ補助機能です。
+- **検知**: **エントロピー解析**とモデルベースのスコアリングを組み合わせ、機密情報の可能性が高い文字列を特定します。
+- **確認**: 送信前や表示前にユーザーに警告し、明示的な許可を求めることで、データの制御権をユーザーが維持します。
 
 ### 🛡️ リソース制限とガードレール
-- **静的解析**: 実行前にPythonコードをスキャンし、危険なパターン（ソケットの直接操作、不審なインポートなど）を自動検知します。デフォルトでは検知された場合に実行をブロックし、LLMにエラーを返します。この挙動は `config.toml` の `[security]` セクションにある `static_analysis_is_error` で制御可能です（デフォルト: `true`）。
-- **Linuxサンドボックス (Bubblewrap)**: Linux環境では `bubblewrap` を用いたプロセスの隔離が可能です。ネットワークやIPCの隔離、専用の `/tmp`、および読み取り専用のシステムマウントを提供します。
-- **リソース制限**: デフォルト 300秒のタイムアウト、メモリ1GB (RLIMIT_AS)、およびCPU時間の制限を適用。
-- **パス・ガードレール**: 設定ファイルで定義された `allowed_paths` 内の操作に制限。
-- **Human-in-the-Loop**: すべてのコード実行およびファイル操作は**人間の承認が必要**。
-- **出力制限**: 大量出力を切り詰め、リソース枯渇を防止。
+- **静的解析**: 実行前にPythonコードをスキャンし、不審なパターン（特定のインポートなど）を検知します。
+- **Linuxサンドボックス (Bubblewrap)**: Linux環境では `bubblewrap` を用いたプロセスの隔離が可能です。
+- **リソース制限**: タイムアウト、メモリ制限、およびCPU時間の制限を適用します。
+- **パス制限**: `allowed_paths` 内の操作に制限します。
+- **Human-in-the-Loop**: 原則として、コード実行やファイル操作には**人間の承認が必要**です。
+- **出力制限**: 大量出力を切り詰め、リソース枯渇を防止します。
 
-### 🔑 ロールベースアクセス制御 (RBAC)
-- **ロール**: 各ツールは割り当てられたロール（`admin`, `user`など）に基づいて制限されます。
-- **設定**: `llm-cli-config` を通じて、デフォルトロールを設定可能です。
-- **注意**: デフォルトロールに `admin` が含まれていない場合、一部の強力なツール（`create_or_overwrite_file` など）が制限されることがあります。
+### 🔑 ロールベースのアクセス制御
+- **ロール**: ツールごとに実行に必要なロール（`admin`, `user`など）を設定可能です。
+- **管理**: `llm-cli-config` を通じて、セッションで使用可能なツールを制限できます。
 
 ## アドバンスド機能
 
 ### 🔌 プラグイン: ツールの追加
-`llm-cli` はデコレータベースのプラグインシステムを使用しています。すべてのツールは AI への「説明（explanation）」パラメータが必須となっています。
+デコレータベースのシステムにより、新しいツールを簡単に追加できます。
 ```python
 @tool(name="get_weather", description="天気情報を取得", parameters={...})
 def get_weather(city: str) -> dict:
@@ -464,31 +453,25 @@ def get_weather(city: str) -> dict:
 ```
 
 ### 🌐 MCP (Model Context Protocol)
-SSH経由のリモート開発や、Docker経由のGitHub連携などをサポート。
-```toml
-[[mcp_servers]]
-name = "remote"
-command = "ssh"
-args = ["user@host", "python3", "-m", "llm_cli.apps.mcp_server"]
-```
+SSH経由のリモート開発や、外部サービスとの連携をサポートしています。
 
-### 🧠 Reasoning Integrity と Sentinel の学習
-組み込みの Reasoning Sentinel (SSM) は、検証された推論パターンから継続的に学習します。外部依存なしで、意味の乖離やプロンプト注入に対するリアルタイムの保護を提供します。
+### 🧠 推論モニタの更新
+組み込みの推論モニタは、検証されたパターンから学習を継続し、精度を高めることが可能です。
 
 ### 💡 パワーユーザー向け
 - **バックグラウンド実行 (`Ctrl+Z`)**: 一時停止してシェルに戻り、`fg` で復帰。
 - **外部エディタ (`Ctrl+X, Ctrl+E`)**: `vim` 等でプロンプトを編集。
 
 ### 🔑 セキュリティキーの管理
-RSAおよびPQC（ML-DSA/ML-KEM）アイデンティティキーを管理します。
+RSAおよびPQCアイデンティティキーを管理するためのコマンドが用意されています。
 ```bash
-# すべての鍵（RSA, ML-DSA, ML-KEM）を生成
+# 鍵の生成
 llm-cli-security keygen
 
-# リモートアテステーション用の整合性マニフェストを再構築
+# 整合性マニフェストの更新
 llm-cli-security manifest
 
-# PQCで暗号化された監査ログ（ML-KEM）を復号
+# 暗号化された監査ログの復号
 llm-cli-security decrypt-log ~/.llm_cli/audit.jsonl -o decrypted.jsonl
 ```
 

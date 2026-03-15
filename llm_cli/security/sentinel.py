@@ -12,8 +12,8 @@ from ..mamba_core.utils import NumPyEmbedding, NumPyLinear, NumPyRMSNorm
 
 class MambaSentinel:
     """
-    A NumPy-only Mamba-based Sentinel for real-time anomaly detection in LLM output.
-    Uses byte-level modeling (vocab_size=256) for zero-dependency portability.
+    A NumPy-based Mamba implementation for monitoring LLM output patterns.
+    Calculates anomaly scores based on byte-level sequence probability.
     """
 
     def __init__(
@@ -35,9 +35,7 @@ class MambaSentinel:
         self.n_layers = n_layers
         self.vocab_size = 256
         self.checkpoint_path = checkpoint_path
-        self.mode = (
-            mode  # "collect" (training) or "detect" (active monitoring/alerting)
-        )
+        self.mode = mode  # "collect" (training) or "detect" (active monitoring)
         self.thresholds = {"yellow": threshold_yellow, "red": threshold_red}
 
         # Layers
@@ -87,7 +85,7 @@ class MambaSentinel:
 
     def step(self, token: int) -> tuple[float, str]:
         """
-        One-step inference and anomaly score calculation.
+        Calculates the anomaly score for a single token based on the previous context.
         Returns: (anomaly_score, status)
         """
         score = 0.0
@@ -136,7 +134,6 @@ class MambaSentinel:
     def compute_anomaly_score(self, logits: np.ndarray, target_token: int) -> float:
         """
         Compute Cross-Entropy loss for a single token.
-        logits: (1, 1, vocab_size) - prediction for the target_token
         """
         # Softmax
         logits_flat = logits.flatten()
@@ -152,7 +149,7 @@ class MambaSentinel:
 
     def process_text(self, text: str) -> list[dict]:
         """
-        Process a sequence of text and return anomaly metadata for each byte.
+        Process a sequence of text and return anomaly scores for each byte.
         """
         tokens = text.encode("utf-8")
         results = []

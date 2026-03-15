@@ -25,15 +25,15 @@ logger = logging.getLogger(__name__)
         "Execute a Python script to interact with the system. "
         "This tool is the replacement for shell commands. "
         "Use this for ANY system interaction, including tasks "
-        "traditionally done via shell (e.g., 'ls', 'git', 'grep', 'find'). "
+        "traditionally done via shell (e.g., 'ls', 'git', 'grep', 'find', 'ruff'). "
         "You MUST write complete, self-contained Python code. "
         "For security and reliability: "
-        "1. ALWAYS set shell=False if you use subprocess.run(). "
-        "2. Avoid high-risk functions like os.system(), os.remove(), "
-        "and subprocess.run() whenever possible. "
+        "1. For external commands, ALWAYS use subprocess.run() with shell=False. "
+        "2. NEVER use os.system(), os.popen(), or any call with shell=True, "
+        "as these will be blocked by the security policy. "
         "3. Prefer using safer standard library features, such as 'pathlib' for "
         "filesystem operations (e.g., Path.unlink() instead of os.remove()), "
-        "to avoid being blocked by security policies."
+        "unless calling an external CLI tool."
     ),
     parameters={
         "type": "object",
@@ -43,10 +43,9 @@ logger = logging.getLogger(__name__)
                 "description": (
                     "Complete Python code to execute. "
                     "Use standard libraries for most tasks. "
-                    "Avoid high-risk calls like os.system(), os.remove(), "
-                    "eval(), or exec(). "
-                    "Prefer 'pathlib' for file operations. "
-                    "If using subprocess.run(), ensure shell=False."
+                    "For CLI tools (git, ruff, etc.), use "
+                    "subprocess.run(..., shell=False). "
+                    "Avoid high-risk calls like os.system(), eval(), or exec()."
                 ),
             }
         },

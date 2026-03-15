@@ -59,7 +59,7 @@ def test_hybrid_signer_token():
     # Create hybrid token
     hybrid_token = HybridSigner.create_hybrid_token(payload, rsa_priv, pqc_priv)
     assert isinstance(hybrid_token, str)
-    assert hybrid_token.count(".") == 3  # JWT (2 dots) + PQC (1 dot) = 3 dots
+    assert hybrid_token.count(".") == 2  # Standard JWT has 2 dots (3 parts)
 
     # Verify hybrid token
     verified_payload = HybridSigner.verify_hybrid_token(hybrid_token, rsa_pub, pqc_pub)

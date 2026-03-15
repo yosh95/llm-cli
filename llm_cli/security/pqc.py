@@ -332,7 +332,7 @@ class HybridSigner:
     """
     Implements Hybrid Signatures (Classical + Post-Quantum).
     Ensures security even if one algorithm is compromised.
-    Uses URL-safe Base64 for the PQC component to avoid JWT parsing issues.
+    Includes the PQC signature within the JWT claims for standard compatibility.
     """
 
     def __init__(self, classical_signer: Any, pqc_provider: type[PQCProvider]):
@@ -344,21 +344,26 @@ class HybridSigner:
         cls, payload: dict, rsa_private_key: bytes, pqc_private_key: bytes
     ) -> str:
         """
-        Creates a JWT token signed with RSA and adds a PQC signature as a 4th part.
+        Creates a JWT token where the PQC signature is embedded in the payload.
+        Structure: [Header].[Payload (with _pqc_sig)].[Classical_Signature]
         """
-
         import jwt
 
-        # 1. Generate Classical JWT
-        token = jwt.encode(payload, rsa_private_key, algorithm="RS256")
-
-        # 2. Generate PQC Signature of the classical token
-        pqc_sig = PQCProvider.sign(token.encode(), pqc_private_key)
-        # Use urlsafe_b64encode for compatibility with JWT structure
+        # 1. Prepare PQC Signature of the payload content
+        # We sort keys to ensure deterministic representation for signing
+        canonical_payload = json.dumps(payload, sort_keys=True).encode()
+        pqc_sig = PQCProvider.sign(canonical_payload, pqc_private_key)
         pqc_sig_b64 = base64.urlsafe_b64encode(pqc_sig).decode().rstrip("=")
 
-        # 3. Create a Hybrid Wrap: [Header].[Payload].[Signature].[PQC_Signature]
-        return f"{token}.{pqc_sig_b64}"
+        # 2. Embed PQC Signature into the payload as a claim
+        hybrid_payload = payload.copy()
+        hybrid_payload["_pqc"] = {
+            "sig": pqc_sig_b64,
+            "alg": PQCProvider.DEFAULT_VARIANT,
+        }
+
+        # 3. Generate Classical JWT (Standard 3-part structure)
+        return jwt.encode(hybrid_payload, rsa_private_key, algorithm="RS256")
 
     @classmethod
     def verify_hybrid_token(
@@ -369,21 +374,11 @@ class HybridSigner:
         """
         import jwt
 
-        # We expect 4 parts: [Header].[Payload].[RSA_Sig].[PQC_Sig]
-        parts = hybrid_token.split(".")
-        if len(parts) != 4:
-            logger.warning(
-                f"Invalid hybrid token format: expected 4 parts, got {len(parts)}."
-            )
-            return None
-
-        jwt_token = ".".join(parts[:3])
-        pqc_sig_b64 = parts[3]
-
-        # 1. Verify Classical Signature
+        # 1. Verify Classical Signature and Decode
         try:
+            # We first decode with classical verification to get the payload
             payload = jwt.decode(
-                jwt_token,
+                hybrid_token,
                 rsa_public_key,
                 algorithms=["RS256"],
                 options={"verify_aud": False},
@@ -392,22 +387,29 @@ class HybridSigner:
             logger.error(f"Classical signature verification failed: {e}")
             return None
 
-        # 2. Verify PQC Signature
+        # 2. Extract and Verify PQC Signature from payload
+        pqc_data = payload.get("_pqc")
+        if not pqc_data or "sig" not in pqc_data:
+            logger.warning("PQC signature claim missing in hybrid token.")
+            return None
+
+        pqc_sig_b64 = pqc_data["sig"]
+
         try:
-            # Add padding back if needed for standard b64 decoding if required,
-            # but urlsafe_b64decode handles it or we can add it manually.
+            # Reconstruct the original payload (without the _pqc claim) to verify
+            original_payload = {k: v for k, v in payload.items() if k != "_pqc"}
+            canonical_payload = json.dumps(original_payload, sort_keys=True).encode()
+
+            # Decode PQC signature
             padding = "=" * (4 - len(pqc_sig_b64) % 4)
             pqc_sig = base64.urlsafe_b64decode(pqc_sig_b64 + padding)
 
-            if not PQCProvider.verify(jwt_token.encode(), pqc_sig, pqc_public_key):
+            if not PQCProvider.verify(canonical_payload, pqc_sig, pqc_public_key):
                 raise ValueError("PQC verification failed")
         except Exception as e:
-            error_msg = (
-                f"[SECURITY_ALERT] Post-Quantum signature verification failed: {e}. "
-                "Potential Quantum Spoofing attempt detected."
+            logger.error(
+                f"[SECURITY_ALERT] Post-Quantum signature verification failed: {e}"
             )
-            logger.error(error_msg)
-            # (Omitted: Audit logging logic for brevity, same as before)
             return None
 
         logger.info("✅ Hybrid Signature Verified (RSA + PQC)")

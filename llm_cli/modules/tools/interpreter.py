@@ -79,6 +79,11 @@ def execute_python(code: str) -> str:
         "TEMP",
         "TMP",
         "PYTHONPATH",
+        "GIT_AUTHOR_NAME",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_COMMITTER_NAME",
+        "GIT_COMMITTER_EMAIL",
+        "GIT_CONFIG_NOSYSTEM",
     }
     user_allowed_env = get_setting("allowed_env_vars", "security")
     if isinstance(user_allowed_env, list):
@@ -177,6 +182,13 @@ def execute_python(code: str) -> str:
                 cwd,
                 "--die-with-parent",
             ]
+
+            # Add binds for git configuration
+            home_path = Path.home()
+            for git_cfg in [".gitconfig", ".config/git/config"]:
+                cfg_path = home_path / git_cfg
+                if cfg_path.exists():
+                    sandbox_cmd.extend(["--ro-bind", str(cfg_path), str(cfg_path)])
 
             # Add binds for directories in PATH that are in user's home
             # (e.g., virtualenvs, .local/bin)

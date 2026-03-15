@@ -3,13 +3,13 @@
 from unittest.mock import MagicMock, patch
 
 from llm_cli.modules.tools.web import (
-    read_html_from_url,
+    read_url_content,
     search_web,
 )
 
 
-def test_read_html_from_url_basic(mock_curl_requests):
-    """Test read_html_from_url extracts content and converts to markdown."""
+def test_read_url_content_basic(mock_curl_requests):
+    """Test read_url_content extracts content and converts to markdown."""
     html_content = """
     <html>
         <head><style>.css { color: red; }</style></head>
@@ -25,7 +25,7 @@ def test_read_html_from_url_basic(mock_curl_requests):
     mock_curl_requests.text = html_content
 
     # We expect markdownify to handle the conversion.
-    result = read_html_from_url("https://example.com")
+    result = read_url_content("https://example.com")
 
     # Check for markdown elements
     # Both ATX headings and link preservation should be handled by markdownify
@@ -41,10 +41,10 @@ def test_read_html_from_url_basic(mock_curl_requests):
     assert "<html>" not in result
 
 
-def test_read_html_from_url_error(mock_curl_requests):
-    """Test error handling in read_html_from_url."""
+def test_read_url_content_error(mock_curl_requests):
+    """Test error handling in read_url_content."""
     with patch("curl_cffi.requests.get", side_effect=Exception("Connection error")):
-        result = read_html_from_url("https://example.com")
+        result = read_url_content("https://example.com")
 
     assert "Error: Failed to fetch content" in result
 

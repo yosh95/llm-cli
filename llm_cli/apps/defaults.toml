@@ -59,7 +59,7 @@ allowed_tools = [
     "list_files_in_directory",
     "search_files",
     "read_file_content",
-    "read_html_from_url",
+    "read_url_content",
     "edit_file",
     "search_web"
 ]

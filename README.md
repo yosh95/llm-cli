@@ -154,7 +154,7 @@ Use them in chat: `> /t proofread`.
 | `edit_file` | Edit a file with Diff preview. |
 | `create_or_overwrite_file` | Create a new file. |
 | `search_web` | Search the web using Brave Search. |
-| `read_html_from_url` | Fetch a URL and convert it to Markdown. |
+| `read_url_content` | Fetch a URL (HTML or PDF) and convert it to Markdown or text. |
 
 
 ## Security & Guardrails
@@ -397,7 +397,7 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 | `edit_file` | Diff表示付きのファイル編集。 |
 | `create_or_overwrite_file` | ファイルの新規作成。 |
 | `search_web` | Brave SearchによるWeb検索。 |
-| `read_html_from_url` | URLをMarkdownとして取得。 |
+| `read_url_content` | URL (HTMLまたはPDF) をMarkdownまたはテキストとして取得。 |
 
 
 ## セキュリティ

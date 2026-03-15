@@ -292,8 +292,9 @@ def list_files_in_directory(
 @tool(
     name="read_file_content",
     desc=(
-        "Read content from a text file. Can read specific lines and optionally "
-        "include line numbers. "
+        "Read content from a text file or PDF. "
+        "For PDFs, text content will be extracted. "
+        "Can read specific lines and optionally include line numbers. "
     ),
     params={
         "type": "object",
@@ -326,25 +327,36 @@ def read_file_content(
         if not p.is_file():
             return f"Error: '{path}' is not a file."
 
-        try:
-            lines = p.read_text(encoding="utf-8").splitlines()
-            start = max(1, start_line) - 1
-            end = min(len(lines), end_line) if end_line else len(lines)
+        from llm_cli.modules.media_utils import process_file
 
-            selected_lines = lines[start:end]
+        # Extract text from file (supports PDF text extraction when pdf_as_base64=False)
+        res = process_file(p, pdf_as_base64=False)
 
-            if with_line_numbers:
-                content_lines = []
-                for i, line in enumerate(selected_lines):
-                    content_lines.append(f"{start + i + 1:4d} | {line}")
-                content = "\n".join(content_lines)
-            else:
-                content = "\n".join(selected_lines)
+        if not res or "content" not in res:
+            return f"Error: Could not read content from '{path}'."
 
-            return content
+        if res.get("content_type") != "text/plain":
+            return (
+                f"Error: '{path}' is a binary file ({res.get('content_type')}) "
+                "and cannot be read as text."
+            )
 
-        except UnicodeDecodeError:
-            return f"Error: '{path}' appears to be a binary file."
+        content = res["content"]
+        lines = content.splitlines()
+        start = max(1, start_line) - 1
+        end = min(len(lines), end_line) if end_line else len(lines)
+
+        selected_lines = lines[start:end]
+
+        if with_line_numbers:
+            content_lines = []
+            for i, line in enumerate(selected_lines):
+                content_lines.append(f"{start + i + 1:4d} | {line}")
+            content = "\n".join(content_lines)
+        else:
+            content = "\n".join(selected_lines)
+
+        return content
 
     except PathValidationError as e:
         return f"Security Error: {e}"

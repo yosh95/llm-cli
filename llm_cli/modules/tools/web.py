@@ -60,9 +60,10 @@ if _brave_api_key:
 
 
 @tool(
-    name="read_html_from_url",
+    name="read_url_content",
     description=(
-        "Fetch a web page URL and convert the HTML content to Markdown text. "
+        "Fetch a web page URL or PDF URL and convert the content to Markdown or text. "
+        "For PDFs, text content will be extracted."
     ),
     parameters={
         "type": "object",
@@ -70,7 +71,7 @@ if _brave_api_key:
         "required": ["url"],
     },
 )
-def read_html_from_url(url: str) -> str:
+def read_url_content(url: str) -> str:
     from llm_cli.modules.media_utils import fetch_url_content
 
     content, ctype = fetch_url_content(url, pdf_as_base64=False)
@@ -78,7 +79,11 @@ def read_html_from_url(url: str) -> str:
     if content is None or ctype is None:
         return f"Error: Failed to fetch content from {url} or invalid URL."
 
+    # fetch_url_content returns 'text/plain' for both raw text and extracted PDF text
     if "text/html" not in ctype and "text/plain" not in ctype:
-        return f"Error: URL returned {ctype}, expected text/html or text/plain."
+        return (
+            f"Error: URL returned {ctype}, expected text/html, text/plain or "
+            "application/pdf."
+        )
 
     return content

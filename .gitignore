@@ -228,3 +228,6 @@ images/generated/
 ./*.json
 paper/Makefile
 paper/**/README.md
+
+# Paper benchmark state
+sentinel_state.npz

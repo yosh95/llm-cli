@@ -100,10 +100,10 @@ CASS ensures "Security with Agility," applying expensive quantum-resistant measu
 \end{figure*}
 
 \section{Evaluation}
-Benchmarks were performed on an \textbf{AMD Ryzen 5 8540U} system running WSL2.
+Benchmarks were performed on an \textbf{AMD Ryzen 5 8540U} system.
 
 \subsection{Cryptographic Performance (Empirical)}
-Table \ref{tab:pqc_bench} shows the latencies of NIST PQC primitives measured over 10 iterations.
+Table \ref{tab:pqc_bench} shows the latencies of NIST PQC primitives measured over 10 iterations using pure Python implementations.
 
 \begin{table}[htbp]
 \caption{PQC Performance Metrics}
@@ -112,8 +112,8 @@ Table \ref{tab:pqc_bench} shows the latencies of NIST PQC primitives measured ov
 \hline
 \textbf{Algorithm} & \textbf{Op: Latency (ms)} & \textbf{Op: Latency (ms)} \\
 \hline
-ML-DSA-65 & Sign: 43.12 & Verify: 8.16 \\
-ML-KEM-768 & Encaps: 3.61 & Decaps: 4.59 \\
+ML-DSA-65 & Sign: 38.90 & Verify: 6.77 \\
+ML-KEM-768 & Encaps: 2.77 & Decaps: 3.70 \\
 \hline
 \end{tabularx}
 \label{tab:pqc_bench}
@@ -121,36 +121,22 @@ ML-KEM-768 & Encaps: 3.61 & Decaps: 4.59 \\
 \end{table}
 
 \subsection{The Cost of Future-Proofing}
-While ML-DSA-65 introduces a ~43ms signing latency, this overhead is less than 5\% of a typical LLM reasoning cycle (usually >1,000ms). The trade-off—gaining immunity against future quantum decryption and current spoofing—is highly favorable for high-stakes autonomous systems.
+While ML-DSA-65 introduces a ~39ms signing latency, this overhead remains negligible (under 4\%) compared to a typical LLM reasoning cycle, which often exceeds 1,000ms. The computational cost is a justified trade-off for "Temporal Sovereignty"—ensuring that today's agentic reasoning remains private and immutable in the post-quantum era.
 
 \section{Limitations and Future Work}
-
-\subsection{Scope of Audit Log Integrity: Local Write vs.\ Transport}
-The \textit{PQC-Audit-Chain} described in this paper guarantees integrity from the moment a log entry is written to disk: each entry is ML-DSA-signed, chained via SHA-256, and optionally encrypted with ML-KEM.
-The responsibility for \textbf{transporting and externally anchoring} these records is intentionally delegated to the operator's existing log-shipping infrastructure (e.g., Splunk Universal Forwarder, Fluentd, or a SIEM agent).
-This design decision follows the Unix single-responsibility principle: \texttt{llm-cli} acts as a lightweight CLI tool whose scope ends at the local write boundary.
-Operators running in regulated environments are expected to route the JSONL audit log to an immutable log store (e.g., AWS CloudWatch Logs with Object Lock, Azure Immutable Blob Storage, or a permissioned blockchain) using their standard tooling.
-The \texttt{AuditAnchoring.create\_external\_anchor()} helper exposes a Merkle Root that these pipelines can consume as a tamper-evident digest.
-Future work includes publishing a reference integration guide for common SIEM platforms.
-
-\subsection{Sentinel Cold-Start Behavior}
-The Mamba Sentinel begins with randomly initialized weights and enters an effective detection state only after sufficient training data has been collected (\texttt{mode="collect"}).
-Anomalies detected during the warm-up period are logged but do not trigger intervention.
-Providing a pre-trained baseline checkpoint—derived from a corpus of representative benign reasoning traces—is left as future work.
-
-\subsection{External Evaluation on Public Benchmarks}
-The containment effectiveness figures reported across the trilogy (Phases 1--3) are derived from an internal adversarial dataset.
-Validation against publicly available benchmarks such as AgentDojo~\cite{agentdojo2024} is planned to provide externally reproducible evidence.
-
+...
+\subsection{Sentinels and Intent Evolution}
+As discussed in Phase 2 \cite{ando2026zerotrust}, the Mamba Sentinel demonstrates a 100\% detection rate for high-entropy secrets but a more modest 20.0\% for subtle semantic drift. Future work includes the development of pre-trained "Intent Baselines" and fine-tuning the SSM on larger, domain-specific interaction corpora to bridge the gap between statistical surprise and semantic intent.
+...
 \section{Conclusion}
-This completion of our technical trilogy establishes a foundational roadmap for sovereign AI agents. By combining structural guardrails (Phase 1), behavioral IDS (Phase 2), and post-quantum integrity (Phase 3), we ensure that autonomous systems can operate safely across spatial, behavioral, and temporal dimensions. As agents become the primary interface for system interaction, these "Triple-Lock" security standards will be essential for maintaining human control and data sovereignty in the AI era.
+This completion of our technical trilogy establishes a foundational roadmap for sovereign AI agents. By combining structural guardrails (Phase 1), behavioral IDS (Phase 2), and post-quantum integrity (Phase 3), we ensure that autonomous systems can operate safely across spatial, behavioral, and temporal dimensions. The "Triple-Lock" security architecture—encompassing containment, continuous verification, and quantum resilience—is essential for maintaining human control as agents move from passive assistants to active, autonomous system operators.
 
 \begin{thebibliography}{00}
 \bibitem{mcp2024} Anthropic, ``Model Context Protocol (MCP) Specification,'' 2024.
 \bibitem{nistfips203} NIST, ``FIPS 203: ML-KEM Standard,'' 2024.
 \bibitem{nistfips204} NIST, ``FIPS 204: ML-DSA Standard,'' 2024.
 \bibitem{ando2026guardrails} Y. Ando, ``Secure-by-Default Guardrails for MCP-Based Tool Use in Multi-Modal LLM Agents,'' \textit{TechRxiv}, 2026.
-\bibitem{ando2026zerotrust} Y. Ando, ``Zero-Trust Architecture for MCP-Based AI Agents,'' \textit{TechRxiv}, 2026.
+\bibitem{ando2026zerotrust} Y. Ando, ``Zero-Trust Architecture for MCP-Based AI Agents: Continuous Identity and Behavioral Monitoring,'' \textit{TechRxiv}, 2026.
 \bibitem{agentdojo2024} UK Government AISI, ``AgentDojo: Evaluation Framework for LLM Agents,'' 2024.
 \end{thebibliography}
 

@@ -75,26 +75,35 @@ This ensures that remote MCP servers can cryptographically verify that the tool 
 Permissions are decoupled from the LLM's prompt. Even if the LLM "believes" it has root access due to a prompt injection, the underlying security engine enforces a strict RBAC policy. If a tool (e.g., \texttt{edit\_file}) requires the \texttt{admin} role, the execution is blocked regardless of the AI's "monologue" unless the signed identity token carries that claim.
 
 \section{Behavioral IDS: The Mamba Sentinel}
-While identity ensures *who* is calling the tool, it does not ensure *why*. To detect semantic attacks like prompt injection, we introduce the \textbf{Mamba Sentinel}.
+While identity ensures \textit{who} is calling the tool, it does not ensure \textit{why}. To detect semantic attacks like prompt injection and credential exfiltration, we introduce the \textbf{Mamba Sentinel}.
 
 \subsection{The Need for Lightweight Monitoring}
-Traditional monitoring using secondary LLMs (e.g., using GPT-4o-mini to verify GPT-4o's output) is slow (1-2 seconds of latency) and expensive. We utilize a \textbf{Mamba (State Space Model)} implementation \cite{mamba2023} optimized with pure NumPy. Unlike Transformers, Mamba's linear scaling and recurrent state make it ideal for monitoring streaming reasoning traces at a byte level with sub-millisecond overhead.
+Traditional monitoring using secondary LLMs (e.g., using GPT-4o-mini to verify GPT-4o's output) is slow (1--2 seconds of latency) and resource-intensive. We utilize a \textbf{Mamba (State Space Model)} implementation \cite{mamba2023} optimized with pure NumPy. Unlike Transformers, Mamba's linear scaling and recurrent state make it ideal for monitoring streaming reasoning traces at a byte level with sub-millisecond overhead per token.
 
 \subsection{Reasoning Integrity and Surprise Score}
-The Sentinel monitors the LLM's "internal monologue" (reasoning tokens) in real-time. It calculates a \textbf{Surprise Score} based on the cross-entropy loss between the Sentinel's predicted next-token distribution and the agent's actual output.
+The Sentinel monitors the LLM's "internal monologue" (reasoning tokens) in real-time. It calculates a \textbf{Surprise Score} (Information Content) based on the cross-entropy loss between the Sentinel's predicted next-token distribution and the agent's actual output.
 
 \begin{equation}
-L_{sentinel} = -\sum P_{sentinel}(x_t | h_{t-1}) \log P_{agent}(x_t)
+L_{sentinel} = -\log P_{sentinel}(x_t | h_{t-1})
 \end{equation}
 
-A sudden spike in "surprise" indicates a statistical anomaly or "Semantic Drift." This often happens when the agent transitions from a helpful assistant state to an adversarial state (e.g., suddenly generating obfuscated code or trying to access sensitive files after a prompt injection).
+A sudden spike in surprise indicates a statistical anomaly or "Semantic Drift." This often occurs when the agent transitions from a helpful assistant state to an adversarial state (e.g., generating obfuscated code or attempting to access sensitive files after a prompt injection).
+
+\subsection{Multi-Signal Secret Detection}
+Beyond intent analysis, the Sentinel serves as a high-precision secret scanner. As requested by security best practices, we separate \textit{Intent Analysis} (Behavioral) from \textit{Secret Detection} (Static/Probabilistic). 
+For secret detection, we employ a dual-signal heuristic:
+\begin{enumerate}
+    \item \textbf{Shannon Entropy:} Measures the randomness of a byte sequence (e.g., API keys).
+    \item \textbf{Mamba Surprise:} Measures how unexpected a sequence is given the trained "Agent Language."
+\end{enumerate}
+A token is flagged as a suspected secret only if both signals exceed their respective thresholds, significantly reducing false positives compared to entropy-only scanning.
 
 \subsection{Dynamic Intervention (Green/Yellow/Red)}
 The system maintains a real-time status:
 \begin{itemize}
     \item \textbf{Green:} Normal operation.
-    \item \textbf{Yellow:} Minor anomaly detected. The system increases the entropy-scanning sensitivity and alerts the user.
-    \item \textbf{Red:} Significant anomaly. The system \textbf{automatically suspends execution} and forces a Human-in-the-Loop (HITL) review.
+    \item \textbf{Yellow:} Minor anomaly detected ($L > 3.5$). The system increases logging verbosity and alerts the operator.
+    \item \textbf{Red:} Significant anomaly ($L > 5.0$). The system \textbf{automatically suspends execution} and forces a Human-in-the-Loop (HITL) review.
 \end{itemize}
 
 \begin{figure}[htbp]
@@ -107,10 +116,10 @@ The system maintains a real-time status:
 \end{figure}
 
 \section{Evaluation}
-We evaluated the Zero Trust framework on an \textbf{AMD Ryzen 5 8540U} system running WSL2.
+We evaluated the Zero Trust framework on an \textbf{AMD Ryzen 5 8540U} system.
 
 \subsection{Execution Latency (Empirical)}
-Table \ref{tab:zt_perf} summarizes the latencies measured over 50 iterations. The Mamba Sentinel adds approximately 14ms of overhead to the reasoning process per block of text, which is nearly two orders of magnitude faster than a "Dual-LLM" verifier approach.
+Table \ref{tab:zt_perf} summarizes the latencies measured over 50 iterations. The Mamba Sentinel adds approximately 10.28ms of overhead per block of reasoning text (approx. 100 bytes), which is nearly two orders of magnitude faster than a "Dual-LLM" verifier approach.
 
 \begin{table}[htbp]
 \caption{Zero Trust and IDS Performance Metrics}
@@ -119,36 +128,45 @@ Table \ref{tab:zt_perf} summarizes the latencies measured over 50 iterations. Th
 \hline
 \textbf{Component} & \textbf{Latency (ms)} & \textbf{Type} \\
 \hline
-Identity Sign (RS256) & 0.34 & Cryptographic \\
-Identity Verify (RS256) & 0.06 & Cryptographic \\
-Mamba Sentinel (SSM) & 13.78 & Behavioral \\
+Identity Sign (RS256) & 0.19 & Cryptographic \\
+Identity Verify (RS256) & 0.03 & Cryptographic \\
+Mamba Sentinel (SSM) & 10.28 & Behavioral \\
 \hline
 \end{tabular}
 \label{tab:zt_perf}
 \end{center}
 \end{table}
 
-\subsection{Detection Accuracy}
-We tested the Mamba Sentinel against 5 categories of adversarial reasoning (including "DAN" jailbreaks and obfuscated code) and 4 benign samples. After minimal training on a small corpus of safe agent interactions, the Sentinel achieved a \textbf{100.0\% detection rate} for adversarial patterns with a \textbf{25.0\% false positive rate} (Table \ref{tab:detection_acc}).
+\subsection{Learning Curve and Detection Accuracy}
+We trained the Sentinel using a synthetic dataset of 50 agentic reasoning turns (Benign) and evaluated it against 10 adversarial intent samples and 3 high-entropy secret samples.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{sentinel_training.png}
+\caption{Mamba Sentinel Training: Cross-entropy loss (Surprise) for benign "Agent Language" decreases over 50 iterations, establishing a behavioral baseline.}
+\label{fig:sentinel_training}
+\end{figure}
+
+As shown in Fig. \ref{fig:sentinel_training}, the Sentinel's "surprise" for benign agent patterns decreases as it learns (from 5.5 to 3.9), while adversarial intent remains consistently higher (~4.0). Notably, high-entropy secrets (random keys) maintain a high surprise score (~5.1), allowing for near-perfect separation from benign text (Table \ref{tab:detection_acc}).
 
 \begin{table}[htbp]
-\caption{Sentinel Detection Accuracy}
+\caption{Sentinel Detection Accuracy (Post-Training)}
 \begin{center}
-\begin{tabular}{|l|c|}
+\begin{tabular}{|l|c|c|}
 \hline
-\textbf{Metric} & \textbf{Value} \\
+\textbf{Metric} & \textbf{Intent Analysis} & \textbf{Secret Detection} \\
 \hline
-Detection Rate (Adversarial) & 100.0\% \\
-False Positive Rate (Benign) & 25.0\% \\
-Average Surprise (Benign) & 4.49 \\
-Average Surprise (Adversarial) & 4.77 \\
+Detection Rate (DR) & 20.0\% & 100.0\% \\
+False Positive Rate (FPR) & 0.0\% & 0.0\% \\
+Avg. Surprise (Benign) & 3.90 & 3.90 \\
+Avg. Surprise (Target) & 4.03 & 5.13 \\
 \hline
 \end{tabular}
 \label{tab:detection_acc}
 \end{center}
 \end{table}
 
-The results demonstrate that even a lightweight SSM can differentiate between standard agentic behavior and the "statistical surprise" associated with prompt injections. This provides a behavioral IDS that complements the structural containment of Phase 1.
+The lower detection rate for subtle intent shifts (20\%) underscores the "Defense-in-Depth" philosophy: the Sentinel acts as an early-warning system that complements the hard RBAC and structural guardrails of Phase 1. Conversely, for "High-Entropy" threats like API key leaks, the Sentinel provides robust, low-latency protection.
 
 \section{Conclusion}
 By decoupling reasoning from authority through asymmetric identities and providing real-time behavioral monitoring via the Mamba Sentinel, we ensure that autonomous agents remain "Verified by Identity and Monitored by Logic." This fulfills the promise of agentic productivity with robust, low-latency execution security. The final phase of our trilogy addresses resilience against future quantum threats and remote integrity proofs.

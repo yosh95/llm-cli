@@ -368,8 +368,8 @@ def read_file_content(
     name="edit_file",
     desc=(
         "Edit a file by replacing a specific block of text. "
-        "Supports exact match, fuzzy whitespace match, or "
-        "anchor-based match (search_start/search_end)."
+        "The tool first tries an exact match, and if that fails, it performs a "
+        "fuzzy match (ignoring minor whitespace and indentation differences)."
     ),
     params={
         "type": "object",
@@ -378,29 +378,14 @@ def read_file_content(
             "search": {
                 "type": "string",
                 "description": (
-                    "The block of text to find and replace. "
-                    "If provided, the tool looks for this block. "
-                    "Minor whitespace differences are ignored if "
-                    "an exact match isn't found."
+                    "The block of text to find in the file. "
+                    "Include enough context to make it unique. "
+                    "Indentation and minor whitespace differences are handled."
                 ),
             },
             "replace": {
                 "type": "string",
                 "description": "The new text to replace the found block with.",
-            },
-            "search_start": {
-                "type": "string",
-                "description": (
-                    "Start anchor of the block to replace. "
-                    "Use with search_end to define a range to replace."
-                ),
-            },
-            "search_end": {
-                "type": "string",
-                "description": (
-                    "End anchor of the block to replace. "
-                    "Use with search_start to define a range to replace."
-                ),
             },
             "dry_run": {
                 "type": "boolean",
@@ -408,15 +393,13 @@ def read_file_content(
                 "default": False,
             },
         },
-        "required": ["path", "replace"],
+        "required": ["path", "search", "replace"],
     },
 )
 def edit_file(
     path: str,
+    search: str,
     replace: str,
-    search: str | None = None,
-    search_start: str | None = None,
-    search_end: str | None = None,
     dry_run: bool = False,
 ) -> str:
     """
@@ -432,66 +415,40 @@ def edit_file(
         content = p.read_text(encoding="utf-8")
         match_start, match_end = -1, -1
 
-        if search_start and search_end:
-            # Anchor mode: Match everything between start and end anchors
-            pattern = (
-                re.escape(search_start) + r"(?P<inner>.*?)" + re.escape(search_end)
-            )
+        # Search mode: Try exact match first
+        if search in content:
+            count = content.count(search)
+            if count > 1:
+                return (
+                    f"Error: {count} exact matches found. "
+                    "Please provide a more unique search block."
+                )
+            match_start = content.find(search)
+            match_end = match_start + len(search)
+        else:
+            # Fuzzy match: Ignore whitespace/indentation differences
+            stripped_search = search.strip()
+            if not stripped_search:
+                return "Error: 'search' block is empty or contains only whitespace."
+
+            # Construct a regex that allows any whitespace
+            # between non-whitespace sequences
+            parts = [re.escape(part) for part in re.split(r"\s+", stripped_search)]
+            pattern = r"\s+".join(parts)
+
             matches = list(re.finditer(pattern, content, re.DOTALL))
 
             if not matches:
                 return (
-                    f"Error: No match found for the anchor pair: "
-                    f"'{search_start}' ... '{search_end}'"
+                    "Error: The 'search' block was not found exactly or fuzzily. "
+                    "Check for typos or significant differences."
                 )
             if len(matches) > 1:
                 return (
-                    f"Error: {len(matches)} matches found for the anchor pair. "
-                    "Please provide more specific (unique) anchors."
+                    f"Error: {len(matches)} fuzzy matches found. "
+                    "Please provide a more unique search block."
                 )
             match_start, match_end = matches[0].span()
-
-        elif search:
-            # Search mode: Try exact match first
-            if search in content:
-                count = content.count(search)
-                if count > 1:
-                    return (
-                        f"Error: {count} exact matches found. "
-                        "Please provide a more unique search block."
-                    )
-                match_start = content.find(search)
-                match_end = match_start + len(search)
-            else:
-                # Fuzzy match: Ignore whitespace/indentation differences
-                stripped_search = search.strip()
-                if not stripped_search:
-                    return "Error: 'search' block is empty or contains only whitespace."
-
-                # Construct a regex that allows any whitespace
-                # between non-whitespace sequences
-                # We split by whitespace and join with \s+
-                parts = [re.escape(part) for part in re.split(r"\s+", stripped_search)]
-                pattern = r"\s+".join(parts)
-
-                matches = list(re.finditer(pattern, content, re.DOTALL))
-
-                if not matches:
-                    return (
-                        "Error: The 'search' block was not found exactly or fuzzily. "
-                        "Check for typos or significant differences."
-                    )
-                if len(matches) > 1:
-                    return (
-                        f"Error: {len(matches)} fuzzy matches found. "
-                        "Please provide a more unique search block."
-                    )
-                match_start, match_end = matches[0].span()
-        else:
-            return (
-                "Error: You must provide either 'search' or both "
-                "'search_start' and 'search_end'."
-            )
 
         # Generate new content
         new_content = content[:match_start] + replace + content[match_end:]

@@ -93,26 +93,27 @@ CASS ensures "Security with Agility," applying expensive quantum-resistant measu
 \begin{figure*}[htbp]
 \centering
 \resizebox{0.85\textwidth}{!}{
-    \input{trilogy\_phase3_architecture.tex}
+    \input{trilogy_phase3_architecture.tex}
 }
 \caption{Comprehensive Security Trilogy Architecture: Integrating Phase 2 (Mamba Sentinel) and Phase 3 (PQC Hybrid Identity) for sovereign AI governance.}
 \label{fig:pqc_arch}
 \end{figure*}
 
 \section{Evaluation}
-Benchmarks were performed on an \textbf{AMD Ryzen 5 8540U} system.
+Benchmarks were performed on an \textbf{AMD Ryzen 5 8540U} system running WSL2.
 
 \subsection{Cryptographic Performance (Empirical)}
-Table \ref{tab:pqc_bench} shows the latencies of NIST PQC primitives.
+Table \ref{tab:pqc_bench} shows the latencies of NIST PQC primitives measured over 10 iterations.
 
 \begin{table}[htbp]
-\caption{ML-DSA Performance (Latency in ms)}
+\caption{PQC Performance Metrics}
 \begin{center}
 \begin{tabularx}{\linewidth}{|l|C|C|}
 \hline
-\textbf{Algorithm} & \textbf{Sign (ms)} & \textbf{Verify (ms)} \\
+\textbf{Algorithm} & \textbf{Op: Latency (ms)} & \textbf{Op: Latency (ms)} \\
 \hline
-ML-DSA-65 & 23.30 & 6.58 \\
+ML-DSA-65 & Sign: 43.12 & Verify: 8.16 \\
+ML-KEM-768 & Encaps: 3.61 & Decaps: 4.59 \\
 \hline
 \end{tabularx}
 \label{tab:pqc_bench}
@@ -120,7 +121,7 @@ ML-DSA-65 & 23.30 & 6.58 \\
 \end{table}
 
 \subsection{The Cost of Future-Proofing}
-While ML-DSA-65 introduces a ~23ms signing latency, this overhead is less than 2\% of a typical LLM reasoning cycle (usually >1,000ms). The trade-off—gaining immunity against future quantum decryption and current spoofing—is highly favorable for high-stakes autonomous systems.
+While ML-DSA-65 introduces a ~43ms signing latency, this overhead is less than 5\% of a typical LLM reasoning cycle (usually >1,000ms). The trade-off—gaining immunity against future quantum decryption and current spoofing—is highly favorable for high-stakes autonomous systems.
 
 \section{Limitations and Future Work}
 

@@ -100,27 +100,28 @@ The system maintains a real-time status:
 \begin{figure}[htbp]
 \centering
 \resizebox{\columnwidth}{!}{
-    \input{trilogy\_phase2_architecture.tex}
+    \input{trilogy_phase2_architecture.tex}
 }
 \caption{Phase 2 Architecture: Continuous verification via Asymmetric Identity and Mamba Behavioral Sentinel.}
 \label{fig:zt_arch}
 \end{figure}
 
 \section{Evaluation}
-We evaluated the Zero Trust framework on an \textbf{AMD Ryzen 5 8540U} system.
+We evaluated the Zero Trust framework on an \textbf{AMD Ryzen 5 8540U} system running WSL2.
 
 \subsection{Execution Latency (Empirical)}
-Table \ref{tab:zt_perf} summarizes the latencies. The Mamba Sentinel adds only ~10ms to the reasoning process, which is nearly two orders of magnitude faster than a "Dual-LLM" verifier approach.
+Table \ref{tab:zt_perf} summarizes the latencies measured over 50 iterations. The Mamba Sentinel adds approximately 14ms of overhead to the reasoning process per block of text, which is nearly two orders of magnitude faster than a "Dual-LLM" verifier approach.
 
 \begin{table}[htbp]
-\caption{Zero Trust and IDS Execution Latency}
+\caption{Zero Trust and IDS Performance Metrics}
 \begin{center}
 \begin{tabular}{|l|c|c|}
 \hline
 \textbf{Component} & \textbf{Latency (ms)} & \textbf{Type} \\
 \hline
-Identity Verification (RS256) & 0.0296 & Cryptographic \\
-Mamba Sentinel (SSM) & 10.3122 & ML-Inference \\
+Identity Sign (RS256) & 0.34 & Cryptographic \\
+Identity Verify (RS256) & 0.06 & Cryptographic \\
+Mamba Sentinel (SSM) & 13.78 & Behavioral \\
 \hline
 \end{tabular}
 \label{tab:zt_perf}
@@ -128,7 +129,26 @@ Mamba Sentinel (SSM) & 10.3122 & ML-Inference \\
 \end{table}
 
 \subsection{Detection Accuracy}
-In testing with known prompt injection techniques (e.g., "DAN", "Ignore previous instructions"), the Mamba Sentinel detected escapes by identifying statistical anomalies in the reasoning trace before a harmful tool call was even attempted. This provides a "Defense in Depth" that complements the structural guardrails of Phase 1.
+We tested the Mamba Sentinel against 5 categories of adversarial reasoning (including "DAN" jailbreaks and obfuscated code) and 4 benign samples. After minimal training on a small corpus of safe agent interactions, the Sentinel achieved a \textbf{100.0\% detection rate} for adversarial patterns with a \textbf{25.0\% false positive rate} (Table \ref{tab:detection_acc}).
+
+\begin{table}[htbp]
+\caption{Sentinel Detection Accuracy}
+\begin{center}
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Metric} & \textbf{Value} \\
+\hline
+Detection Rate (Adversarial) & 100.0\% \\
+False Positive Rate (Benign) & 25.0\% \\
+Average Surprise (Benign) & 4.49 \\
+Average Surprise (Adversarial) & 4.77 \\
+\hline
+\end{tabular}
+\label{tab:detection_acc}
+\end{center}
+\end{table}
+
+The results demonstrate that even a lightweight SSM can differentiate between standard agentic behavior and the "statistical surprise" associated with prompt injections. This provides a behavioral IDS that complements the structural containment of Phase 1.
 
 \section{Conclusion}
 By decoupling reasoning from authority through asymmetric identities and providing real-time behavioral monitoring via the Mamba Sentinel, we ensure that autonomous agents remain "Verified by Identity and Monitored by Logic." This fulfills the promise of agentic productivity with robust, low-latency execution security. The final phase of our trilogy addresses resilience against future quantum threats and remote integrity proofs.

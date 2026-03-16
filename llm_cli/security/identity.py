@@ -4,6 +4,7 @@ import os
 import socket
 import time
 import uuid
+from pathlib import Path
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -26,14 +27,28 @@ class IdentityManager:
     _KEY_DIR = KEY_DIR
     _PRIVATE_KEY_PATH = _KEY_DIR / "id_rsa"
     _PUBLIC_KEY_PATH = _KEY_DIR / "id_rsa.pub"
-    _PQC_PRIVATE_KEY_PATH = _KEY_DIR / "id_pqc.key"
-    _PQC_PUBLIC_KEY_PATH = _KEY_DIR / "id_pqc.pub"
+    _PQC_PRIVATE_KEY_PATH = _KEY_DIR / "id_pqc_l3.key"  # Default (Level 3)
+    _PQC_PUBLIC_KEY_PATH = _KEY_DIR / "id_pqc_l3.pub"
+    _PQC_PRIVATE_KEY_L2_PATH = _KEY_DIR / "id_pqc_l2.key"  # ML-DSA-44
+    _PQC_PUBLIC_KEY_L2_PATH = _KEY_DIR / "id_pqc_l2.pub"
+    _PQC_PRIVATE_KEY_L5_PATH = _KEY_DIR / "id_pqc_l5.key"  # ML-DSA-87
+    _PQC_PUBLIC_KEY_L5_PATH = _KEY_DIR / "id_pqc_l5.pub"
     _PQC_KEM_PRIVATE_KEY_PATH = _KEY_DIR / "id_kem.key"
     _PQC_KEM_PUBLIC_KEY_PATH = _KEY_DIR / "id_kem.pub"
 
     @classmethod
+    def _get_pqc_paths(cls, variant: str) -> tuple[Path, Path]:
+        """Map variant name to file paths."""
+        if variant == "ML-DSA-44":
+            return cls._PQC_PRIVATE_KEY_L2_PATH, cls._PQC_PUBLIC_KEY_L2_PATH
+        elif variant == "ML-DSA-87":
+            return cls._PQC_PRIVATE_KEY_L5_PATH, cls._PQC_PUBLIC_KEY_L5_PATH
+        else:
+            return cls._PQC_PRIVATE_KEY_PATH, cls._PQC_PUBLIC_KEY_PATH
+
+    @classmethod
     def _ensure_keys(cls, force: bool = False) -> None:
-        """Ensure RSA, ML-DSA, and ML-KEM keys exist."""
+        """Ensure RSA, ML-DSA (all levels), and ML-KEM keys exist."""
         # Default to strict mode (1) unless explicitly disabled (0)
         strict_mode = os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1"
 
@@ -79,21 +94,18 @@ class IdentityManager:
                     )
                 )
 
-        # Post-Quantum Keys (ML-DSA)
-        if not cls._PQC_PRIVATE_KEY_PATH.exists():
-            if strict_mode:
-                msg = (
-                    f"Security Check: ML-DSA key missing at "
-                    f"{cls._PQC_PRIVATE_KEY_PATH}. "
-                    "Keys must be pre-provisioned."
-                )
-                raise FileNotFoundError(msg)
-            logger.info("Generating new Post-Quantum (ML-DSA) key pair...")
-            pub_pqc, priv_pqc = PQCProvider.generate_keypair()
-            with cls._PQC_PRIVATE_KEY_PATH.open("wb") as f:
-                f.write(priv_pqc)
-            with cls._PQC_PUBLIC_KEY_PATH.open("wb") as f:
-                f.write(pub_pqc)
+        # Post-Quantum Keys (ML-DSA) - Agility Levels L2, L3, L5
+        for v in ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87"]:
+            priv_p, pub_p = cls._get_pqc_paths(v)
+            if not priv_p.exists():
+                if strict_mode:
+                    raise FileNotFoundError(f"Security Check: {v} key missing.")
+                logger.info(f"Generating new Post-Quantum ({v}) key pair...")
+                pub_pqc, priv_pqc = PQCProvider.generate_keypair(variant=v)
+                with priv_p.open("wb") as f:
+                    f.write(priv_pqc)
+                with pub_p.open("wb") as f:
+                    f.write(pub_pqc)
 
         # Post-Quantum KEM Keys (ML-KEM)
         if not cls._PQC_KEM_PRIVATE_KEY_PATH.exists():
@@ -120,9 +132,10 @@ class IdentityManager:
             return f.read()
 
     @classmethod
-    def _get_pqc_private_key_content(cls) -> bytes:
+    def _get_pqc_private_key_content(cls, variant: str = "ML-DSA-65") -> bytes:
         cls._ensure_keys()
-        with cls._PQC_PRIVATE_KEY_PATH.open("rb") as f:
+        priv_p, _ = cls._get_pqc_paths(variant)
+        with priv_p.open("rb") as f:
             return f.read()
 
     @classmethod
@@ -145,16 +158,23 @@ class IdentityManager:
         raise FileNotFoundError(f"Public key not found at {cls._PUBLIC_KEY_PATH}.")
 
     @classmethod
-    def _get_pqc_public_key_content(cls) -> bytes:
+    def _get_pqc_public_key_content(cls, variant: str = "ML-DSA-65") -> bytes:
         cls._ensure_keys()
-        env_pqc_pub = os.getenv("LLM_CLI_PQC_PUBLIC_KEY")
+        # Allow environment override for specific variant if needed
+        # Format: LLM_CLI_PQC_PUBLIC_KEY_ML_DSA_87
+        env_key = f"LLM_CLI_PQC_PUBLIC_KEY_{variant.replace('-', '_')}"
+        env_pqc_pub = os.getenv(env_key) or os.getenv("LLM_CLI_PQC_PUBLIC_KEY")
         if env_pqc_pub:
             import base64
 
-            return base64.b64decode(env_pqc_pub)
+            try:
+                return base64.b64decode(env_pqc_pub)
+            except Exception:
+                pass
 
-        if cls._PQC_PUBLIC_KEY_PATH.exists():
-            with cls._PQC_PUBLIC_KEY_PATH.open("rb") as f:
+        _, pub_p = cls._get_pqc_paths(variant)
+        if pub_p.exists():
+            with pub_p.open("rb") as f:
                 return f.read()
 
         return b""  # Fallback
@@ -239,10 +259,11 @@ class IdentityManager:
         """
         try:
             rsa_pub = cls._get_public_key_content()
-            pqc_pub = cls._get_pqc_public_key_content()
 
-            # Use HybridSigner for verification
-            payload = HybridSigner.verify_hybrid_token(token, rsa_pub, pqc_pub)
+            # Use HybridSigner for verification with a variant-aware key provider
+            payload = HybridSigner.verify_hybrid_token(
+                token, rsa_pub, cls._get_pqc_public_key_content
+            )
 
             if payload:
                 # Additional audience check (normally handled inside jwt.decode,

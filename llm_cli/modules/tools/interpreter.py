@@ -169,8 +169,7 @@ def execute_python(code: str) -> str:
                 "/dev",
                 "--tmpfs",
                 "/tmp",
-                "--unshare-all",  # Isolate network, ipc, uts, etc.
-                "--share-net",  # Allow network for now, but could be toggled
+                "--unshare-all",  # Isolate network, ipc, uts, etc. (Tier 3)
                 "--bind",
                 cwd,
                 cwd,

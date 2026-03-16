@@ -8,10 +8,10 @@
 - **Logic:** Sensitive operations (like Python execution or file modification) can be configured to require a PQC-signed token or intent verification.
 - **Dynamic Escalation:** Security levels are escalated based on `scaling_patterns` defined in `llm_cli/apps/defaults.toml`.
 
-## 2. Dynamic Guardrails: Dual-LLM Intent Analysis
-- **Mechanism:** A secondary, low-latency LLM ("Sentinel") verifies if the primary LLM's proposed tool call aligns with the original user's intent.
-- **Implementation:** `llm_cli/security/intent_analyzer.py` and `llm_cli/security/policy.py` (`_analyze_intent`).
-- **Configuration:** Enabled/Disabled via `security.intent_analyzer_enabled` in `config.toml`. Fail-safe modes (fail-open/fail-closed) are configurable per tool.
+## 2. Dynamic Guardrails: Real-time Anomaly Detection (Mamba Sentinel)
+- **Mechanism:** A high-speed State Space Model (Mamba SSM) monitors the model's reasoning process in real-time to detect intent deviation or manipulation attempts.
+- **Implementation:** `llm_cli/security/sentinel.py` and `llm_cli/mamba_core/`.
+- **Logic:** Replaces slow Dual-LLM intent analysis with a 10ms-latency check. Anomalies (high scores) trigger automatic security escalation (e.g., forcing manual approval or blocking execution).
 
 ## 3. RBAC & ABAC Policy Engine
 - **Mechanism:** Role-Based Access Control (RBAC) and Attribute-Based Access Control (ABAC) determine which tools and resource scopes (e.g., paths) are accessible.

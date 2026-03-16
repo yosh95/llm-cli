@@ -170,7 +170,13 @@ class PQCAgilityManager:
     def get_required_level(
         tool_name: str, args: Any = None, environment_risk: str = "standard"
     ) -> str:
-        """Determines the required security level based on a risk matrix."""
+        """
+        Determines the required security level based on a risk matrix.
+        Note: While this manager selects different variants (ML-DSA-44/65/87),
+        the current IdentityManager implementation uses a single primary key pair
+        for simplicity. In a full production deployment, separate keys per
+        security level would be managed to satisfy cryptographic isolation.
+        """
         from llm_cli.clients.config import _load_config_from_file
 
         config = _load_config_from_file()
@@ -221,19 +227,23 @@ class ResponseSigner:
 
     @classmethod
     def sign_response(
-        cls, response_text: str, source_verification_id: str, private_key: bytes
+        cls,
+        response_text: str,
+        source_verification_id: str,
+        private_key: bytes,
+        variant: str = PQCProvider.DEFAULT_VARIANT,
     ) -> dict:
         """
         Binds the LLM's response to the verified tool execution ID.
         """
         message = f"{source_verification_id}:{response_text}".encode()
-        signature = PQCProvider.sign(message, private_key)
+        signature = PQCProvider.sign(message, private_key, variant=variant)
 
         return {
             "response": response_text,
             "verification_id": source_verification_id,
             "pqc_signature": base64.urlsafe_b64encode(signature).decode(),
-            "algorithm": PQCProvider.DEFAULT_VARIANT,
+            "algorithm": variant,
         }
 
 
@@ -341,7 +351,11 @@ class HybridSigner:
 
     @classmethod
     def create_hybrid_token(
-        cls, payload: dict, rsa_private_key: bytes, pqc_private_key: bytes
+        cls,
+        payload: dict,
+        rsa_private_key: bytes,
+        pqc_private_key: bytes,
+        variant: str = PQCProvider.DEFAULT_VARIANT,
     ) -> str:
         """
         Creates a JWT token where the PQC signature is embedded in the payload.
@@ -352,14 +366,14 @@ class HybridSigner:
         # 1. Prepare PQC Signature of the payload content
         # We sort keys to ensure deterministic representation for signing
         canonical_payload = json.dumps(payload, sort_keys=True).encode()
-        pqc_sig = PQCProvider.sign(canonical_payload, pqc_private_key)
+        pqc_sig = PQCProvider.sign(canonical_payload, pqc_private_key, variant=variant)
         pqc_sig_b64 = base64.urlsafe_b64encode(pqc_sig).decode().rstrip("=")
 
         # 2. Embed PQC Signature into the payload as a claim
         hybrid_payload = payload.copy()
         hybrid_payload["_pqc"] = {
             "sig": pqc_sig_b64,
-            "alg": PQCProvider.DEFAULT_VARIANT,
+            "alg": variant,
         }
 
         # 3. Generate Classical JWT (Standard 3-part structure)
@@ -367,7 +381,10 @@ class HybridSigner:
 
     @classmethod
     def verify_hybrid_token(
-        cls, hybrid_token: str, rsa_public_key: bytes, pqc_public_key: bytes
+        cls,
+        hybrid_token: str,
+        rsa_public_key: bytes,
+        pqc_public_key_provider: Any = None,
     ) -> dict | None:
         """
         Verifies both Classical and PQC signatures.
@@ -394,6 +411,7 @@ class HybridSigner:
             return None
 
         pqc_sig_b64 = pqc_data["sig"]
+        variant = pqc_data.get("alg", PQCProvider.DEFAULT_VARIANT)
 
         try:
             # Reconstruct the original payload (without the _pqc claim) to verify
@@ -404,13 +422,23 @@ class HybridSigner:
             padding = "=" * (4 - len(pqc_sig_b64) % 4)
             pqc_sig = base64.urlsafe_b64decode(pqc_sig_b64 + padding)
 
-            if not PQCProvider.verify(canonical_payload, pqc_sig, pqc_public_key):
-                raise ValueError("PQC verification failed")
+            # Get the appropriate public key for the variant
+            if pqc_public_key_provider:
+                pqc_pub = pqc_public_key_provider(variant)
+            else:
+                from llm_cli.security.identity import IdentityManager
+
+                pqc_pub = IdentityManager._get_pqc_public_key_content(variant)
+
+            if not PQCProvider.verify(
+                canonical_payload, pqc_sig, pqc_pub, variant=variant
+            ):
+                raise ValueError(f"PQC verification failed for variant {variant}")
         except Exception as e:
             logger.error(
                 f"[SECURITY_ALERT] Post-Quantum signature verification failed: {e}"
             )
             return None
 
-        logger.info("✅ Hybrid Signature Verified (RSA + PQC)")
+        logger.info(f"✅ Hybrid Signature Verified (RSA + {variant})")
         return payload

@@ -62,7 +62,9 @@ def test_hybrid_signer_token():
     assert hybrid_token.count(".") == 2  # Standard JWT has 2 dots (3 parts)
 
     # Verify hybrid token
-    verified_payload = HybridSigner.verify_hybrid_token(hybrid_token, rsa_pub, pqc_pub)
+    verified_payload = HybridSigner.verify_hybrid_token(
+        hybrid_token, rsa_pub, lambda _: pqc_pub
+    )
     assert verified_payload is not None
     assert verified_payload["sub"] == "test_user"
     assert verified_payload["roles"] == ["admin"]

@@ -321,9 +321,17 @@ class IntegrityVerifier:
                     entry.pop("pqc_algorithm", None)
 
                     # Check chain
-                    if entry.get("prev_hash") != last_hash:
+                    is_snapshot = entry.get("event_type") == "__audit_snapshot__"
+                    if not is_snapshot and entry.get("prev_hash") != last_hash:
                         logger.error(f"Audit log chain broken at line {i + 1}")
                         return False
+
+                    # If it's a snapshot, it resets the chain 'last_hash'
+                    # for subsequent entries
+                    if is_snapshot:
+                        logger.debug(
+                            f"Audit log snapshot at line {i + 1}. Re-anchoring chain."
+                        )
 
                     # Verify current entry's hash
                     entry_str = json.dumps(entry, sort_keys=True)

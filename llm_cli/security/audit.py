@@ -68,6 +68,7 @@ def log_audit(
             "subject": subject,
             "audience": audience,
             "model": model,
+            "event_type": "tool_call",
             "tool": tool_name,
             "args": final_args,
             "pqc_confidential": pqc_encrypted,
@@ -192,6 +193,7 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
             "subject": "system",
             "audience": "-",
             "model": "-",
+            "event_type": "__audit_snapshot__",
             "tool": "__audit_snapshot__",
             "args": {
                 "archive": str(archive_path),

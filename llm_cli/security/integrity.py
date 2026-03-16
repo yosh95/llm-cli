@@ -326,13 +326,6 @@ class IntegrityVerifier:
                         logger.error(f"Audit log chain broken at line {i + 1}")
                         return False
 
-                    # If it's a snapshot, it resets the chain 'last_hash'
-                    # for subsequent entries
-                    if is_snapshot:
-                        logger.debug(
-                            f"Audit log snapshot at line {i + 1}. Re-anchoring chain."
-                        )
-
                     # Verify current entry's hash
                     entry_str = json.dumps(entry, sort_keys=True)
                     actual_hash = hashlib.sha256(entry_str.encode()).hexdigest()
@@ -340,6 +333,18 @@ class IntegrityVerifier:
                     if provided_hash != actual_hash:
                         logger.error(f"Audit log mismatch detected at line {i + 1}")
                         return False
+
+                    # If it's a snapshot, it resets the chain 'last_hash'
+                    # for subsequent entries
+                    if is_snapshot:
+                        logger.debug(
+                            f"Audit log snapshot at line {i + 1}. Re-anchoring chain."
+                        )
+                        # The first entry after snapshot expects prev_hash to match
+                        # the one stored in snapshot's args
+                        last_hash = entry.get("args", {}).get("snapshot_prev_hash")
+                    else:
+                        last_hash = provided_hash
 
                     # Verify PQC Signature of the hash
                     if pqc_sig_b64:
@@ -353,8 +358,6 @@ class IntegrityVerifier:
                                 f"Audit log verification failed at line {i + 1}"
                             )
                             return False
-
-                    last_hash = provided_hash
             logger.info("Audit log integrity verified.")
             return True
         except Exception as e:

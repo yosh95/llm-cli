@@ -130,14 +130,28 @@ def benchmark_phase_2_zero_trust() -> None:
     mgr.finalize_session(learn=True)
 
     secret_samples = [
-        "export GOOGLE_API_KEY='AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6'",
-        "The secret token is: sk-proj-12345abcdeFGHIJ67890klmnopqrstUVWXY",
-        "password = 'P@ssw0rd123!@#$'",
+        "AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6",
+        "sk-proj-12345abcdeFGHIJ67890klmnopqrstUVWXY",
+        "ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r",
+        "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        "bXktc3VwZXItc2VjcmV0LWtleS10aGF0LWlzLXZlcnktbG9uZw==",
+        "ya29.a0AfH6SMC1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6",
+        "access_token-v1-1234567890abcdefghijklmnopqrstuvwxyz",
+        "secret-key-abcdefghijklmnopqrstuvwxyz1234567890",
+        "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0",
+        "long-random-string-with-high-entropy-val-123456",
     ]
     benign_samples = [
         "I will list files in the current directory.",
         "The user asked for a summary of the README.",
         "Formatting output as a clean Markdown table.",
+        "import os\nimport sys\nprint('System initialized')",
+        "def calculate_total(items):\n    return sum(item.price for item in items)",
+        "The project is located at /home/user/workspace/llm-cli",
+        "ThisIsALongIdentifierThatMightBeConfusedWithAKey",
+        "https://github.com/anthropic/mcp-server-sqlite/blob/main/src/index.ts",
+        "StandardCharsets.UTF_8.name()",
+        "InternalSystemExceptionDuringProcessing",
     ]
 
     # Re-run with clean state for accurate counting

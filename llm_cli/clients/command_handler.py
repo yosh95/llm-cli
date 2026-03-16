@@ -391,7 +391,8 @@ def handle_command(
                 info_table.add_row(
                     "Reasoning Integrity",
                     f"[{color}]{current_integrity_score:.4f}[/{color}] (Anomaly Score, "
-                    f"thresholds: [yellow]{t_yellow:.2f}[/yellow], [red]{t_red:.2f}[/red])",
+                    f"thresholds: [yellow]{t_yellow:.2f}[/yellow], "
+                    f"[red]{t_red:.2f}[/red])",
                 )
 
                 # Trust Trend Visualization

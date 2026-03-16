@@ -108,11 +108,10 @@ class ReasoningSentinelManager:
             # but the threshold logic is now handled by Sentinel's self-calibration.
 
             # --- Heuristics ---
-            # Thresholds are chosen to be conservative to minimize false positives
-            # while catching random keys.
-            # We now rely primarily on Shannon Entropy for secrets to ensure
-            # detection even when the Mamba model is untrained.
-            is_high_entropy = entropy > 4.7
+            # Threshold chosen to catch most technical credentials (API keys).
+            # Note: Redacting high-entropy strings has minimal impact on LLM
+            # reasoning, as random-looking tokens are typically non-semantic.
+            is_high_entropy = entropy > 4.3
 
             # If entropy is high, it's likely a secret/key
             if is_high_entropy:

@@ -9,6 +9,7 @@
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{tabularx}
+\usepackage{stfloats}
 \usepackage{balance}
 \usepackage{tikz}
 \usetikzlibrary{shapes,arrows,positioning,fit,backgrounds}
@@ -105,12 +106,6 @@ Current agentic security frameworks often rely on a "Dual-LLM" approach (using a
 \section{Tier 3: Post-Quantum Resilience (Time)}
 To protect the "Temporal Dimension," we integrate PQC primitives.
 
-\subsection{Quantum-Safe Identity and Hybrid Encryption}
-We upgrade the workload identity using \textbf{ML-DSA-65} (FIPS 204). Audit logs, which contain sensitive reasoning traces, are protected using \textbf{ML-KEM-768} (FIPS 203) hybrid encryption. This ensures that even if classical RSA is broken by a future quantum computer, the history of agentic actions remains confidential.
-
-\subsection{PQC Remote Attestation}
-The client generates a SHA-256 manifest of its core security code, signed with an ML-DSA private key. This allows the server to verify that the agent is running on an "Authentic Stack" where Tier 1 guardrails are active.
-
 \begin{figure*}[t]
 \centering
 \resizebox{0.95\textwidth}{!}{
@@ -119,6 +114,12 @@ The client generates a SHA-256 manifest of its core security code, signed with a
 \caption{Detailed System Architecture: Data flow from LLM request through the CASS orchestrator to specific security components across the three tiers.}
 \label{fig:detailed_arch}
 \end{figure*}
+
+\subsection{Quantum-Safe Identity and Hybrid Encryption}
+We upgrade the workload identity using \textbf{ML-DSA-65} (FIPS 204). Audit logs, which contain sensitive reasoning traces, are protected using \textbf{ML-KEM-768} (FIPS 203) hybrid encryption. This ensures that even if classical RSA is broken by a future quantum computer, the history of agentic actions remains confidential.
+
+\subsection{PQC Remote Attestation}
+The client generates a SHA-256 manifest of its core security code, signed with an ML-DSA private key. This allows the server to verify that the agent is running on an "Authentic Stack" where Tier 1 guardrails are active.
 
 \section{System Architecture and Integration}
 
@@ -189,7 +190,7 @@ KEM Encapsulation & 2.77 & Tier 3 \\
 \section{Conclusion}
 Securing autonomous agents requires a transition from probabilistic "alignment" to a multi-dimensional, deterministic framework. By integrating Structural Guardrails, Behavioral Zero-Trust, and Post-Quantum Resilience, our framework provides a "Triple-Lock" defense that scales across the spatial, behavioral, and temporal domains of agentic execution. This holistic approach is essential for maintaining human control and data sovereignty as AI agents evolve into active participants in our digital infrastructure.
 
-\balance
+\bibliographystyle{IEEEtran}
 \begin{thebibliography}{00}
 \bibitem{mcp2024} Anthropic, ``Model Context Protocol (MCP) Specification,'' 2024.
 \bibitem{owasp2023} OWASP, ``Top 10 for Large Language Model Applications v1.1,'' 2023.

@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 )
 def execute_python(
     code: str, __security_requirements__: dict[str, Any] | None = None
-) -> str:
+) -> Any:
 
     # Use a default timeout of 300 seconds.
     timeout = int(
@@ -262,7 +262,11 @@ def execute_python(
                 if stderr:
                     result += f"\nSTDERR:\n{stderr}"
 
-                return f"{result}\nExit Code: {exit_code}"
+                output = f"{result}\nExit Code: {exit_code}"
+
+                from llm_cli.security.pqc import sign_tool_result
+
+                return sign_tool_result(output)
 
             except subprocess.TimeoutExpired:
                 if platform.system() != "Windows":

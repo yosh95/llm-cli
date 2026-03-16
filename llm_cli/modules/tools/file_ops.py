@@ -471,10 +471,9 @@ def edit_file(
         p.write_text(new_content, encoding="utf-8")
         result_text = f"Successfully updated {path}.\n\n{diff_str}"
 
-        # Tier 2/3: Bi-directional Verification via ResponseSigner.
-        # Sign the result with PQC so tool_executor can verify the output
-        # was not tampered with in transit (Man-in-the-Middle protection).
-        return _sign_result(result_text)
+        from llm_cli.security.pqc import sign_tool_result
+
+        return sign_tool_result(result_text)
 
     except PathValidationError as e:
         return f"Security Error: {e}"
@@ -505,39 +504,11 @@ def create_or_overwrite_file(path: str, content: str) -> "str | dict":
         p.write_text(content, encoding="utf-8")
         result_text = f"Successfully wrote to {path}"
 
-        # Tier 2/3: Bi-directional Verification via ResponseSigner.
-        return _sign_result(result_text)
+        from llm_cli.security.pqc import sign_tool_result
+
+        return sign_tool_result(result_text)
 
     except PathValidationError as e:
         return f"Security Error: {e}"
     except Exception as e:
         return f"Error: {e}"
-
-
-def _sign_result(result_text: str) -> str | dict:
-    """
-    Sign a tool result with PQC (ML-DSA) for Bi-directional Verification.
-
-    Returns a dict with ``result``, ``pqc_signature``, ``verification_id``,
-    and ``algorithm`` when signing succeeds, or the plain string on failure.
-    The dict format is recognised and verified by ``tool_executor.execute_tool_call``.
-    Falls back silently to the plain string so tool behaviour is never blocked
-    by a cryptographic error.
-    """
-    import uuid
-
-    try:
-        from llm_cli.security.identity import IdentityManager
-        from llm_cli.security.pqc import ResponseSigner
-
-        pqc_priv = IdentityManager._get_pqc_private_key_content()
-        verification_id = str(uuid.uuid4())
-        signed = ResponseSigner.sign_response(
-            response_text=result_text,
-            source_verification_id=verification_id,
-            private_key=pqc_priv,
-        )
-        return signed  # dict: {response, verification_id, pqc_signature, algorithm}
-    except Exception:
-        # Signing is best-effort; never block tool execution on crypto failure.
-        return result_text

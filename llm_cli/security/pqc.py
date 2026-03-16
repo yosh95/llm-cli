@@ -448,3 +448,31 @@ class HybridSigner:
 
         logger.info(f"✅ Hybrid Signature Verified (RSA + {variant})")
         return payload
+
+
+def sign_tool_result(result_text: str) -> str | dict:
+    """
+    Sign a tool result with PQC (ML-DSA) for Bi-directional Verification.
+
+    Returns a dict with ``result``, ``pqc_signature``, ``verification_id``,
+    and ``algorithm`` when signing succeeds, or the plain string on failure.
+    The dict format is recognised and verified by ``tool_executor.execute_tool_call``.
+    """
+    import uuid
+
+    try:
+        from llm_cli.security.identity import IdentityManager
+        from llm_cli.security.pqc import ResponseSigner
+
+        pqc_priv = IdentityManager._get_pqc_private_key_content()
+        verification_id = str(uuid.uuid4())
+        signed = ResponseSigner.sign_response(
+            response_text=result_text,
+            source_verification_id=verification_id,
+            private_key=pqc_priv,
+        )
+        return signed  # dict: {result, verification_id, pqc_signature, algorithm}
+    except Exception as e:
+        # Signing is best-effort; never block tool execution on crypto failure.
+        logger.debug(f"Failed to sign tool result: {e}")
+        return result_text

@@ -9,10 +9,16 @@ import pytest
 from llm_cli.modules.tools.interpreter import execute_python
 
 
+def _get_result_text(result):
+    if isinstance(result, dict):
+        return result["result"]
+    return result
+
+
 def test_basic_python_execution():
     """Verify that basic Python code executes and returns output."""
     code = "print('hello world')"
-    result = execute_python(code)
+    result = _get_result_text(execute_python(code))
     assert "STDOUT:" in result
     assert "hello world" in result
     assert "Exit Code: 0" in result
@@ -21,7 +27,7 @@ def test_basic_python_execution():
 def test_python_system_interaction():
     """Verify that Python can perform system tasks like listing files."""
     code = "import os; print(os.getcwd())"
-    result = execute_python(code)
+    result = _get_result_text(execute_python(code))
     assert "STDOUT:" in result
     assert str(Path.cwd()) in result
     assert "Exit Code: 0" in result
@@ -30,7 +36,7 @@ def test_python_system_interaction():
 def test_python_stderr_capture():
     """Verify that Python errors are captured in STDERR."""
     code = "import sys; print('error message', file=sys.stderr); sys.exit(1)"
-    result = execute_python(code)
+    result = _get_result_text(execute_python(code))
     assert "STDERR:" in result
     assert "error message" in result
     assert "Exit Code: 1" in result
@@ -60,6 +66,6 @@ def test_subprocess_no_shell():
     else:
         code = "import subprocess; subprocess.run(['echo', 'hello'], shell=False)"
 
-    result = execute_python(code)
+    result = _get_result_text(execute_python(code))
     assert "hello" in result
     assert "Exit Code: 0" in result

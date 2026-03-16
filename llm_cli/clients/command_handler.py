@@ -378,25 +378,29 @@ def handle_command(
             current_integrity_score = sentinel.current_score
 
             if current_integrity_score is not None:
+                # Get dynamic thresholds from sentinel
+                t_yellow, t_red = sentinel.sentinel.get_dynamic_thresholds()
+
                 color = (
                     "green"
-                    if current_integrity_score < 3.5
+                    if current_integrity_score < t_yellow
                     else "yellow"
-                    if current_integrity_score < 5.0
+                    if current_integrity_score < t_red
                     else "red"
                 )
                 info_table.add_row(
                     "Reasoning Integrity",
-                    f"[{color}]{current_integrity_score:.4f}[/{color}] (Anomaly Score)",
+                    f"[{color}]{current_integrity_score:.4f}[/{color}] (Anomaly Score, "
+                    f"thresholds: [yellow]{t_yellow:.2f}[/yellow], [red]{t_red:.2f}[/red])",
                 )
 
                 # Trust Trend Visualization
                 if sentinel.score_history:
                     trend_chars = []
                     for s in sentinel.score_history:
-                        if s < 3.5:
+                        if s < t_yellow:
                             trend_chars.append("[green]█[/green]")
-                        elif s < 5.0:
+                        elif s < t_red:
                             trend_chars.append("[yellow]█[/yellow]")
                         else:
                             trend_chars.append("[red]█[/red]")

@@ -278,6 +278,7 @@ def execute_tool_call(
             result_data = tool_entry["func"](
                 __audit_model__=client.model,
                 __audit_sentinel__=session.sentinel,
+                __security_requirements__=requirements,
                 **args,
             )
         else:
@@ -285,6 +286,7 @@ def execute_tool_call(
             result_data = tool_entry["func"](
                 __audit_model__=client.model,
                 __audit_sentinel__=session.sentinel,
+                __security_requirements__=requirements,
                 **args,
             )
 

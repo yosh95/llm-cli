@@ -38,6 +38,21 @@ class PythonSecurityScanner(ast.NodeVisitor):
         "__import__",
         "breakpoint",
         "input",
+        "globals",
+        "locals",
+        "vars",
+        "compile",
+    }
+
+    # High-risk attributes (Reflection)
+    DANGEROUS_ATTRIBUTES = {
+        "__subclasses__",
+        "__bases__",
+        "__class__",
+        "__mro__",
+        "__dict__",
+        "__builtins__",
+        "__globals__",
     }
 
     def __init__(self) -> None:
@@ -97,6 +112,11 @@ class PythonSecurityScanner(ast.NodeVisitor):
                             "in subprocess calls."
                         )
 
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if node.attr in self.DANGEROUS_ATTRIBUTES:
+            self.issues.append(f"Reflection attack vector detected: {node.attr}")
+        self.generic_visit(node)
+
     def visit_Call(self, node: ast.Call) -> None:
         # Check for direct calls to dangerous functions
         if isinstance(node.func, ast.Name):
@@ -105,17 +125,22 @@ class PythonSecurityScanner(ast.NodeVisitor):
 
         # Check for attribute calls like os.system()
         elif isinstance(node.func, ast.Attribute):
+            attr_name = node.func.attr
+            if attr_name in self.DANGEROUS_ATTRIBUTES:
+                # Already handled by visit_Attribute, but call context is extra risk
+                pass
+
             if isinstance(node.func.value, ast.Name):
                 module_id = node.func.value.id
                 if module_id in self.DANGEROUS_MODULES:
                     self.issues.append(
-                        f"High-risk method call: {module_id}.{node.func.attr}"
+                        f"High-risk method call: {module_id}.{attr_name}"
                     )
                 # Specific check for os.system and os.popen which are shell-like
                 # even without shell=True arg
-                if module_id == "os" and node.func.attr in ["system", "popen"]:
+                if module_id == "os" and attr_name in ["system", "popen"]:
                     self.issues.append(
-                        f"Security Violation: os.{node.func.attr} is forbidden. "
+                        f"Security Violation: os.{attr_name} is forbidden. "
                         "Use subprocess.run(shell=False)."
                     )
 

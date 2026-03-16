@@ -94,10 +94,8 @@ def log_audit(
             # ARGS (Dynamic Context)
             variant = PQCAgilityManager.get_required_level(tool_name, args=args)
 
-            pqc_priv = IdentityManager._get_pqc_private_key_content()
-            # Note: In a production system, we would have different keys for
-            # different levels, but for this reference implementation,
-            # we demonstrate the agility logic.
+            pqc_priv = IdentityManager._get_pqc_private_key_content(variant=variant)
+            # Use the agility-aware variant for signing
             pqc_sig = PQCProvider.sign(current_hash.encode(), pqc_priv, variant=variant)
 
             log_entry["pqc_signature"] = base64.b64encode(pqc_sig).decode()

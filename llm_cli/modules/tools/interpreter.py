@@ -52,7 +52,9 @@ logger = logging.getLogger(__name__)
         "required": ["code"],
     },
 )
-def execute_python(code: str) -> str:
+def execute_python(
+    code: str, __security_requirements__: dict[str, Any] | None = None
+) -> str:
 
     # Use a default timeout of 300 seconds.
     timeout = int(
@@ -143,6 +145,18 @@ def execute_python(code: str) -> str:
             # --bind . /app: Bind current dir to /app
             # --die-with-parent: Kill sandbox if parent dies
             cwd = str(Path.cwd())
+            sandbox_profile = (__security_requirements__ or {}).get(
+                "sandbox_profile"
+            ) or "standard"
+
+            # Define mapping for main directory binding
+            # Isolated: Read-only bind for current directory
+            # Standard: Read-write bind for current directory
+            cwd_bind_flag = "--bind"
+            if sandbox_profile == "isolated":
+                cwd_bind_flag = "--ro-bind"
+                logger.info("CASS: Applying isolated sandbox profile (Read-Only CWD)")
+
             sandbox_cmd = [
                 bwrap_path,
                 "--ro-bind",
@@ -170,7 +184,7 @@ def execute_python(code: str) -> str:
                 "--tmpfs",
                 "/tmp",
                 "--unshare-all",  # Isolate network, ipc, uts, etc. (Tier 3)
-                "--bind",
+                cwd_bind_flag,
                 cwd,
                 cwd,
                 "--bind",

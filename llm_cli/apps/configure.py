@@ -383,17 +383,9 @@ def configure_sentinel(config: dict[str, Any]) -> None:
         s_config["mode"] = prompt_input(
             "Sentinel Mode (detect/collect)", s_config.get("mode", "collect")
         )
-        s_config["threshold_yellow"] = float(
-            prompt_input(
-                "Yellow Anomaly Threshold (Entropy)",
-                s_config.get("threshold_yellow", 3.5),
-            )
-        )
-        s_config["threshold_red"] = float(
-            prompt_input(
-                "Red Anomaly Threshold (Entropy)",
-                s_config.get("threshold_red", 5.0),
-            )
+        print(
+            "Note: Sentinel anomaly thresholds are now self-calibrating "
+            "based on model loss."
         )
 
 

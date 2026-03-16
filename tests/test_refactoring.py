@@ -166,22 +166,27 @@ class TestGlobalVariableElimination:
         with patch("llm_cli.clients.config.get_setting", return_value=None):
             mgr = ReasoningSentinelManager()
 
+        # Initial EMA loss is ~5.54. 
+        # Thresholds will be y=5.94, r=6.74
+        
         # Manually set a low score → should be green
         mgr.current_score = 1.0
         score, status = mgr.get_sentinel_status()
         assert score == 1.0
         assert status == "green"
 
-        # Manually set a medium score → should be yellow
-        mgr.current_score = 4.0
-        score, status = mgr.get_sentinel_status()
-        assert score == 4.0
-        assert status == "yellow"
-
-        # Manually set a high score → should be red
+        # Manually set a score above yellow but below red
+        # (Based on initial EMA 5.54 + 0.4 = 5.94)
         mgr.current_score = 6.0
         score, status = mgr.get_sentinel_status()
         assert score == 6.0
+        assert status == "yellow"
+
+        # Manually set a high score above red
+        # (Based on initial EMA 5.54 + 1.2 = 6.74)
+        mgr.current_score = 7.0
+        score, status = mgr.get_sentinel_status()
+        assert score == 7.0
         assert status == "red"
 
     def test_tool_registry_wrapper_uses_injected_sentinel(self):

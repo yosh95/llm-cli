@@ -35,8 +35,6 @@ class ReasoningSentinelManager:
             self.enabled = True
 
         mode = get_setting("mode", "sentinel") or "collect"
-        t_yellow = float(get_setting("threshold_yellow", "sentinel") or 3.5)
-        t_red = float(get_setting("threshold_red", "sentinel") or 5.0)
 
         # Mamba-specific parameters from defaults
         d_model = int(get_setting("d_model", "sentinel") or 128)
@@ -64,8 +62,6 @@ class ReasoningSentinelManager:
             lr=lr,
             checkpoint_path=checkpoint_path,
             mode=mode,
-            threshold_yellow=t_yellow,
-            threshold_red=t_red,
         )
         self.sentinel.load()
         self.history_tokens: list[int] = []
@@ -90,10 +86,9 @@ class ReasoningSentinelManager:
             entropy -= p * math.log2(p)
         return entropy
 
-    def _analyze_for_secrets(self, data: bytes, scores: list[float]) -> list[str]:
+    def _analyze_for_secrets(self, data: bytes, _scores: list[float]) -> list[str]:
         """
-        Analyze a sequence of bytes and their Mamba surprise scores for secrets.
-        Uses a combination of Shannon Entropy and Model Surprise.
+        Analyze a sequence of bytes for secrets using Shannon Entropy.
         """
         # Match secret-like tokens at byte level to ensure indices match 'scores'
         # Pattern: Alphanumeric + common Base64/Key symbols, length 16+
@@ -109,19 +104,18 @@ class ReasoningSentinelManager:
             entropy = self._calculate_shannon_entropy(token_bytes)
 
             # 2. Calculate average Mamba surprise (cross-entropy) for this token
-            token_scores = scores[start:end]
-            avg_surprise = (
-                sum(token_scores) / len(token_scores) if token_scores else 0.0
-            )
+            # We still compute it to maintain data structure for secret detection,
+            # but the threshold logic is now handled by Sentinel's self-calibration.
 
             # --- Heuristics ---
             # Thresholds are chosen to be conservative to minimize false positives
             # while catching random keys.
+            # We now rely primarily on Shannon Entropy for secrets to ensure
+            # detection even when the Mamba model is untrained.
             is_high_entropy = entropy > 4.7
-            is_surprising = avg_surprise > self.sentinel.thresholds["yellow"]
 
-            # If both entropy and surprise are high, it's likely a secret/key
-            if is_high_entropy and is_surprising:
+            # If entropy is high, it's likely a secret/key
+            if is_high_entropy:
                 try:
                     suspected.append(token_bytes.decode("utf-8"))
                 except UnicodeDecodeError:

@@ -158,8 +158,6 @@ default = "llama3.2:3b"
 [sentinel]
 enabled = true
 mode = "detect"
-threshold_yellow = 3.5
-threshold_red = 5.0
 d_model = 128
 n_layers = 1
 d_state = 8

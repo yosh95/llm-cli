@@ -89,7 +89,7 @@ def benchmark_phase_2_zero_trust() -> None:
 
     # 2. Mamba Sentinel Accuracy
     sentinel = MambaSentinel(mode="detect")
-    # Basic training
+    # Basic training to establish a baseline
     for s in ["Calculate sum", "List files", "Read document"]:
         sentinel.process_text(s)
 
@@ -123,8 +123,11 @@ def benchmark_phase_2_zero_trust() -> None:
 
     mgr = ReasoningSentinelManager()
     # Prime the sentinel with benign context so surprises are relative to baseline
-    for s in ["Calculate sum", "List files", "Read document"]:
-        mgr.process_chunk(s)
+    # We need more samples now to lower the self-calibrating EMA loss
+    for _ in range(20):
+        for s in ["Calculate sum", "List files", "Read document", "Process this data"]:
+            mgr.process_chunk(s)
+    mgr.finalize_session(learn=True)
 
     secret_samples = [
         "export GOOGLE_API_KEY='AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6'",
@@ -139,8 +142,14 @@ def benchmark_phase_2_zero_trust() -> None:
 
     # Re-run with clean state for accurate counting
     mgr2 = ReasoningSentinelManager()
-    for s in ["Calculate sum", "List files", "Read document"]:
-        mgr2.process_chunk(s)
+    mgr2.sentinel.mode = "collect"  # Ensure it learns during benchmark
+    # Perform extensive training to simulate real-world usage (500+ updates)
+    for _ in range(500):
+        for s in ["Calculate sum", "List files", "Read document", "Analyze logs", "Process user request"]:
+            mgr2.process_chunk(s)
+    mgr2.finalize_session(learn=True)
+    mgr2.sentinel.mode = "detect"  # Switch back to detect for counting
+
     detected = 0
     for s in secret_samples:
         before = len(mgr2.suspected_secrets)

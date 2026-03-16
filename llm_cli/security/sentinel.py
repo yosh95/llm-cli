@@ -26,8 +26,6 @@ class MambaSentinel:
         lr: float = 1e-3,
         checkpoint_path: str = "sentinel_state.npz",
         mode: str = "collect",
-        threshold_yellow: float = 3.5,
-        threshold_red: float = 5.0,
     ):
         self.config = MambaConfig(
             d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand
@@ -36,7 +34,10 @@ class MambaSentinel:
         self.vocab_size = 256
         self.checkpoint_path = checkpoint_path
         self.mode = mode  # "collect" (training) or "detect" (active monitoring)
-        self.thresholds = {"yellow": threshold_yellow, "red": threshold_red}
+        self.update_count = 0
+
+        # Self-calibration: Start at random entropy (ln(256) ≈ 5.54)
+        self.ema_loss = 5.54
 
         # Layers
         self.embedding = NumPyEmbedding(self.vocab_size, d_model)
@@ -56,20 +57,41 @@ class MambaSentinel:
         self.states: list[Any] | None = None
         self.last_logits: np.ndarray | None = None
 
+    @property
+    def thresholds(self) -> dict[str, float]:
+        """Returns the current dynamic thresholds for compatibility."""
+        y, r = self.get_dynamic_thresholds()
+        return {"yellow": y, "red": r}
+
     def reset_state(self) -> None:
         self.states = None
         self.last_logits = None
 
     def _get_params(self) -> dict[str, np.ndarray]:
-        params = {
+        params: dict[str, np.ndarray] = {
             "embedding.weight": self.embedding.weight,
             "norm_f.weight": self.norm_f.weight,
+            "meta.update_count": np.array([self.update_count], dtype=np.int64),
+            "meta.ema_loss": np.array([self.ema_loss], dtype=np.float64),
         }
         for i in range(self.n_layers):
             for k, v in self.mamba_layers[i].params.items():
                 params[f"layer.{i}.mamba.{k}"] = v
             params[f"layer.{i}.norm.weight"] = self.norms[i].weight
         return params
+
+    def get_dynamic_thresholds(self) -> tuple[float, float]:
+        """
+        Calculates adaptive thresholds based on the model's own performance.
+        Status is determined relative to the exponential moving average of loss.
+        """
+        # Yellow: A significant deviation from the learned pattern (+0.4)
+        # Red: A structural deviation (highly surprising for the model) (+1.2)
+        # Using margins above EMA ensures we follow the loss curve down.
+        current_yellow = self.ema_loss + 0.4
+        current_red = self.ema_loss + 1.2
+
+        return current_yellow, current_red
 
     def forward(self, input_ids: np.ndarray, training: bool = False) -> np.ndarray:
         # input_ids: (B, L)
@@ -115,11 +137,12 @@ class MambaSentinel:
         self.last_logits = self.lm_head.forward(x_final)
         self.states = new_states
 
-        # Determine status
+        # Determine status using dynamic thresholds
+        t_yellow, t_red = self.get_dynamic_thresholds()
         status = "green"
-        if score > self.thresholds["red"]:
+        if score > t_red:
             status = "red"
-        elif score > self.thresholds["yellow"]:
+        elif score > t_yellow:
             status = "yellow"
 
         # In collect mode, we might want to update the model online
@@ -194,6 +217,7 @@ class MambaSentinel:
         input_ids: (1, L)
         targets: (1, L)
         """
+        self.update_count += 1
         # Forward pass
         logits = self.forward(input_ids, training=True)
 
@@ -205,11 +229,22 @@ class MambaSentinel:
         exp_logits = np.exp(logits - logits_max)
         probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
 
+        # Track loss for self-calibration
+        batch_loss = 0.0
         grad_logits = probs.copy()
         for b in range(B):
             for l_idx in range(L):
                 target = targets[b, l_idx]
                 grad_logits[b, l_idx, target] -= 1.0
+                batch_loss += -np.log(probs[b, l_idx, target] + 1e-10)
+
+        avg_loss = batch_loss / (B * L)
+
+        # Update EMA: faster adaptation early on, then stabilizes
+        # This allows the thresholds to follow the loss curve down.
+        alpha = max(0.01, 1.0 / (10.0 + self.update_count * 0.1))
+        self.ema_loss = (1 - alpha) * self.ema_loss + alpha * avg_loss
+
         grad_logits /= B * L
 
         # Backward pass
@@ -272,6 +307,12 @@ class MambaSentinel:
         if Path(self.checkpoint_path).exists():
             try:
                 data = np.load(self.checkpoint_path)
+
+                # 0. Metadata
+                if "meta.update_count" in data:
+                    self.update_count = int(data["meta.update_count"][0])
+                if "meta.ema_loss" in data:
+                    self.ema_loss = float(data["meta.ema_loss"][0])
 
                 # 1. Embedding
                 if "embedding.weight" in data:

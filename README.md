@@ -33,7 +33,7 @@ Detailed architectural insights and security analysis are available in the follo
 ## Key Features
 
 - **Unified Interface**: Access major cloud LLMs (Gemini, OpenAI, Claude, Grok) and **Local LLMs (Ollama)** via a single `llm` command.
-- **Reasoning Anomaly Monitor**: A lightweight **pure NumPy SSM** (Mamba) that monitors AI reasoning processes for statistical anomalies in real-time. It helps track "Reasoning Integrity" without heavy dependencies like Torch.
+- **Reasoning Anomaly Monitor**: A lightweight **pure NumPy SSM** (Mamba) that monitors AI reasoning processes for statistical anomalies in real-time. It features a **Self-Calibrating engine** that automatically adjusts detection thresholds based on the model's learning progress (EMA loss), eliminating the need for manual tuning.
 - **PQC Client Verification**: Verifies client-side integrity and generates PQC-signed (ML-DSA) tokens embedded in tool calls to provide non-repudiation.
 - **Local LLM Support**: Use models locally via **Ollama** for privacy and offline usage.
 - **Autonomous Agent**: The AI can manage files, **interact with the system via Python**, search the web, and attach media files.
@@ -274,7 +274,7 @@ Licensed under [Apache License 2.0](LICENSE).
 ## 主な機能
 
 - **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLM (Gemini, OpenAI, Claude, Grok) と **Ollama (Local)** にアクセス。
-- **推論異常モニタ**: **NumPyのみで実装された軽量SSM** (Mamba) が、AIの推論プロセスをリアルタイムで監視。統計的な異常（Reasoning Integrity）を追跡し、意図しない挙動の早期発見をサポートします。
+- **推論異常モニタ**: **NumPyのみで実装された軽量SSM** (Mamba) が、AIの推論プロセスをリアルタイムで監視。モデルの学習進捗（EMA損失）に基づき、検知基準を自動で最適化する **「自己校正型エンジン」** を搭載しており、手動の閾値調整なしで高度な異常検知を実現します。
 - **PQC クライアント整合性検証**: クライアントのソースコードの整合性を検証し、PQC署名 (ML-DSA) されたトークンを発行。MCPツール実行時に自身の健全性を証明します。
 - **ローカルLLM対応**: **Ollama** を利用し、プライバシーを確保しながらオフラインでもモデルを実行。
 - **自律型エージェント**: ファイル操作、**Python実行**、Web検索、メディア添付を自律的に実行。

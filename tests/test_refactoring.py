@@ -166,9 +166,9 @@ class TestGlobalVariableElimination:
         with patch("llm_cli.clients.config.get_setting", return_value=None):
             mgr = ReasoningSentinelManager()
 
-        # Initial EMA loss is ~5.54. 
+        # Initial EMA loss is ~5.54.
         # Thresholds will be y=5.94, r=6.74
-        
+
         # Manually set a low score → should be green
         mgr.current_score = 1.0
         score, status = mgr.get_sentinel_status()

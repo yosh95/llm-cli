@@ -145,7 +145,13 @@ def benchmark_phase_2_zero_trust() -> None:
     mgr2.sentinel.mode = "collect"  # Ensure it learns during benchmark
     # Perform extensive training to simulate real-world usage (500+ updates)
     for _ in range(500):
-        for s in ["Calculate sum", "List files", "Read document", "Analyze logs", "Process user request"]:
+        for s in [
+            "Calculate sum",
+            "List files",
+            "Read document",
+            "Analyze logs",
+            "Process user request",
+        ]:
             mgr2.process_chunk(s)
     mgr2.finalize_session(learn=True)
     mgr2.sentinel.mode = "detect"  # Switch back to detect for counting

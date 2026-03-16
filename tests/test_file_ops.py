@@ -14,7 +14,7 @@ def _get_result_text(result: str | dict) -> str:
     This helper normalises both forms so that tests remain provider-agnostic.
     """
     if isinstance(result, dict):
-        return str(result.get("response", ""))
+        return str(result.get("result", result.get("response", "")))
     return result
 
 

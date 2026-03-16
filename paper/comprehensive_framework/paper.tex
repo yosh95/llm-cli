@@ -143,8 +143,8 @@ By dynamically scaling security measures, the CASS orchestrator ensures that exp
 
 \begin{table}[htbp]
 \caption{CASS PQC Agility Mapping}
-\begin{center}
-\begin{tabular}{|l|l|l|}
+\centering
+\begin{tabularx}{\columnwidth}{|X|l|X|}
 \hline
 \textbf{Risk Profile} & \textbf{PQC Variant} & \textbf{Target Resilience} \\
 \hline
@@ -152,9 +152,8 @@ Standard (e.g., \texttt{search\_web}) & ML-DSA-44 & NIST Level 2 (Low Latency) \
 Moderate (e.g., \texttt{read\_file\_content}) & ML-DSA-65 & NIST Level 3 (Balanced) \\
 High (e.g., \texttt{execute\_python}) & ML-DSA-87 & NIST Level 5 (Maximum) \\
 \hline
-\end{tabular}
+\end{tabularx}
 \label{tab:pqc_agility}
-\end{center}
 \end{table}
 
 The implementation provisions \textbf{three physically separate key pairs} on disk (\texttt{id\_pqc\_l2.key}, \texttt{id\_pqc\_l3.key}, \texttt{id\_pqc\_l5.key}) corresponding to each NIST security level. \texttt{PQCAgilityManager} selects the appropriate key path at runtime, achieving true cryptographic isolation between risk tiers without additional infrastructure.

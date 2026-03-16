@@ -335,8 +335,12 @@ def execute_tool_call(
             sig_b64 = result_data.get("pqc_signature", "")
             v_id = result_data.get("verification_id", "unknown")
             variant = result_data.get("algorithm", "ML-DSA-65")
-            # The actual content is usually in "result" or similar
-            content_to_verify = str(result_data.get("result", result_data))
+            # The actual content is usually in "result" or "response"
+            content_to_verify = result_data.get("result", result_data.get("response"))
+            if content_to_verify is None:
+                content_to_verify = str(result_data)
+            else:
+                content_to_verify = str(content_to_verify)
 
             try:
                 import base64
@@ -351,9 +355,6 @@ def execute_tool_call(
                         f"(ID: {v_id})",
                         style="green",
                     )
-                    # Strip the signature and metadata before passing to LLM
-                    # to maintain context efficiency.
-                    result_data = content_to_verify
                 else:
                     session._print_block(
                         f"[bold red]❌ PQC Signature Verification Failed[/bold red] "
@@ -362,6 +363,11 @@ def execute_tool_call(
                     )
             except Exception as e:
                 logger.warning(f"Signature verification error: {e}")
+
+            # Always strip the signature and metadata before passing to LLM
+            # regardless of verification success/failure to maintain context efficiency
+            # and prevent raw JSON leakage.
+            result_data = content_to_verify
 
         p_str = str(result_data)
         max_len = int(get_setting("max_output_length", "general") or 10000)

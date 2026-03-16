@@ -246,7 +246,7 @@ class ResponseSigner:
         signature = PQCProvider.sign(message, private_key, variant=variant)
 
         return {
-            "response": response_text,
+            "result": response_text,
             "verification_id": source_verification_id,
             "pqc_signature": base64.urlsafe_b64encode(signature).decode(),
             "algorithm": variant,

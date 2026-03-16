@@ -170,8 +170,6 @@ class TestPQCAgilityManager:
             "execute_python",
             "edit_file",
             "create_or_overwrite_file",
-            "delete_file",
-            "database_query",
         ]
         for tool in high_risk:
             level = PQCAgilityManager.get_required_level(tool)

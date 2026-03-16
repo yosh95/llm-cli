@@ -67,7 +67,7 @@ def test_edit_file_success(tmp_path, monkeypatch):
 def test_edit_file_not_found(tmp_path, monkeypatch):
     """Test error when file does not exist."""
     monkeypatch.chdir(tmp_path)
-    result = edit_file("nonexistent.txt", "search", "replace")
+    result = _get_result_text(edit_file("nonexistent.txt", "search", "replace"))
     assert "Error" in result
     assert "not a file" in result
 
@@ -78,5 +78,5 @@ def test_edit_file_search_block_not_found(tmp_path, monkeypatch):
     test_path = "no_match.txt"
     (tmp_path / test_path).write_text("Line A\nLine B", encoding="utf-8")
 
-    result = edit_file(test_path, search="Line C", replace="Line D")
+    result = _get_result_text(edit_file(test_path, search="Line C", replace="Line D"))
     assert "not found exactly or fuzzily" in result

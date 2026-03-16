@@ -187,8 +187,6 @@ class PQCAgilityManager:
             "execute_python",
             "edit_file",
             "create_or_overwrite_file",
-            "delete_file",
-            "database_query",
         }
 
         # Dynamic context analysis (e.g., sensitive file access)
@@ -462,7 +460,6 @@ def sign_tool_result(result_text: str) -> str | dict:
 
     try:
         from llm_cli.security.identity import IdentityManager
-        from llm_cli.security.pqc import ResponseSigner
 
         pqc_priv = IdentityManager._get_pqc_private_key_content()
         verification_id = str(uuid.uuid4())

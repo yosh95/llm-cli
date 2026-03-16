@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 def execute_python(
     code: str, __security_requirements__: dict[str, Any] | None = None
 ) -> Any:
+    from llm_cli.security.pqc import sign_tool_result
 
     # Use a default timeout of 300 seconds.
     timeout = int(
@@ -264,8 +265,6 @@ def execute_python(
 
                 output = f"{result}\nExit Code: {exit_code}"
 
-                from llm_cli.security.pqc import sign_tool_result
-
                 return sign_tool_result(output)
 
             except subprocess.TimeoutExpired:
@@ -274,12 +273,13 @@ def execute_python(
                 else:
                     proc.kill()
                 stdout, stderr = proc.communicate()
-                raise RuntimeError(
-                    f"Script timed out ({timeout}s). Partial STDOUT:\n{stdout}"
-                ) from None
+                error_msg = (
+                    f"Error: Script timed out ({timeout}s). Partial STDOUT:\n{stdout}"
+                )
+                return sign_tool_result(error_msg)
     except Exception as e:
         logger.error(f"Error executing Python: {e}")
-        raise e
+        return sign_tool_result(f"Error: {e}")
     finally:
         path_obj = Path(tmp_path)
         if path_obj.exists():

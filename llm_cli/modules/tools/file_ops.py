@@ -406,11 +406,13 @@ def edit_file(
     Search and replace a specific block of text in a file.
     Supports flexible matching to avoid common LLM errors.
     """
+    from llm_cli.security.pqc import sign_tool_result
+
     try:
         validate_path(path)
         p = Path(path)
         if not p.is_file():
-            return f"Error: '{path}' is not a file."
+            return sign_tool_result(f"Error: '{path}' is not a file.")
 
         content = p.read_text(encoding="utf-8")
         match_start, match_end = -1, -1
@@ -419,7 +421,7 @@ def edit_file(
         if search in content:
             count = content.count(search)
             if count > 1:
-                return (
+                return sign_tool_result(
                     f"Error: {count} exact matches found. "
                     "Please provide a more unique search block."
                 )
@@ -429,7 +431,9 @@ def edit_file(
             # Fuzzy match: Ignore whitespace/indentation differences
             stripped_search = search.strip()
             if not stripped_search:
-                return "Error: 'search' block is empty or contains only whitespace."
+                return sign_tool_result(
+                    "Error: 'search' block is empty or contains only whitespace."
+                )
 
             # Construct a regex that allows any whitespace
             # between non-whitespace sequences
@@ -439,12 +443,12 @@ def edit_file(
             matches = list(re.finditer(pattern, content, re.DOTALL))
 
             if not matches:
-                return (
+                return sign_tool_result(
                     "Error: The 'search' block was not found exactly or fuzzily. "
                     "Check for typos or significant differences."
                 )
             if len(matches) > 1:
-                return (
+                return sign_tool_result(
                     f"Error: {len(matches)} fuzzy matches found. "
                     "Please provide a more unique search block."
                 )
@@ -466,19 +470,17 @@ def edit_file(
         diff_str = "".join(diff)
 
         if dry_run:
-            return f"Dry run enabled. No changes made.\n\n{diff_str}"
+            return sign_tool_result(f"Dry run enabled. No changes made.\n\n{diff_str}")
 
         p.write_text(new_content, encoding="utf-8")
         result_text = f"Successfully updated {path}.\n\n{diff_str}"
 
-        from llm_cli.security.pqc import sign_tool_result
-
         return sign_tool_result(result_text)
 
     except PathValidationError as e:
-        return f"Security Error: {e}"
+        return sign_tool_result(f"Security Error: {e}")
     except Exception as e:
-        return f"Error: {e}"
+        return sign_tool_result(f"Error: {e}")
 
 
 @tool(
@@ -497,6 +499,8 @@ def edit_file(
     },
 )
 def create_or_overwrite_file(path: str, content: str) -> "str | dict":
+    from llm_cli.security.pqc import sign_tool_result
+
     try:
         validate_path(path)
         p = Path(path)
@@ -504,11 +508,9 @@ def create_or_overwrite_file(path: str, content: str) -> "str | dict":
         p.write_text(content, encoding="utf-8")
         result_text = f"Successfully wrote to {path}"
 
-        from llm_cli.security.pqc import sign_tool_result
-
         return sign_tool_result(result_text)
 
     except PathValidationError as e:
-        return f"Security Error: {e}"
+        return sign_tool_result(f"Security Error: {e}")
     except Exception as e:
-        return f"Error: {e}"
+        return sign_tool_result(f"Error: {e}")

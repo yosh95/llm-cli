@@ -4,8 +4,6 @@ import os
 import platform
 from pathlib import Path
 
-import pytest
-
 from llm_cli.modules.tools.interpreter import execute_python
 
 
@@ -47,10 +45,8 @@ def test_python_timeout():
     os.environ["LLM_CLI_COMMAND_TIMEOUT"] = "2"
     try:
         code = "import time; time.sleep(10)"
-        with pytest.raises(RuntimeError) as excinfo:
-            execute_python(code)
-
-        assert "Script timed out (2s)." in str(excinfo.value)
+        result = _get_result_text(execute_python(code))
+        assert "Error: Script timed out (2s)." in result
     finally:
         if "LLM_CLI_COMMAND_TIMEOUT" in os.environ:
             del os.environ["LLM_CLI_COMMAND_TIMEOUT"]

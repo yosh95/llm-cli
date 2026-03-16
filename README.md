@@ -190,7 +190,7 @@ A structural guardrail that prevents accidental transmission of high-entropy cre
 - **Linux Sandboxing (Bubblewrap)**: On Linux, provides an optional isolated environment for Python execution using `bubblewrap`.
 - **Resource Constraints**: Apply timeouts and memory limits to tool execution.
 - **Path Guardrails**: Restricts file operations to `allowed_paths`.
-- **Human-in-the-Loop**: By default, code execution and file modifications **require human approval**.
+- **Human-in-the-Loop & Explanation Enforcement**: Critical actions (code execution, file edits) require human approval by default. Every tool automatically mandates an `explanation` parameter, forcing the LLM to justify its intent in natural language before execution, providing semantic transparency.
 - **Output Truncation**: Prevents very large outputs from consuming too many resources.
 
 ### 🔑 Role-Based Tool Access
@@ -431,7 +431,7 @@ APIキーやトークンなどの高エントロピーな機密情報が、誤�
 - **Linuxサンドボックス (Bubblewrap)**: Linux環境では `bubblewrap` を用いたプロセスの隔離が可能です。
 - **リソース制限**: タイムアウト、メモリ制限、およびCPU時間の制限を適用します。
 - **パス制限**: `allowed_paths` 内の操作に制限します。
-- **Human-in-the-Loop**: 原則として、コード実行やファイル操作には**人間の承認が必要**です。
+- **Human-in-the-Loop & 説明の強制**: 原則として、コード実行やファイル操作には人間の承認が必要です。すべてのツールに `explanation` パラメータが自動的に付与され、実行前に AI がその意図を自然言語で説明することを強制することで、意味論的な透明性を確保します。
 - **出力制限**: 大量出力を切り詰め、リソース枯渇を防止します。
 
 ### 🔑 ロールベースのアクセス制御

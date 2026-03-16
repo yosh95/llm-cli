@@ -1,9 +1,11 @@
 import base64
 import json
 
+import pytest
+
 from llm_cli.security.identity import IdentityManager
 from llm_cli.security.integrity import IntegrityVerifier
-from llm_cli.security.pqc import HybridSigner, PQCProvider
+from llm_cli.security.pqc import HybridSigner, PQCAgilityManager, PQCProvider
 
 
 def test_pqc_provider_key_gen():
@@ -144,3 +146,82 @@ def test_integrity_verifier_pqc(tmp_path, monkeypatch):
         json.dump(data, f)
 
     assert verifier.verify() is False
+
+
+# ---------------------------------------------------------------------------
+# PQCAgilityManager – tool name / risk-level mapping
+# ---------------------------------------------------------------------------
+
+
+class TestPQCAgilityManager:
+    """Verify that PQCAgilityManager returns the correct ML-DSA variant for each
+    tool name and that no stale/incorrect tool names slip back in."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_config(self, monkeypatch):
+        """Provide a minimal config so the manager does not hit the filesystem."""
+        monkeypatch.setattr(
+            "llm_cli.clients.config._load_config_from_file",
+            lambda: {"security": {"scaling_patterns": [], "blocked_paths": []}},
+        )
+
+    def test_high_risk_tools_use_ml_dsa_87(self):
+        high_risk = [
+            "execute_python",
+            "edit_file",
+            "create_or_overwrite_file",
+            "delete_file",
+            "database_query",
+        ]
+        for tool in high_risk:
+            level = PQCAgilityManager.get_required_level(tool)
+            assert level == "ML-DSA-87", (
+                f"Expected ML-DSA-87 for high-risk tool '{tool}', got {level}"
+            )
+
+    def test_moderate_risk_tools_use_ml_dsa_65(self):
+        """Ensure all tools registered in moderate_risk_tools use ML-DSA-65.
+
+        This test was added to catch the historical bug where 'read_file'
+        (non-existent) was used instead of the actual tool name 'read_file_content'.
+        """
+        moderate_risk = [
+            "read_file_content",  # actual registered tool name
+            "list_files_in_directory",
+            "search_files",
+            "search_web",
+            "read_url_content",
+        ]
+        for tool in moderate_risk:
+            level = PQCAgilityManager.get_required_level(tool)
+            assert level == "ML-DSA-65", (
+                f"Expected ML-DSA-65 for moderate-risk tool '{tool}', got {level}"
+            )
+
+    def test_stale_tool_name_read_file_is_low_risk(self):
+        """'read_file' is NOT a registered tool name and must NOT be treated as
+        moderate-risk after the fix.  It should fall through to ML-DSA-44."""
+        level = PQCAgilityManager.get_required_level("read_file")
+        assert level == "ML-DSA-44", (
+            f"Stale tool name 'read_file' should be low-risk (ML-DSA-44), got {level}"
+        )
+
+    def test_low_risk_unknown_tool_uses_ml_dsa_44(self):
+        level = PQCAgilityManager.get_required_level("some_unknown_tool")
+        assert level == "ML-DSA-44"
+
+    def test_sensitive_context_escalates_to_ml_dsa_87(self, monkeypatch):
+        """If args contain a sensitive pattern the level should escalate.
+
+        We override the config fixture to include '.ssh/' as a scaling pattern,
+        which is the default value in defaults.toml.  Without a matching pattern
+        in 'scaling_patterns' the sensitive-context branch cannot fire.
+        """
+        monkeypatch.setattr(
+            "llm_cli.clients.config._load_config_from_file",
+            lambda: {"security": {"scaling_patterns": [".ssh/"], "blocked_paths": []}},
+        )
+        level = PQCAgilityManager.get_required_level(
+            "read_file_content", args={"path": "/home/user/.ssh/id_rsa"}
+        )
+        assert level == "ML-DSA-87"

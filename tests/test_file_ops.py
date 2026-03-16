@@ -6,6 +6,18 @@ from llm_cli.modules.tools.file_ops import (
 )
 
 
+def _get_result_text(result: str | dict) -> str:
+    """Extract the plain text from a tool result.
+
+    High-risk tools (create_or_overwrite_file, edit_file) now return a signed
+    dict when PQC keys are available, or a plain str as a fallback.
+    This helper normalises both forms so that tests remain provider-agnostic.
+    """
+    if isinstance(result, dict):
+        return str(result.get("response", ""))
+    return result
+
+
 def test_write_and_read_file(tmp_path, monkeypatch):
     """Test writing a file and then reading it back."""
     monkeypatch.chdir(tmp_path)
@@ -14,7 +26,7 @@ def test_write_and_read_file(tmp_path, monkeypatch):
     content = "Hello, LLM tools!"
 
     # Test create_or_overwrite_file
-    write_result = create_or_overwrite_file(test_path, content)
+    write_result = _get_result_text(create_or_overwrite_file(test_path, content))
     assert "Successfully wrote" in write_result
     assert (tmp_path / test_path).exists()
 
@@ -22,7 +34,7 @@ def test_write_and_read_file(tmp_path, monkeypatch):
 def test_file_ops_security_block(tmp_path, monkeypatch):
     """Test that file operations block paths outside the sandbox."""
     monkeypatch.chdir(tmp_path)
-    result = create_or_overwrite_file("../illegal.txt", "content")
+    result = _get_result_text(create_or_overwrite_file("../illegal.txt", "content"))
     assert "Security Error" in result or "outside the sandbox" in result.lower()
 
 
@@ -36,7 +48,9 @@ def test_edit_file_success(tmp_path, monkeypatch):
     # Replace Line 2 and Line 3
     search_block = "Line 2\nLine 3"
     replacement = "Line 2 Mod\nLine 3 Mod"
-    result = edit_file(test_path, search=search_block, replace=replacement)
+    result = _get_result_text(
+        edit_file(test_path, search=search_block, replace=replacement)
+    )
 
     assert "Successfully updated" in result
 

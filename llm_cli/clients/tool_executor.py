@@ -152,21 +152,29 @@ def execute_tool_call(
     requirements = cass.get_security_requirements(name)
     risk_level = cass.evaluate_risk(name)
 
-    # Force approval if Sentinel detects RED status and is in active detect mode
+    # Force approval if Sentinel detects RED status and is in active detect mode.
     # (Real-time Intent Deviation Detection)
+    #
+    # Design rationale – Human-in-the-Loop (HITL) escalation:
+    # Rather than autonomously blocking execution, CASS deliberately escalates to
+    # a mandatory human approval dialog when the Mamba Sentinel fires at RED level.
+    # This preserves Human-in-the-Loop oversight as required by NIST AI RMF
+    # and avoids the UX damage of silent, opaque rejections while still ensuring
+    # that every anomalous action receives explicit human confirmation.
     if status == "red" and requirements["mamba_enforcement"] == "strict_block":
         skip_approval = False
         session._print_block(
-            "[bold red]CASS Escalation:[/bold red] Strict enforcement active due to "
-            f"anomaly detection and risk profile ({risk_level.value}).",
+            "[bold red]CASS Escalation:[/bold red] Mandatory human review required.\n"
+            f"Mamba Sentinel anomaly score: {score:.2f} (status: {status.upper()})\n"
+            f"Risk profile: {risk_level.value.upper()} – strict enforcement active.",
             style="red",
         )
 
-    # Require PQC signature for High Risk tools if claim in paper
-    if risk_level == RiskLevel.HIGH:
-        # In this implementation, we ensure verification is performed later
-        # and maybe flag if it's missing (though tools need to support it)
-        pass
+    # Require PQC signature for High Risk tools (Tier 3 enforcement).
+    # High-risk tools (edit_file, create_or_overwrite_file, execute_python) embed
+    # a ResponseSigner dict in their return value; tool_executor verifies it below.
+    # A warning (not hard block) is issued if the signature is absent so that
+    # environments without PQC keys still function while operators are alerted.
 
     is_write = (
         name == "write_file"

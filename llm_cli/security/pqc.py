@@ -212,7 +212,13 @@ class PQCAgilityManager:
             return "ML-DSA-87"  # NIST Level 5 (Maximum Resilience)
 
         # Adaptive scaling for moderate tools
-        moderate_risk_tools = {"read_file", "list_files_in_directory"}
+        moderate_risk_tools = {
+            "read_file_content",
+            "list_files_in_directory",
+            "search_files",
+            "search_web",
+            "read_url_content",
+        }
         if tool_name in moderate_risk_tools:
             return "ML-DSA-65"  # NIST Level 3 (Balanced)
 

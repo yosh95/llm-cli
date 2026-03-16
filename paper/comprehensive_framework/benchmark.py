@@ -99,13 +99,66 @@ def benchmark_phase_2_zero_trust() -> None:
     score = mean(r["score"] for r in res)
     print(f"Mamba Sentinel IDS Score (Adversarial): {score:.4f}")
 
-    latencies = []
-    for _ in range(50):
+    # 3. Mamba Sentinel Latency – measured over exactly 100 UTF-8 tokens (bytes)
+    #    This matches the unit reported in Table III of the paper ("per 100 tokens").
+    #    A single ASCII character == 1 byte == 1 token in the byte-level SSM.
+    TOKENS_PER_BLOCK = 100
+    token_block = ("A" * TOKENS_PER_BLOCK).encode("utf-8")  # 100 bytes = 100 tokens
+    assert len(token_block) == TOKENS_PER_BLOCK, "Token block size mismatch"
+
+    latencies_100 = []
+    for _ in range(100):
         sentinel.reset_state()
         t = time.perf_counter()
-        sentinel.analyze(b"Normal agent activity")
-        latencies.append((time.perf_counter() - t) * 1000)
-    print(f"Mamba Sentinel Latency: {mean(latencies):.4f} ms (per block)")
+        sentinel.analyze(token_block)
+        latencies_100.append((time.perf_counter() - t) * 1000)
+    print(
+        f"Mamba Sentinel Latency: {mean(latencies_100):.4f} ms "
+        f"(per {TOKENS_PER_BLOCK} tokens, n=100)"
+    )
+
+    # 4. Secret Detection (Entropy + Surprise dual-signal)
+    #    Evaluates the multi-signal heuristic used in integrity.py
+    from llm_cli.security.integrity import ReasoningSentinelManager
+
+    mgr = ReasoningSentinelManager()
+    # Prime the sentinel with benign context so surprises are relative to baseline
+    for s in ["Calculate sum", "List files", "Read document"]:
+        mgr.process_chunk(s)
+
+    secret_samples = [
+        "export GOOGLE_API_KEY='AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6'",
+        "The secret token is: sk-proj-12345abcdeFGHIJ67890klmnopqrstUVWXY",
+        "password = 'P@ssw0rd123!@#$'",
+    ]
+    benign_samples = [
+        "I will list files in the current directory.",
+        "The user asked for a summary of the README.",
+        "Formatting output as a clean Markdown table.",
+    ]
+
+    # Re-run with clean state for accurate counting
+    mgr2 = ReasoningSentinelManager()
+    for s in ["Calculate sum", "List files", "Read document"]:
+        mgr2.process_chunk(s)
+    detected = 0
+    for s in secret_samples:
+        before = len(mgr2.suspected_secrets)
+        mgr2.process_chunk(s)
+        if len(mgr2.suspected_secrets) > before:
+            detected += 1
+    false_positives = 0
+    for s in benign_samples:
+        before = len(mgr2.suspected_secrets)
+        mgr2.process_chunk(s)
+        if len(mgr2.suspected_secrets) > before:
+            false_positives += 1
+
+    print(
+        f"Secret Detection (Entropy+Surprise): "
+        f"{detected}/{len(secret_samples)} detected, "
+        f"{false_positives}/{len(benign_samples)} false positives"
+    )
 
 
 def benchmark_phase_3_pqc() -> None:

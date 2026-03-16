@@ -92,7 +92,7 @@ Before execution, generated code is parsed into an Abstract Syntax Tree (AST). A
 All file-related operations are restricted to a designated workspace via path resolution and symbolic link verification. To prevent resource exhaustion attacks, OS-level resource limits (\texttt{rlimit}) cap memory usage and execution time. Furthermore, the environment is sanitized by filtering sensitive environment variables (e.g., API keys) before passing them to the sub-process.
 
 \subsection{Sandboxing with Bubblewrap}
-The final containment is provided by \textbf{Bubblewrap} (\texttt{bwrap}), which utilizes Linux namespaces to create an unprivileged environment with no network access, an empty filesystem (except for the designated workspace), and no visibility of host processes. In high-risk scenarios, CASS escalates the sandbox profile to "isolated," making the workspace read-only for scripts that only require analysis.
+The final containment is provided by \textbf{Bubblewrap} (\texttt{bwrap}), which utilizes Linux namespaces to create an unprivileged sandbox. Specifically, the implementation mounts the minimum read-only set of system paths required for Python execution (\texttt{/usr}, \texttt{/lib}, \texttt{/lib64}, \texttt{/bin}, \texttt{/sbin}) and provides an isolated \texttt{/tmp} via \texttt{tmpfs}. The \texttt{--unshare-all} flag enforces full network, IPC, UTS, and PID namespace isolation, eliminating all outbound network access and host process visibility. In high-risk scenarios, CASS escalates the sandbox profile to "isolated," switching the workspace bind-mount from read-write (\texttt{--bind}) to read-only (\texttt{--ro-bind}) for scripts that only require analysis.
 
 \section{Tier 2: Behavioral Zero-Trust (Behavior)}
 Identity ensures \textit{who} is calling the tool, while monitoring ensures \textit{why}.
@@ -104,7 +104,9 @@ Each agent instance is assigned a unique key pair. Every MCP tool call is accomp
 Current agentic security frameworks often rely on a "Dual-LLM" approach (using a secondary model to verify the intent of the primary model). However, our empirical testing demonstrates that this inherently introduces a massive $O(N^2)$ Transformer overhead, causing severe User Experience (UX) degradation (frequently adding multi-second latency per tool call). To resolve this, we transition from the Dual-LLM intent analyzer (retained only as a legacy option) to a \textbf{Mamba (State Space Model)} \cite{mamba2023} implementation as the default monitoring engine. Running locally with pure NumPy, Mamba monitors the agent's reasoning tokens in real-time with $O(N)$ linear scaling. By calculating a "Surprise Score" (cross-entropy loss), the Sentinel detects statistical anomalies correlating with "Jailbreaks" or adversarial intent in sub-millisecond timeframes. Furthermore, we employ a \textbf{Multi-Signal Secret Detection} heuristic combining Shannon Entropy with the Sentinel's Surprise Score, allowing the system to detect and redact API keys or PII with near-zero false positives.
 
 \subsection{Bi-directional Verification with ResponseSigner}
-To ensure the integrity of the entire tool execution loop, we implement \textbf{Bi-directional Verification}. While the agent signs the tool request, the tool execution environment uses a \textbf{ResponseSigner} to generate a PQC signature for the output. This prevents "Man-in-the-Middle" manipulation of tool results before they reach the LLM, ensuring that the model's subsequent reasoning is based on untampered observations.
+To ensure the integrity of the entire tool execution loop, we implement \textbf{Bi-directional Verification}. While the agent signs the tool request via an Identity Token, high-risk write tools (\texttt{edit\_file}, \texttt{create\_or\_overwrite\_file}) embed a \textbf{ResponseSigner} PQC signature (ML-DSA) in their return value, binding the response content to a unique \texttt{verification\_id}. The \texttt{tool\_executor} layer verifies this signature before passing the result to the LLM, preventing ``Man-in-the-Middle'' manipulation of tool outputs and ensuring that the model's subsequent reasoning is grounded in untampered observations.
+
+Furthermore, when the Mamba Sentinel raises a \textbf{RED} alert on a high-risk tool, CASS activates ``strict enforcement.'' Rather than autonomously blocking execution---which risks UX degradation and opaque failures---the system mandates a \textbf{Human-in-the-Loop (HITL)} approval dialog, surfacing the anomaly score and requiring explicit human confirmation. This design is consistent with the NIST AI Risk Management Framework (AI RMF) principle of maintaining human oversight over consequential AI actions.
 
 \section{Tier 3: Post-Quantum Resilience (Time)}
 To protect the "Temporal Dimension," we integrate PQC primitives.
@@ -119,12 +121,15 @@ To protect the "Temporal Dimension," we integrate PQC primitives.
 \end{figure*}
 
 \subsection{Quantum-Safe Identity and Hybrid Encryption}
-We upgrade the workload identity using \textbf{ML-DSA-65} (FIPS 204). Audit logs, which contain sensitive reasoning traces, are protected using \textbf{ML-KEM-768} (FIPS 203) hybrid encryption. Our implementation supports \textbf{PQC Agility}, dynamically switching between ML-DSA-44, 65, and 87 variants based on the risk level determined by CASS. This ensures cryptographic isolation, with separate key pairs provisioned for different security tiers\footnote{While the core architecture supports full key separation, the reference implementation demonstrates this via a unified key management interface that selects the appropriate variant parameters and path-mapped key material based on the required NIST security level.}.
+We upgrade the workload identity using \textbf{ML-DSA-65} (FIPS 204). Audit logs, which contain sensitive reasoning traces, are protected using \textbf{ML-KEM-768} (FIPS 203) hybrid encryption. Our implementation supports \textbf{PQC Agility}, dynamically switching between ML-DSA-44, 65, and 87 variants based on the risk level determined by CASS. As described in Section~\ref{sec:arch}, three physically separate key pairs are provisioned on disk to satisfy cryptographic isolation across security tiers.
 
 \subsection{PQC Remote Attestation and Audit Continuity}
-The client generates a SHA-256 manifest of its core security code, signed with an ML-DSA private key. This allows the server to verify that the agent is running on an "Authentic Stack" where Tier 1 guardrails are active. Furthermore, to ensure the tamper-evidence of long-running logs, we implement \textbf{Audit Chain Continuity} using signed snapshots during log rotation, preventing historical revisionism even if the primary log file is trimmed.
+The client generates a SHA-256 manifest of its core security code (covering six critical files including \texttt{identity.py}, \texttt{policy.py}, and \texttt{audit.py}), signed with an ML-DSA private key. This allows the server to verify that the agent is running on an ``Authentic Stack'' where Tier 1 guardrails are active. In strict mode (\texttt{LLM\_CLI\_STRICT\_SECURITY=1}), the absence of a pre-provisioned manifest causes startup to abort, eliminating Trust-On-First-Use (TOFU) risk in production deployments.
+
+To ensure the tamper-evidence of long-running logs, we implement \textbf{Audit Chain Continuity} using a combination of two mechanisms: (1) on log rotation, overflowing entries are written to a timestamped archive file and a signed \emph{snapshot anchor} entry is prepended to the remaining log, recording both the \texttt{snapshot\_prev\_hash} and \texttt{snapshot\_first\_hash} to maintain chain verifiability across file boundaries; (2) a binary \textbf{Merkle Tree} is computed over all log entries, producing a single Merkle Root that can be externally anchored (e.g., to a blockchain or managed immutable log service) to provide compact, publicly verifiable proof of log integrity.
 
 \section{System Architecture and Integration}
+\label{sec:arch}
 
 To synthesize the three tiers into a cohesive "Triple-Lock" architecture, we introduce \textbf{Context-Adaptive Security Scaling (CASS)}. CASS serves as the central orchestration engine, dynamically integrating the spatial, behavioral, and temporal defenses based on the specific risk profile of each tool execution request.
 
@@ -143,20 +148,22 @@ By dynamically scaling security measures, the CASS orchestrator ensures that exp
 \hline
 \textbf{Risk Profile} & \textbf{PQC Variant} & \textbf{Target Resilience} \\
 \hline
-Standard (Read-only) & ML-DSA-44 & NIST Level 2 (Low Latency) \\
-Moderate (Write-file) & ML-DSA-65 & NIST Level 3 (Balanced) \\
-High (Exec/Sensitive) & ML-DSA-87 & NIST Level 5 (Maximum) \\
+Standard (e.g., \texttt{search\_web}) & ML-DSA-44 & NIST Level 2 (Low Latency) \\
+Moderate (e.g., \texttt{read\_file\_content}) & ML-DSA-65 & NIST Level 3 (Balanced) \\
+High (e.g., \texttt{execute\_python}) & ML-DSA-87 & NIST Level 5 (Maximum) \\
 \hline
 \end{tabular}
 \label{tab:pqc_agility}
 \end{center}
 \end{table}
 
+The implementation provisions \textbf{three physically separate key pairs} on disk (\texttt{id\_pqc\_l2.key}, \texttt{id\_pqc\_l3.key}, \texttt{id\_pqc\_l5.key}) corresponding to each NIST security level. \texttt{PQCAgilityManager} selects the appropriate key path at runtime, achieving true cryptographic isolation between risk tiers without additional infrastructure.
+
 \section{Evaluation}
 We evaluated the framework on an AMD Ryzen 5 8540U system (16GB RAM).
 
 \subsection{Security Effectiveness}
-Table \ref{tab:security_eval} summarizes the detection capabilities. While Tier 1 (AST) blocks 72.7\% of common injection vectors, the remaining 27.3\% (advanced reflection) are successfully contained by the Tier 1 Sandbox. The Tier 2 Sentinel provides an additional layer, detecting 100\% of high-entropy secret leaks.
+Table \ref{tab:security_eval} summarizes the detection capabilities. While Tier 1 (AST) blocks 72.7\% of common injection vectors, the remaining 27.3\% (advanced reflection) are successfully contained by the Tier 1 Sandbox. The Tier 2 Sentinel provides an additional layer, detecting 100\% of high-entropy secret leaks within the evaluated test set\footnote{Secret detection ``100\%'' is measured against a representative set of API key and credential formats (e.g., \texttt{sk-proj-*}, \texttt{AIzaSy*}, Base64-encoded tokens) that exhibit both high Shannon entropy ($>$4.7 bits/byte) and elevated Mamba Surprise Score ($>$3.5). Detection is based on a dual-signal heuristic; short or low-entropy secrets that satisfy only one condition may not be flagged. The \texttt{benchmark.py} script included in the artifact reproduces this measurement.}.
 
 \begin{figure}[htbp]
 \centering
@@ -185,7 +192,7 @@ Tier 3 (PQC) & Future Decryption & 100.0\% (Immunity) \\
 \end{table}
 
 \subsection{Performance Latency}
-The total security overhead is summarized in Table \ref{tab:total_perf}. The cumulative latency ($\approx$53ms) is negligible compared to typical LLM inference times (500ms--3000ms), proving that comprehensive security does not impede agentic responsiveness.
+The total security overhead is summarized in Table \ref{tab:total_perf}. The cumulative latency ($\approx$55ms) is negligible compared to typical LLM inference times (500ms--3000ms), proving that comprehensive security does not impede agentic responsiveness. Mamba Sentinel latency is measured by processing exactly 100 single-byte ASCII tokens (100 bytes) through the SSM's streaming \texttt{step()} interface\footnote{The byte-level Mamba SSM treats each UTF-8 byte as one token. One ASCII character therefore maps to exactly one token. The \texttt{benchmark.py} artifact enforces \texttt{len(token\_block) == 100} via an assertion before the timed loop (100 iterations, AMD Ryzen 5 8540U, WSL2).}. Identity Signing latency includes both RSA-2048 and ML-DSA-65 operations plus the SHA-256 integrity attestation embedded in the JWT payload. All components are measured independently; the total represents the worst-case sequential overhead for a single high-risk tool call.
 
 \begin{table}[htbp]
 \caption{System Latency (Cumulative)}

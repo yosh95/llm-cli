@@ -1,0 +1,41 @@
+\begin{tikzpicture}[
+    node distance=1.2cm and 1.5cm,
+    auto,
+    block/.style={rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3.5em},
+    cass/.style={diamond, draw, fill=orange!20, text width=6.5em, text centered, inner sep=0pt, font=\small},
+    tier/.style={rectangle, draw, rounded corners, text width=8em, text centered, minimum height=3em, font=\small},
+    tier1/.style={tier, fill=green!10},
+    tier2/.style={tier, fill=purple!10},
+    tier3/.style={tier, fill=red!10},
+    data/.style={rectangle, draw, fill=yellow!10, text width=8em, text centered, minimum height=2.5em, font=\small},
+    line/.style={draw, -latex', thick}
+]
+
+    % CASS Orchestrator
+    \node [cass] (cass) {\textbf{CASS} \\ Orchestrator};
+    
+    % Input
+    \node [data, above=of cass] (request) {Agent Tool Request};
+    \path [line] (request) -- (cass);
+
+    % Tiers (arranged to avoid overlap)
+    \node [tier2, below=of cass] (t2) {\textbf{Tier 2: Behavior} \\ Zero-Trust Monitoring};
+    \node [tier1, left=of t2] (t1) {\textbf{Tier 1: Space} \\ Structural Guardrails};
+    \node [tier3, right=of t2] (t3) {\textbf{Tier 3: Time} \\ PQC Resilience};
+
+    % CASS Routing
+    \path [line] (cass) -| (t1) node[near start, above] {Adaptive};
+    \path [line] (cass) -- (t2);
+    \path [line] (cass) -| (t3);
+
+    % Execution
+    \node [block, below=of t2, yshift=-0.5cm] (exec) {Secure Tool \\ Execution};
+    
+    \path [line] (t1) |- (exec);
+    \path [line] (t2) -- (exec);
+    \path [line] (t3) |- (exec);
+    
+    % Triple Lock Label
+    \node [draw, dashed, thick, blue!50, fit=(t1) (t2) (t3), inner sep=0.3cm, label=below:\textbf{Triple-Lock Security Pipeline}] (pipeline) {};
+
+\end{tikzpicture}

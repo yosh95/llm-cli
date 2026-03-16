@@ -73,14 +73,16 @@ ML-DSA-65 (Module-Lattice-based Digital Signature Algorithm) provides security e
 Audit logs contain sensitive reasoning traces, tool arguments (including potential PII), and system responses. We implement \textbf{Hybrid-PQC Encryption} using NIST FIPS 203 (ML-KEM) \cite{nistfips203} and AES-256-GCM. 
 The system encapsulates an AES-256 key using ML-KEM-768. This key is then used to encrypt the audit log payload. By protecting the "Temporal Dimension" of agent data, we ensure that an agent's history cannot be retroactively parsed by future quantum adversaries to extract trade secrets or intellectual property.
 
-\section{PQC Remote Attestation}
+\section{PQC Remote Attestation and OOB Trust}
 In a distributed environment, a server must trust that the client code has not been tampered with to bypass security guardrails. We introduce \textbf{PQC Remote Attestation}:
 \begin{enumerate}
     \item \textbf{Manifest Generation:} The client generates a SHA-256 hash manifest of its core source code and configuration.
     \item \textbf{Signing:} This manifest is signed using the client's ML-DSA private key.
     \item \textbf{Attestation Token:} The resulting token is embedded in the Hybrid Identity JWT.
 \end{enumerate}
-This allows remote MCP servers to verify that the agent is running on an "Authentic Stack" where Phase 1 guardrails are guaranteed to be active.
+
+\subsection{Avoiding TOFU through Out-of-Band (OOB) Distribution}
+A critical vulnerability in many dynamic agent ecosystems is Trust-On-First-Use (TOFU), where the initial key exchange is susceptible to Man-in-the-Middle (MitM) attacks. To address this, our architecture mandates that public keys and attestation manifests are distributed via a secure \textbf{Out-of-Band (OOB)} channel (e.g., Mobile Device Management or Secure Enclaves) prior to agent deployment. By relying on pre-established OOB trust roots, the CLI tool remains completely self-contained—eliminating the need for external attestation servers that could introduce single points of failure or external dependencies, while guaranteeing the integrity of the agent's initial state.
 
 \section{Context-Adaptive Security Scaling (CASS)}
 The overhead of PQC (larger signatures and keys) can impact performance. We propose \textbf{CASS}, a mechanism that dynamically scales security levels based on the tool's risk profile:

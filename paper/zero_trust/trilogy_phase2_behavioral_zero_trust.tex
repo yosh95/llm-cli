@@ -77,8 +77,10 @@ Permissions are decoupled from the LLM's prompt. Even if the LLM "believes" it h
 \section{Behavioral IDS: The Mamba Sentinel}
 While identity ensures \textit{who} is calling the tool, it does not ensure \textit{why}. To detect semantic attacks like prompt injection and credential exfiltration, we introduce the \textbf{Mamba Sentinel}.
 
-\subsection{The Need for Lightweight Monitoring}
-Traditional monitoring using secondary LLMs (e.g., using GPT-4o-mini to verify GPT-4o's output) is slow (1--2 seconds of latency) and resource-intensive. We utilize a \textbf{Mamba (State Space Model)} implementation \cite{mamba2023} optimized with pure NumPy. Unlike Transformers, Mamba's linear scaling and recurrent state make it ideal for monitoring streaming reasoning traces at a byte level with sub-millisecond overhead per token.
+\subsection{Overcoming the UX Degradation of Dual-LLM Monitoring}
+Traditional behavioral monitoring relies on secondary LLMs (e.g., using GPT-4o-mini to verify GPT-4o's output). While initially effective, our real-world deployment revealed that this "Dual-LLM" approach introduces unacceptable latency (often 1--3 seconds per tool call), severely degrading the User Experience (UX) of autonomous agents. This latency is fundamentally tied to the $O(N^2)$ complexity of Transformers and network round-trips.
+
+To provide security without compromising agility, we deprecate the Dual-LLM verifier and utilize a \textbf{Mamba (State Space Model)} implementation \cite{mamba2023} optimized with pure NumPy. Unlike Transformers, Mamba's linear scaling ($O(N)$) and recurrent state make it ideal for monitoring streaming reasoning traces at a byte level with sub-millisecond overhead per token, serving as a high-speed Intrusion Detection System (IDS) for AI logic.
 
 \subsection{Reasoning Integrity and Surprise Score}
 The Sentinel monitors the LLM's "internal monologue" (reasoning tokens) in real-time. It calculates a \textbf{Surprise Score} (Information Content) based on the cross-entropy loss between the Sentinel's predicted next-token distribution and the agent's actual output.

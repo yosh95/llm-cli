@@ -56,6 +56,9 @@ class PolicyEngine:
     """
 
     def __init__(self, config: SecurityConfig | None = None):
+        from llm_cli.security.cass import CASSOrchestrator
+
+        self.cass = CASSOrchestrator()
         self.intent_analyzer: IntentVerifier | None = None
         self.roles: dict[str, RoleDefinition] = {}
         self.config: SecurityConfig = {}
@@ -111,7 +114,18 @@ class PolicyEngine:
     ) -> bool:
         """
         Uses a secondary LLM to verify if the tool call aligns with user intent.
+        NOTE: This approach is deprecated due to severe UX degradation (high latency).
+        The system now relies on MambaSentinel (O(N) latency) and CASS orchestrator.
         """
+        posture = self.cass.get_security_requirements(tool_name)
+
+        # If CASS determines we don't need the legacy intent analyzer, bypass it.
+        # This is the default behavior now to maintain high responsiveness.
+        if not posture.get("use_intent_analyzer", False) and not self.config.get(
+            "intent_analyzer_enabled", False
+        ):
+            return True
+
         if not user_prompt:
             logger.warning("Intent Analysis Skipped: No user prompt context available.")
             return True

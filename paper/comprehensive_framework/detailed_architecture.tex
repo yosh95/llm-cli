@@ -1,0 +1,59 @@
+\begin{tikzpicture}[
+    node distance=0.8cm and 1.2cm,
+    auto,
+    component/.style={rectangle, draw, fill=white, text width=8.5em, text centered, rounded corners, minimum height=2.5em, font=\scriptsize},
+    tierbox/.style={rectangle, draw, dashed, inner sep=0.4cm, rounded corners, font=\footnotesize\bfseries},
+    data/.style={ellipse, draw, fill=yellow!5, text width=6em, text centered, font=\scriptsize},
+    line/.style={draw, -latex', thick},
+    title/.style={font=\small\bfseries}
+]
+
+    % Input
+    \node [data] (request) {LLM Tool Call \\ (Prompt/Context)};
+
+    % CASS
+    \node [diamond, draw, fill=orange!10, text width=6em, text centered, right=1.2cm of request, font=\scriptsize\bfseries] (cass) {CASS \\ Orchestrator};
+    \path [line] (request) -- (cass);
+
+    % Tier 1: Space
+    \node [component, fill=green!5, right=1.2cm of cass, yshift=2.8cm] (ast) {AST Static Analysis \\ \textit{(Module Whitelist)}};
+    \node [component, fill=green!5, right=of ast] (path) {Path Guardrails \\ \textit{(Chroot/Symlinks)}};
+    \node [component, fill=green!5, right=of path] (bwrap) {Bubblewrap Sandbox \\ \textit{(Namespaces/rlimit)}};
+    
+    \node [tierbox, fit=(ast) (path) (bwrap), label={[title]above:Tier 1: Structural Guardrails (Space)}] (t1box) {};
+
+    % Tier 2: Behavior
+    \node [component, fill=purple!5, right=1.2cm of cass] (identity) {Workload Identity \\ \textit{(JWT/RBAC/OOB)}};
+    \node [component, fill=purple!5, right=of identity] (mamba) {Mamba Sentinel \\ \textit{($O(N)$ Cross-Entropy)}};
+    \node [component, fill=purple!5, right=of mamba] (entropy) {Secret Redaction \\ \textit{(Shannon Entropy)}};
+    
+    \node [tierbox, fit=(identity) (mamba) (entropy), label={[title]above:Tier 2: Behavioral Zero-Trust (Behavior)}] (t2box) {};
+
+    % Tier 3: Time
+    \node [component, fill=red!5, right=1.2cm of cass, yshift=-2.8cm] (pqc_sig) {PQC Identity \\ \textit{(ML-DSA-65)}};
+    \node [component, fill=red!5, right=of pqc_sig] (pqc_kem) {Hybrid Encryption \\ \textit{(ML-KEM-768)}};
+    \node [component, fill=red!5, right=of pqc_kem] (attest) {Remote Attestation \\ \textit{(Security Manifest)}};
+    
+    \node [tierbox, fit=(pqc_sig) (pqc_kem) (attest), label={[title]above:Tier 3: Post-Quantum Resilience (Time)}] (t3box) {};
+
+    % Routing from CASS
+    \path [line] (cass.east) -- +(0.4,0) |- (ast.west);
+    \path [line] (cass.east) -- (identity.west);
+    \path [line] (cass.east) -- +(0.4,0) |- (pqc_sig.west);
+
+    % Flows within tiers
+    \path [line] (ast) -- (path);
+    \path [line] (path) -- (bwrap);
+    \path [line] (identity) -- (mamba);
+    \path [line] (mamba) -- (entropy);
+    \path [line] (pqc_sig) -- (pqc_kem);
+    \path [line] (pqc_kem) -- (attest);
+
+    % Final Execution
+    \node [rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em, right=1.8cm of entropy, font=\small\bfseries] (exec) {Secure \\ Tool \\ Execution};
+
+    \path [line] (bwrap.east) -- +(0.6,0) |- (exec.160);
+    \path [line] (entropy.east) -- (exec.west);
+    \path [line] (attest.east) -- +(0.6,0) |- (exec.200);
+
+\end{tikzpicture}

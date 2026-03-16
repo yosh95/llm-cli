@@ -4,9 +4,7 @@
 
 ## 📄 Technical Reports (Pre-prints)
 Detailed architectural insights and security analysis are available in the following reports:
-- **[Client Integrity and Adaptive Security Scaling for AI Agents](paper/pqc/trilogy_phase3_temporal_pqc.pdf)**
-- **[Verified Tool Orchestration: Securing Autonomous Agents via Asymmetric Identity and SSM-based Reasoning Monitoring](paper/zero_trust/trilogy_phase2_behavioral_zero_trust.pdf)**
-- **[Layered Security Guardrails for LLM Command-Line Interfaces](paper/guardrail/trilogy_phase1_structural_guardrails.pdf)**
+- **[A Comprehensive Security Framework for Autonomous AI Agents](paper/comprehensive_framework/paper.pdf)**: Integrating Structural Guardrails, Behavioral Zero-Trust, and Post-Quantum Resilience.
 
 [English] | [日本語](#japanese-description)
 
@@ -247,9 +245,7 @@ Licensed under [Apache License 2.0](LICENSE).
 
 ## 📄 技術レポート (Pre-prints)
 詳細な解説については、以下のレポート（英語）を参照してください。
-- **[Client Integrity and Adaptive Security Scaling for AI Agents](paper/pqc/trilogy_phase3_temporal_pqc.pdf)**
-- **[Verified Tool Orchestration: Securing Autonomous Agents via Asymmetric Identity and SSM-based Reasoning Monitoring](paper/zero_trust/trilogy_phase2_behavioral_zero_trust.pdf)**
-- **[Layered Security Guardrails for LLM Command-Line Interfaces](paper/guardrail/trilogy_phase1_structural_guardrails.pdf)**
+- **[A Comprehensive Security Framework for Autonomous AI Agents](paper/comprehensive_framework/paper.pdf)**: Integrating Structural Guardrails, Behavioral Zero-Trust, and Post-Quantum Resilience.
 
 [English] | [日本語](#japanese-description)
 

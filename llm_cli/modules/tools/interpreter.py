@@ -259,11 +259,29 @@ def execute_python(
                 stdout, stderr = proc.communicate(timeout=timeout)
                 exit_code = proc.returncode
 
-                result = f"STDOUT:\n{stdout}"
-                if stderr:
-                    result += f"\nSTDERR:\n{stderr}"
+                # Structured output with clear separators to avoid collision with
+                # LLM-generated "STDOUT"/"STDERR" strings in user code.
+                stdout = (stdout or "").rstrip()
+                stderr = (stderr or "").rstrip()
 
-                output = f"{result}\nExit Code: {exit_code}"
+                result = f"""=== STDOUT ===
+{stdout or "(no output)"}
+=== END STDOUT ==="""
+
+                if stderr:
+                    result += f"""
+
+=== STDERR ===
+{stderr}
+=== END STDERR ==="""
+                else:
+                    result += """
+
+=== STDERR ===
+(no output)
+=== END STDERR ==="""
+
+                output = f"{result}\n\n=== Exit Code: {exit_code} ==="
 
                 return sign_tool_result(output)
 

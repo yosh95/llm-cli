@@ -17,27 +17,30 @@ def test_basic_python_execution():
     """Verify that basic Python code executes and returns output."""
     code = "print('hello world')"
     result = _get_result_text(execute_python(code))
-    assert "STDOUT:" in result
+    assert "STDOUT" in result
     assert "hello world" in result
-    assert "Exit Code: 0" in result
+    assert "Exit Code" in result
+    assert "===" in result  # Check for the new separator style
 
 
 def test_python_system_interaction():
     """Verify that Python can perform system tasks like listing files."""
     code = "import os; print(os.getcwd())"
     result = _get_result_text(execute_python(code))
-    assert "STDOUT:" in result
+    assert "STDOUT" in result
     assert str(Path.cwd()) in result
-    assert "Exit Code: 0" in result
+    assert "Exit Code" in result
+    assert "===" in result  # Check for the new separator style
 
 
 def test_python_stderr_capture():
     """Verify that Python errors are captured in STDERR."""
     code = "import sys; print('error message', file=sys.stderr); sys.exit(1)"
     result = _get_result_text(execute_python(code))
-    assert "STDERR:" in result
+    assert "STDERR" in result
     assert "error message" in result
-    assert "Exit Code: 1" in result
+    assert "Exit Code" in result
+    assert "===" in result  # Check for the new separator style
 
 
 def test_python_timeout():

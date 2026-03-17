@@ -25,7 +25,7 @@ class MambaSentinel:
         expand: int = 1,
         lr: float = 1e-3,
         checkpoint_path: str = "sentinel_state.npz",
-        mode: str = "collect",
+        mode: str = "train",
     ):
         self.config = MambaConfig(
             d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand

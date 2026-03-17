@@ -8,7 +8,7 @@ from llm_cli.security.sentinel import MambaSentinel
 def test_sentinel_initialization():
     sentinel = MambaSentinel(d_model=16, n_layers=1)
     assert sentinel.ema_loss == 5.54
-    assert sentinel.mode == "collect"
+    assert sentinel.mode == "train"
 
 
 def test_sentinel_step_and_anomaly_score():
@@ -43,7 +43,7 @@ def test_sentinel_learning_lowers_loss():
 def test_reasoning_sentinel_manager_detects_anomaly():
     # Setup manager with a sentinel that has learned a specific pattern
     mgr = ReasoningSentinelManager(d_model=16, n_layers=1)
-    mgr.sentinel.mode = "collect"
+    mgr.sentinel.mode = "train"
 
     benign_text = "Standard operation sequence"
     for _ in range(20):
@@ -52,8 +52,8 @@ def test_reasoning_sentinel_manager_detects_anomaly():
 
     # Record the baseline loss
 
-    # Switching to detect mode
-    mgr.sentinel.mode = "detect"
+    # Switching to predict mode
+    mgr.sentinel.mode = "predict"
 
     # A highly anomalous/random string should trigger high surprise
     # Note: For real detection, we need it to exceed the dynamic threshold (EMA + 1.2)

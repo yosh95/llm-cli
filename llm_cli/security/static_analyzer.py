@@ -10,10 +10,8 @@ class PythonSecurityScanner(ast.NodeVisitor):
     This acts as a fast, deterministic layer of defense before execution.
     """
 
-    # Modules that are generally considered dangerous in an AI agent context
+    # Modules that are strictly forbidden to import entirely
     DANGEROUS_MODULES = {
-        "os",
-        "shutil",
         "socket",
         "requests",
         "urllib",
@@ -25,6 +23,50 @@ class PythonSecurityScanner(ast.NodeVisitor):
         "ctypes",
         "pty",
         "platform",
+    }
+
+    # Modules that are allowed but have restricted members (granular check)
+    RESTRICTED_MODULES = {
+        "os": {
+            "system",
+            "popen",
+            "spawnl",
+            "spawnle",
+            "spawnlp",
+            "spawnlpe",
+            "spawnv",
+            "spawnve",
+            "spawnvp",
+            "spawnvpe",
+            "execl",
+            "execle",
+            "execlp",
+            "execlpe",
+            "execv",
+            "execve",
+            "execvp",
+            "execvpe",
+            "fork",
+            "forkpty",
+            "kill",
+            "killpg",
+            "plock",
+            "chmod",
+            "chown",
+            "lchmod",
+            "lchown",
+            "fchmod",
+            "fchown",
+            "chroot",
+            "putenv",
+            "unsetenv",
+        },
+        "shutil": {
+            "rmtree",
+            "move",
+            "make_archive",
+            "unpack_archive",
+        },
     }
 
     # Specific functions that are high-risk
@@ -73,6 +115,21 @@ class PythonSecurityScanner(ast.NodeVisitor):
             self.found_modules.add(base_module)
             if base_module in self.DANGEROUS_MODULES:
                 self.issues.append(f"High-risk module import detected: {node.module}")
+
+            # Granular check for restricted modules
+            if base_module in self.RESTRICTED_MODULES:
+                restricted_members = self.RESTRICTED_MODULES[base_module]
+                for alias in node.names:
+                    if alias.name == "*":
+                        self.issues.append(
+                            f"Security Violation: Wildcard import from restricted "
+                            f"module '{node.module}' is forbidden."
+                        )
+                    elif alias.name in restricted_members:
+                        self.issues.append(
+                            f"High-risk member import detected: "
+                            f"{node.module}.{alias.name}"
+                        )
         self.generic_visit(node)
 
     def _check_subprocess_node(self, node: ast.Call) -> None:
@@ -136,13 +193,13 @@ class PythonSecurityScanner(ast.NodeVisitor):
                     self.issues.append(
                         f"High-risk method call: {module_id}.{attr_name}"
                     )
-                # Specific check for os.system and os.popen which are shell-like
-                # even without shell=True arg
-                if module_id == "os" and attr_name in ["system", "popen"]:
-                    self.issues.append(
-                        f"Security Violation: os.{attr_name} is forbidden. "
-                        "Use subprocess.run(shell=False)."
-                    )
+
+                # Granular check for restricted modules
+                if module_id in self.RESTRICTED_MODULES:
+                    if attr_name in self.RESTRICTED_MODULES[module_id]:
+                        self.issues.append(
+                            f"Security Violation: {module_id}.{attr_name} is forbidden."
+                        )
 
         # Context-aware check for subprocess
         self._check_subprocess_node(node)

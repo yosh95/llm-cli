@@ -306,42 +306,44 @@ class MambaSentinel:
 
         if Path(self.checkpoint_path).exists():
             try:
-                data = np.load(self.checkpoint_path)
+                import io
+
+                # Read entire file into memory first to avoid resource leaks
+                # during subsequent processing or if exceptions occur.
+                file_content = Path(self.checkpoint_path).read_bytes()
+                with np.load(io.BytesIO(file_content)) as data:
+                    loaded_data = {k: np.array(v) for k, v in data.items()}
 
                 # 0. Metadata
-                if "meta.update_count" in data:
-                    self.update_count = int(data["meta.update_count"][0])
-                if "meta.ema_loss" in data:
-                    self.ema_loss = float(data["meta.ema_loss"][0])
+                if "meta.update_count" in loaded_data:
+                    self.update_count = int(loaded_data["meta.update_count"][0])
+                if "meta.ema_loss" in loaded_data:
+                    self.ema_loss = float(loaded_data["meta.ema_loss"][0])
 
                 # 1. Embedding
-                if "embedding.weight" in data:
-                    self.embedding.weight[:] = data["embedding.weight"]
+                if "embedding.weight" in loaded_data:
+                    self.embedding.weight[:] = loaded_data["embedding.weight"]
 
                 # 2. Final Norm
-                if "norm_f.weight" in data:
-                    self.norm_f.weight[:] = data["norm_f.weight"]
+                if "norm_f.weight" in loaded_data:
+                    self.norm_f.weight[:] = loaded_data["norm_f.weight"]
 
                 # 3. Layers
                 for i in range(self.n_layers):
                     # Norm
                     nk = f"layer.{i}.norm.weight"
-                    if nk in data:
-                        self.norms[i].weight[:] = data[nk]
+                    if nk in loaded_data:
+                        self.norms[i].weight[:] = loaded_data[nk]
 
                     # Mamba
                     mamba_params = {}
                     prefix = f"layer.{i}.mamba."
-                    for k in data:
+                    for k in loaded_data:
                         if k.startswith(prefix):
-                            mamba_params[k[len(prefix) :]] = data[k]
+                            mamba_params[k[len(prefix) :]] = loaded_data[k]
 
                     if mamba_params:
                         self.mamba_layers[i].load_state_dict(mamba_params)
-
-                # Reset optimizer state if needed or re-init
-                # For simplicity, we just start Adam fresh or could save its state too
-                # self.optimizer.m = ...
             except Exception as e:
                 # If loading fails (e.g. shape mismatch), we just start fresh
                 print(f"Warning: Failed to load sentinel checkpoint: {e}")

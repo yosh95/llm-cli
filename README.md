@@ -192,6 +192,21 @@ A secondary, lightweight LLM (Verifier) can be used to audit the actions of the 
 - **Roles**: Tools can be assigned to different roles (e.g., `admin`, `user`).
 - **Control**: Users can restrict which tools are available in a session via configuration.
 
+## EU AI Act Alignment
+
+llm-cli implements technical controls aligned with the EU AI Act, particularly for **high-risk AI systems** and obligations as a **GPAI deployer**.
+
+| Key EU AI Act Requirement | llm-cli Implementation | Value Provided |
+|---------------------------|------------------------|---------------|
+| Human Oversight | Human-in-the-Loop + Mandatory explanation + Dry-run / Diff preview | Prevents runaway behavior with consistent human supervision |
+| Transparency & Explainability | Explanation required per tool call + Reasoning Integrity scoring | Makes decision-making processes visible and traceable |
+| Logging & Auditability | Chained hashing + PQC-signed audit logs | Provides tamper-proof records for compliance and accountability |
+| Robustness & Anomaly Detection | Mamba-based Reasoning Sentinel + Static analysis | Detects abnormal reasoning in real-time |
+| Cybersecurity & Containment | No-Shell architecture + Sandboxing + Path validation | Ensures safe and contained tool execution |
+| Accountability | PQC signatures + Detailed audit trail | Strengthens non-repudiation and traceability |
+
+**Note**: This summarizes technical controls. Organizations using this tool should maintain separate risk assessments and procedural documentation.
+
 ## Advanced Features
 
 ### 🔌 Plugin Architecture: Adding New Tools
@@ -427,6 +442,22 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 ### 🔑 ロールベースのアクセス制御
 - **ロール**: ツールごとに実行に必要なロール（`admin`, `user`など）を設定可能です。
 - **管理**: `llm-cli-config` を通じて、セッションで使用可能なツールを制限できます。
+
+## EU AI Actへの対応
+
+llm-cliは、自律型AIエージェントとして**高リスクAIシステム**や**GPAIの展開者（Deployer）**としての義務を意識し、技術的なコントロールを実装しています。
+
+| EU AI Actの主な要求 | llm-cliの実装 | 提供される価値 |
+|-------------------|---------------|---------------|
+| 人間による監督 | Human-in-the-Loop + 説明必須 + Dry Run / Diff確認 | AIの暴走を防ぎ、人間が常に確認・介入可能 |
+| 透明性・説明可能性 | ツール呼び出し時の説明要求 + Reasoning Integrityスコア | 意思決定プロセスを可視化 |
+| ログ記録・監査可能性 | Chained Hash + PQC署名付き監査ログ | 改ざん耐性のある記録で説明責任を強化 |
+| 堅牢性・異常検知 | Mamba Sentinel（リアルタイム異常監視） + 静的解析 | 不自然な推論や危険行動を早期検知 |
+| サイバーセキュリティ | No-Shell設計 + Sandbox + Path Validation | 安全なツール実行環境を提供 |
+| 責任の明確化 | PQC署名 + 詳細なAudit Trail | 非否認性とアカウンタビリティを向上 |
+
+**補足**:  
+これは技術的なコントロールの概要です。組織としてご利用になる場合は、別途リスク評価や運用手順書の整備をおすすめします。
 
 ## アドバンスド機能
 

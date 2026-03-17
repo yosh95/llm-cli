@@ -417,6 +417,14 @@ def handle_command(
                         f"[dim]{sentinel.last_processing_time * 1000:.2f}ms[/dim] "
                         f"(avg: [dim]{avg_time * 1000:.2f}ms[/dim])",
                     )
+
+                # Sentinel Learning Time
+                if sentinel.last_learning_time > 0:
+                    learn_time_str = (
+                        f"[dim]{sentinel.last_learning_time:.4f}s[/dim] "
+                        "(Last Background Update)"
+                    )
+                    info_table.add_row("Sentinel Learning", learn_time_str)
             else:
                 info_table.add_row(
                     "Reasoning Integrity", "[dim]N/A (No reasoning analyzed)[/dim]"

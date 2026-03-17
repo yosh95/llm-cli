@@ -33,11 +33,11 @@ class ReasoningSentinelManager:
         if self.enabled is None:
             self.enabled = True
 
-        mode = get_setting("mode", "sentinel") or "collect"
+        mode = get_setting("mode", "sentinel") or "train"
 
         # Mamba-specific parameters from defaults
         d_model = int(get_setting("d_model", "sentinel") or 128)
-        n_layers = int(get_setting("n_layers", "sentinel") or 2)
+        n_layers = int(get_setting("n_layers", "sentinel") or 4)
         d_state = int(get_setting("d_state", "sentinel") or 16)
         d_conv = int(get_setting("d_conv", "sentinel") or 4)
         expand = int(get_setting("expand", "sentinel") or 2)
@@ -70,6 +70,9 @@ class ReasoningSentinelManager:
 
         # Performance metrics
         self.last_processing_time: float = 0.0
+        self.last_learning_time: float = (
+            0.0  # Time taken for the last background update
+        )
         self.total_processing_time: float = 0.0
         self.processing_count: int = 0
         self.suspected_secrets: list[str] = []
@@ -105,6 +108,27 @@ class ReasoningSentinelManager:
                         anomalies.append(str(segment_bytes))
 
         return list(set(anomalies))
+
+    def initialize_context(self, user_prompt: str) -> None:
+        """
+        Inject the user's intent into the Sentinel's state without training.
+        This allows the model to 'understand' what the agent should be doing
+        by establishing an initial hidden state based on the user's request.
+        """
+        if not self.enabled or not user_prompt:
+            return
+
+        # Temporarily switch to predict mode to avoid learning the prompt as
+        # the agent's own behavior. We want it to be the *context*.
+        original_mode = self.sentinel.mode
+        self.sentinel.mode = "predict"
+
+        # Prefixing with "Context:" helps the model distinguish intent from action
+        context_str = f"Context: {user_prompt}\nAgent reasoning:"
+        self.sentinel.process_text(context_str)
+
+        self.sentinel.mode = original_mode
+        logger.debug(f"Sentinel context initialized with prompt: {user_prompt[:30]}...")
 
     def process_chunk(self, chunk: str) -> float:
         """
@@ -165,13 +189,13 @@ class ReasoningSentinelManager:
     def finalize_session(self, learn: bool | None = None) -> None:
         """
         Finalize the session, optionally performing online learning update.
-        Learning is performed asynchronously in collect mode to improve UX.
+        Learning is performed asynchronously in train mode to improve UX.
         """
         import numpy as np
 
         # Determine if we should learn based on mode or explicit override
         if learn is None:
-            learn = self.sentinel.mode == "collect"
+            learn = self.sentinel.mode == "train"
 
         if learn and len(self.history_tokens) > 1:
             # Copy history to avoid race conditions during background update
@@ -185,14 +209,21 @@ class ReasoningSentinelManager:
                     )
                     return
                 try:
+                    import time
+
+                    start_learn = time.perf_counter()
+
                     # Perform online learning on the collected session history
                     # input: 0..N-1, target: 1..N
                     input_ids = np.array([tokens[:-1]], dtype=np.int32)
                     targets = np.array([tokens[1:]], dtype=np.int32)
                     self.sentinel.update(input_ids, targets)
                     self.sentinel.save()
+
+                    self.last_learning_time = time.perf_counter() - start_learn
                     logger.debug(
-                        f"Sentinel background learning complete ({len(tokens)} tokens)."
+                        f"Sentinel background learning complete ({len(tokens)} "
+                        f"tokens) in {self.last_learning_time:.4f}s."
                     )
                 except Exception as e:
                     logger.error(f"Sentinel background learning failed: {e}")

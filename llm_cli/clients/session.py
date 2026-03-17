@@ -227,9 +227,11 @@ class ChatSession:
                 ).strip()
                 prompt_default = ""  # Reset default after use
 
-                # --- Pre-transmission Secret Detection ---
+                # --- Pre-transmission Secret Detection & Context Initialization ---
                 if user_input and not user_input.startswith("/"):
-                    self.sentinel.process_chunk(user_input)
+                    # Use initialize_context (not process_chunk) for the user prompt.
+                    # This sets the semantic context without training on secrets.
+                    self.sentinel.initialize_context(user_input)
                     if self.sentinel.suspected_secrets:
                         if not self._confirm_secret_transmission(
                             self.sentinel.suspected_secrets

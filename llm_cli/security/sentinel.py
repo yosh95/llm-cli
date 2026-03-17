@@ -33,7 +33,7 @@ class MambaSentinel:
         self.n_layers = n_layers
         self.vocab_size = 256
         self.checkpoint_path = checkpoint_path
-        self.mode = mode  # "collect" (training) or "detect" (active monitoring)
+        self.mode = mode  # "train" or "predict"
         self.update_count = 0
 
         # Self-calibration: Start at random entropy (ln(256) ≈ 5.54)
@@ -145,8 +145,8 @@ class MambaSentinel:
         elif score > t_yellow:
             status = "yellow"
 
-        # In collect mode, we might want to update the model online
-        if self.mode == "collect":
+        # In train mode, we might want to update the model online
+        if self.mode == "train":
             # Very simple online update: we use current token as target
             # for previous prediction.
             # This is handled in process_text or similar.
@@ -188,7 +188,7 @@ class MambaSentinel:
                 }
             )
 
-        if self.mode == "collect":
+        if self.mode == "train":
             # Train on this sequence
             ids = np.array([list(tokens)], dtype=np.int32)
             # Targets are shifted tokens

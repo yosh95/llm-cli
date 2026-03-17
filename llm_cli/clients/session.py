@@ -120,48 +120,49 @@ class ChatSession:
         if title:
             console.print(Rule(style=style or "white"))
 
-    def _print_secret_warning(self, secrets: list[str]) -> None:
-        """Displays a warning when potential secrets are detected."""
+    def _print_secret_warning(self, anomalies: list[str]) -> None:
+        """Displays a warning when potential reasoning anomalies are detected."""
         from rich.panel import Panel
         from rich.text import Text
 
-        unique_secrets = sorted(set(secrets))
+        unique_anomalies = sorted(set(anomalies))
         msg = (
-            "The following high-entropy sequences were detected in the AI's output. "
-            "They might be API keys, passwords, or other sensitive secrets:\n\n"
+            "The following sequences were flagged as statistical anomalies in the "
+            "model's reasoning process. They may represent unexpected data patterns "
+            "or potential sensitive information:\n\n"
         )
 
-        secret_markup = "\n".join(
-            [f"• [bold red]{s}[/bold red]" for s in unique_secrets]
+        anomaly_markup = "\n".join(
+            [f"• [bold yellow]{s}[/bold yellow]" for s in unique_anomalies]
         )
 
         console.print(
             Panel(
-                Text.from_markup(msg + secret_markup),
-                title="[bold yellow]⚠️  Secret Detection (Entropy-Based)[/bold yellow]",
+                Text.from_markup(msg + anomaly_markup),
+                title="[bold yellow]⚠️  Reasoning Anomaly Detected[/bold yellow]",
                 border_style="yellow",
             )
         )
 
-    def _confirm_secret_transmission(self, secrets: list[str]) -> bool:
-        """Confirms whether the user wants to send detected secrets to external AI."""
+    def _confirm_secret_transmission(self, anomalies: list[str]) -> bool:
+        """Confirms whether the user wants to send detected anomalies to external AI."""
         from rich.panel import Panel
         from rich.text import Text
 
-        unique_secrets = sorted(set(secrets))
+        unique_anomalies = sorted(set(anomalies))
         msg = (
-            "[bold red]DANGER:[/bold red] The following sensitive sequences were "
+            "[bold red]CAUTION:[/bold red] The following anomalous sequences were "
             "detected in your message. Sending these to an external AI provider "
-            "may compromise your security:\n\n"
+            "might deviate from intended usage or compromise data integrity:\n\n"
         )
-        secret_markup = "\n".join(
-            [f"• [bold red]{s}[/bold red]" for s in unique_secrets]
+        anomaly_markup = "\n".join(
+            [f"• [bold red]{s}[/bold red]" for s in unique_anomalies]
         )
 
         console.print(
             Panel(
-                Text.from_markup(msg + secret_markup),
-                title="[bold red]🚨 Data Leak Prevention[/bold red]",
+                Text.from_markup(msg + anomaly_markup),
+                title="[bold red]🚨 Reasoning Integrity Guardrail[/bold red]",
                 border_style="red",
             )
         )

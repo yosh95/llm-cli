@@ -25,9 +25,9 @@
     % Tier 2: Behavior
     \node [component, fill=purple!5, right=1.2cm of cass] (identity) {Workload Identity \\ \textit{(JWT/RBAC/OOB)}};
     \node [component, fill=purple!5, right=of identity] (mamba) {Mamba Sentinel \\ \textit{($O(N)$ Cross-Entropy)}};
-    \node [component, fill=purple!5, right=of mamba] (entropy) {Secret Redaction \\ \textit{(Shannon Entropy)}};
-    
-    \node [tierbox, fit=(identity) (mamba) (entropy), label={[title]above:Tier 2: Behavioral Zero-Trust (Behavior)}] (t2box) {};
+
+\node [tierbox, fit=(identity) (mamba), label={[title]above:Tier 2: Behavioral Zero-Trust (Behavior)}] (t2box) {};
+
 
     % Tier 3: Time
     \node [component, fill=red!5, right=1.2cm of cass, yshift=-2.8cm] (pqc_sig) {PQC Identity \\ \textit{(ML-DSA-65)}};
@@ -45,15 +45,14 @@
     \path [line] (ast) -- (path);
     \path [line] (path) -- (bwrap);
     \path [line] (identity) -- (mamba);
-    \path [line] (mamba) -- (entropy);
     \path [line] (pqc_sig) -- (pqc_kem);
     \path [line] (pqc_kem) -- (attest);
 
     % Final Execution
-    \node [rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em, right=1.6cm of entropy, font=\small\bfseries] (exec) {Secure \\ Tool \\ Execution};
+    \node [rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em, right=2.0cm of mamba, font=\small\bfseries] (exec) {Secure \\ Tool \\ Execution};
 
     \path [line] (bwrap.east) -- +(0.4,0) |- (exec.160);
-    \path [line] (entropy.east) -- (exec.west);
+    \path [line] (mamba.east) -- (exec.west);
     \path [line] (attest.east) -- +(0.4,0) |- (exec.200);
 
     % MCP Server-Side (Zero Trust)

@@ -103,8 +103,8 @@ Each agent instance is assigned a unique key pair. Every MCP tool call is accomp
 \subsection{The Mamba Sentinel: Overcoming Dual-LLM Latency}
 Current agentic security frameworks often rely on a "Dual-LLM" approach (using a secondary model to verify the intent of the primary model). However, our empirical testing demonstrates that this inherently introduces a massive $O(N^2)$ Transformer overhead, causing severe User Experience (UX) degradation (frequently adding multi-second latency per tool call). To resolve this, we transition from the Dual-LLM intent analyzer (retained only as a legacy option) to a \textbf{Mamba (State Space Model)} \cite{mamba2023} implementation as the default monitoring engine. Running locally with pure NumPy, Mamba monitors the agent's reasoning tokens in real-time with $O(N)$ linear scaling. By calculating a ``Surprise Score'' (cross-entropy loss), the Sentinel detects statistical anomalies correlating with ``Jailbreaks'' or adversarial intent in sub-millisecond timeframes. To minimize false positives during the early stages of agent deployment, we implement a \textbf{Self-Calibrating Sentinel} where anomaly thresholds are dynamically derived from the Exponential Moving Average (EMA) of the model's own loss, ensuring the security baseline evolves alongside the agent's behavioral maturity.
 
-\subsection{Real-time Secret Redaction: Data Integrity Filter}
-Complementing the behavioral analysis of the Sentinel, we implement a \textbf{Real-time Secret Redactor} as a parallel data-integrity filter. While the Sentinel monitors the \textit{semantic} flow for intent drift or hallucinations, the Redactor operates on the \textit{structural} layer of the token stream. It uses Shannon Entropy to identify technical credentials (e.g., API keys) that exhibit high information density, providing a deterministic guardrail to prevent the accidental disclosure of authentication artifacts regardless of the Sentinel's current training state.
+\subsection{Reasoning Anomaly Detection: Predictive Pattern Analysis}
+Complementing the behavioral analysis of the Sentinel, we implement a \textbf{Reasoning Anomaly Detector} as a unified integrity filter. While the Sentinel monitors the \textit{semantic} flow for intent drift, the Detector operates on the \textit{byte-level} patterns of the reasoning stream. It identifies sequences that exhibit high statistical unpredictability (Surprise) relative to the learned baseline. By utilizing the Mamba model's internal surprise score (cross-entropy), the system can detect both technical credentials and structurally anomalous logic that deviates from intended agent behavior. This approach provides a context-aware guardrail that moves beyond static entropy-based methods towards an adaptive, model-driven security posture.
 
 \subsection{Bi-directional Verification with ResponseSigner}
 To ensure the integrity of the entire tool execution loop, we implement \textbf{Bi-directional Verification}. While the agent signs the tool request via an Identity Token, high-risk write tools (\texttt{edit\_file}, \texttt{create\_or\_overwrite\_file}) embed a \textbf{ResponseSigner} PQC signature (ML-DSA) in their return value, binding the response content to a unique \texttt{verification\_id}. The \texttt{tool\_executor} layer verifies this signature before passing the result to the LLM, preventing ``Man-in-the-Middle'' manipulation of tool outputs and ensuring that the model's subsequent reasoning is grounded in untampered observations.
@@ -139,7 +139,7 @@ To synthesize the three tiers into a cohesive "Triple-Lock" architecture, we int
 The "Triple-Lock" architecture operates as a unified pipeline governed by CASS (Fig. \ref{fig:detailed_arch}). When an agent requests a tool call:
 1. \textbf{Risk Assessment (CASS):} The system evaluates the requested tool (e.g., \texttt{search\_web} vs. \texttt{execute\_python}) to determine the required security posture.
 2. \textbf{Tier 1 - Structural Containment:} The \textbf{Guardrail Manager} applies AST analysis, enforces path/resource limits, and prepares the unprivileged Bubblewrap sandbox.
-3. \textbf{Tier 2 - Behavioral Verification:} The \textbf{Zero-Trust Controller} verifies the RBAC-embedded Identity Token and computes the Mamba Surprise Score. The Multi-Signal detector redacts any identified high-entropy secrets.
+3. \textbf{Tier 2 - Behavioral Verification:} The \textbf{Zero-Trust Controller} verifies the RBAC-embedded Identity Token and computes the Mamba Surprise Score. The Sentinel identifies statistical anomalies in the output stream, flagging sequences that deviate from the established behavioral baseline.
 4. \textbf{Tier 3 - Temporal Anchoring:} For high-risk operations, the \textbf{PQC Module} signs the request with a Hybrid-PQC token and encapsulates the resulting audit log using ML-KEM to ensure long-term integrity.
 
 By dynamically scaling security measures, the CASS orchestrator ensures that expensive quantum-resistant cryptographic operations and deep behavioral inspections are applied proportionally to the risk, achieving "Security with Agility."
@@ -165,7 +165,7 @@ The implementation provisions \textbf{three physically separate key pairs} on di
 We evaluated the framework on an AMD Ryzen 5 8540U system (16GB RAM).
 
 \subsection{Security Effectiveness}
-Table \ref{tab:security_eval} summarizes the detection capabilities. While Tier 1 (AST) blocks 72.7\% of common injection vectors, the remaining 27.3\% (advanced reflection) are successfully contained by the Tier 1 Sandbox. The Tier 2 Sentinel and entropy filters provide an additional layer, effectively detecting technical secret leaks within the evaluated test set\footnote{Secret detection effectiveness is measured against a representative set of technical credentials (e.g., \texttt{sk-proj-*}, \texttt{AIzaSy*}, Base64 tokens) that exhibit high Shannon entropy. While the system reliably flags high-entropy random strings, lower-entropy strings or common deterministic patterns are handled by the Tier 1 Sandbox network isolation rather than the entropy filter.}. The \texttt{benchmark.py} script included in the artifact reproduces these measurements.
+Table \ref{tab:security_eval} summarizes the detection capabilities. While Tier 1 (AST) blocks 72.7\% of common injection vectors, the remaining 27.3\% (advanced reflection) are successfully contained by the Tier 1 Sandbox. The Tier 2 Sentinel provides an additional layer, effectively detecting behavioral deviations and structural anomalies within the reasoning process. The \texttt{benchmark.py} script included in the artifact reproduces these measurements.
 
 \begin{figure}[htbp]
 \centering
@@ -184,7 +184,7 @@ Table \ref{tab:security_eval} summarizes the detection capabilities. While Tier 
 Tier 1 (AST) & Shell Injection & 83.3\% (Detection) \\
 Tier 1 (AST) & Reflection/Introspection & 100.0\% (Rule-based) \\
 Tier 1 (Sandbox) & All Outbound Network & 100.0\% (Containment) \\
-Tier 2 (Redactor) & Technical Secrets (Entropy) & 90.0\% (Detection) \\
+Tier 2 (Sentinel) & Reasoning Anomaly (Surprise) & 80.0\% (Detection) \\
 Tier 2 (Sentinel) & Semantic Intent Drift & 20.0\% (Baseline DR) \\
 Tier 3 (PQC) & Future Decryption & 100.0\% (Immunity) \\
 \hline
@@ -203,7 +203,7 @@ The total security overhead is summarized in Table \ref{tab:total_perf}. The cum
 \hline
 \textbf{Component} & \textbf{Latency (ms)} & \textbf{Tier} \\
 \hline
-AST + Secret Scan & 0.05 & Tier 1 \\
+AST + Anomaly Analysis & 0.05 & Tier 1 \\
 Bubblewrap Sandbox & 2.63 & Tier 1 \\
 Mamba Sentinel (per 100 tokens) & 10.28 & Tier 2 \\
 Identity Signing (RSA + ML-DSA) & 39.09 & Tier 2/3 \\

@@ -33,7 +33,7 @@ Detailed architectural insights and security analysis are available in the follo
 ## Key Features
 
 - **Unified Interface**: Access major cloud LLMs (Gemini, OpenAI, Claude, Grok) and **Local LLMs (Ollama)** via a single `llm` command.
-- **Reasoning Anomaly Monitor**: A lightweight **pure NumPy SSM** (Mamba) that monitors AI reasoning processes for statistical anomalies in real-time. It features a **Self-Calibrating engine** that automatically adjusts detection thresholds based on the model's learning progress (EMA loss), eliminating the need for manual tuning.
+- **Reasoning Anomaly Monitor**: A lightweight **pure NumPy SSM** (Mamba) that monitors AI reasoning processes for statistical anomalies in real-time. It features a **Self-Calibrating engine** that automatically adjusts detection thresholds based on the model's learning progress (EMA loss), helping to identify behavioral shifts and structural irregularities without manual tuning.
 - **PQC Client Verification**: Verifies client-side integrity and generates PQC-signed (ML-DSA) tokens embedded in tool calls to provide non-repudiation.
 - **Local LLM Support**: Use models locally via **Ollama** for privacy and offline usage.
 - **Autonomous Agent**: The AI can manage files, **interact with the system via Python**, search the web, and attach media files.
@@ -43,7 +43,7 @@ Detailed architectural insights and security analysis are available in the follo
 - **Distributed Agent via MCP**: Support for **Model Context Protocol**. Connect to remote instances via SSH to manage files or run tests.
 - **URL Support**: Directly pass website URLs to analyze content with automatic scraping.
 - **Secure Execution**: **No-Shell Architecture** (avoids shell injection), **Diff Preview** for file changes, **Static Analysis**, and **Human-in-the-Loop** confirmation.
-- **Layered Security**: Hybrid PQC signatures (RSA + ML-DSA), **Client Verification**, **Linux Sandboxing (Bubblewrap)**, **Technical Secret Redactor** (90% detection), and **Reasoning Integrity** tracking.
+- **Layered Security**: Hybrid PQC signatures (RSA + ML-DSA), **Client Verification**, **Linux Sandboxing (Bubblewrap)**, and **Reasoning Integrity** tracking.
 
 ## Screenshots
 
@@ -180,11 +180,6 @@ Uses a **NumPy implementation of Mamba (State Space Model)** to monitor the LLM'
 ### 🧠 Intent Analyzer: Semantic Verification
 A secondary, lightweight LLM (Verifier) can be used to audit the actions of the main agent before execution. It checks if the generated code aligns with the user's original request.
 
-### 🛡️ Technical Secret Redactor (Real-time)
-A structural guardrail that prevents accidental transmission of high-entropy credentials (API keys, tokens).
-- **Detection**: Optimized Shannon Entropy filter (Threshold: 4.3) achieves **90% detection rate** for technical secrets while maintaining 0% false positives on benign code.
-- **Redaction**: Operates as a data-integrity layer in parallel with the Mamba Sentinel, redacting high-entropy strings before they leave the client or reach the user.
-
 ### 🛡️ Resource Limits & Sandboxing
 - **Static Analysis**: Scans Python code for potentially risky patterns (e.g., suspicious imports) before execution.
 - **Linux Sandboxing (Bubblewrap)**: On Linux, provides an optional isolated environment for Python execution using `bubblewrap`.
@@ -274,7 +269,7 @@ Licensed under [Apache License 2.0](LICENSE).
 ## 主な機能
 
 - **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLM (Gemini, OpenAI, Claude, Grok) と **Ollama (Local)** にアクセス。
-- **推論異常モニタ**: **NumPyのみで実装された軽量SSM** (Mamba) が、AIの推論プロセスをリアルタイムで監視。モデルの学習進捗（EMA損失）に基づき、検知基準を自動で最適化する **「自己校正型エンジン」** を搭載しており、手動の閾値調整なしで高度な異常検知を実現します。
+- **推論異常モニタ**: **NumPyのみで実装された軽量SSM** (Mamba) が、AIの推論プロセスをリアルタイムで監視。モデルの学習進捗（EMA損失）に基づき、検知基準を自動で最適化する **「自己校正型エンジン」** を搭載しており、振る舞いの変化や構造的な異常の検知を支援します。
 - **PQC クライアント整合性検証**: クライアントのソースコードの整合性を検証し、PQC署名 (ML-DSA) されたトークンを発行。MCPツール実行時に自身の健全性を証明します。
 - **ローカルLLM対応**: **Ollama** を利用し、プライバシーを確保しながらオフラインでもモデルを実行。
 - **自律型エージェント**: ファイル操作、**Python実行**、Web検索、メディア添付を自律的に実行。
@@ -284,7 +279,7 @@ Licensed under [Apache License 2.0](LICENSE).
 - **Distributed Agent via MCP**: Model Context Protocol により、リモートサーバーの操作もサポート。
 - **URL解析**: WebサイトのURLの内容を自動的に取得して解析。
 - **安全な実行**: **No-Shell アーキテクチャ** (シェルインジェクションの防止)、ファイル変更の **Diff プレビュー**、**静的解析**、および **Human-in-the-Loop** による承認。
-- **多層的なセキュリティ**: ハイブリッドPQC署名、**クライアント検証**、**Linuxサンドボックス (Bubblewrap)**、**テクニカル・シークレット・リダクター**（検知率90%）、および **推論整合性** トラッキング。
+- **多層的なセキュリティ**: ハイブリッドPQC署名、**クライアント検証**、**Linuxサンドボックス (Bubblewrap)**、および **推論整合性** トラッキング。
 
 ## スクリーンショット
 
@@ -415,16 +410,11 @@ proofread = "以下のテキストの文法と明瞭さを校正してくださ�
 ### 🛡️ 推論異常モニタ (SSM-based)
 **NumPyで実装された Mamba (State Space Model)** を用い、LLMの推論プロセスをリアルタイムで監視します。
 - **統計的監視**: Mambaの内部状態を活用し、生成中の統計的な異常やパターンの乖離を検知します。
-- **推論の整合性**: AIの出力が期待される統計的な範囲から外れた場合に警告を発します。
+- **振る舞いの整合性**: 出力が期待されるパターンから外れた場合（予期せぬデータ構造や高いサプライズスコアのシーケンスなど）に警告を発します。
 - **動的介入**: 重大な異常を検知した場合、自動的に**手動承認モード**へ移行し、ユーザーの確認を求めます。
 
 ### 🧠 Intent Analyzer: 意味論的な検証
 メインエージェントの行動を別の軽量LLM（検証器）が事前に監査します。生成されたコードがユーザーの意図に沿っているかを確認し、予期せぬ操作を防ぎます。
-
-### 🛡️ テクニカル・シークレット・リダクター（リアルタイム）
-APIキーやトークンなどの高エントロピーな機密情報が、誤って送信されたり表示されたりするのを防ぐ構造的ガードレールです。
-- **検知**: 最適化されたシャノン・エントロピー・フィルタ（閾値 4.3）により、一般的なコードに対する誤検知を 0% に抑えつつ、技術的機密情報の **90% を検知** します。
-- **リダクション**: 推論監視（Mamba Sentinel）と並行して動作するデータ整合性レイヤーとして、高エントロピーな文字列をリアルタイムでマスクします。
 
 ### 🛡️ リソース制限とガードレール
 - **静的解析**: 実行前にPythonコードをスキャンし、不審なパターン（特定のインポートなど）を検知します。

@@ -1,11 +1,9 @@
 import hashlib
 import json
 import logging
-import math
 import os
 import re
 import sys
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -74,53 +72,37 @@ class ReasoningSentinelManager:
         self.processing_count: int = 0
         self.suspected_secrets: list[str] = []
 
-    def _calculate_shannon_entropy(self, data: bytes) -> float:
-        """Calculate Shannon entropy of a byte sequence."""
-        if not data:
-            return 0.0
-        counter = Counter(data)
-        len_data = len(data)
-        entropy = 0.0
-        for count in counter.values():
-            p = count / len_data
-            entropy -= p * math.log2(p)
-        return entropy
-
-    def _analyze_for_secrets(self, data: bytes, _scores: list[float]) -> list[str]:
+    def _analyze_for_anomalies(self, data: bytes, scores: list[float]) -> list[str]:
         """
-        Analyze a sequence of bytes for secrets using Shannon Entropy.
+        Identify anomalous sub-sequences based on Mamba surprise scores.
+        Flags segments that significantly deviate from learned behavioral patterns.
         """
-        # Match secret-like tokens at byte level to ensure indices match 'scores'
-        # Pattern: Alphanumeric + common Base64/Key symbols, length 16+
+        # Identify potential structural segments (length 16+)
         pattern = b"[A-Za-z0-9+/=_\\-\\.]{16,}"
-        potential_tokens = re.finditer(pattern, data)
-        suspected = []
+        segments = re.finditer(pattern, data)
+        anomalies = []
 
-        for match in potential_tokens:
-            token_bytes = match.group()
+        # Get thresholds from the self-calibrating sentinel
+        _y, t_red = self.sentinel.get_dynamic_thresholds()
+
+        for match in segments:
             start, end = match.span()
+            segment_bytes = match.group()
 
-            # 1. Calculate Shannon Entropy (0.0 to 8.0)
-            entropy = self._calculate_shannon_entropy(token_bytes)
+            # Analyze the model's surprise score for this specific segment
+            if start < len(scores) and end <= len(scores):
+                segment_scores = scores[start:end]
+                avg_surprise = sum(segment_scores) / len(segment_scores)
 
-            # 2. Calculate average Mamba surprise (cross-entropy) for this token
-            # We still compute it to maintain data structure for secret detection,
-            # but the threshold logic is now handled by Sentinel's self-calibration.
+                # Flag if the segment is statistically unpredictable
+                # for the Mamba baseline
+                if avg_surprise > t_red:
+                    try:
+                        anomalies.append(segment_bytes.decode("utf-8"))
+                    except UnicodeDecodeError:
+                        anomalies.append(str(segment_bytes))
 
-            # --- Heuristics ---
-            # Threshold chosen to catch most technical credentials (API keys).
-            # Note: Redacting high-entropy strings has minimal impact on LLM
-            # reasoning, as random-looking tokens are typically non-semantic.
-            is_high_entropy = entropy > 4.3
-
-            # If entropy is high, it's likely a secret/key
-            if is_high_entropy:
-                try:
-                    suspected.append(token_bytes.decode("utf-8"))
-                except UnicodeDecodeError:
-                    suspected.append(str(token_bytes))
-
-        return list(set(suspected))
+        return list(set(anomalies))
 
     def process_chunk(self, chunk: str) -> float:
         """
@@ -140,32 +122,24 @@ class ReasoningSentinelManager:
         scores: list[float] = []
 
         for byte in bytes_data:
-            # Step the sentinel: it returns the score for THIS byte based
-            # on PREVIOUS logits, and then updates its internal logits
-            # for the NEXT byte.
             score, _status = self.sentinel.step(byte)
             scores.append(score)
             self.history_tokens.append(byte)
 
-        # Truncate history if needed
         if len(self.history_tokens) > self.max_history:
             self.history_tokens = self.history_tokens[-self.max_history :]
 
         avg_score = float(np.mean(scores)) if scores else 0.0
-        # Write to the instance property instead of a module-level global.
-        # This is thread-safe and allows multiple independent sessions to coexist.
         self.current_score = avg_score
 
-        # Secret detection (Entropy + Mamba Surprise)
-        self.suspected_secrets.extend(self._analyze_for_secrets(bytes_data, scores))
+        # Identify anomalous patterns in the byte stream
+        self.suspected_secrets.extend(self._analyze_for_anomalies(bytes_data, scores))
 
-        # Track performance
         elapsed = time.perf_counter() - start_time
         self.last_processing_time = elapsed
         self.total_processing_time += elapsed
         self.processing_count += 1
 
-        # Track history for visualization
         if scores:
             self.score_history.append(avg_score)
             if len(self.score_history) > 20:

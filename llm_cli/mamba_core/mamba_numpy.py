@@ -236,56 +236,65 @@ class MambaNumpy:
         evo_gate: np.ndarray,
         training: bool = False,
     ) -> tuple[np.ndarray, dict[str, Any]]:
+        """
+        Parallel Associative Scan implementation in NumPy.
+        Reduces Python loop overhead from O(L) to O(log L).
+        """
         bs, L, d_inner = x.shape
         d_state = self.config.d_state
 
-        # Use float128/complex128 for better numerical stability during scan
-        h = np.zeros((bs, d_inner, d_state), dtype=np.complex128)
-        prev_Bx = np.zeros_like(h)
+        # 1. Precompute all parameters for the entire sequence (Vectorized)
+        dt_all = delta[:, :, :, None]
+        A_expanded = A[None, None, :, :]
 
-        hs, prev_Bxs, alphas, betas, gammas, current_Bxs = [], [], [], [], [], []
-        ys = []
+        exponent = dt_all * A_expanded
+        exponent_real = np.clip(exponent.real, -20.0, 20.0)
+        alphas = np.exp(exponent_real + 1j * exponent.imag).astype(np.complex128)
 
-        for t in range(L):
-            dt = delta[:, t, :, None]
-            # Clip only the real part of the exponent to prevent numerical explosion
-            exponent = dt * A[None, :, :]
-            exponent_real = np.clip(exponent.real, -20.0, 20.0)
-            exponent = exponent_real + 1j * exponent.imag
-            alpha = np.exp(exponent).astype(np.complex128)
-            current_Bx = (x[:, t, :, None] * B[:, t, None, :]).astype(np.complex128)
+        # current_Bx: (B, L, D, N)
+        current_Bxs = (x[:, :, :, None] * B[:, :, None, :]).astype(np.complex128)
 
-            l_gate = lambda_gate[:, t, :, None]
-            e_gate = evo_gate[:, t, :, None]
+        l_gate = lambda_gate[:, :, :, None]
+        e_gate = evo_gate[:, :, :, None]
 
-            beta = (1.0 - l_gate) * dt * alpha
-            gamma = l_gate * dt * e_gate
+        betas = (1.0 - l_gate) * dt_all * alphas
+        gammas = l_gate * dt_all * e_gate
 
-            if training:
-                hs.append(h.copy())
-                prev_Bxs.append(prev_Bx.copy())
-                alphas.append(alpha)
-                betas.append(beta)
-                gammas.append(gamma)
-                current_Bxs.append(current_Bx.copy())
+        # h_t = alpha_t * h_{t-1} + u_t
+        # u_t = beta_t * current_Bx_{t-1} + gamma_t * current_Bx_t
+        us = gammas * current_Bxs
+        us[:, 1:] += betas[:, 1:] * current_Bxs[:, :-1]
 
-            h = alpha * h + beta * prev_Bx + gamma * current_Bx
-            prev_Bx = current_Bx
+        # 2. Parallel Associative Scan (Kogge-Stone Algorithm)
+        res_A = alphas.copy()
+        res_U = us.copy()
 
-            y_curr = np.sum(h * np.conj(C[:, t, None, :]), axis=-1)
-            ys.append(y_curr.real)
+        step = 1
+        while step < L:
+            # A_new = A_t * A_{t-step}
+            # U_new = A_t * U_{t-step} + U_t
+            A_t = res_A[:, step:]
+            U_t = res_U[:, step:]
+            A_prev = res_A[:, :-step]
+            U_prev = res_U[:, :-step]
 
-        y = np.stack(ys, axis=1)
+            res_U[:, step:] = A_t * U_prev + U_t
+            res_A[:, step:] = A_t * A_prev
+            step *= 2
+
+        h_all = res_U
+
+        # 3. Compute output y
+        y = np.sum(h_all * np.conj(C[:, :, None, :]), axis=-1).real
         y = y + self.params["D"][None, None, :] * x
 
         cache = (
             {
-                "hs": hs,
-                "prev_Bxs": prev_Bxs,
                 "alphas": alphas,
                 "betas": betas,
                 "gammas": gammas,
                 "current_Bxs": current_Bxs,
+                "h_all": h_all,
             }
             if training
             else {}
@@ -466,7 +475,7 @@ class MambaNumpy:
         return d_x_in, d_weight, d_bias
 
     def ssm_backward(self, d_y: np.ndarray) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-        """Complete BPTT (Backpropagation Through Time) for Selective Scan"""
+        """Complete Vectorized BPTT for Selective Scan using Parallel Scan"""
         c = self.config
         s_cache = self.cache["ssm"]
         scan = s_cache["scan"]
@@ -477,96 +486,92 @@ class MambaNumpy:
         d_D = np.sum(d_y * self.cache["x_conv"], axis=(0, 1))
         d_x_input = d_y * self.params["D"][None, None, :]
 
-        # Initialize gradients for scan parameters
-        dh_next = np.zeros((B, D, N), dtype=np.complex128)
-        d_B = np.zeros((B, L, N), dtype=np.complex128)
-        d_C = np.zeros((B, L, N), dtype=np.complex128)
-        d_A = np.zeros((D, N), dtype=np.complex128)
-        d_delta = np.zeros((B, L, D), dtype=np.float64)
-        d_lambda = np.zeros((B, L, 1), dtype=np.float64)
-        d_evo = np.zeros((B, L, 1), dtype=np.float64)
-        d_x_ssm_core = np.zeros((B, L, D), dtype=np.float64)
+        # 1. Recover parameters and states
+        alphas = scan["alphas"]
+        betas = scan["betas"]
+        gammas = scan["gammas"]
+        current_Bxs = scan["current_Bxs"]
+        h_all = scan["h_all"]
 
-        # Gradient from next step's beta path
-        d_curr_Bx_next = np.zeros((B, D, N), dtype=np.complex128)
+        # h_prev[t] is h_{t-1}
+        h_prev = np.zeros_like(h_all)
+        h_prev[:, 1:] = h_all[:, :-1]
 
-        # Reverse loop over sequence
-        for t in reversed(range(L)):
-            C_t = s_cache["C"][:, t, None, :]
+        # p_Bx[t] is current_Bx_{t-1}
+        p_Bxs = np.zeros_like(current_Bxs)
+        p_Bxs[:, 1:] = current_Bxs[:, :-1]
 
-            # Use cached state from forward pass
-            alpha = scan["alphas"][t]
-            beta = scan["betas"][t]
-            gamma = scan["gammas"][t]
-            h_prev = scan["hs"][t]
-            p_Bx = scan["prev_Bxs"][t]
-            c_Bx = scan["current_Bxs"][t]
-            h_curr = alpha * h_prev + beta * p_Bx + gamma * c_Bx
+        # 2. Parallel Backward Scan for dh
+        # dh_{t-1} = dy_t * conj(C_t) + alpha_t * dh_t (simplified logic)
+        C_complex = s_cache["C"]
+        sources = d_y[:, :, :, None] * np.conj(C_complex[:, :, None, :])
 
-            # Gradient of output y_t wrt state h_curr
-            # dy/dh = conj(C)
-            dh_t = dh_next + np.sum(
-                d_y[:, t, :, None, None] * np.conj(C_t[:, :, :, None]), axis=-1
-            )
+        # Reverse Scan
+        # dh_t = source_t + alpha_{t+1} * dh_{t+1}
+        rev_alphas = np.zeros_like(alphas)
+        rev_alphas[:, :-1] = alphas[:, 1:]
 
-            # Gradient of y_t wrt C_t
-            d_C[:, t, :] = np.sum(d_y[:, t, :, None] * np.conj(h_curr), axis=1)
+        res_dh = sources.copy()
+        res_da = rev_alphas.copy()
 
-            # Gradient wrt alpha, beta, gamma
-            d_alpha = dh_t * np.conj(h_prev)
-            d_beta = dh_t * np.conj(p_Bx)
-            d_gamma = dh_t * np.conj(c_Bx)
+        step = 1
+        while step < L:
+            # Backward slice
+            A_curr = res_da[:, :-step]
+            U_curr = res_dh[:, :-step]
+            A_next = res_da[:, step:]
+            U_next = res_dh[:, step:]
 
-            # Discretization parameters: delta and A
-            dt = s_cache["delta"][:, t, :, None]
-            A = s_cache["A"][None, :, :]
-            l_gate = s_cache["lambda_gate"][:, t, :, None]
-            e_gate = s_cache["evo_gate"][:, t, :, None]
+            res_dh[:, :-step] = A_curr * U_next + U_curr
+            res_da[:, :-step] = A_curr * A_next
+            step *= 2
 
-            # alpha = exp(dt * A)
-            # dL/d(dt) += dL/d_alpha * d_alpha/d_dt
-            d_dt_from_alpha = np.real(np.sum(d_alpha * np.conj(A * alpha), axis=-1))
-            d_A += np.sum(np.real(d_alpha * np.conj(dt * alpha)), axis=0)
+        dh_all = res_dh
 
-            # beta = (1 - lambda) * dt * alpha
-            d_l = np.real(np.sum(d_beta * np.conj(-dt * alpha), axis=-1))
-            d_dt_from_beta = np.real(
-                np.sum(d_beta * np.conj((1 - l_gate) * alpha), axis=-1)
-            )
-            # (Note: beta also depends on alpha, which depends on dt and A)
-            d_dt_from_beta += np.real(
-                np.sum(d_beta * np.conj((1 - l_gate) * dt * A * alpha), axis=-1)
-            )
-            d_A += np.sum(
-                np.real(d_beta * np.conj((1 - l_gate) * dt * dt * A * alpha)), axis=0
-            )  # simplified
+        # 3. Parameter Gradients
+        d_C = np.sum(d_y[:, :, :, None] * np.conj(h_all), axis=2)
+        d_alphas = dh_all * np.conj(h_prev)
+        d_betas = dh_all * np.conj(p_Bxs)
+        d_gammas = dh_all * np.conj(current_Bxs)
 
-            # gamma = lambda * dt * evo
-            d_l += np.real(np.sum(d_gamma * np.conj(dt * e_gate), axis=-1))
-            d_dt_from_gamma = np.real(
-                np.sum(d_gamma * np.conj(l_gate * e_gate), axis=-1)
-            )
-            d_e = np.real(np.sum(d_gamma * np.conj(l_gate * dt), axis=-1))
+        # Map to A, delta, gates
+        dt = s_cache["delta"][:, :, :, None]
+        A = s_cache["A"][None, None, :, :]
+        l_gate = s_cache["lambda_gate"][:, :, :, None]
+        e_gate = s_cache["evo_gate"][:, :, :, None]
 
-            # Accumulate delta and gate grads
-            d_delta[:, t, :] = d_dt_from_alpha + d_dt_from_beta + d_dt_from_gamma
-            d_lambda[:, t, 0] = np.sum(d_l, axis=1)
-            d_evo[:, t, 0] = np.sum(d_e, axis=1)
+        d_dt_from_alpha = np.real(np.sum(d_alphas * np.conj(A * alphas), axis=-1))
+        d_A_vec = np.sum(np.real(d_alphas * np.conj(dt * alphas)), axis=(0, 1))
 
-            # Input paths: current_Bx = x_t * B_t
-            d_c_Bx = d_gamma * np.conj(gamma) + d_curr_Bx_next
-            d_B[:, t, :] = np.sum(
-                np.conj(d_c_Bx) * self.cache["x_conv"][:, t, :, None], axis=1
-            )
-            d_x_ssm_core[:, t, :] = np.real(
-                np.sum(d_c_Bx * np.conj(s_cache["B"][:, t, None, :]), axis=-1)
-            )
+        d_l = np.real(np.sum(d_betas * np.conj(-dt * alphas), axis=-1))
+        d_dt_from_beta = np.real(
+            np.sum(d_betas * np.conj((1 - l_gate) * alphas), axis=-1)
+        )
+        d_dt_from_beta += np.real(
+            np.sum(d_betas * np.conj((1 - l_gate) * dt * A * alphas), axis=-1)
+        )
+        d_A_vec += np.sum(
+            np.real(d_betas * np.conj((1 - l_gate) * dt * dt * A * alphas)), axis=(0, 1)
+        )
 
-            # Gradients for the next iteration (t-1)
-            dh_next = dh_t * alpha
-            d_curr_Bx_next = d_beta * np.conj(beta)
+        d_l += np.real(np.sum(d_gammas * np.conj(dt * e_gate), axis=-1))
+        d_dt_from_gamma = np.real(np.sum(d_gammas * np.conj(l_gate * e_gate), axis=-1))
+        d_e = np.real(np.sum(d_gammas * np.conj(l_gate * dt), axis=-1))
 
-        # 4. Map back to projections x_proj and dt_proj
+        d_delta = d_dt_from_alpha + d_dt_from_beta + d_dt_from_gamma
+        d_lambda = np.sum(d_l, axis=2, keepdims=True)
+        d_evo = np.sum(d_e, axis=2, keepdims=True)
+
+        # d_c_Bx_t = conj(gamma_t)*dh_t + conj(beta_{t+1})*dh_{t+1}
+        d_c_Bx = dh_all * np.conj(gammas)
+        d_c_Bx[:, :-1] += dh_all[:, 1:] * np.conj(betas[:, 1:])
+
+        d_B = np.sum(np.conj(d_c_Bx) * self.cache["x_conv"][:, :, :, None], axis=2)
+        d_x_ssm_core = np.real(
+            np.sum(d_c_Bx * np.conj(s_cache["B"][:, :, None, :]), axis=-1)
+        )
+
+        # Map to projections
         d_delta_pre = softplus_backward(s_cache["delta_pre_softplus"], d_delta)
         self.grads["dt_proj.weight"] = np.einsum(
             "bli,blj->ij", d_delta_pre, s_cache["delta_proj"]
@@ -577,7 +582,6 @@ class MambaNumpy:
         d_lambda_raw = sigmoid_backward(s_cache["lambda_gate_raw"], d_lambda)
         d_evo_raw = sigmoid_backward(s_cache["evo_gate_raw"], d_evo)
 
-        # Concatenate all projected gradients to map back to x_proj.weight
         d_proj_out = np.concatenate(
             [
                 d_delta_proj,
@@ -594,10 +598,8 @@ class MambaNumpy:
         self.grads["x_proj.weight"] = np.einsum(
             "bli,blj->ij", d_proj_out, self.cache["x_conv"]
         )
-
-        # Complex A grads
-        self.grads["A_log"] = np.real(d_A * -np.exp(self.params["A_log"]))
-        self.grads["A_imag"] = np.imag(d_A)
+        self.grads["A_log"] = np.real(d_A_vec * -np.exp(self.params["A_log"]))
+        self.grads["A_imag"] = np.imag(d_A_vec)
         self.grads["D"] = d_D
 
         return d_x_input + d_x_ssm_core, self.grads

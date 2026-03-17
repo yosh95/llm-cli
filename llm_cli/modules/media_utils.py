@@ -39,9 +39,11 @@ def read_pdf_text(source: Path | BytesIO) -> str:
         with pdfplumber.open(source) as pdf:
             text_list = []
             for page in pdf.pages:
-                # Use x_tolerance=3 and y_tolerance=3 to keep characters together.
-                # layout=False (default) is generally better for sentence continuity.
-                text = page.extract_text(x_tolerance=3, y_tolerance=3)
+                # Use x_tolerance=1.5 (default 3 too large for LaTeX/arXiv PDFs)
+                # y_tolerance=3. use_text_flow=True helps multi-column papers.
+                text = page.extract_text(
+                    x_tolerance=1.5, y_tolerance=3, use_text_flow=True
+                )
                 if text:
                     # Simple heuristic to join lines for better Japanese continuity.
                     lines = text.splitlines()

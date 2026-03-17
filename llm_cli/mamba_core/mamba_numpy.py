@@ -241,7 +241,6 @@ class MambaNumpy:
         Reduces Python loop overhead from O(L) to O(log L).
         """
         bs, L, d_inner = x.shape
-        d_state = self.config.d_state
 
         # 1. Precompute all parameters for the entire sequence (Vectorized)
         dt_all = delta[:, :, :, None]
@@ -476,11 +475,9 @@ class MambaNumpy:
 
     def ssm_backward(self, d_y: np.ndarray) -> tuple[np.ndarray, dict[str, np.ndarray]]:
         """Complete Vectorized BPTT for Selective Scan using Parallel Scan"""
-        c = self.config
         s_cache = self.cache["ssm"]
         scan = s_cache["scan"]
         B, L, D = d_y.shape
-        N = c.d_state
 
         # Gradient for skip connection D
         d_D = np.sum(d_y * self.cache["x_conv"], axis=(0, 1))

@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,7 @@ class ReasoningSentinelManager:
         )
         self.sentinel.load()
         self.history_tokens: list[int] = []
+        self._learning_lock = threading.Lock()
         self.max_history = 2048  # Increased history for better context
         self.score_history: list[float] = []  # For Trust Trend visualization
 
@@ -163,6 +165,7 @@ class ReasoningSentinelManager:
     def finalize_session(self, learn: bool | None = None) -> None:
         """
         Finalize the session, optionally performing online learning update.
+        Learning is performed asynchronously in collect mode to improve UX.
         """
         import numpy as np
 
@@ -171,14 +174,36 @@ class ReasoningSentinelManager:
             learn = self.sentinel.mode == "collect"
 
         if learn and len(self.history_tokens) > 1:
-            # Perform online learning on the collected session history
-            # input: 0..N-1, target: 1..N
-            input_ids = np.array([self.history_tokens[:-1]], dtype=np.int32)
-            targets = np.array([self.history_tokens[1:]], dtype=np.int32)
-            self.sentinel.update(input_ids, targets)
-            self.sentinel.save()
+            # Copy history to avoid race conditions during background update
+            tokens = list(self.history_tokens)
 
-        # Reset session state for next turn
+            def run_learning() -> None:
+                # Ensure only one background learning process runs at a time
+                if not self._learning_lock.acquire(blocking=False):
+                    logger.debug(
+                        "Sentinel learning already in progress, skipping turn."
+                    )
+                    return
+                try:
+                    # Perform online learning on the collected session history
+                    # input: 0..N-1, target: 1..N
+                    input_ids = np.array([tokens[:-1]], dtype=np.int32)
+                    targets = np.array([tokens[1:]], dtype=np.int32)
+                    self.sentinel.update(input_ids, targets)
+                    self.sentinel.save()
+                    logger.debug(
+                        f"Sentinel background learning complete ({len(tokens)} tokens)."
+                    )
+                except Exception as e:
+                    logger.error(f"Sentinel background learning failed: {e}")
+                finally:
+                    self._learning_lock.release()
+
+            # Start learning in a background thread to prevent UX lag.
+            # We use a daemon thread so it doesn't block app exit.
+            threading.Thread(target=run_learning, daemon=True).start()
+
+        # Reset session state for next turn (must be synchronous)
         self.sentinel.reset_state()
         # We keep history_tokens within max_history to allow cross-turn context,
         # but for clean turns we might want to clear it.

@@ -259,29 +259,25 @@ def execute_python(
                 stdout, stderr = proc.communicate(timeout=timeout)
                 exit_code = proc.returncode
 
-                # Structured output with distinctive separators to avoid collision with
-                # system tool output boundaries or LLM-generated strings in user code.
+                # Structured output with simple section markers for cleaner display.
+                # Uses --- STDOUT --- and --- STDERR --- to reduce visual noise.
                 stdout = (stdout or "").rstrip()
                 stderr = (stderr or "").rstrip()
 
-                result = f"""--- [ STDOUT START ] ---
+                result = f"""--- STDOUT ---
 {stdout or "(no output)"}
---- [ STDOUT END ] ---"""
+"""
 
                 if stderr:
-                    result += f"""
-
---- [ STDERR START ] ---
+                    result += f"""--- STDERR ---
 {stderr}
---- [ STDERR END ] ---"""
+"""
                 else:
-                    result += """
-
---- [ STDERR START ] ---
+                    result += """--- STDERR ---
 (no output)
---- [ STDERR END ] ---"""
+"""
 
-                output = f"{result}\n\n--- [ EXIT CODE: {exit_code} ] ---"
+                output = f"""{result}--- EXIT CODE: {exit_code} ---"""
 
                 return sign_tool_result(output)
 

@@ -17,33 +17,30 @@ def test_basic_python_execution():
     """Verify that basic Python code executes and returns output."""
     code = "print('hello world')"
     result = _get_result_text(execute_python(code))
-    assert "--- [ STDOUT START ] ---" in result
-    assert "--- [ STDOUT END ] ---" in result
+    assert "--- STDOUT ---" in result
     assert "hello world" in result
-    assert "--- [ EXIT CODE:" in result
-    assert "STDOUT" in result  # still contains the word for compatibility
+    assert "--- EXIT CODE:" in result
+    assert "STDOUT" in result
 
 
 def test_python_system_interaction():
     """Verify that Python can perform system tasks like listing files."""
     code = "import os; print(os.getcwd())"
     result = _get_result_text(execute_python(code))
-    assert "--- [ STDOUT START ] ---" in result
-    assert "--- [ STDOUT END ] ---" in result
+    assert "--- STDOUT ---" in result
     assert str(Path.cwd()) in result
-    assert "--- [ EXIT CODE:" in result
-    assert "STDOUT" in result  # still contains the word for compatibility
+    assert "--- EXIT CODE:" in result
+    assert "STDOUT" in result
 
 
 def test_python_stderr_capture():
     """Verify that Python errors are captured in STDERR."""
     code = "import sys; print('error message', file=sys.stderr); sys.exit(1)"
     result = _get_result_text(execute_python(code))
-    assert "--- [ STDERR START ] ---" in result
-    assert "--- [ STDERR END ] ---" in result
+    assert "--- STDERR ---" in result
     assert "error message" in result
-    assert "--- [ EXIT CODE:" in result
-    assert "STDERR" in result  # still contains the word for compatibility
+    assert "--- EXIT CODE:" in result
+    assert "STDERR" in result
 
 
 def test_python_timeout():
@@ -70,4 +67,4 @@ def test_subprocess_no_shell():
 
     result = _get_result_text(execute_python(code))
     assert "hello" in result
-    assert "--- [ EXIT CODE: 0 ] ---" in result or "EXIT CODE: 0" in result
+    assert "--- EXIT CODE: 0" in result

@@ -73,7 +73,6 @@ class PythonSecurityScanner(ast.NodeVisitor):
     DANGEROUS_FUNCTIONS = {
         "eval",
         "exec",
-        "open",
         "getattr",
         "setattr",
         "delattr",

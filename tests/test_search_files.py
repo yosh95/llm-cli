@@ -1,8 +1,16 @@
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 
 from llm_cli.modules.tools.file_ops import search_files
+
+
+def _get_result_text(result: str | dict[str, Any]) -> str:
+    """Extract the plain text from a tool result."""
+    if isinstance(result, dict):
+        return str(result.get("result", result.get("response", "")))
+    return result
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +39,7 @@ def test_search_files_success(tmp_path, monkeypatch):
     (tmp_path / "cache" / "temp.txt").write_text("Hello in cache", encoding="utf-8")
 
     # Search for 'hello'
-    result = search_files("hello")
+    result = _get_result_text(search_files("hello"))
     assert "src/main.py:1:def hello():" in result
     assert "cache/temp.txt" not in result
 
@@ -40,7 +48,7 @@ def test_search_files_no_match(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "test.txt").write_text("no match here", encoding="utf-8")
 
-    result = search_files("target")
+    result = _get_result_text(search_files("target"))
     assert "No matches found." in result
 
 
@@ -49,7 +57,7 @@ def test_search_files_with_pattern(tmp_path, monkeypatch):
     (tmp_path / "test.py").write_text("pattern in python", encoding="utf-8")
     (tmp_path / "test.txt").write_text("pattern in text", encoding="utf-8")
 
-    result = search_files("pattern", file_pattern="*.py")
+    result = _get_result_text(search_files("pattern", file_pattern="*.py"))
     assert "test.py:1:pattern in python" in result
     assert "test.txt" not in result
 
@@ -57,11 +65,11 @@ def test_search_files_with_pattern(tmp_path, monkeypatch):
 def test_search_files_invalid_regex(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     # grep -P will fail on invalid regex like a unmatched bracket
-    result = search_files("[")
+    result = _get_result_text(search_files("["))
     assert "Error" in result
 
 
 def test_search_files_security_violation(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    result = search_files("test", directory="/etc")
+    result = _get_result_text(search_files("test", directory="/etc"))
     assert "Security Error" in result

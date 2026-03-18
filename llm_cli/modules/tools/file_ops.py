@@ -72,7 +72,8 @@ def file_tool_handler(
         try:
             result = func(*args, **kwargs)
             # Apply PQC signing to the result (if it's a string)
-            # This ensures even read-only tools have cryptographically verifiable outputs
+            # This ensures even read-only tools have cryptographically verifiable
+            # outputs
             return sign_tool_result(result) if isinstance(result, str) else result
         except PathValidationError as e:
             return sign_tool_result(f"Security Error: {e}")
@@ -114,7 +115,7 @@ def search_files(
     directory: str = ".",
     file_pattern: str | None = None,
 ) -> str:
-    """Search for a pattern in files using Python, excluding common cache directories."""
+    """Search for a pattern in files, excluding common cache directories."""
     validate_path(directory or ".")
     base_path = Path(directory or ".")
     if not base_path.exists():
@@ -189,7 +190,7 @@ def search_files(
             "ignore_patterns": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "List of patterns to ignore (e.g. ['node_modules', '*.pyc']).",
+                "description": "List of patterns to ignore (e.g. ['node_modules']).",
             },
             "include_hidden": {
                 "type": "boolean",
@@ -244,9 +245,8 @@ def list_files_in_directory(
                 key=lambda x: (not x.is_dir(), x.name.lower()),
             )
         except PermissionError:
-            results.append(
-                f"{'[ERR]':<7} {' ' * 20} {' ' * 10}  Permission Denied: {current_path.name}"
-            )
+            err_msg = f"Permission Denied: {current_path.name}"
+            results.append(f"{'[ERR]':<7} {' ' * 20} {' ' * 10}  {err_msg}")
             return
 
         for entry in all_entries:
@@ -268,9 +268,8 @@ def list_files_in_directory(
                     file_count += 1
                     walk(entry, current_depth + 1)
                 else:
-                    results.append(
-                        f"{'[F]':<7} {mtime:<20} {format_size(stat.st_size):>10}  {rel_path}"
-                    )
+                    sz = format_size(stat.st_size)
+                    results.append(f"{'[F]':<7} {mtime:<20} {sz:>10}  {rel_path}")
                     file_count += 1
             except (PermissionError, OSError):
                 continue
@@ -379,7 +378,7 @@ def edit_file(
     replace: str,
     dry_run: bool = False,
 ) -> str:
-    """Search and replace a specific block of text in a file with fuzzy matching support."""
+    """Edit a file by replacing a block of text with fuzzy matching."""
     validate_path(path)
     p = Path(path)
     if not p.is_file():
@@ -391,7 +390,7 @@ def edit_file(
     if search in content:
         count = content.count(search)
         if count > 1:
-            return f"Error: {count} exact matches found. Please provide a more unique search block."
+            return f"Error: {count} matches found. Use a more unique search block."
         match_start = content.find(search)
         match_end = match_start + len(search)
     else:
@@ -408,7 +407,7 @@ def edit_file(
         if not matches:
             return "Error: The 'search' block was not found exactly or fuzzily."
         if len(matches) > 1:
-            return f"Error: {len(matches)} fuzzy matches found. Please provide a more unique search block."
+            return f"Error: {len(matches)} fuzzy matches. Use a more unique block."
         match_start, match_end = matches[0].span()
 
     # Generate new content

@@ -22,86 +22,92 @@ logger = logging.getLogger(__name__)
 def execute_tool_call(
     session: "ChatSession", part: ContentPart, duration: float | None = None
 ) -> tuple[ContentPart, DataSource | None] | None:
+    """
+    Orchestrates the tool execution lifecycle: security, approval, and verification.
+    """
     from llm_cli.clients.base import console
 
-    client = session.client
     call = part.function_call
     if not call:
         return None
 
-    # --- Real-time Anomaly Detection (Mamba Sentinel) ---
-    score, status = session.sentinel.get_sentinel_status()
-    is_anomaly = status != "green"
-    sentinel_mode = session.sentinel.sentinel.mode
-
-    if is_anomaly:
-        if sentinel_mode == "detect" or sentinel_mode != "collect":
-            from rich.panel import Panel
-            from rich.text import Text
-
-            color = "red" if status == "red" else "yellow"
-            title = (
-                "🚨 [bold]Sentinel: Intent Deviation Detected[/bold]"
-                if status == "red"
-                else "⚠️ [bold]Sentinel: Unusual Reasoning Pattern[/bold]"
-            )
-            sentinel_msg = Text()
-            sentinel_msg.append(
-                "The Mamba Sentinel has detected a potential deviation in the "
-                "model's reasoning process.\n",
-                style="bold",
-            )
-            sentinel_msg.append(
-                f"Anomaly Score: {score:.2f} (Status: {status.upper()})\n", style="cyan"
-            )
-
-            if status == "red":
-                sentinel_msg.append(
-                    "\n[CRITICAL] High probability of intent drift or "
-                    "safety violation. "
-                    "Strict manual review of the proposed action is recommended.",
-                    style="bold red",
-                )
-            else:
-                sentinel_msg.append(
-                    "\n[WARNING] Moderate deviation detected. "
-                    "Please review the request carefully.",
-                    style="yellow",
-                )
-
-            console.print(Panel(sentinel_msg, title=title, border_style=color))
-        else:
-            # In collect mode, we just log it silently to avoid interrupting the user
-            logger.info(
-                f"Sentinel Anomaly detected (score={score:.2f}, status={status}) "
-                "but ignored due to 'collect' mode."
-            )
-
-    tool_id, name, args = (
-        call.get("id", "unknown"),
-        call["name"],
-        call.get("args", {}),
-    )
-
-    # Extract thought_signature if present (required by Gemini API)
+    tool_id, name, args = call.get("id", "unknown"), call["name"], call.get("args", {})
     thought_signature = part.thought_signature
 
-    # --- Policy & Security Check Start ---
+    # 1. Security Guardrails: Sentinel and Policy Engine
+    if not _handle_security_guardrails(session, name, args):
+        err_msg = "Security Policy Violation"
+        return _create_error_response(tool_id, name, err_msg, thought_signature), None
+
+    # 2. Contextual Display: Reasoning explanation
+    _display_tool_reasoning(session, args, duration)
+
+    # 3. Risk Assessment & Static Analysis
+    from llm_cli.security.cass import CASSOrchestrator
+
+    cass = CASSOrchestrator()
+    requirements = cass.get_security_requirements(name)
+    risk_level = cass.evaluate_risk(name)
+
+    if not _handle_static_analysis(session, name, args):
+        err_msg = "Static analysis failed"
+        return _create_error_response(tool_id, name, err_msg, thought_signature), None
+
+    # 4. Human-in-the-Loop: Approval Flow
+    approved, feedback = _handle_user_approval(session, name, args, requirements)
+    if not approved:
+        res_msg = (
+            f"Rejected by user. Feedback: {feedback}"
+            if feedback
+            else "Error: Operation denied."
+        )
+        return _create_error_response(tool_id, name, res_msg, thought_signature), None
+
+    # 5. Execution & Post-processing (PQC, Truncation, Injection)
+    try:
+        return _execute_and_verify(
+            session, name, args, tool_id, thought_signature, requirements, risk_level
+        )
+    except Exception as e:
+        console.print(f"[bold red]Tool execution failed: {e}[/bold red]")
+        return _create_error_response(tool_id, name, str(e), thought_signature), None
+
+
+def _handle_security_guardrails(session: "ChatSession", name: str, args: dict) -> bool:
+    """Checks Mamba Sentinel anomalies and Security Policy Engine."""
+    from llm_cli.clients.base import console
+
+    # --- Sentinel Check ---
+    score, status = session.sentinel.get_sentinel_status()
+    if status != "green" and session.sentinel.sentinel.mode != "collect":
+        from rich.panel import Panel
+        from rich.text import Text
+
+        color = "red" if status == "red" else "yellow"
+        msg_txt = f"Sentinel: Intent Deviation Detected (Score: {score:.2f})\n"
+        msg = Text(msg_txt, style="bold")
+        if status == "red":
+            msg.append("\nHigh probability of intent drift or safety violation.")
+        else:
+            msg.append("\nModerate deviation detected.")
+        console.print(Panel(msg, title="🚨 Sentinel Alert", border_style=color))
+
+    # --- Policy Engine Check ---
     from llm_cli.security.policy import policy_engine
 
-    # Resolve user prompt from conversation history for intent analysis
     user_prompt = "No user prompt found"
-    for msg in reversed(client.conversation):
-        if msg.role == Role.USER:
-            # Extract text parts
-            texts = [p.text for p in msg.parts if isinstance(p, ContentPart) and p.text]
-            # Also handle simple string parts if any (though usually ContentPart)
-            texts += [p for p in msg.parts if isinstance(p, str)]
+    for history_msg in reversed(session.client.conversation):
+        if history_msg.role == Role.USER:
+            texts = [
+                p.text
+                for p in history_msg.parts
+                if isinstance(p, ContentPart) and p.text
+            ]
+            texts += [p for p in history_msg.parts if isinstance(p, str)]
             if texts:
                 user_prompt = "\n".join(texts)
                 break
 
-    # Evaluate policy (includes Role-Based check and Intent Analysis)
     from llm_cli.security.policy import EvaluationContext
 
     context: EvaluationContext = {
@@ -109,312 +115,230 @@ def execute_tool_call(
         "roles": list(get_setting("default_roles", "security") or ["user"]),
         "user_prompt": user_prompt,
     }
-
     if not policy_engine.evaluate(name, args, context):
-        console.print(
-            f"[red]Policy Violation: Execution of '{name}' "
-            "denied by security policy.[/red]"
-        )
-        response = ContentPart(
-            function_response={
-                "id": tool_id,
-                "name": name,
-                "response": {
-                    "result": "Error: Security Policy Violation. Action denied."
-                },
-            },
-            thought_signature=thought_signature,
-        )
-        return response, None
-    # --- Policy & Security Check End ---
+        console.print(f"[red]Policy Violation: Execution of '{name}' denied.[/red]")
+        return False
+    return True
 
-    # Extract explanation for visibility.
+
+def _display_tool_reasoning(
+    session: "ChatSession", args: dict, duration: float | None
+) -> None:
+    """Displays the model's explanation for calling the tool."""
     explanation = (
         args.get("explanation") or args.get("thought") or args.get("reasoning")
     )
     if explanation:
-        display_name = client.get_display_name()
-        duration_str = f" ({duration:.1f}s)" if duration is not None else ""
-        title = f"[bold cyan]{display_name} (Reasoning){duration_str}[/bold cyan]"
-        session._print_block(
-            explanation,
-            title=title,
-            style="cyan",
-        )
+        display_name = session.client.get_display_name()
+        dur = f" ({duration:.1f}s)" if duration else ""
+        title = f"[bold cyan]{display_name} (Reasoning){dur}[/bold cyan]"
+        session._print_block(explanation, title=title, style="cyan")
+
+
+def _handle_static_analysis(session: "ChatSession", name: str, args: dict) -> bool:
+    """Performs static analysis on executable code."""
+    if not (name == "execute_python" or name.endswith("__execute_python")):
+        return True
+
+    code = args.get("code", "")
+    if not code:
+        return True
+
+    is_safe, issues = analyze_python_safety(code)
+    if not is_safe:
+        issue_str = "\n".join(f"• {i}" for i in issues)
+        msg = f"[bold red]⚠️  Security Warning:[/bold red]\n{issue_str}"
+        session._print_block(msg, title="Static Analysis Risk", style="red")
+        if get_bool_setting("static_analysis_is_error", "security", default=True):
+            from llm_cli.clients.base import console
+
+            console.print("[red]Static analysis failed. Blocked.[/red]")
+            return False
+    return True
+
+
+def _handle_user_approval(
+    session: "ChatSession", name: str, args: dict, requirements: Any
+) -> tuple[bool, str]:
+    """Manages the user confirmation dialog and diff previews."""
+    from llm_cli.clients.base import console
 
     tool_entry = registry.tools.get(name, {})
     skip_approval = tool_entry.get("skip_approval", False)
 
-    # --- CASS: Context-Adaptive Security Scaling ---
-    from llm_cli.security.cass import CASSOrchestrator, RiskLevel
-
-    cass = CASSOrchestrator()
-    requirements = cass.get_security_requirements(name)
-    risk_level = cass.evaluate_risk(name)
-
-    # Force approval if Sentinel detects RED status and is in active detect mode.
-    # (Real-time Intent Deviation Detection)
-    #
-    # Design rationale – Human-in-the-Loop (HITL) escalation:
-    # Rather than autonomously blocking execution, CASS deliberately escalates to
-    # a mandatory human approval dialog when the Mamba Sentinel fires at RED level.
-    # This preserves Human-in-the-Loop oversight as required by NIST AI RMF
-    # and avoids the UX damage of silent, opaque rejections while still ensuring
-    # that every anomalous action receives explicit human confirmation.
-    if status == "red" and requirements["mamba_enforcement"] == "strict_block":
+    # CASS Escalation: Force approval on Sentinel RED status
+    _, status = session.sentinel.get_sentinel_status()
+    if status == "red" and requirements.get("mamba_enforcement") == "strict_block":
         skip_approval = False
-        session._print_block(
-            "[bold red]CASS Escalation:[/bold red] Mandatory human review required.\n"
-            f"Mamba Sentinel anomaly score: {score:.2f} (status: {status.upper()})\n"
-            f"Risk profile: {risk_level.value.upper()} – strict enforcement active.",
-            style="red",
-        )
+        msg = "[bold red]CASS Escalation:[/bold red] Mandatory review required."
+        session._print_block(msg, style="red")
 
-    # Require PQC signature for High Risk tools (Tier 3 enforcement).
-    # High-risk tools (edit_file, create_or_overwrite_file, execute_python) embed
-    # a ResponseSigner dict in their return value; tool_executor verifies it below.
-    # A warning (not hard block) is issued if the signature is absent so that
-    # environments without PQC keys still function while operators are alerted.
+    if skip_approval:
+        return True, ""
 
-    is_write = (
-        name == "write_file"
-        or name == "create_or_overwrite_file"
-        or name.endswith("__write_file")
-        or name.endswith("__create_or_overwrite_file")
+    # Display Request
+    is_code_tool = any(k in name for k in ("write_file", "edit_file", "execute_python"))
+    if is_code_tool:
+        request_content = f"[cyan]{escape(name)}[/cyan]"
+    else:
+        # Truncate very long arguments for display
+        display_args = {}
+        for k, v in args.items():
+            if k in ("explanation", "thought", "reasoning"):
+                continue
+            display_args[k] = (
+                (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
+            )
+        request_content = f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
+
+    session._print_block(
+        request_content,
+        title="[bold yellow]🤖 Agent Request[/bold yellow]",
+        style="yellow",
     )
-    is_edit = name == "edit_file" or name.endswith("__edit_file")
-    is_exec = name == "execute_python" or name.endswith("__execute_python")
 
-    # --- Static Analysis Check for Python Code ---
-    is_safe = True
-    issues: list[str] = []
-    if is_exec:
-        code = args.get("code", "")
-        if code:
-            is_safe, issues = analyze_python_safety(code)
-            if not is_safe:
-                issue_str = "\n".join(f"• {i}" for i in issues)
-                session._print_block(
-                    f"[bold red]⚠️  Security Warning (Static Analysis):[/bold red]\n"
-                    f"{issue_str}",
-                    title="[bold red]Potential Risk Detected[/bold red]",
-                    style="red",
-                )
-                if get_bool_setting(
-                    "static_analysis_is_error", "security", default=True
-                ):
-                    console.print(
-                        "[red]Static analysis failed. Execution blocked.[/red]"
-                    )
-                    response = ContentPart(
-                        function_response={
-                            "id": tool_id,
-                            "name": name,
-                            "response": {
-                                "result": (
-                                    "Error: Static analysis failed. The "
-                                    "following security issues were "
-                                    "detected and the execution was "
-                                    f"blocked:\n{issue_str}"
-                                )
-                            },
-                        },
-                        thought_signature=thought_signature,
-                    )
-                    return response, None
-    # --- End Static Analysis Check ---
+    # Show Previews
+    if "write_file" in name or "create_or_overwrite_file" in name:
+        preview_diff(session, args)
+    elif "edit_file" in name:
+        preview_edit_diff(session, args)
+    elif "execute_python" in name:
+        preview_python_code(session, args)
 
-    if not skip_approval:
-        if is_write or is_edit or is_exec:
-            request_content = f"[cyan]{escape(name)}[/cyan]"
+    user_input = session._get_input(
+        "Allow execution? (y/N or feedback): ",
+        exit_on_escape=True,
+        raise_on_interrupt=True,
+    )
+    if user_input.lower() in ("y", "ｙ"):
+        return True, ""
+
+    # Handle Denial
+    feedback = user_input if user_input.lower() not in ("n", "ｎ") else ""
+    console.print("[red]Operation denied.[/red]")
+    return False, feedback
+
+
+def _execute_and_verify(
+    session: "ChatSession",
+    name: str,
+    args: dict,
+    tool_id: str,
+    signature: str | None,
+    requirements: Any,
+    risk_level: Any,
+) -> tuple[ContentPart, DataSource | None]:
+    """Executes the tool, verifies PQC signatures, and truncates output."""
+    from llm_cli.clients.base import console
+
+    tool_entry = registry.tools[name]
+    is_interactive = tool_entry.get("interactive", False)
+
+    if not is_interactive:
+        console.print(f"[bold yellow]🏃 Executing {name}...[/bold yellow]")
+
+    result_data = tool_entry["func"](
+        __audit_model__=session.client.model,
+        __audit_sentinel__=session.sentinel,
+        __security_requirements__=requirements,
+        **args,
+    )
+
+    # 1. Extract injected data
+    injected = None
+    if isinstance(result_data, dict) and "__llm_cli_data__" in result_data:
+        data_payload = result_data.pop("__llm_cli_data__")
+        if isinstance(data_payload, DataSource):
+            injected = data_payload
         else:
-            display_args = {
-                k: (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
-                for k, v in args.items()
-                if k not in ("explanation", "thought", "reasoning")
-            }
-            request_content = (
-                f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
-            )
+            injected = DataSource(**data_payload)
 
-        session._print_block(
-            request_content,
-            title="[bold yellow]🤖 Agent Request[/bold yellow]",
-            style="yellow",
+    # 2. PQC Verification
+    result_data = _verify_pqc_signature(session, result_data, risk_level)
+
+    # 3. Output Truncation
+    p_str = str(result_data)
+    max_len = int(get_setting("max_output_length", "general") or 10000)
+    if len(p_str) > max_len:
+        p_str = (
+            p_str[:max_len]
+            + f"\n\n... (Output truncated. Shown {max_len} of {len(p_str)} chars.)"
         )
+        result_data = p_str
 
-        if is_write:
-            preview_diff(session, args)
-        elif is_edit:
-            preview_edit_diff(session, args)
-        elif is_exec:
-            preview_python_code(session, args)
+    # 4. Display Output
+    session._print_block(
+        escape(p_str), title="[bold green]✅ Tool Output[/bold green]", style="green"
+    )
 
-        user_input = session._get_input(
-            "Allow execution? (y/N or feedback): ",
-            exit_on_escape=True,
-            raise_on_interrupt=True,
-        )
-        if user_input.lower() not in ("y", "ｙ"):
-            feedback = user_input if user_input.lower() not in ("n", "ｎ") else ""
-            console.print("[red]Operation denied.[/red]")
-            if feedback:
-                result_msg = f"Rejected by user. Feedback: {feedback}"
-            else:
-                result_msg = (
-                    "Error: Operation denied. DO NOT retry. Ask for instructions."
-                )
+    response = ContentPart(
+        function_response={
+            "id": tool_id,
+            "name": name,
+            "response": {"result": result_data},
+        },
+        thought_signature=signature,
+    )
+    return response, injected
 
-            response = ContentPart(
-                function_response={
-                    "id": tool_id,
-                    "name": name,
-                    "response": {"result": result_msg},
-                },
-                thought_signature=thought_signature,
+
+def _verify_pqc_signature(
+    session: "ChatSession", result_data: Any, risk_level: Any
+) -> Any:
+    """Verifies PQC signature if present and strips metadata."""
+    from llm_cli.security.cass import RiskLevel
+
+    if not (isinstance(result_data, dict) and "pqc_signature" in result_data):
+        if risk_level == RiskLevel.HIGH:
+            msg = (
+                "[bold yellow]⚠️ CASS Warning:[/bold yellow] "
+                "High-risk tool missing PQC signature."
             )
-            return response, None
+            session._print_block(msg, style="yellow")
+        return result_data
+
+    import base64
+
+    from llm_cli.security.identity import IdentityManager
+    from llm_cli.security.pqc import PQCProvider
+
+    sig_b64 = result_data.get("pqc_signature", "")
+    v_id = result_data.get("verification_id", "unknown")
+    variant = result_data.get("algorithm", "ML-DSA-65")
+    content = str(result_data.get("result", result_data.get("response", result_data)))
 
     try:
-        if name not in registry.tools:
-            raise ValueError(f"Tool '{name}' not found.")
-
-        tool_entry = registry.tools[name]
-        is_interactive = tool_entry.get("interactive", False)
-
-        if is_interactive:
-            result_data = tool_entry["func"](
-                __audit_model__=client.model,
-                __audit_sentinel__=session.sentinel,
-                __security_requirements__=requirements,
-                **args,
-            )
+        pqc_pub = IdentityManager._get_pqc_public_key_content(variant=variant)
+        sig = base64.urlsafe_b64decode(str(sig_b64) + "==")
+        if PQCProvider.verify(
+            f"{v_id}:{content}".encode(), sig, pqc_pub, variant=variant
+        ):
+            msg = f"[bold green]✓ PQC Verified ({variant})[/bold green] (ID: {v_id})"
+            session._print_block(msg, style="green")
         else:
-            console.print(f"[bold yellow]🏃 Executing {name}...[/bold yellow]")
-            result_data = tool_entry["func"](
-                __audit_model__=client.model,
-                __audit_sentinel__=session.sentinel,
-                __security_requirements__=requirements,
-                **args,
+            msg = (
+                "[bold red]❌ PQC Signature Verification Failed[/bold red] "
+                f"(ID: {v_id})"
             )
-
-        injected_data = (
-            result_data.pop("__llm_cli_data__", None)
-            if isinstance(result_data, dict)
-            else None
-        )
-        injected = None
-        if injected_data:
-            if isinstance(injected_data, dict):
-                injected = DataSource(
-                    content=injected_data["content"],
-                    content_type=injected_data.get("content_type", "text/plain"),
-                    is_file_or_url=injected_data.get("is_file_or_url", False),
-                    metadata=injected_data.get("metadata", {}),
-                )
-            elif isinstance(injected_data, DataSource):
-                injected = injected_data
-
-        # --- Signature Stripping & Verification ---
-        is_pqc_present = (
-            isinstance(result_data, dict) and "pqc_signature" in result_data
-        )
-
-        # CASS Requirement: High Risk tools MUST have PQC signatures
-        if risk_level == RiskLevel.HIGH and not is_pqc_present:
-            session._print_block(
-                "[bold yellow]⚠️ CASS Warning:[/bold yellow] High-risk tool response "
-                "missing PQC signature. Verification of integrity is limited.",
-                style="yellow",
-            )
-
-        if is_pqc_present:
-            from llm_cli.security.identity import IdentityManager
-            from llm_cli.security.pqc import PQCProvider
-
-            sig_b64 = result_data.get("pqc_signature", "")
-            v_id = result_data.get("verification_id", "unknown")
-            variant = result_data.get("algorithm", "ML-DSA-65")
-            # The actual content is usually in "result" or "response"
-            content_to_verify = result_data.get("result", result_data.get("response"))
-            if content_to_verify is None:
-                content_to_verify = str(result_data)
-            else:
-                content_to_verify = str(content_to_verify)
-
-            try:
-                import base64
-
-                pqc_pub = IdentityManager._get_pqc_public_key_content(variant=variant)
-                sig = base64.urlsafe_b64decode(str(sig_b64) + "==")
-                message = f"{v_id}:{content_to_verify}".encode()
-
-                if PQCProvider.verify(message, sig, pqc_pub, variant=variant):
-                    session._print_block(
-                        f"[bold green]✓ PQC Verified ({variant})[/bold green] "
-                        f"(ID: {v_id})",
-                        style="green",
-                    )
-                else:
-                    session._print_block(
-                        f"[bold red]❌ PQC Signature Verification Failed[/bold red] "
-                        f"(ID: {v_id})",
-                        style="red",
-                    )
-            except Exception as e:
-                logger.warning(f"Signature verification error: {e}")
-
-            # Always strip the signature and metadata before passing to LLM
-            # regardless of verification success/failure to maintain context efficiency
-            # and prevent raw JSON leakage.
-            result_data = content_to_verify
-
-        p_str = str(result_data)
-        max_len = int(get_setting("max_output_length", "general") or 10000)
-
-        if len(p_str) > max_len:
-            original_len = len(p_str)
-            p_str = p_str[:max_len] + (
-                f"\n\n... (Output truncated by system safety limit. "
-                f"Shown {max_len} of {original_len} characters. "
-                "Use tool parameters (e.g., start_line, start_offset) "
-                "to read the rest.)"
-            )
-            result_data = p_str
-
-        if is_exec:
-            session._print_block(
-                escape(p_str),
-                title="[bold green]✅ Tool Output[/bold green]",
-                style="green",
-            )
-        else:
-            session._print_block(
-                escape(p_str),
-                title="[bold green]✅ Tool Result[/bold green]",
-                style="green",
-            )
-
-        response = ContentPart(
-            function_response={
-                "id": tool_id,
-                "name": name,
-                "response": {"result": result_data},
-            },
-            thought_signature=thought_signature,
-        )
-        return response, injected
+            session._print_block(msg, style="red")
     except Exception as e:
-        console.print(f"[bold red]Tool execution failed: {e}[/bold red]")
-        response = ContentPart(
-            function_response={
-                "id": tool_id,
-                "name": name,
-                "response": {"result": f"Error: {e}"},
-            },
-            thought_signature=thought_signature,
-        )
-        return response, None
+        logger.warning(f"Signature verification error: {e}")
+
+    return content
+
+
+def _create_error_response(
+    tool_id: str, name: str, message: str, signature: str | None
+) -> ContentPart:
+    """Creates a standardized error response for the LLM."""
+    return ContentPart(
+        function_response={
+            "id": tool_id,
+            "name": name,
+            "response": {"result": f"Error: {message}"},
+        },
+        thought_signature=signature,
+    )
 
 
 def preview_diff(session: "ChatSession", args: dict[str, Any]) -> None:

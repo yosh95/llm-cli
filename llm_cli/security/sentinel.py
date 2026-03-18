@@ -67,6 +67,22 @@ class MambaSentinel:
         self.states = None
         self.last_logits = None
 
+    def get_states(self) -> dict[str, Any]:
+        """Returns a deep copy of the current inference states."""
+        import copy
+
+        return {
+            "states": copy.deepcopy(self.states),
+            "last_logits": self.last_logits.copy()
+            if self.last_logits is not None
+            else None,
+        }
+
+    def set_states(self, states_data: dict[str, Any]) -> None:
+        """Restores inference states from a saved dictionary."""
+        self.states = states_data["states"]
+        self.last_logits = states_data["last_logits"]
+
     def _get_params(self) -> dict[str, np.ndarray]:
         params: dict[str, np.ndarray] = {
             "embedding.weight": self.embedding.weight,

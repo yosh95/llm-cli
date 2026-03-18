@@ -287,19 +287,27 @@ class ChatSession:
     def _run_single_turn(self, data: list[DataSource]) -> tuple[str | None, float]:
         """
         Execute one LLM round-trip and handle Sentinel + display side-effects.
-
-        Responsibilities:
-        - Call client._send(data) and measure wall-clock duration.
-        - Run Reasoning Sentinel on thought + response text.
-        - Display thought panel and response block.
-        - Perform PQC bi-directional response signing (background).
-        - Log the model response to the chat log.
-
-        Returns:
-            (response_text, duration)
-            response_text is None when the API returned nothing.
         """
         display_name = self.client.get_display_name()
+
+        # Resolve user prompt from conversation history for Prompt Anchoring
+        user_prompt = None
+        for msg in reversed(self.client.conversation):
+            if msg.role == Role.USER:
+                texts = [
+                    p.text for p in msg.parts if isinstance(p, ContentPart) and p.text
+                ]
+                texts += [p for p in msg.parts if isinstance(p, str)]
+                if texts:
+                    user_prompt = "\n".join(texts)
+                    break
+
+        # If not found in history (e.g., first turn where it's only in 'data'),
+        # extract it from the data payload.
+        if not user_prompt and data:
+            texts = [str(d.content) for d in data if d.content_type == "text/plain"]
+            if texts:
+                user_prompt = "\n".join(texts)
 
         # Show a static "thinking" indicator while waiting for the API.
         start_time = datetime.datetime.now()
@@ -314,9 +322,17 @@ class ChatSession:
         response_tuple, usage = res if res else ((None, None), None)
         response_text, thought_text = response_tuple
 
-        # --- Reasoning Sentinel ---
-        score_t = self.sentinel.process_chunk(thought_text) if thought_text else 0.0
-        score_r = self.sentinel.process_chunk(response_text) if response_text else 0.0
+        # --- Reasoning Sentinel with Prompt Anchoring ---
+        score_t = (
+            self.sentinel.process_chunk(thought_text, user_prompt=user_prompt)
+            if thought_text
+            else 0.0
+        )
+        score_r = (
+            self.sentinel.process_chunk(response_text, user_prompt=user_prompt)
+            if response_text
+            else 0.0
+        )
         self.last_integrity_score = (
             (score_t + score_r) / 2.0
             if thought_text and response_text

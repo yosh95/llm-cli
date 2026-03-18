@@ -130,7 +130,7 @@ class ReasoningSentinelManager:
         self.sentinel.mode = original_mode
         logger.debug(f"Sentinel context initialized with prompt: {user_prompt[:30]}...")
 
-    def process_chunk(self, chunk: str) -> float:
+    def process_chunk(self, chunk: str, user_prompt: str | None = None) -> float:
         """
         Process a text chunk from the LLM stream.
         Returns the average anomaly score for the chunk.
@@ -144,6 +144,21 @@ class ReasoningSentinelManager:
 
         start_time = time.perf_counter()
 
+        # --- Prompt Anchoring (Intent Conditioning) ---
+        # If a user prompt is provided, we temporarily inject it into the Sentinel's
+        # hidden state to "anchor" the model's expectation to the user's intent.
+        # This significantly improves detection of subtle semantic deviations.
+        original_states = None
+        if user_prompt:
+            original_states = self.sentinel.get_states()
+            # Feed intent without scoring or permanent state change
+            intent_context = f"Context: {user_prompt}\nAgent reasoning:"
+            # Use predict mode for anchoring to avoid training on the prompt
+            orig_mode = self.sentinel.mode
+            self.sentinel.mode = "predict"
+            self.sentinel.process_text(intent_context)
+            self.sentinel.mode = orig_mode
+
         bytes_data = chunk.encode("utf-8")
         scores: list[float] = []
 
@@ -151,6 +166,11 @@ class ReasoningSentinelManager:
             score, _status = self.sentinel.step(byte)
             scores.append(score)
             self.history_tokens.append(byte)
+
+        # Restore original state after processing the chunk to keep anchoring fresh
+        # and prevent state drift from the re-injected context.
+        if original_states:
+            self.sentinel.set_states(original_states)
 
         if len(self.history_tokens) > self.max_history:
             self.history_tokens = self.history_tokens[-self.max_history :]

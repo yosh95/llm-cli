@@ -234,9 +234,6 @@ class ReasoningSentinelManager:
             # We use a daemon thread so it doesn't block app exit.
             threading.Thread(target=run_learning, daemon=True).start()
 
-        # Reset session score for reporting (keep SSM state for context)
-        self.current_score = None
-
         # We keep history_tokens within max_history to allow cross-turn context,
         # but for clean turns we might want to clear it.
         # For Sentinel, cross-turn context is usually better.

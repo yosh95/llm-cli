@@ -1,7 +1,5 @@
 # llm_cli/clients/base.py
 
-import datetime
-import urllib.parse
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -9,40 +7,47 @@ from typing import Any
 import requests
 from rich.console import Console
 
+from llm_cli.clients import config as _config
 from llm_cli.clients.command_handler import SUPPORTED_COMMANDS
-from llm_cli.clients.config import get_model_config, get_setting
+from llm_cli.clients.mixins import ConfigMixin, LoggingMixin, MediaMixin
 from llm_cli.clients.session_manager import SessionManager
-from llm_cli.modules.media_utils import fetch_url_content, process_file
+from llm_cli.modules import media_utils as _media_utils
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 console = Console()
 
 
-class BaseLlmClient(ABC):
+# Proxy functions to support tests that patch llm_cli.clients.base
+# and those that patch the underlying modules.
+def get_setting(key: str, section: str | None = None) -> Any:
+    return _config.get_setting(key, section or "general")
+
+
+def get_model_aliases(section: str) -> dict[str, str]:
+    return _config.get_model_aliases(section)
+
+
+def get_model_config(section: str, alias: str) -> dict[str, Any]:
+    return _config.get_model_config(section, alias)
+
+
+def fetch_url_content(
+    url: str, pdf_as_base64: bool = False
+) -> tuple[bytes | str | None, str | None]:
+    return _media_utils.fetch_url_content(url, pdf_as_base64)
+
+
+def process_file(path: Path, pdf_as_base64: bool = False) -> dict[str, Any] | None:
+    return _media_utils.process_file(path, pdf_as_base64)
+
+
+class BaseLlmClient(ABC, ConfigMixin, MediaMixin, LoggingMixin):
     """
     Abstract Base Class for LLM API clients.
 
     This class defines the interface and common logic for interacting with various
     LLM providers (OpenAI, Anthropic, Gemini, etc.).
-
-    Attributes:
-        config_section (str): The section name in the config file.
-        api_key (str): The API key for the provider.
-        pdf_as_base64 (bool): Whether to send PDFs as base64 or extract text.
-        stdout (bool): Whether to output to stdout (non-interactive).
-        render_markdown (bool): Whether to render markdown in the console.
-        live_debug (bool): Whether to show debug information during generation.
-        tools_enabled (bool): Whether tool calling is enabled.
-        reasoning_enabled (bool): Whether "thinking/reasoning" mode is enabled.
-        system_prompt (str): The system prompt text.
-        system_prompt_enabled (bool): Whether the system prompt is active.
-        available_models (Dict[str, str]): Map of aliases to model strings.
-        current_alias (str): The currently active model alias.
-        model (str): The currently active model string.
-        model_config (Dict[str, Any]): Full configuration for the current model.
-        conversation (List[Message]): Message history (proxied from session manager).
-        active_tools (List[str]): List of enabled tool names.
     """
 
     def __init__(
@@ -107,35 +112,6 @@ class BaseLlmClient(ABC):
         """Setter for conversation history."""
         self._session_manager.conversation = value
 
-    def _refresh_general_settings(self) -> None:
-        """Reloads settings that can change at runtime."""
-        raw_timeout = get_setting("request_timeout", "general")
-        self.request_timeout = int(raw_timeout) if raw_timeout else None
-
-        self.max_chat_log_lines = int(
-            get_setting("max_chat_log_lines", "general") or 10000
-        )
-
-    def _refresh_system_prompt(self) -> None:
-        """Constructs or refreshes the system prompt."""
-        raw_prompt = get_setting("system_prompt", self.config_section) or ""
-        disable_date_prompt = get_setting("disable_date_prompt", self.config_section)
-
-        self.system_prompt = ""
-        if not disable_date_prompt:
-            now = datetime.datetime.now().astimezone().strftime("%Y-%m-%d (%A)")
-            self.system_prompt = f"Current date: {now}"
-
-        if raw_prompt:
-            if self.system_prompt:
-                self.system_prompt += "\n"
-            self.system_prompt += raw_prompt
-
-        if self._disable_system_prompt:
-            self.system_prompt_enabled = False
-        else:
-            self.system_prompt_enabled = True
-
     def _init_mcp(self, update_active_tools: bool) -> None:
         """Initializes Model Context Protocol (MCP) tools."""
         try:
@@ -159,10 +135,6 @@ class BaseLlmClient(ABC):
         except Exception as e:
             console.print(f"[yellow]Note: MCP initialization failed: {e}[/yellow]")
 
-    def _expand(self, p: str | None) -> str | None:
-        """Expands user path symbols."""
-        return str(Path(p).expanduser()) if p else None
-
     def _set_initial_model(self, initial_model_alias: str) -> None:
         """Sets the starting model for the client."""
         if not self.set_model(initial_model_alias):
@@ -171,32 +143,12 @@ class BaseLlmClient(ABC):
             else:
                 self.set_model("default")
 
-    def _load_model_aliases(self) -> None:
-        """Loads model aliases from the configuration."""
-        from llm_cli.clients.config import get_model_aliases
-
-        self.available_models = get_model_aliases(self.config_section)
-        if not self.available_models:
-            console.print(
-                f"[yellow]Warning: No models configured for {self.config_section}. "
-                "Check config.toml.[/yellow]"
-            )
-
     def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
-        """
-        Standard history update for most clients.
-        Converts input data to USER messages and appends MODEL message.
-        """
+        """Standard history update for most clients."""
         self._session_manager.update_history(data, model_msg)
 
     def _get_responded_tool_ids(self) -> set[str]:
-        """
-        Returns the set of tool_call IDs that already have a corresponding
-        function_response in the conversation history.
-
-        This is used by _build_messages() / _build_input_items() in each provider
-        client to skip orphaned tool calls (calls without a response).
-        """
+        """Returns tool IDs that have responses in history."""
         responded: set[str] = set()
         for msg in self.conversation:
             if msg.role == Role.TOOL:
@@ -208,13 +160,7 @@ class BaseLlmClient(ABC):
         return responded
 
     def _build_prompt_from_history(self, data: list[DataSource]) -> str:
-        """
-        Collects all text from the conversation history and the incoming data
-        into a single prompt string.
-
-        Used by image/video generation methods that require a flat text prompt
-        rather than a structured message list.
-        """
+        """Collects all text from history and data into a single string."""
         prompt_parts: list[str] = []
         for msg in self.conversation:
             for part in msg.parts:
@@ -233,62 +179,18 @@ class BaseLlmClient(ABC):
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict | None]:
-        """
-        Sends the request to the specific provider API.
-
-        Args:
-            data: A list of DataSource objects containing the user's latest input.
-
-        Returns:
-            A tuple of ((response_text, thought_text), usage_dict).
-        """
+        """Sends the request to the specific provider API."""
         pass
 
     def _post(
-        self,
-        url: str,
-        headers: dict,
-        json_data: dict,
-        timeout: int | None = None,
+        self, url: str, headers: dict, json_data: dict, timeout: int | None = None
     ) -> requests.Response:
-        """
-        Performs a POST request.
-
-        Args:
-            url: The endpoint URL.
-            headers: HTTP headers.
-            json_data: The JSON payload.
-            timeout: Request timeout in seconds (None for no timeout).
-
-        Returns:
-            The successful requests.Response object.
-        """
-        if headers is None:
-            headers = {}
-
         return requests.post(url, headers=headers, json=json_data, timeout=timeout)
 
     def _get(
-        self,
-        url: str,
-        headers: dict | None = None,
-        timeout: int | None = None,
+        self, url: str, headers: dict | None = None, timeout: int | None = None
     ) -> requests.Response:
-        """
-        Performs a GET request.
-
-        Args:
-            url: The endpoint URL.
-            headers: HTTP headers.
-            timeout: Request timeout in seconds.
-
-        Returns:
-            The requests.Response object.
-        """
-        if headers is None:
-            headers = {}
-
-        return requests.get(url, headers=headers, timeout=timeout)
+        return requests.get(url, headers=headers or {}, timeout=timeout)
 
     @property
     def slash_commands(self) -> set[str]:
@@ -296,15 +198,7 @@ class BaseLlmClient(ABC):
         return self._slash_commands
 
     def set_model(self, alias: str) -> bool:
-        """
-        Sets the active model and its configuration using its alias.
-
-        Args:
-            alias: The model alias defined in config.
-
-        Returns:
-            True if the model was successfully set, False otherwise.
-        """
+        """Sets the active model and its configuration using its alias."""
         if alias in self.available_models:
             self.current_alias = alias
             self.model_config = get_model_config(self.config_section, alias)
@@ -326,15 +220,15 @@ class BaseLlmClient(ABC):
         if not self.api_key and self.config_section not in ("ollama",):
             console.print(
                 f"[bold red]Error: API key for '{self.config_section}' "
-                "is missing.[/bold red]\n"
+                "missing.[/bold red]\n"
                 "Please run [cyan]llm-cli-config[/cyan] to set it up."
             )
             return
 
         if not self.model:
             console.print(
-                f"[bold red]Error: No model is configured for "
-                f"'{self.config_section}'.[/bold red]\n"
+                f"[bold red]Error: No model for '{self.config_section}'."
+                "[/bold red]\n"
                 "Please run [cyan]llm-cli-config[/cyan] to define model aliases."
             )
             return
@@ -342,57 +236,6 @@ class BaseLlmClient(ABC):
         from llm_cli.clients.session import ChatSession
 
         ChatSession(self).run(initial_data, sources)
-
-    def process_sources(self, sources: list[str]) -> None:
-        """Processes a list of input sources (files, URLs, text)."""
-        data = [
-            processed for s in sources if (processed := self._process_single_source(s))
-        ]
-        has_prompt = any(not d.is_file_or_url for d in data)
-
-        from llm_cli.clients.session import ChatSession
-
-        session = ChatSession(self)
-
-        if data:
-            if self.stdout or has_prompt:
-                session.process_and_print(data)
-                if not self.stdout:
-                    session.run(sources=sources)
-            else:
-                session.run(initial_data=data, sources=sources)
-        else:
-            session.run(sources=sources)
-
-    def _process_single_source(self, source: str) -> DataSource | None:
-        """Processes a single source string into a DataSource object."""
-        if source.startswith("http"):
-            content, ctype = fetch_url_content(source, self.pdf_as_base64)
-            if content:
-                # Try to extract filename from URL
-                parsed_url = urllib.parse.urlparse(source)
-                filename = Path(parsed_url.path).name or "downloaded_file"
-                return DataSource(
-                    content=content,
-                    content_type=ctype or "application/octet-stream",
-                    is_file_or_url=True,
-                    metadata={"filename": filename},
-                )
-            return None
-
-        path = Path(source)
-        if len(source) < 256 and path.exists() and path.is_file():
-            res_dict = process_file(path, self.pdf_as_base64)
-            if res_dict:
-                return DataSource(
-                    content=res_dict["content"],
-                    content_type=res_dict["content_type"],
-                    is_file_or_url=True,
-                    metadata={"filename": res_dict.get("filename", path.name)},
-                )
-            return None
-
-        return DataSource(content=source, content_type="text/plain")
 
     def _has_pending_tool_calls(self) -> bool:
         """Checks if the last model response contains tool calls."""
@@ -406,19 +249,15 @@ class BaseLlmClient(ABC):
     def load_session(self, path_str: str) -> bool:
         """Loads a conversation session from a JSON file."""
         success, message = self._session_manager.load_session(path_str)
-        if success:
-            console.print(f"[green]{message}[/green]")
-        else:
-            console.print(f"[red]{message}[/red]")
+        color = "green" if success else "red"
+        console.print(f"[{color}]{message}[/{color}]")
         return success
 
     def save_session(self, path_str: str) -> bool:
         """Saves a conversation session to a JSON file."""
         success, message = self._session_manager.save_session(path_str)
-        if success:
-            console.print(f"[green]{message}[/green]")
-        else:
-            console.print(f"[red]{message}[/red]")
+        color = "green" if success else "red"
+        console.print(f"[{color}]{message}[/{color}]")
         return success
 
     def clear_history(self) -> None:
@@ -426,16 +265,11 @@ class BaseLlmClient(ABC):
         self._session_manager.clear_history()
 
     def get_conversation_state(self) -> dict[str, Any]:
-        """
-        Returns the current state of the conversation.
-        Override this to include provider-specific state (like interaction IDs).
-        """
+        """Returns the current state of the conversation."""
         return self._session_manager.get_state()
 
     def set_conversation_state(self, state: dict[str, Any]) -> None:
-        """
-        Restores the conversation state from a dictionary.
-        """
+        """Restores the conversation state from a dictionary."""
         self._session_manager.set_state(state)
 
     def _handle_command(
@@ -454,72 +288,36 @@ class BaseLlmClient(ABC):
 
         print_help()
 
-    def _trim_log_file(self, path: Path, max_lines: int) -> None:
-        from llm_cli.clients.base_helpers import trim_log_file
-
-        trim_log_file(console, path, max_lines)
-
     def _save_inline_media_and_get_log_entry(
         self, inline_data: dict[str, Any], hint_text: str = ""
     ) -> tuple[str | None, Path | None]:
-        """
-        Saves inline media data (base64) to a file and returns a tuple of
-        (formatted display string, saved file path).
-        Supports images and audio.
-        """
         from llm_cli.clients.base_helpers import save_inline_media_and_get_log_entry
 
         return save_inline_media_and_get_log_entry(self, inline_data, hint_text)
 
-    def _log_debug(
-        self,
-        response_obj: Any = None,
-        request_payload: Any = None,
-        response_content: Any = None,
-    ) -> None:
-        from llm_cli.clients.base_helpers import log_debug
-
-        log_debug(self, response_obj, request_payload, response_content)
-
-    def _print_live_debug(
-        self,
-        timestamp: str,
-        response_obj: Any = None,
-        request_payload: Any = None,
-        response_content: Any = None,
-    ) -> None:
-        from llm_cli.clients.base_helpers import print_live_debug
-
-        print_live_debug(timestamp, response_obj, request_payload, response_content)
-
-    def _report_error(self, provider_name: str, e: Exception) -> None:
-        from llm_cli.clients.base_helpers import report_error
-
-        report_error(provider_name, e)
-
     def get_model_icon(self) -> str:
         """Get an appropriate icon for the current model provider."""
         provider = self.config_section.lower()
-        if "google" in provider or "gemini" in provider:
-            return "✨"
-        if "openai" in provider:
-            return "🤖"
-        if "anthropic" in provider or "claude" in provider:
-            return "🌿"
-        if "xai" in provider or "grok" in provider:
-            return "🌌"
-        if "ollama" in provider:
-            return "🦙"
+        icons = {
+            "google": "✨",
+            "gemini": "✨",
+            "openai": "🤖",
+            "anthropic": "🌿",
+            "claude": "🌿",
+            "xai": "🌌",
+            "grok": "🌌",
+            "ollama": "🦙",
+        }
+        for k, v in icons.items():
+            if k in provider:
+                return v
         return "💡"
 
     def get_display_name(self) -> str:
         """Get the formatted display name including icon and model name."""
-        icon = self.get_model_icon()
-        # The user wants the actual model name displayed instead of the alias
-        return f"{icon} ({self.model})"
+        return f"{self.get_model_icon()} ({self.model})"
 
     def _format_response_text(self, text: str | None) -> str | None:
         if text is None:
             return None
-        display_name = self.get_display_name()
-        return f"**{display_name}:**  \n{text.strip()}"
+        return f"**{self.get_display_name()}:**  \n{text.strip()}"

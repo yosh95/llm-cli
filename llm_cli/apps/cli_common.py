@@ -36,20 +36,12 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
     )
 
     if config.supports_provider_selection:
+        from llm_cli.clients.registry import client_registry
+
         parser.add_argument(
             "-p",
             "--provider",
-            choices=config.provider_choices
-            or [
-                "google",
-                "gemini",
-                "openai",
-                "anthropic",
-                "claude",
-                "xai",
-                "grok",
-                "ollama",
-            ],
+            choices=config.provider_choices or client_registry.list_aliases(),
             help="Provider to use",
         )
 

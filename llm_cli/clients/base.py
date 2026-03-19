@@ -47,6 +47,12 @@ class BaseLlmClient(ABC):
         disable_system_prompt: bool = False,
         enable_mcp: bool = False,
         live_debug: bool = False,
+        config_manager: ConfigManager | None = None,
+        model_manager: ModelManager | None = None,
+        session_manager: SessionManager | None = None,
+        tool_manager: ToolManager | None = None,
+        media_manager: MediaManager | None = None,
+        logging_manager: LoggingManager | None = None,
     ):
         """Initializes the LLM client by setting up its managers."""
         self.config_section = config_section
@@ -54,13 +60,15 @@ class BaseLlmClient(ABC):
         self.stdout = stdout
         self.render_markdown = render_markdown
 
-        # Specialized Managers
-        self._config_manager = ConfigManager(config_section, disable_system_prompt)
-        self._model_manager = ModelManager(config_section)
-        self._session_manager = SessionManager()
-        self._tool_manager = ToolManager(initial_tools)
-        self._media_manager = MediaManager(pdf_as_base64)
-        self._logging_manager = LoggingManager(live_debug)
+        # Specialized Managers (Injected or Newly Created)
+        self._config_manager = config_manager or ConfigManager(
+            config_section, disable_system_prompt
+        )
+        self._model_manager = model_manager or ModelManager(config_section)
+        self._session_manager = session_manager or SessionManager()
+        self._tool_manager = tool_manager or ToolManager(initial_tools)
+        self._media_manager = media_manager or MediaManager(pdf_as_base64)
+        self._logging_manager = logging_manager or LoggingManager(live_debug)
 
         # Initial Setup
         self.api_key = get_setting(api_key_name, config_section)

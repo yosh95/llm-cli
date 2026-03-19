@@ -19,22 +19,6 @@ class UnifiedClient(BaseLlmClient):
     Uses dynamic delegation to route calls to the active provider's client.
     """
 
-    _DELEGATED_ATTRIBUTES = {
-        "model",
-        "available_models",
-        "current_alias",
-        "model_config",
-        "set_model",
-        "set_custom_model",
-        "_send",
-        "_build_messages",
-        "_load_model_aliases",
-        "_process_single_source",
-        "get_model_icon",
-        "get_display_name",
-        "_format_response_text",
-    }
-
     def __init__(self, initial_provider: str | None = None, **kwargs: Any):
         self.clients: dict[str, BaseLlmClient] = {}
         self.client_kwargs = kwargs
@@ -55,7 +39,7 @@ class UnifiedClient(BaseLlmClient):
             client_registry.get_config_section(initial_provider_name) or "openai"
         )
 
-        # Initialize as a base client first
+        # Initialize as a base client first. This creates the shared managers.
         super().__init__(
             initial_model_alias=kwargs.get("initial_model_alias", "default"),
             api_key_name="api_key",
@@ -85,14 +69,12 @@ class UnifiedClient(BaseLlmClient):
         )
 
         self.current_provider_name = initial_provider_name
+        self.active_client: BaseLlmClient | None = None
         self._activate_provider(self.current_provider_name)
 
     def __getattr__(self, name: str) -> Any:
         """Delegate any unknown attributes to the active client."""
-        if name in self.__dict__:
-            return self.__dict__[name]
-
-        if "active_client" in self.__dict__:
+        if self.active_client and name != "active_client":
             return getattr(self.active_client, name)
 
         raise AttributeError(
@@ -127,20 +109,18 @@ class UnifiedClient(BaseLlmClient):
             return False
 
         if config_section not in self.clients:
-            # Pass our shared managers to new client if possible,
-            # but since clients are already initialized with their own,
-            # we just override them after creation.
-            self.clients[config_section] = client_class(**self.client_kwargs)
+            # Pass our shared managers to new client for seamless state sharing.
+            self.clients[config_section] = client_class(
+                **self.client_kwargs,
+                session_manager=self._session_manager,
+                tool_manager=self._tool_manager,
+                logging_manager=self._logging_manager,
+                media_manager=self._media_manager,
+            )
 
         self.active_client = self.clients[config_section]
 
-        # Sync managers to ensure consistent state across all clients.
-        # 1. Share unified client's state managers with the active client.
-        self.active_client._session_manager = self._session_manager
-        self.active_client._tool_manager = self._tool_manager
-        self.active_client._logging_manager = self._logging_manager
-
-        # 2. Update unified client's provider-specific managers to match active client.
+        # Sync provider-specific managers to the unified client's accessors.
         self._model_manager = self.active_client._model_manager
         self._config_manager = self.active_client._config_manager
 
@@ -190,6 +170,8 @@ class UnifiedClient(BaseLlmClient):
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict | None]:
         """Delegate send to active client."""
+        if not self.active_client:
+            raise RuntimeError("No active provider client.")
         return self.active_client._send(data)
 
 

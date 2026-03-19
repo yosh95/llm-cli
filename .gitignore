@@ -224,10 +224,6 @@ __marimo__/
 *.vrb
 *.run.xml
 *.bcf
-images/generated/
-./*.json
-paper/Makefile
-paper/**/README.md
 
 # Paper benchmark state
 sentinel_state.npz

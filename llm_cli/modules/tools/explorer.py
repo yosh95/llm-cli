@@ -78,13 +78,7 @@ def generate_repository_map(
         "Returns a comprehensive map of all Python classes, methods, and "
         "functions in the repository along with their docstrings. This is "
         "essential for understanding the project structure without "
-        "reading every file.\n\n"
-        "**Self-Verification Note**: This tool internally executes "
-        "`llm_cli.modules.tools.explorer.generate_repository_map()`. "
-        "If you distrust the output or want to verify its freshness, "
-        "you can run the following via `execute_python`:\n"
-        "`from llm_cli.modules.tools.explorer import generate_repository_map; "
-        "print(generate_repository_map())`"
+        "reading every file."
     ),
 )
 def get_repository_structure(explanation: str) -> str:

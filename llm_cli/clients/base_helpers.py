@@ -36,7 +36,7 @@ def trim_log_file(console: "Console", path: Path, max_lines: int) -> None:
 
 
 def save_inline_media_and_get_log_entry(
-    client: "BaseLlmClient", inline_data: dict[str, Any], hint_text: str = ""
+    client: Any, inline_data: dict[str, Any], hint_text: str = ""
 ) -> tuple[str | None, Path | None]:
     from llm_cli.clients.base import console
 

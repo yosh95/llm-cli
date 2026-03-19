@@ -2,8 +2,10 @@
 
 import difflib
 import logging
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol, runtime_checkable
 
 from rich.markup import escape
 from rich.syntax import Syntax
@@ -12,289 +14,353 @@ from llm_cli.clients.config import get_bool_setting, get_setting
 from llm_cli.modules.models import ContentPart, DataSource, Role
 from llm_cli.modules.tool_registry import registry
 from llm_cli.security.static_analyzer import analyze_python_safety
-
-if TYPE_CHECKING:
-    from llm_cli.clients.session import ChatSession
+from llm_cli.ui import (
+    console,
+    print_block,
+    report_error,
+    report_success,
+    report_warning,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def execute_tool_call(
-    session: "ChatSession", part: ContentPart, duration: float | None = None
-) -> tuple[ContentPart, DataSource | None] | None:
-    """
-    Orchestrates the tool execution lifecycle: security, approval, and verification.
-    """
-    from llm_cli.clients.base import console
+@runtime_checkable
+class AgentContext(Protocol):
+    """Protocol for Agent sessions (e.g. ChatSession)."""
 
-    call = part.function_call
-    if not call:
+    @property
+    def client(self) -> Any: ...
+    @property
+    def sentinel(self) -> Any: ...
+    def _get_input(self, message: str, **kwargs: Any) -> str: ...
+
+
+@dataclass
+class ToolExecutionContext:
+    """Carries tool-specific state through the execution pipeline."""
+
+    session: AgentContext
+    part: ContentPart
+    duration: float | None = None
+    # Derived fields
+    tool_id: str = "unknown"
+    name: str = "unknown"
+    args: dict[str, Any] = field(default_factory=dict)
+    thought_signature: str | None = None
+    # Output fields
+    result_data: Any = None
+    injected_data: DataSource | None = None
+    error_message: str | None = None
+    aborted: bool = False
+
+    def __post_init__(self) -> None:
+        call = self.part.function_call
+        if call:
+            self.tool_id = call.get("id", "unknown")
+            self.name = call["name"]
+            self.args = call.get("args", {})
+            self.thought_signature = self.part.thought_signature
+
+
+class BaseToolHandler(ABC):
+    """Abstract base class for individual stages of tool execution."""
+
+    @abstractmethod
+    def process(self, context: ToolExecutionContext) -> None:
+        """Process the context at this stage."""
+        pass
+
+
+class SecurityGuardrailHandler(BaseToolHandler):
+    """Checks Sentinel anomalies and Security Policy Engine."""
+
+    def process(self, context: ToolExecutionContext) -> None:
+        # Sentinel Check
+        score, status = context.session.sentinel.get_sentinel_status()
+        if status != "green" and context.session.sentinel.sentinel.mode != "collect":
+            from rich.panel import Panel
+            from rich.text import Text
+
+            color = "red" if status == "red" else "yellow"
+            msg = Text(
+                f"Sentinel: Intent Deviation Detected (Score: {score:.2f})\n",
+                style="bold",
+            )
+            msg.append(
+                "\nHigh probability of intent drift or safety violation."
+                if status == "red"
+                else "\nModerate deviation detected."
+            )
+            console.print(Panel(msg, title="🚨 Sentinel Alert", border_style=color))
+
+        # Policy Engine Check
+        from llm_cli.security.policy import EvaluationContext, policy_engine
+
+        user_prompt = self._find_user_prompt(context.session)
+        eval_ctx: EvaluationContext = {
+            "user_id": str(
+                get_setting("default_user_id", "security") or "current_user"
+            ),
+            "roles": list(get_setting("default_roles", "security") or ["user"]),
+            "user_prompt": user_prompt,
+        }
+        if not policy_engine.evaluate(context.name, context.args, eval_ctx):
+            context.error_message = (
+                f"Policy Violation: Execution of '{context.name}' denied."
+            )
+            context.aborted = True
+
+    def _find_user_prompt(self, session: AgentContext) -> str:
+        for history_msg in reversed(session.client.conversation):
+            if history_msg.role == Role.USER:
+                texts = [
+                    p.text
+                    for p in history_msg.parts
+                    if isinstance(p, ContentPart) and p.text
+                ]
+                texts += [p for p in history_msg.parts if isinstance(p, str)]
+                if texts:
+                    return "\n".join(texts)
+        return "No user prompt found"
+
+
+class ReasoningDisplayHandler(BaseToolHandler):
+    """Displays the model's reasoning before executing the tool."""
+
+    def process(self, context: ToolExecutionContext) -> None:
+        explanation = (
+            context.args.get("explanation")
+            or context.args.get("thought")
+            or context.args.get("reasoning")
+        )
+        if explanation:
+            display_name = context.session.client.get_display_name()
+            dur = f" ({context.duration:.1f}s)" if context.duration else ""
+            title = f"[bold cyan]{display_name} (Reasoning){dur}[/bold cyan]"
+            print_block(explanation, title=title, style="cyan")
+
+
+class CodeSafetyHandler(BaseToolHandler):
+    """Performs static analysis on executable code."""
+
+    def process(self, context: ToolExecutionContext) -> None:
+        if not (
+            context.name == "execute_python"
+            or context.name.endswith("__execute_python")
+        ):
+            return
+
+        code = context.args.get("code", "")
+        if not code:
+            return
+
+        is_safe, issues = analyze_python_safety(code)
+        if not is_safe:
+            issue_str = "\n".join(f"• {i}" for i in issues)
+            print_block(
+                f"[bold red]⚠️  Security Warning:[/bold red]\n{issue_str}",
+                title="Static Analysis Risk",
+                style="red",
+            )
+            if get_bool_setting("static_analysis_is_error", "security", default=True):
+                context.error_message = "Static analysis failed. Blocked."
+                context.aborted = True
+
+
+class UserApprovalHandler(BaseToolHandler):
+    """Manages user confirmation and diff previews."""
+
+    def process(self, context: ToolExecutionContext) -> None:
+        tool_entry = registry.tools.get(context.name, {})
+        skip_approval = tool_entry.get("skip_approval", False)
+
+        # CASS Escalation Check
+        _, status = context.session.sentinel.get_sentinel_status()
+        if (
+            status == "red"
+            and get_setting("mamba_enforcement", "security") == "strict_block"
+        ):
+            skip_approval = False
+            print_block(
+                "[bold red]CASS Escalation:[/bold red] Mandatory review required.",
+                style="red",
+            )
+
+        if skip_approval:
+            return
+
+        # Show Previews
+        self._display_request(context)
+        if any(k in context.name for k in ("write_file", "create_or_overwrite_file")):
+            preview_diff(context.args)
+        elif "edit_file" in context.name:
+            preview_edit_diff(context.args)
+        elif "execute_python" in context.name:
+            preview_python_code(context.args)
+
+        user_input = context.session._get_input(
+            "Allow execution? (y/N or feedback): ",
+            exit_on_escape=True,
+            raise_on_interrupt=True,
+        )
+        if user_input.lower() not in ("y", "ｙ"):
+            context.error_message = (
+                f"Rejected by user. Feedback: {user_input}"
+                if user_input.lower() not in ("n", "ｎ")
+                else "Error: Operation denied."
+            )
+            context.aborted = True
+
+    def _display_request(self, context: ToolExecutionContext) -> None:
+        is_code_tool = any(
+            k in context.name for k in ("write_file", "edit_file", "execute_python")
+        )
+        if is_code_tool:
+            content = f"[cyan]{escape(context.name)}[/cyan]"
+        else:
+            display_args = {
+                k: (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
+                for k, v in context.args.items()
+                if k not in ("explanation", "thought", "reasoning")
+            }
+            content = (
+                f"[cyan]{escape(context.name)}[/cyan]({escape(str(display_args))})"
+            )
+        print_block(
+            content, title="[bold yellow]🤖 Agent Request[/bold yellow]", style="yellow"
+        )
+
+
+class ExecutionHandler(BaseToolHandler):
+    """Actually calls the registered tool function."""
+
+    def process(self, context: ToolExecutionContext) -> None:
+        tool_entry = registry.tools[context.name]
+        if not tool_entry.get("interactive", False):
+            console.print(f"[bold yellow]🏃 Executing {context.name}...[/bold yellow]")
+
+        # Context-aware security requirements from CASS
+        from llm_cli.security.cass import CASSOrchestrator
+
+        cass = CASSOrchestrator()
+        requirements = cass.get_security_requirements(context.name)
+
+        try:
+            result = tool_entry["func"](
+                __audit_model__=context.session.client.model,
+                __audit_sentinel__=context.session.sentinel,
+                __security_requirements__=requirements,
+                **context.args,
+            )
+            context.result_data = result
+        except Exception as e:
+            report_error(f"Tool execution failed: {e}")
+            context.error_message = str(e)
+            context.aborted = True
+
+
+class PostProcessHandler(BaseToolHandler):
+    """Handles PQC verification, truncation, and display."""
+
+    def process(self, context: ToolExecutionContext) -> None:
+        # Extract injected data
+        if (
+            isinstance(context.result_data, dict)
+            and "__llm_cli_data__" in context.result_data
+        ):
+            data_payload = context.result_data.pop("__llm_cli_data__")
+            context.injected_data = (
+                data_payload
+                if isinstance(data_payload, DataSource)
+                else DataSource(**data_payload)
+            )
+
+        # PQC Verification
+        from llm_cli.security.cass import CASSOrchestrator
+
+        risk_level = CASSOrchestrator().evaluate_risk(context.name)
+        context.result_data = _verify_pqc_signature(context.result_data, risk_level)
+
+        # Truncation
+        res_str = str(context.result_data)
+        max_len = int(get_setting("max_output_length", "general") or 10000)
+        if len(res_str) > max_len:
+            res_str = (
+                res_str[:max_len]
+                + f"\n\n... (Output truncated. Shown {max_len} of "
+                + f"{len(res_str)} chars.)"
+            )
+            context.result_data = res_str
+
+        # Final Display
+        print_block(
+            escape(res_str),
+            title="[bold green]✅ Tool Output[/bold green]",
+            style="green",
+        )
+
+
+def execute_tool_call(
+    session: "AgentContext", part: ContentPart, duration: float | None = None
+) -> tuple[ContentPart, DataSource | None] | None:
+    """Main pipeline orchestration for tool execution."""
+    ctx = ToolExecutionContext(session, part, duration)
+    if not part.function_call:
         return None
 
-    tool_id, name, args = call.get("id", "unknown"), call["name"], call.get("args", {})
-    thought_signature = part.thought_signature
+    # Pipeline definition
+    pipeline: list[BaseToolHandler] = [
+        SecurityGuardrailHandler(),
+        ReasoningDisplayHandler(),
+        CodeSafetyHandler(),
+        UserApprovalHandler(),
+        ExecutionHandler(),
+        PostProcessHandler(),
+    ]
 
-    # 1. Security Guardrails: Sentinel and Policy Engine
-    if not _handle_security_guardrails(session, name, args):
-        err_msg = "Security Policy Violation"
-        return _create_error_response(tool_id, name, err_msg, thought_signature), None
-
-    # 2. Contextual Display: Reasoning explanation
-    _display_tool_reasoning(session, args, duration)
-
-    # 3. Risk Assessment & Static Analysis
-    from llm_cli.security.cass import CASSOrchestrator
-
-    cass = CASSOrchestrator()
-    requirements = cass.get_security_requirements(name)
-    risk_level = cass.evaluate_risk(name)
-
-    if not _handle_static_analysis(session, name, args):
-        err_msg = "Static analysis failed"
-        return _create_error_response(tool_id, name, err_msg, thought_signature), None
-
-    # 4. Human-in-the-Loop: Approval Flow
-    approved, feedback = _handle_user_approval(session, name, args, requirements)
-    if not approved:
-        res_msg = (
-            f"Rejected by user. Feedback: {feedback}"
-            if feedback
-            else "Error: Operation denied."
-        )
-        return _create_error_response(tool_id, name, res_msg, thought_signature), None
-
-    # 5. Execution & Post-processing (PQC, Truncation, Injection)
-    try:
-        return _execute_and_verify(
-            session, name, args, tool_id, thought_signature, requirements, risk_level
-        )
-    except Exception as e:
-        console.print(f"[bold red]Tool execution failed: {e}[/bold red]")
-        return _create_error_response(tool_id, name, str(e), thought_signature), None
-
-
-def _handle_security_guardrails(session: "ChatSession", name: str, args: dict) -> bool:
-    """Checks Mamba Sentinel anomalies and Security Policy Engine."""
-    from llm_cli.clients.base import console
-
-    # --- Sentinel Check ---
-    score, status = session.sentinel.get_sentinel_status()
-    if status != "green" and session.sentinel.sentinel.mode != "collect":
-        from rich.panel import Panel
-        from rich.text import Text
-
-        color = "red" if status == "red" else "yellow"
-        msg_txt = f"Sentinel: Intent Deviation Detected (Score: {score:.2f})\n"
-        msg = Text(msg_txt, style="bold")
-        if status == "red":
-            msg.append("\nHigh probability of intent drift or safety violation.")
-        else:
-            msg.append("\nModerate deviation detected.")
-        console.print(Panel(msg, title="🚨 Sentinel Alert", border_style=color))
-
-    # --- Policy Engine Check ---
-    from llm_cli.security.policy import policy_engine
-
-    user_prompt = "No user prompt found"
-    for history_msg in reversed(session.client.conversation):
-        if history_msg.role == Role.USER:
-            texts = [
-                p.text
-                for p in history_msg.parts
-                if isinstance(p, ContentPart) and p.text
-            ]
-            texts += [p for p in history_msg.parts if isinstance(p, str)]
-            if texts:
-                user_prompt = "\n".join(texts)
-                break
-
-    from llm_cli.security.policy import EvaluationContext
-
-    context: EvaluationContext = {
-        "user_id": str(get_setting("default_user_id", "security") or "current_user"),
-        "roles": list(get_setting("default_roles", "security") or ["user"]),
-        "user_prompt": user_prompt,
-    }
-    if not policy_engine.evaluate(name, args, context):
-        console.print(f"[red]Policy Violation: Execution of '{name}' denied.[/red]")
-        return False
-    return True
-
-
-def _display_tool_reasoning(
-    session: "ChatSession", args: dict, duration: float | None
-) -> None:
-    """Displays the model's explanation for calling the tool."""
-    explanation = (
-        args.get("explanation") or args.get("thought") or args.get("reasoning")
-    )
-    if explanation:
-        display_name = session.client.get_display_name()
-        dur = f" ({duration:.1f}s)" if duration else ""
-        title = f"[bold cyan]{display_name} (Reasoning){dur}[/bold cyan]"
-        session._print_block(explanation, title=title, style="cyan")
-
-
-def _handle_static_analysis(session: "ChatSession", name: str, args: dict) -> bool:
-    """Performs static analysis on executable code."""
-    if not (name == "execute_python" or name.endswith("__execute_python")):
-        return True
-
-    code = args.get("code", "")
-    if not code:
-        return True
-
-    is_safe, issues = analyze_python_safety(code)
-    if not is_safe:
-        issue_str = "\n".join(f"• {i}" for i in issues)
-        msg = f"[bold red]⚠️  Security Warning:[/bold red]\n{issue_str}"
-        session._print_block(msg, title="Static Analysis Risk", style="red")
-        if get_bool_setting("static_analysis_is_error", "security", default=True):
-            from llm_cli.clients.base import console
-
-            console.print("[red]Static analysis failed. Blocked.[/red]")
-            return False
-    return True
-
-
-def _handle_user_approval(
-    session: "ChatSession", name: str, args: dict, requirements: Any
-) -> tuple[bool, str]:
-    """Manages the user confirmation dialog and diff previews."""
-    from llm_cli.clients.base import console
-
-    tool_entry = registry.tools.get(name, {})
-    skip_approval = tool_entry.get("skip_approval", False)
-
-    # CASS Escalation: Force approval on Sentinel RED status
-    _, status = session.sentinel.get_sentinel_status()
-    if status == "red" and requirements.get("mamba_enforcement") == "strict_block":
-        skip_approval = False
-        msg = "[bold red]CASS Escalation:[/bold red] Mandatory review required."
-        session._print_block(msg, style="red")
-
-    if skip_approval:
-        return True, ""
-
-    # Display Request
-    is_code_tool = any(k in name for k in ("write_file", "edit_file", "execute_python"))
-    if is_code_tool:
-        request_content = f"[cyan]{escape(name)}[/cyan]"
-    else:
-        # Truncate very long arguments for display
-        display_args = {}
-        for k, v in args.items():
-            if k in ("explanation", "thought", "reasoning"):
-                continue
-            display_args[k] = (
-                (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
-            )
-        request_content = f"[cyan]{escape(name)}[/cyan]({escape(str(display_args))})"
-
-    session._print_block(
-        request_content,
-        title="[bold yellow]🤖 Agent Request[/bold yellow]",
-        style="yellow",
-    )
-
-    # Show Previews
-    if "write_file" in name or "create_or_overwrite_file" in name:
-        preview_diff(session, args)
-    elif "edit_file" in name:
-        preview_edit_diff(session, args)
-    elif "execute_python" in name:
-        preview_python_code(session, args)
-
-    user_input = session._get_input(
-        "Allow execution? (y/N or feedback): ",
-        exit_on_escape=True,
-        raise_on_interrupt=True,
-    )
-    if user_input.lower() in ("y", "ｙ"):
-        return True, ""
-
-    # Handle Denial
-    feedback = user_input if user_input.lower() not in ("n", "ｎ") else ""
-    console.print("[red]Operation denied.[/red]")
-    return False, feedback
-
-
-def _execute_and_verify(
-    session: "ChatSession",
-    name: str,
-    args: dict,
-    tool_id: str,
-    signature: str | None,
-    requirements: Any,
-    risk_level: Any,
-) -> tuple[ContentPart, DataSource | None]:
-    """Executes the tool, verifies PQC signatures, and truncates output."""
-    from llm_cli.clients.base import console
-
-    tool_entry = registry.tools[name]
-    is_interactive = tool_entry.get("interactive", False)
-
-    if not is_interactive:
-        console.print(f"[bold yellow]🏃 Executing {name}...[/bold yellow]")
-
-    result_data = tool_entry["func"](
-        __audit_model__=session.client.model,
-        __audit_sentinel__=session.sentinel,
-        __security_requirements__=requirements,
-        **args,
-    )
-
-    # 1. Extract injected data
-    injected = None
-    if isinstance(result_data, dict) and "__llm_cli_data__" in result_data:
-        data_payload = result_data.pop("__llm_cli_data__")
-        if isinstance(data_payload, DataSource):
-            injected = data_payload
-        else:
-            injected = DataSource(**data_payload)
-
-    # 2. PQC Verification
-    result_data = _verify_pqc_signature(session, result_data, risk_level)
-
-    # 3. Output Truncation
-    p_str = str(result_data)
-    max_len = int(get_setting("max_output_length", "general") or 10000)
-    if len(p_str) > max_len:
-        p_str = (
-            p_str[:max_len]
-            + f"\n\n... (Output truncated. Shown {max_len} of {len(p_str)} chars.)"
-        )
-        result_data = p_str
-
-    # 4. Display Output
-    session._print_block(
-        escape(p_str), title="[bold green]✅ Tool Output[/bold green]", style="green"
-    )
+    # Run pipeline
+    for handler in pipeline:
+        try:
+            handler.process(ctx)
+            if ctx.aborted:
+                return _create_error_response(ctx), None
+        except Exception as e:
+            logger.exception("Error in pipeline stage %s", handler.__class__.__name__)
+            ctx.error_message = f"Internal Error in {handler.__class__.__name__}: {e}"
+            return _create_error_response(ctx), None
 
     response = ContentPart(
         function_response={
-            "id": tool_id,
-            "name": name,
-            "response": {"result": result_data},
+            "id": ctx.tool_id,
+            "name": ctx.name,
+            "response": {"result": ctx.result_data},
         },
-        thought_signature=signature,
+        thought_signature=ctx.thought_signature,
     )
-    return response, injected
+    return response, ctx.injected_data
 
 
-def _verify_pqc_signature(
-    session: "ChatSession", result_data: Any, risk_level: Any
-) -> Any:
-    """Verifies PQC signature if present and strips metadata."""
+def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
+    return ContentPart(
+        function_response={
+            "id": ctx.tool_id,
+            "name": ctx.name,
+            "response": {"result": f"Error: {ctx.error_message}"},
+        },
+        thought_signature=ctx.thought_signature,
+    )
+
+
+# --- Helper functions (Moved/Maintained for compatibility) ---
+
+
+def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
     from llm_cli.security.cass import RiskLevel
 
     if not (isinstance(result_data, dict) and "pqc_signature" in result_data):
         if risk_level == RiskLevel.HIGH:
-            msg = (
-                "[bold yellow]⚠️ CASS Warning:[/bold yellow] "
-                "High-risk tool missing PQC signature."
-            )
-            session._print_block(msg, style="yellow")
+            report_warning("CASS Warning: High-risk tool missing PQC signature.")
         return result_data
 
     import base64
@@ -313,40 +379,19 @@ def _verify_pqc_signature(
         if PQCProvider.verify(
             f"{v_id}:{content}".encode(), sig, pqc_pub, variant=variant
         ):
-            msg = f"[bold green]✓ PQC Verified ({variant})[/bold green] (ID: {v_id})"
-            session._print_block(msg, style="green")
+            report_success(f"PQC Verified ({variant}) (ID: {v_id})")
         else:
-            msg = (
-                "[bold red]❌ PQC Signature Verification Failed[/bold red] "
-                f"(ID: {v_id})"
-            )
-            session._print_block(msg, style="red")
+            report_error(f"PQC Signature Verification Failed (ID: {v_id})")
     except Exception as e:
         logger.warning(f"Signature verification error: {e}")
-
     return content
 
 
-def _create_error_response(
-    tool_id: str, name: str, message: str, signature: str | None
-) -> ContentPart:
-    """Creates a standardized error response for the LLM."""
-    return ContentPart(
-        function_response={
-            "id": tool_id,
-            "name": name,
-            "response": {"result": f"Error: {message}"},
-        },
-        thought_signature=signature,
-    )
-
-
-def preview_diff(session: "ChatSession", args: dict[str, Any]) -> None:
+def preview_diff(args: dict[str, Any]) -> None:
     try:
         path, new_content = (Path(args.get("path", "")), args.get("content", ""))
         if not path or not new_content:
             return
-
         if path.exists():
             old_content = path.read_text(encoding="utf-8")
             diff = list(
@@ -358,45 +403,29 @@ def preview_diff(session: "ChatSession", args: dict[str, Any]) -> None:
                 )
             )
             if diff:
-                diff_text = "".join(
-                    [line if line.endswith("\n") else line + "\n" for line in diff]
-                )
-                syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
-                session._print_block(
-                    syn,
-                    title=f"[bold]Diff: {path}[/bold]",
-                    style="yellow",
-                )
+                syn = Syntax("".join(diff), "diff", theme="monokai", word_wrap=True)
+                print_block(syn, title=f"[bold]Diff: {path}[/bold]", style="yellow")
         else:
             lexer = Syntax.guess_lexer(str(path), code=new_content)
             syn = Syntax(
-                new_content,
-                lexer,
-                theme="monokai",
-                line_numbers=True,
-                word_wrap=True,
+                new_content, lexer, theme="monokai", line_numbers=True, word_wrap=True
             )
-            session._print_block(
-                syn,
-                title=f"[bold green]New File: {path}[/bold green]",
-                style="green",
+            print_block(
+                syn, title=f"[bold green]New File: {path}[/bold green]", style="green"
             )
     except Exception:
         pass
 
 
-def preview_edit_diff(session: "ChatSession", args: dict[str, Any]) -> None:
-    """Generate a unified diff preview for edit_file (search/replace)."""
+def preview_edit_diff(args: dict[str, Any]) -> None:
     try:
-        path_str = args.get("path", "")
-        search = args.get("search", "")
-        replace = args.get("replace", "")
+        path_str, search, replace = (
+            args.get("path", ""),
+            args.get("search", ""),
+            args.get("replace", ""),
+        )
         if not path_str or not search:
             return
-
-        path = Path(path_str)
-        title = f"[bold]Edit Diff: {path}[/bold]"
-
         diff = list(
             difflib.unified_diff(
                 search.splitlines(keepends=True),
@@ -405,38 +434,17 @@ def preview_edit_diff(session: "ChatSession", args: dict[str, Any]) -> None:
                 tofile="after (fragment)",
             )
         )
-
         if diff:
-            diff_text = "".join(
-                [line if line.endswith("\n") else line + "\n" for line in diff]
-            )
-            syn = Syntax(diff_text, "diff", theme="monokai", word_wrap=True)
-            session._print_block(
-                syn,
-                title=title,
-                style="yellow",
-            )
-        else:
-            session._print_block(
-                "[yellow]No changes detected in search/replace block.[/yellow]",
-                title=title,
-                style="yellow",
+            syn = Syntax("".join(diff), "diff", theme="monokai", word_wrap=True)
+            print_block(
+                syn, title=f"[bold]Edit Diff: {path_str}[/bold]", style="yellow"
             )
     except Exception:
         pass
 
 
-def preview_python_code(session: "ChatSession", args: dict[str, Any]) -> None:
-    try:
-        code = args.get("code", "")
-        if not code:
-            return
-
+def preview_python_code(args: dict[str, Any]) -> None:
+    code = args.get("code", "")
+    if code:
         syn = Syntax(code, "python", theme="monokai", word_wrap=True)
-        session._print_block(
-            syn,
-            title="[bold]Execute Python Script[/bold]",
-            style="magenta",
-        )
-    except Exception:
-        pass
+        print_block(syn, title="[bold]Execute Python Script[/bold]", style="magenta")

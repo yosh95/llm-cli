@@ -1,8 +1,12 @@
 # llm_cli/apps/model_listing.py
 
-"""Shared model listing functionality for all LLM providers."""
+"""
+Unified model listing functionality for all LLM providers.
+Provides a single CLI command to list available models for any provider.
+"""
 
 import argparse
+import datetime
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,109 +25,208 @@ console = Console()
 class ModelListingConfig:
     """Configuration for provider-specific model listing."""
 
-    provider_name: str  # Display name (e.g., "Google", "OpenAI")
-    config_section: str  # Config section name (e.g., "google", "openai")
-    api_key_setting: str  # API key setting name (e.g., "api_key")
-    api_url: str  # Base API URL
-    response_data_key: str  # Key in response JSON ('models' or 'data')
-
-    # Optional: Function to build headers from API key
+    provider_name: str
+    config_section: str
+    api_key_setting: str
+    api_url: str
+    response_data_key: str
     build_headers: Callable[[str], dict[str, str]] | None = None
-
-    # Optional: Function to build URL from API key (for key-in-URL patterns)
     build_url: Callable[[str, str], str] | None = None
-
-    # Optional: Function to extract model name from model object
     extract_model_name: Callable[[dict[str, Any]], str] | None = None
-
-    # Optional: Function to format non-verbose output line (deprecated)
-    format_model_line: Callable[[dict[str, Any]], str] | None = None
-
-    # Optional: Define columns for the table [(Header, Key/Callable)]
     columns: list[tuple[str, Any]] | None = None
-
-    # Optional: Function to get sort key from model object
     sort_key: Callable[[dict[str, Any]], Any] | None = None
-
-    # Optional: Timeout for API request
     timeout: int = 10
 
 
-def create_model_listing_parser() -> argparse.ArgumentParser:
-    """Create standard argument parser for model listing tools."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("models", nargs="*")
-    parser.add_argument("-v", action="store_true", help="Verbose output")
-    return parser
+# --- Provider Configurations ---
 
 
-def list_models(config: ModelListingConfig) -> None:
-    """
-    Generic model listing implementation.
+def get_openai_config() -> ModelListingConfig:
+    def format_epoch(model: dict) -> str:
+        created = model.get("created")
+        if created:
+            return datetime.datetime.fromtimestamp(created).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        return "N/A"
 
-    Fetches and displays models from an LLM provider API based on the
-    provided configuration.
+    return ModelListingConfig(
+        provider_name="OpenAI",
+        config_section="openai",
+        api_key_setting="api_key",
+        api_url="https://api.openai.com/v1/models",
+        response_data_key="data",
+        build_headers=lambda api_key: {"Authorization": f"Bearer {api_key}"},
+        extract_model_name=lambda model: model["id"],
+        columns=[
+            ("Model ID", "id"),
+            ("Owned By", "owned_by"),
+            ("Created", format_epoch),
+        ],
+        sort_key=lambda model: model["id"],
+    )
 
-    Args:
-        config: ModelListingConfig with provider-specific details
-    """
-    # Get API key
+
+def get_anthropic_config() -> ModelListingConfig:
+    return ModelListingConfig(
+        provider_name="Anthropic",
+        config_section="anthropic",
+        api_key_setting="api_key",
+        api_url="https://api.anthropic.com/v1/models",
+        response_data_key="data",
+        build_headers=lambda api_key: {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        },
+        extract_model_name=lambda model: model["id"],
+        columns=[
+            ("Model ID", "id"),
+            ("Display Name", "display_name"),
+            ("Created At", "created_at"),
+        ],
+        sort_key=lambda model: model.get("created_at", ""),
+    )
+
+
+def get_google_config() -> ModelListingConfig:
+    return ModelListingConfig(
+        provider_name="Google",
+        config_section="google",
+        api_key_setting="api_key",
+        api_url="https://generativelanguage.googleapis.com/v1beta/models",
+        response_data_key="models",
+        build_headers=lambda api_key: {"x-goog-api-key": api_key},
+        extract_model_name=lambda model: model["name"].split("/")[1],
+        columns=[
+            ("Model ID", lambda m: m["name"].split("/")[1]),
+            ("Display Name", "displayName"),
+            ("Input Limit", "inputTokenLimit"),
+            ("Output Limit", "outputTokenLimit"),
+        ],
+        sort_key=lambda model: model["name"],
+    )
+
+
+def get_xai_config() -> ModelListingConfig:
+    def format_epoch(model: dict) -> str:
+        created = model.get("created")
+        if created:
+            return datetime.datetime.fromtimestamp(created).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        return "N/A"
+
+    return ModelListingConfig(
+        provider_name="xAI",
+        config_section="xai",
+        api_key_setting="api_key",
+        api_url="https://api.x.ai/v1/models",
+        response_data_key="data",
+        build_headers=lambda api_key: {"Authorization": f"Bearer {api_key}"},
+        extract_model_name=lambda model: model["id"],
+        columns=[
+            ("Model ID", "id"),
+            ("Owned By", "owned_by"),
+            ("Created", format_epoch),
+        ],
+        sort_key=lambda model: model["id"],
+    )
+
+
+def get_ollama_config() -> ModelListingConfig:
+    api_url = (
+        get_setting("api_url", "ollama") or "http://localhost:11434/v1/chat/completions"
+    )
+    if "/v1" in api_url:
+        base_url = api_url.split("/v1")[0]
+    else:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(api_url)
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+    tags_url = f"{base_url}/api/tags"
+
+    def format_size(model: dict) -> str:
+        size_bytes = model.get("size", 0)
+        return f"{size_bytes / (1024**3):.2f} GB"
+
+    def format_modified(model: dict) -> str:
+        modified = str(model.get("modified_at", ""))
+        return modified[:19].replace("T", " ")
+
+    return ModelListingConfig(
+        provider_name="Ollama",
+        config_section="ollama",
+        api_key_setting="api_key",
+        api_url=tags_url,
+        response_data_key="models",
+        extract_model_name=lambda model: model["name"],
+        columns=[
+            ("Model Name", "name"),
+            ("Size", format_size),
+            ("Modified", format_modified),
+        ],
+    )
+
+
+MODEL_LISTING_REGISTRY: dict[str, Callable[[], ModelListingConfig]] = {
+    "openai": get_openai_config,
+    "gpt": get_openai_config,
+    "anthropic": get_anthropic_config,
+    "claude": get_anthropic_config,
+    "google": get_google_config,
+    "gemini": get_google_config,
+    "xai": get_xai_config,
+    "grok": get_xai_config,
+    "ollama": get_ollama_config,
+}
+
+
+def list_models(config: ModelListingConfig, args: argparse.Namespace) -> None:
+    """Generic model listing implementation."""
     api_key = get_setting(config.api_key_setting, config.config_section)
     if api_key is None and config.config_section not in ("ollama",):
         console.print(f"[red]{config.provider_name} API Key not found in config.[/red]")
         console.print("[yellow]Please run 'llm-cli-config' to set it up.[/yellow]")
-        sys.exit(1)
+        return
 
-    # Parse arguments
-    parser = create_model_listing_parser()
-    args = parser.parse_args()
-    verbose = args.v
-
-    # Build URL
-    if config.build_url:
-        api_url = config.build_url(config.api_url, api_key or "")
-    else:
-        api_url = config.api_url
-
-    # Build headers
-    if config.build_headers:
-        headers = config.build_headers(api_key or "")
-    else:
-        headers = {}
+    api_url = (
+        config.build_url(config.api_url, api_key or "")
+        if config.build_url
+        else config.api_url
+    )
+    headers = config.build_headers(api_key or "") if config.build_headers else {}
     headers["Connection"] = "close"
 
-    # Make API request
     try:
         response = requests.get(api_url, headers=headers, timeout=config.timeout)
         response.raise_for_status()
     except Exception as e:
-        console.print(f"[bold red]Error fetching models: {e}[/bold red]")
-        sys.exit(1)
+        msg = (
+            f"[bold red]Error fetching models for "
+            f"{config.provider_name}: {e}[/bold red]"
+        )
+        console.print(msg)
+        return
 
-    # Parse response
     result = response.json()
-
-    # Check for data in response
     if config.response_data_key not in result:
         console.print_json(data=result)
         return
 
     models = result[config.response_data_key]
 
-    # Handle specific model queries
     if len(args.models) > 0:
         for model in models:
-            # Extract model name
-            if config.extract_model_name:
-                model_name = config.extract_model_name(model)
-            else:
-                model_name = model.get("id", model.get("name", ""))
-
+            model_name = (
+                config.extract_model_name(model)
+                if config.extract_model_name
+                else model.get("id", model.get("name", ""))
+            )
             if model_name in args.models:
                 console.print_json(data=model)
         return
 
-    # Sort models by name
     def get_model_name(m: dict[str, Any]) -> str:
         if config.extract_model_name:
             return config.extract_model_name(m)
@@ -131,25 +234,18 @@ def list_models(config: ModelListingConfig) -> None:
 
     models = sorted(models, key=get_model_name)
 
-    # Display all models
-    if verbose:
-        # Display detailed table
+    if args.v:
         table = Table(title=f"{config.provider_name} Models")
-
-        # Determine columns
         display_columns = config.columns or [("Model Name", "id")]
-
         for header, _ in display_columns:
-            # Using overflow="fold" to wrap long IDs without truncation
             table.add_column(
                 header,
                 style="cyan" if "Name" in header or "ID" in header else "magenta",
                 overflow="fold",
             )
-
         for model in models:
             row_data = []
-            for _header, key_or_func in display_columns:
+            for _, key_or_func in display_columns:
                 if callable(key_or_func):
                     val = key_or_func(model)
                 elif isinstance(key_or_func, str):
@@ -158,9 +254,39 @@ def list_models(config: ModelListingConfig) -> None:
                     val = str(key_or_func)
                 row_data.append(str(val))
             table.add_row(*row_data)
-
         console.print(table)
     else:
-        # Display model names only
         for model in models:
             console.print(get_model_name(model))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Unified LLM Model Listing CLI")
+    parser.add_argument(
+        "provider",
+        help=(
+            f"Provider to list models for ({', '.join(sorted(MODEL_LISTING_REGISTRY))})"
+        ),
+    )
+    parser.add_argument(
+        "models", nargs="*", help="Specific models to show detail for (JSON)"
+    )
+    parser.add_argument("-v", action="store_true", help="Verbose output (table format)")
+
+    args = parser.parse_args()
+
+    provider = args.provider.lower()
+    if provider not in MODEL_LISTING_REGISTRY:
+        console.print(f"[bold red]Error: Unknown provider '{provider}'.[/bold red]")
+        console.print(
+            f"Available providers: {', '.join(sorted(MODEL_LISTING_REGISTRY.keys()))}"
+        )
+        sys.exit(1)
+
+    config_factory = MODEL_LISTING_REGISTRY[provider]
+    config = config_factory()
+    list_models(config, args)
+
+
+if __name__ == "__main__":
+    main()

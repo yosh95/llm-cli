@@ -1,4 +1,5 @@
 # llm_cli/clients/session.py
+from __future__ import annotations
 
 import datetime
 import os
@@ -7,7 +8,10 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from llm_cli.clients.base import BaseLlmClient
 
 try:
     import termios
@@ -20,10 +24,6 @@ from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.shortcuts import CompleteStyle
 from rich.rule import Rule
 
-from llm_cli.clients.base import (
-    BaseLlmClient,
-    console,
-)
 from llm_cli.clients.completer import LlmCliCompleter
 from llm_cli.clients.exceptions import (
     CheckpointRequest,
@@ -33,6 +33,11 @@ from llm_cli.clients.exceptions import (
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.security.integrity import ReasoningSentinelManager
+from llm_cli.ui import (
+    console,
+    print_block,
+    report_error,
+)
 
 kb = KeyBindings()
 kb_exit = KeyBindings()
@@ -81,7 +86,7 @@ def _(event: Any) -> None:
             # Editor exited with error/abort status (e.g. :cq in vim)
             buffer.text = original_text
     except Exception as e:
-        console.print(f"\n[red]Failed to open editor: {e}[/red]")
+        report_error(f"Failed to open editor: {e}")
         buffer.text = original_text
     finally:
         if tf_path.exists():
@@ -112,13 +117,7 @@ class ChatSession:
         self, renderable: Any, title: str | None = None, style: str | None = None
     ) -> None:
         """Print content with background color (no border) for easier copying."""
-        if title:
-            console.print(Rule(title=title, style=style or "white"))
-
-        console.print(renderable)
-
-        if title:
-            console.print(Rule(style=style or "white"))
+        print_block(renderable, title, style)
 
     def _print_secret_warning(self, anomalies: list[str]) -> None:
         """Displays a warning when potential reasoning anomalies are detected."""

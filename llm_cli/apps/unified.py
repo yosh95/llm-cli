@@ -6,7 +6,7 @@ from llm_cli.apps.cli_common import ClientConfig, run_client_cli
 from llm_cli.clients.base import BaseLlmClient, console
 from llm_cli.clients.config import get_setting
 from llm_cli.clients.registry import client_registry
-from llm_cli.modules.models import DataSource, Message
+from llm_cli.modules.models import DataSource
 
 T = TypeVar("T")
 
@@ -15,7 +15,25 @@ class UnifiedClient(BaseLlmClient):
     """
     A unified client capable of switching between multiple
     providers within a single session.
+
+    Uses dynamic delegation to route calls to the active provider's client.
     """
+
+    _DELEGATED_ATTRIBUTES = {
+        "model",
+        "available_models",
+        "current_alias",
+        "model_config",
+        "set_model",
+        "set_custom_model",
+        "_send",
+        "_build_messages",
+        "_load_model_aliases",
+        "_process_single_source",
+        "get_model_icon",
+        "get_display_name",
+        "_format_response_text",
+    }
 
     def __init__(self, initial_provider: str | None = None, **kwargs: Any):
         self.clients: dict[str, BaseLlmClient] = {}
@@ -32,14 +50,17 @@ class UnifiedClient(BaseLlmClient):
 
             sys.exit(1)
 
-        self.current_provider_name = str(initial_provider or default_p)
-        self._activate_provider(self.current_provider_name)
+        initial_provider_name = str(initial_provider or default_p)
+        config_section = (
+            client_registry.get_config_section(initial_provider_name) or "openai"
+        )
 
+        # Initialize as a base client first
         super().__init__(
             initial_model_alias=kwargs.get("initial_model_alias", "default"),
             api_key_name="api_key",
-            config_section=self.active_client.config_section,
-            pdf_as_base64=self.active_client.pdf_as_base64,
+            config_section=config_section,
+            pdf_as_base64=kwargs.get("pdf_as_base64", False),
             stdout=kwargs.get("stdout", False),
             render_markdown=kwargs.get("render_markdown", True),
             initial_tools=kwargs.get("initial_tools"),
@@ -47,71 +68,31 @@ class UnifiedClient(BaseLlmClient):
             enable_mcp=kwargs.get("enable_mcp", False),
             live_debug=kwargs.get("live_debug", False),
         )
-        self.active_client.conversation = self.conversation
+
+        self.current_provider_name = initial_provider_name
+        self._activate_provider(self.current_provider_name)
 
     def __getattr__(self, name: str) -> Any:
         """Delegate any unknown attributes to the active client."""
+        # Use __getattribute__ for those explicitly in _DELEGATED_ATTRIBUTES
+        # if they are already defined on the parent class (BaseLlmClient).
+        # Actually __getattr__ is only called if the attribute is NOT found.
+        # Since model, available_models, etc. are properties on BaseLlmClient,
+        # they ARE found. So we must override them or ensure our managers
+        # are synced.
+
+        if name in self.__dict__:
+            return self.__dict__[name]
+
         if "active_client" in self.__dict__:
             return getattr(self.active_client, name)
+
         raise AttributeError(
             f"'{type(self).__name__}' object has no attribute '{name}'"
         )
 
-    @property
-    def model(self) -> str:
-        return self.active_client.model
-
-    @model.setter
-    def model(self, value: str) -> None:
-        self.active_client.model = value
-
-    @property
-    def available_models(self) -> dict[str, Any]:
-        return self.active_client.available_models
-
-    @available_models.setter
-    def available_models(self, value: dict[str, Any]) -> None:
-        self.active_client.available_models = value
-
-    @property
-    def current_alias(self) -> str:
-        return self.active_client.current_alias
-
-    @current_alias.setter
-    def current_alias(self, value: str) -> None:
-        self.active_client.current_alias = value
-
-    @property
-    def conversation(self) -> list[Message]:
-        return self._session_manager.conversation
-
-    @conversation.setter
-    def conversation(self, value: list[Message]) -> None:
-        self._session_manager.conversation = value
-        if hasattr(self, "active_client"):
-            self.active_client.conversation = value
-
-    @property
-    def live_debug(self) -> bool:
-        return getattr(self, "_live_debug", False)
-
-    @live_debug.setter
-    def live_debug(self, value: bool) -> None:
-        self._live_debug = value
-        if hasattr(self, "active_client"):
-            self.active_client.live_debug = value
-
-    @property
-    def tools_enabled(self) -> bool:
-        return getattr(self, "_tools_enabled", True)
-
-    @tools_enabled.setter
-    def tools_enabled(self, value: bool) -> None:
-        self._tools_enabled = value
-        if hasattr(self, "active_client"):
-            self.active_client.tools_enabled = value
-
     def _activate_provider(self, provider_alias: str) -> bool:
+        """Switches the active provider and syncs managers."""
         try:
             client_class = client_registry.get_client_class(provider_alias)
             config_section = client_registry.get_config_section(provider_alias)
@@ -138,50 +119,29 @@ class UnifiedClient(BaseLlmClient):
             return False
 
         if config_section not in self.clients:
+            # Pass our shared managers to new client if possible,
+            # but since clients are already initialized with their own,
+            # we just override them after creation.
             self.clients[config_section] = client_class(**self.client_kwargs)
 
         self.active_client = self.clients[config_section]
 
-        # Sync attributes
-        for attr in ["live_debug", "tools_enabled", "conversation", "active_tools"]:
-            if hasattr(self, attr):
-                setattr(self.active_client, attr, getattr(self, attr))
+        # Sync managers to ensure consistent state across all clients.
+        # 1. Share unified client's state managers with the active client.
+        self.active_client._session_manager = self._session_manager
+        self.active_client._tool_manager = self._tool_manager
+        self.active_client._logging_manager = self._logging_manager
+
+        # 2. Update unified client's provider-specific managers to match active client.
+        self._model_manager = self.active_client._model_manager
+        self._config_manager = self.active_client._config_manager
 
         # Update own state from active client
         self.current_provider_name = config_section
         self.config_section = self.active_client.config_section
-        self.pdf_as_base64 = self.active_client.pdf_as_base64
+        self.api_key = self.active_client.api_key
 
         return True
-
-    def _load_model_aliases(self) -> None:
-        """Delegate to the active client."""
-        if hasattr(self, "active_client"):
-            self.active_client._load_model_aliases()
-
-    def set_model(self, alias: str) -> bool:
-        """Delegate to the active client."""
-        return self.active_client.set_model(alias)
-
-    def set_custom_model(self, model_name: str) -> None:
-        """Delegate to the active client."""
-        self.active_client.set_custom_model(model_name)
-
-    def _process_single_source(self, source: str) -> DataSource | None:
-        """Delegate to the active client."""
-        return self.active_client._process_single_source(source)
-
-    def clear_history(self) -> None:
-        """Delegate to the active client."""
-        self.active_client.clear_history()
-
-    def get_conversation_state(self) -> dict[str, Any]:
-        """Delegate to the active client."""
-        return self.active_client.get_conversation_state()
-
-    def set_conversation_state(self, state: dict[str, Any]) -> None:
-        """Delegate to the active client."""
-        self.active_client.set_conversation_state(state)
 
     def _handle_command(
         self,
@@ -189,6 +149,7 @@ class UnifiedClient(BaseLlmClient):
         sources: list[str] | None,
         pending_data: list[DataSource] | None = None,
     ) -> bool:
+        """Unified-specific slash commands."""
         if not user_input.startswith("/"):
             return False
 
@@ -209,13 +170,11 @@ class UnifiedClient(BaseLlmClient):
                 table.add_column("Alias", style="cyan", width=15)
                 table.add_column("Config Section", style="dim")
 
-                # Get provider info and sort by alias for consistency
                 info = client_registry.get_provider_info()
                 for alias in sorted(info.keys()):
                     section = info[alias]
                     is_active = section == self.current_provider_name
                     active_mark = "[bold green]*[/bold green]" if is_active else ""
-
                     table.add_row(active_mark, alias, section)
 
                 console.print(table)
@@ -231,16 +190,13 @@ class UnifiedClient(BaseLlmClient):
                 console.print(f"[red]Unknown or unavailable provider: {args}[/red]")
                 return True
 
+        # Fallback to current provider's command handler or base handler
         return super()._handle_command(user_input, sources, pending_data)
 
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict | None]:
-        # Ensure all synced state is up to date before sending
-        self.active_client.active_tools = self.active_tools
-        self.active_client.conversation = self.conversation
-        self.active_client.live_debug = self.live_debug
-        self.active_client.tools_enabled = self.tools_enabled
+        """Delegate send to active client."""
         return self.active_client._send(data)
 
 

@@ -4,9 +4,16 @@ import tomllib
 from pathlib import Path
 from typing import Any, cast
 
+from llm_cli.clients.config_models import AppConfig
 from llm_cli.consts import CONFIG_FILE_PATH
 
 _config_cache: dict[str, Any] | None = None
+
+
+def get_config() -> AppConfig:
+    """Returns the current configuration as a structured model."""
+    data = _load_config_from_file()
+    return AppConfig.from_dict(data)
 
 
 def _load_config_from_file() -> dict[str, Any]:

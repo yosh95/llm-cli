@@ -88,15 +88,7 @@ class PolicyEngine:
         # 3. Subject-specific overrides (e.g., specific user@host)
         self.subjects = self.config.get("subjects", {})
 
-        # 4. Set Default Roles if not present (for test stability)
-        if not self.roles:
-            self.roles = {
-                "admin": {"allow_all": True},
-                "user": {"allowed_tools": ["*"]},
-                "guest": {"allowed_tools": ["read_file_content", "search_files"]},
-            }
-
-        # 5. Merge user-defined roles into the defaults
+        # 4. Merge user-defined roles
         if "roles" in self.config:
             for role_name, role_def in self.config["roles"].items():
                 if role_name in self.roles:

@@ -124,6 +124,8 @@ class ChatSession:
         from rich.panel import Panel
         from rich.text import Text
 
+        from llm_cli.ui import console
+
         unique_anomalies = sorted(set(anomalies))
         msg = (
             "The following sequences were flagged as statistical anomalies in the "

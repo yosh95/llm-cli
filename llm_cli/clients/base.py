@@ -202,14 +202,22 @@ class BaseLlmClient(ABC):
 
     def load_session(self, path_str: str) -> bool:
         success, message = self._session_manager.load_session(path_str)
-        color = "green" if success else "red"
-        console.print(f"[{color}]{message}[/{color}]")
+        from llm_cli.ui import report_error, report_success
+
+        if success:
+            report_success(message)
+        else:
+            report_error(message)
         return success
 
     def save_session(self, path_str: str) -> bool:
         success, message = self._session_manager.save_session(path_str)
-        color = "green" if success else "red"
-        console.print(f"[{color}]{message}[/{color}]")
+        from llm_cli.ui import report_error, report_success
+
+        if success:
+            report_success(message)
+        else:
+            report_error(message)
         return success
 
     def clear_history(self) -> None:
@@ -253,9 +261,7 @@ class BaseLlmClient(ABC):
         data = self._media_manager.process_sources(sources)
         has_prompt = any(not d.is_file_or_url for d in data)
 
-        from llm_cli.clients.session import ChatSession
-
-        session = ChatSession(self)
+        session = self.create_session()
 
         if data:
             if self.stdout or has_prompt:
@@ -266,6 +272,12 @@ class BaseLlmClient(ABC):
                 session.run(initial_data=data, sources=sources)
         else:
             session.run(sources=sources)
+
+    def create_session(self) -> Any:
+        """Factory method to create a chat session."""
+        from llm_cli.clients.session import ChatSession
+
+        return ChatSession(self)
 
     def _save_inline_media_and_get_log_entry(
         self, inline_data: dict[str, Any], hint_text: str = ""
@@ -293,24 +305,24 @@ class BaseLlmClient(ABC):
     ) -> None:
         """Starts an interactive chat session."""
         if not self.api_key and self.config_section not in ("ollama",):
-            console.print(
-                f"[bold red]Error: API key for '{self.config_section}' "
-                "missing.[/bold red]\n"
-                "Please run [cyan]llm-cli-config[/cyan] to set it up."
+            from llm_cli.ui import report_error
+
+            report_error(
+                f"API key for '{self.config_section}' missing.\n"
+                "Please run llm-cli-config to set it up."
             )
             return
 
         if not self.model:
-            console.print(
-                f"[bold red]Error: No model for '{self.config_section}'."
-                "[/bold red]\n"
-                "Please run [cyan]llm-cli-config[/cyan] to define model aliases."
+            from llm_cli.ui import report_error
+
+            report_error(
+                f"No model for '{self.config_section}'.\n"
+                "Please run llm-cli-config to define model aliases."
             )
             return
 
-        from llm_cli.clients.session import ChatSession
-
-        ChatSession(self).run(initial_data, sources)
+        self.create_session().run(initial_data, sources)
 
     def _has_pending_tool_calls(self) -> bool:
         """Checks if the last model response contains tool calls."""

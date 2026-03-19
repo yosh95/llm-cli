@@ -400,8 +400,17 @@ def handle_info(ctx: CommandContext) -> bool:
             )
             info_table.add_row(
                 "Reasoning Integrity",
-                f"[{color}]{current_score:.4f}[/{color}] (Anomaly Score)",
+                f"[{color}]{current_score:.4f}[/{color}] (Anomaly Score) "
+                f"[dim](Warn: {t_yellow:.2f}, Crit: {t_red:.2f})[/dim]",
             )
+            # Add timing stats if available
+            if sentinel.last_processing_time > 0:
+                timing_str = f"[dim]{sentinel.last_processing_time:.3f}s (Reasoning)"
+                if sentinel.last_learning_time > 0:
+                    timing_str += f", {sentinel.last_learning_time:.3f}s (Learning)"
+                timing_str += "[/dim]"
+                info_table.add_row("Sentinel Latency", timing_str)
+
             if sentinel.score_history:
                 trend = [
                     " [green]█[/green]"

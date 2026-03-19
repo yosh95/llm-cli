@@ -22,9 +22,8 @@ all: $(PAPER_PDF) ## Compile the research paper
 $(PAPER_PDF): $(PAPER_SRC) $(PAPER_DIAG) $(PAPER_IMG)
 	$(LATEXMK) $(LATEXMK_FLAGS) $(PAPER_SRC)
 
-clean: ## Remove auxiliary and output files
-	$(LATEXMK) -C -cd $(PAPER_SRC)
-	rm -f $(PAPER_DIR)/*.pdf
+clean: ## Remove auxiliary files
+	$(LATEXMK) -c -cd $(PAPER_SRC)
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'

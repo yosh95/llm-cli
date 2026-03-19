@@ -74,8 +74,12 @@ class UnifiedClient(BaseLlmClient):
 
     def __getattr__(self, name: str) -> Any:
         """Delegate any unknown attributes to the active client."""
-        if self.active_client and name != "active_client":
-            return getattr(self.active_client, name)
+        if name == "active_client":
+            raise AttributeError(name)
+
+        active = self.__dict__.get("active_client")
+        if active is not None:
+            return getattr(active, name)
 
         raise AttributeError(
             f"'{type(self).__name__}' object has no attribute '{name}'"

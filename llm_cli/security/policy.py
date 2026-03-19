@@ -61,9 +61,21 @@ class PolicyEngine:
         self.cass = CASSOrchestrator()
         self.intent_analyzer: IntentVerifier | None = None
         self.roles: dict[str, RoleDefinition] = {}
-        self.config: SecurityConfig = {}
+        self._config: SecurityConfig = {}
         self.subjects: dict[str, RoleDefinition] = {}
-        self._load_security_config(config)
+        if config:
+            self._load_security_config(config)
+
+    @property
+    def config(self) -> SecurityConfig:
+        """Lazy-loaded security configuration."""
+        if not self._config:
+            self.reinitialize()
+        return self._config
+
+    @config.setter
+    def config(self, value: SecurityConfig) -> None:
+        self._config = value
 
     def _load_security_config(self, config: SecurityConfig | None = None) -> None:
         """
@@ -73,24 +85,24 @@ class PolicyEngine:
         provided_config = config or {}
 
         # 1. Load base security settings from the global config file
-        self.config = {}
+        self._config = {}
         try:
             from llm_cli.clients.config import _load_config_from_file
 
             full_conf = _load_config_from_file()
-            self.config.update(full_conf.get("security", {}))  # type: ignore
-        except ImportError:
+            self._config.update(full_conf.get("security", {}))  # type: ignore
+        except (ImportError, AttributeError):
             pass
 
         # 2. Override with caller-supplied values
-        self.config.update(provided_config)
+        self._config.update(provided_config)
 
         # 3. Subject-specific overrides (e.g., specific user@host)
-        self.subjects = self.config.get("subjects", {})
+        self.subjects = self._config.get("subjects", {})
 
         # 4. Merge user-defined roles
-        if "roles" in self.config:
-            for role_name, role_def in self.config["roles"].items():
+        if "roles" in self._config:
+            for role_name, role_def in self._config["roles"].items():
                 if role_name in self.roles:
                     self.roles[role_name].update(role_def)
                 else:

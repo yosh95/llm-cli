@@ -399,24 +399,18 @@ def edit_file(
         if not stripped_search:
             return "Error: 'search' block is empty or contains only whitespace."
 
-        # Construct a regex that allows any whitespace between all
-        # non-whitespace characters
-        # We escape each character and join them with \s*
-        chars = [re.escape(c) for c in stripped_search if not c.isspace()]
-        if not chars:
-            return "Error: 'search' block contains no non-whitespace characters."
-
-        # This is very aggressive fuzzy matching
-        # Better: use a token-based approach or normalize both strings
-
         # Token-based approach: split by any non-alphanumeric/non-whitespace character
-        # and allow \s* between them.
+        # and allow \s* between them. This allows robust matching even with
+        # differing indentation or minor formatting changes.
         tokens = re.split(r"(\s+|[^\w])", stripped_search)
         pattern_parts = []
         for t in tokens:
             if not t or t.isspace():
                 continue
             pattern_parts.append(re.escape(t))
+
+        if not pattern_parts:
+            return "Error: 'search' block contains no usable tokens for matching."
 
         pattern = r"\s*".join(pattern_parts)
         matches = list(re.finditer(pattern, content, re.DOTALL))

@@ -176,8 +176,20 @@ class PythonSecurityScanner(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call) -> None:
         # Check for direct calls to dangerous functions
         if isinstance(node.func, ast.Name):
-            if node.func.id in self.DANGEROUS_FUNCTIONS:
-                self.issues.append(f"High-risk function call detected: {node.func.id}")
+            func_id = node.func.id
+            if func_id in self.DANGEROUS_FUNCTIONS:
+                self.issues.append(f"High-risk function call detected: {func_id}")
+
+            # Check for sensitive path access in open()
+            if func_id == "open":
+                for arg in node.args:
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                        val = arg.value.lower()
+                        if "/etc/" in val or "~/.ssh" in val or ".." in val:
+                            self.issues.append(
+                                f"Security Violation: Access to sensitive path "
+                                f"'{arg.value}' in open() is forbidden."
+                            )
 
         # Check for attribute calls like os.system()
         elif isinstance(node.func, ast.Attribute):

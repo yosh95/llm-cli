@@ -348,9 +348,17 @@ def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
 def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
     from llm_cli.security.cass import RiskLevel
 
-    if not (isinstance(result_data, dict) and "pqc_signature" in result_data):
+    is_signed = isinstance(result_data, dict) and "pqc_signature" in result_data
+    enforcement = get_setting("pqc_enforcement", "security") or "warn"
+    is_strict = enforcement == "strict_block"
+
+    if not is_signed:
         if risk_level == RiskLevel.HIGH:
-            report_warning("CASS Warning: High-risk tool missing PQC signature.")
+            msg = "High-risk tool missing PQC signature."
+            if is_strict:
+                report_error(f"PQC Enforcement: {msg} Blocked.")
+                raise ValueError(msg)
+            report_warning(f"CASS Warning: {msg}")
         return result_data
 
     import base64
@@ -371,8 +379,15 @@ def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
         ):
             report_success(f"PQC Verified ({variant}) (ID: {v_id})")
         else:
-            report_error(f"PQC Signature Verification Failed (ID: {v_id})")
+            msg = f"PQC Signature Verification Failed (ID: {v_id})"
+            if is_strict and risk_level == RiskLevel.HIGH:
+                report_error(f"PQC Enforcement: {msg}")
+                raise ValueError(msg)
+            report_error(msg)
     except Exception as e:
+        if is_strict and risk_level == RiskLevel.HIGH:
+            report_error(f"PQC Enforcement: Signature verification error: {e}")
+            raise e
         logger.warning(f"Signature verification error: {e}")
     return content
 

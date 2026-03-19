@@ -156,6 +156,8 @@ class ToolRegistry:
         }
 
     def register_remote_tools(self, mcp_manager: Any) -> list[str]:
+        from llm_cli.ui import report_warning
+
         remote_names = []
         # Register shutdown hook for MCP manager
         self.register_shutdown_hook(mcp_manager.shutdown)
@@ -177,7 +179,7 @@ class ToolRegistry:
                 )
                 remote_names.append(tool["name"])
         except Exception as e:
-            print(f"Warning: Failed to register remote tools: {e}")
+            report_warning(f"Failed to register remote tools: {e}")
             log_audit("remote_tools_register", {}, None, error=str(e))  # Fallback log
         return remote_names
 

@@ -106,8 +106,9 @@ class PolicyEngine:
     ) -> bool:
         """
         Uses a secondary LLM to verify if the tool call aligns with user intent.
-        NOTE: This approach is deprecated due to severe UX degradation (high latency).
-        The system now relies on MambaSentinel (O(N) latency) and CASS orchestrator.
+        High-assurance mode for scenarios where MambaSentinel's utility is not fully
+        proven or when the CASS orchestrator requires stronger verification.
+        Note: This is disabled by default due to high latency.
         """
         posture = self.cass.get_security_requirements(tool_name)
 

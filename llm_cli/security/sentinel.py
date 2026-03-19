@@ -275,25 +275,15 @@ class MambaSentinel:
         }
 
         for i in reversed(range(self.n_layers)):
-            # x_out = x_in + mamba_out
-            # grad_x_in = grad_x_out + grad_mamba_out
+            # Forward: x_next = x_curr + mamba(norm(x_curr))
+            # Backward: dL/dx_curr = dL/dx_next +
+            #           dL/d(mamba) * d(mamba)/d(norm) * d(norm)/d(x_curr)
 
-            # The norm is inside the residual?
-            # In my forward:
-            # norm_x = norms[i].forward(x)
-            # mamba_out = mamba_layers[i].forward(norm_x)
-            # x = x + mamba_out
-
-            # Backward:
-            # grad_mamba_out = grad_x
-            # grad_norm_x, mamba_grads = mamba_layers[i].backward(grad_x)
-            # grad_x_norm_in = norms[i].backward(grad_norm_x)
-            # grad_x = grad_x + grad_x_norm_in
-
+            # 1. Gradient through Mamba layer and its internal RMSNorm
             grad_mamba_in, mamba_grads = self.mamba_layers[i].backward(grad_x)
             grad_norm_in = self.norms[i].backward(grad_mamba_in)
 
-            # Residual connection
+            # 2. Add residual connection gradient (identity path)
             grad_x = grad_x + grad_norm_in
 
             # Store grads for optimizer

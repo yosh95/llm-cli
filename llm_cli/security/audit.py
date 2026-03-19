@@ -72,7 +72,7 @@ def log_audit(
             "tool": tool_name,
             "args": final_args,
             "pqc_confidential": pqc_encrypted,
-            # "output": str(_output)[:256] if _output else None, # Truncate output
+            "output": str(_output)[:256] if _output else None,  # Truncate output
             "status": "SUCCESS" if not error else f"FAILED: {error}",
             "exit_code": exit_code,
             "prev_hash": prev_hash,

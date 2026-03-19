@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 import requests
 from rich.console import Console
 
-from llm_cli.clients.command_handler import SUPPORTED_COMMANDS
 from llm_cli.clients.config import get_setting
 from llm_cli.clients.managers import (
     ConfigManager,
@@ -54,7 +53,6 @@ class BaseLlmClient(ABC):
         self._api_key_name = api_key_name
         self.stdout = stdout
         self.render_markdown = render_markdown
-        self._slash_commands = SUPPORTED_COMMANDS
 
         # Specialized Managers
         self._config_manager = ConfigManager(config_section, disable_system_prompt)
@@ -338,10 +336,18 @@ class BaseLlmClient(ABC):
 
         return handle_command(self, user_input, sources, pending_data)
 
+    @property
+    def slash_commands(self) -> set[str]:
+        """Dynamic slash commands for completer."""
+        from llm_cli.clients.command_handler import registry
+
+        reg = getattr(self, "command_registry", registry)
+        return reg.all_names_and_aliases
+
     def _print_help(self) -> None:
         from llm_cli.clients.command_handler import print_help
 
-        print_help()
+        print_help(self)
 
     def _build_prompt_from_history(self, data: list[DataSource]) -> str:
         """Collects all text from history and data into a single string."""
@@ -377,8 +383,3 @@ class BaseLlmClient(ABC):
         self, url: str, headers: dict | None = None, timeout: int | None = None
     ) -> requests.Response:
         return requests.get(url, headers=headers or {}, timeout=timeout)
-
-    @property
-    def slash_commands(self) -> set[str]:
-        """Dynamic slash commands for completer."""
-        return self._slash_commands

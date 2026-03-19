@@ -69,18 +69,26 @@ class UnifiedClient(BaseLlmClient):
             live_debug=kwargs.get("live_debug", False),
         )
 
+        # Setup custom command registry for Unified client
+        import copy
+
+        from llm_cli.clients.command_handler import Command, registry
+
+        self.command_registry = copy.copy(registry)
+        self.command_registry.register(
+            Command(
+                "provider",
+                self._handle_provider_command,
+                "List or switch provider",
+                ["p"],
+            )
+        )
+
         self.current_provider_name = initial_provider_name
         self._activate_provider(self.current_provider_name)
 
     def __getattr__(self, name: str) -> Any:
         """Delegate any unknown attributes to the active client."""
-        # Use __getattribute__ for those explicitly in _DELEGATED_ATTRIBUTES
-        # if they are already defined on the parent class (BaseLlmClient).
-        # Actually __getattr__ is only called if the attribute is NOT found.
-        # Since model, available_models, etc. are properties on BaseLlmClient,
-        # they ARE found. So we must override them or ensure our managers
-        # are synced.
-
         if name in self.__dict__:
             return self.__dict__[name]
 
@@ -143,55 +151,40 @@ class UnifiedClient(BaseLlmClient):
 
         return True
 
-    def _handle_command(
-        self,
-        user_input: str,
-        sources: list[str] | None,
-        pending_data: list[DataSource] | None = None,
-    ) -> bool:
-        """Unified-specific slash commands."""
-        if not user_input.startswith("/"):
-            return False
+    def _handle_provider_command(self, ctx: Any) -> bool:
+        """Handler for the /provider command."""
+        args = ctx.args
+        if not args:
+            from rich.table import Table
 
-        parts = user_input[1:].split(None, 1)
-        cmd = parts[0]
-        args = parts[1].strip() if len(parts) > 1 else ""
+            table = Table(
+                title="Available Providers",
+                show_header=True,
+                header_style="bold magenta",
+            )
+            table.add_column("Status", justify="center", width=4)
+            table.add_column("Alias", style="cyan", width=15)
+            table.add_column("Config Section", style="dim")
 
-        if cmd in ("p", "provider"):
-            if not args:
-                from rich.table import Table
+            info = client_registry.get_provider_info()
+            for alias in sorted(info.keys()):
+                section = info[alias]
+                is_active = section == self.current_provider_name
+                active_mark = "[bold green]*[/bold green]" if is_active else ""
+                table.add_row(active_mark, alias, section)
 
-                table = Table(
-                    title="Available Providers",
-                    show_header=True,
-                    header_style="bold magenta",
-                )
-                table.add_column("Status", justify="center", width=4)
-                table.add_column("Alias", style="cyan", width=15)
-                table.add_column("Config Section", style="dim")
+            console.print(table)
+            console.print("[dim]Usage: /p <alias> to switch provider[/dim]")
+            return True
 
-                info = client_registry.get_provider_info()
-                for alias in sorted(info.keys()):
-                    section = info[alias]
-                    is_active = section == self.current_provider_name
-                    active_mark = "[bold green]*[/bold green]" if is_active else ""
-                    table.add_row(active_mark, alias, section)
-
-                console.print(table)
-                console.print("[dim]Usage: /p <alias> to switch provider[/dim]")
-                return True
-
-            if self._activate_provider(args):
-                console.print(
-                    f"[cyan]Switched to provider: {args} (Model: {self.model})[/cyan]"
-                )
-                return True
-            else:
-                console.print(f"[red]Unknown or unavailable provider: {args}[/red]")
-                return True
-
-        # Fallback to current provider's command handler or base handler
-        return super()._handle_command(user_input, sources, pending_data)
+        if self._activate_provider(args):
+            console.print(
+                f"[cyan]Switched to provider: {args} (Model: {self.model})[/cyan]"
+            )
+            return True
+        else:
+            console.print(f"[red]Unknown or unavailable provider: {args}[/red]")
+            return True
 
     def _send(
         self, data: list[DataSource]

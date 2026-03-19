@@ -217,6 +217,18 @@ class SessionManager:
         """Restores the conversation state from a dictionary."""
         self.conversation = state.get("conversation", [])
 
+    def get_last_user_prompt(self) -> str | None:
+        """Retrieves the most recent user prompt from history."""
+        for msg in reversed(self.conversation):
+            if msg.role == Role.USER:
+                texts = [
+                    p.text for p in msg.parts if isinstance(p, ContentPart) and p.text
+                ]
+                texts += [p for p in msg.parts if isinstance(p, str)]
+                if texts:
+                    return "\n".join(texts)
+        return None
+
 
 class ToolManager:
     """Manages tool registration, MCP integration, and state."""

@@ -30,12 +30,12 @@ from llm_cli.clients.exceptions import (
     ExitRequest,
     TemplateRequest,
 )
+from llm_cli.clients.session_ui import SessionUI
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.security.integrity import ReasoningSentinelManager
 from llm_cli.ui import (
     console,
-    print_block,
     report_error,
 )
 
@@ -112,71 +112,7 @@ class ChatSession:
         self.prompt_session: PromptSession = PromptSession(history=self.prompt_history)
         self.completer = LlmCliCompleter(client)
         self.sentinel = ReasoningSentinelManager()
-
-    def _print_block(
-        self, renderable: Any, title: str | None = None, style: str | None = None
-    ) -> None:
-        """Print content with background color (no border) for easier copying."""
-        print_block(renderable, title, style)
-
-    def _print_secret_warning(self, anomalies: list[str]) -> None:
-        """Displays a warning when potential reasoning anomalies are detected."""
-        from rich.panel import Panel
-        from rich.text import Text
-
-        from llm_cli.ui import console
-
-        unique_anomalies = sorted(set(anomalies))
-        msg = (
-            "The following sequences were flagged as statistical anomalies in the "
-            "model's reasoning process. They may represent unexpected data patterns "
-            "or potential sensitive information:\n\n"
-        )
-
-        anomaly_markup = "\n".join(
-            [f"• [bold yellow]{s}[/bold yellow]" for s in unique_anomalies]
-        )
-
-        console.print(
-            Panel(
-                Text.from_markup(msg + anomaly_markup),
-                title="[bold yellow]⚠️  Reasoning Anomaly Detected[/bold yellow]",
-                border_style="yellow",
-            )
-        )
-
-    def _confirm_secret_transmission(self, anomalies: list[str]) -> bool:
-        """Confirms whether the user wants to send detected anomalies to external AI."""
-        from rich.panel import Panel
-        from rich.text import Text
-
-        unique_anomalies = sorted(set(anomalies))
-        msg = (
-            "[bold red]CAUTION:[/bold red] The following anomalous sequences were "
-            "detected in your message. Sending these to an external AI provider "
-            "might deviate from intended usage or compromise data integrity:\n\n"
-        )
-        anomaly_markup = "\n".join(
-            [f"• [bold red]{s}[/bold red]" for s in unique_anomalies]
-        )
-
-        console.print(
-            Panel(
-                Text.from_markup(msg + anomaly_markup),
-                title="[bold red]🚨 Reasoning Integrity Guardrail[/bold red]",
-                border_style="red",
-            )
-        )
-
-        confirm = self._get_input(
-            "Do you still want to send this message? (y/N): ", exit_on_escape=True
-        )
-        return confirm.lower() in ("y", "ｙ")
-
-    def _confirm(self, message: str, exit_on_escape: bool = False) -> bool:
-        """Helper to ask for a y/n confirmation."""
-        ans = self._get_input(message, exit_on_escape=exit_on_escape)
-        return ans.lower() in ("y", "ｙ")
+        self.ui = SessionUI(self.prompt_session, kb, kb_exit)
 
     def run(
         self,
@@ -189,64 +125,23 @@ class ChatSession:
 
         while True:
             try:
-                # Suggest checkpoint if conversation is getting long.
-                # Use turn count as the metric.
-                # We count MODEL messages to include ReAct loop steps.
-                model_turns = len(
-                    [m for m in self.client.conversation if m.role == Role.MODEL]
-                )
-                if model_turns >= MAX_TURNS:
-                    msg = (
-                        f"Context is large "
-                        f"({model_turns} turns). "
-                        "Summarize and compress? (y/N): "
-                    )
-                    if self._confirm(msg):
-                        self._handle_checkpoint()
-                        # If history was cleared, continue to next prompt
-                        if len(self.client.conversation) <= 1:
-                            continue
+                if self._should_checkpoint():
+                    continue
 
-                # Clear any pending input to prevent ghost KeyboardInterrupt/EOFError.
-                if termios and sys.stdin.isatty():
-                    try:
-                        termios.tcflush(sys.stdin, termios.TCIFLUSH)
-                    except Exception:
-                        pass
+                user_input = self._get_user_input(prompt_default)
+                prompt_default = ""
 
-                # Apply both standard key bindings and exit-on-escape bindings
-                combined_kb = merge_key_bindings([kb, kb_exit])
-                user_input = self.prompt_session.prompt(
-                    "> ",
-                    default=prompt_default,
-                    completer=self.completer,
-                    complete_style=CompleteStyle.READLINE_LIKE,
-                    key_bindings=combined_kb,
-                    enable_system_prompt=True,
-                    enable_open_in_editor=True,
-                    enable_suspend=True,
-                ).strip()
-                prompt_default = ""  # Reset default after use
+                if not user_input:
+                    continue
 
-                # --- Pre-transmission Secret Detection & Context Initialization ---
-                if user_input and not user_input.startswith("/"):
-                    # Use initialize_context (not process_chunk) for the user prompt.
-                    # This sets the semantic context without training on secrets.
-                    self.sentinel.initialize_context(user_input)
-                    if self.sentinel.suspected_secrets:
-                        if not self._confirm_secret_transmission(
-                            self.sentinel.suspected_secrets
-                        ):
-                            # Cancel sending, keep input in prompt for editing
-                            prompt_default = user_input
-                            self.sentinel.suspected_secrets = []
-                            continue
-                        self.sentinel.suspected_secrets = []
+                if self._check_secrets_before_send(user_input):
+                    # Potential secret detected and user cancelled.
+                    # Keep the input for editing.
+                    prompt_default = user_input
+                    continue
+
             except (KeyboardInterrupt, EOFError):
                 break
-
-            if not user_input:
-                continue
 
             try:
                 try:
@@ -281,6 +176,60 @@ class ChatSession:
         except Exception:
             pass
 
+    def _should_checkpoint(self) -> bool:
+        """Suggest checkpoint if conversation is getting long."""
+        model_turns = len([m for m in self.client.conversation if m.role == Role.MODEL])
+        if model_turns >= MAX_TURNS:
+            msg = (
+                f"Context is large ({model_turns} turns). "
+                "Summarize and compress? (y/N): "
+            )
+            if self.ui.confirm(msg):
+                self._handle_checkpoint()
+                # If history was cleared, caller should continue to next prompt
+                if len(self.client.conversation) <= 1:
+                    return True
+        return False
+
+    def _get_user_input(self, default: str) -> str:
+        """Fetch input from user with standard prompt settings."""
+        if termios and sys.stdin.isatty():
+            try:
+                termios.tcflush(sys.stdin, termios.TCIFLUSH)
+            except Exception:
+                pass
+
+        combined_kb = merge_key_bindings([kb, kb_exit])
+        return str(
+            self.prompt_session.prompt(
+                "> ",
+                default=default,
+                completer=self.completer,
+                complete_style=CompleteStyle.READLINE_LIKE,
+                key_bindings=combined_kb,
+                enable_system_prompt=True,
+                enable_open_in_editor=True,
+                enable_suspend=True,
+            )
+        ).strip()
+
+    def _get_input(self, *args: Any, **kwargs: Any) -> str:
+        """Proxy to SessionUI.get_input for backward compatibility/protocols."""
+        return self.ui.get_input(*args, **kwargs)
+
+    def _check_secrets_before_send(self, user_input: str) -> bool:
+        """Check for secrets and ask for confirmation. Returns True if aborted."""
+        if user_input.startswith("/"):
+            return False
+
+        self.sentinel.initialize_context(user_input)
+        if self.sentinel.suspected_secrets:
+            if not self.ui.confirm_secret_transmission(self.sentinel.suspected_secrets):
+                self.sentinel.suspected_secrets = []
+                return True
+            self.sentinel.suspected_secrets = []
+        return False
+
     # ------------------------------------------------------------------
     # Single-responsibility helpers extracted from process_and_print
     # ------------------------------------------------------------------
@@ -292,16 +241,7 @@ class ChatSession:
         display_name = self.client.get_display_name()
 
         # Resolve user prompt from conversation history for Prompt Anchoring
-        user_prompt = None
-        for msg in reversed(self.client.conversation):
-            if msg.role == Role.USER:
-                texts = [
-                    p.text for p in msg.parts if isinstance(p, ContentPart) and p.text
-                ]
-                texts += [p for p in msg.parts if isinstance(p, str)]
-                if texts:
-                    user_prompt = "\n".join(texts)
-                    break
+        user_prompt = self.client.get_last_user_prompt()
 
         # If not found in history (e.g., first turn where it's only in 'data'),
         # extract it from the data payload.
@@ -344,7 +284,7 @@ class ChatSession:
 
         # --- Secret detection warning ---
         if self.sentinel.suspected_secrets:
-            self._print_secret_warning(self.sentinel.suspected_secrets)
+            self.ui.print_secret_warning(self.sentinel.suspected_secrets)
             self.sentinel.suspected_secrets = []
 
         if usage:
@@ -353,7 +293,7 @@ class ChatSession:
         # --- Display thought panel ---
         if thought_text:
             duration_str = f" ({duration:.1f}s)"
-            self._print_block(
+            self.ui.print_block(
                 CustomMarkdown(thought_text),
                 title=f"[bold dim]Thought{duration_str}[/bold dim]",
                 style="dim",
@@ -394,7 +334,7 @@ class ChatSession:
                 title_str = f"[bold cyan]{display_name}{duration_str}[/bold cyan]"
                 if self.client._has_pending_tool_calls():
                     # Inside a ReAct loop: use a titled block so turns are distinct.
-                    self._print_block(
+                    self.ui.print_block(
                         CustomMarkdown(response_text),
                         title=title_str,
                         style="cyan",
@@ -526,7 +466,7 @@ class ChatSession:
             console.print(CustomMarkdown(summary) if summary else "")
             console.print(Rule(style="cyan"))
 
-            if self._confirm("Clear history and use this summary? (y/N): "):
+            if self.ui.confirm("Clear history and use this summary? (y/N): "):
                 self.client.clear_history()
                 self.client.conversation = [
                     Message(
@@ -584,59 +524,6 @@ class ChatSession:
             self.client._trim_log_file(path, self.client.max_chat_log_lines)
         except Exception as e:
             console.print(f"[dim red]Chat logging failed: {e}[/dim red]")
-
-    def _get_input(
-        self,
-        message: str,
-        exit_on_escape: bool = False,
-        raise_on_interrupt: bool = False,
-        **kwargs: Any,
-    ) -> str:
-        """Helper for console input, supporting both TTY and prompt_toolkit."""
-        if sys.stdin.isatty():
-            if termios:
-                try:
-                    termios.tcflush(sys.stdin, termios.TCIFLUSH)
-                except Exception:
-                    pass
-
-            # Use provided kwargs, but set defaults for key_bindings and editor
-            # to match the main prompt's behavior.
-            current_kb = merge_key_bindings([kb, kb_exit]) if exit_on_escape else kb
-            kwargs.setdefault("key_bindings", current_kb)
-            kwargs.setdefault("complete_style", CompleteStyle.READLINE_LIKE)
-            kwargs.setdefault("enable_open_in_editor", True)
-            kwargs.setdefault("enable_system_prompt", True)
-            kwargs.setdefault("enable_suspend", True)
-            kwargs.pop(
-                "history", None
-            )  # PromptSession.prompt() does not accept history
-
-            try:
-                return str(self.prompt_session.prompt(message, **kwargs)).strip()
-            except (KeyboardInterrupt, EOFError):
-                if raise_on_interrupt:
-                    raise
-                # Return empty string to simulate cancellation (e.g. "no")
-                return ""
-
-        try:
-            tty_path = Path("/dev/tty") if sys.platform != "win32" else Path("CON")
-            with tty_path.open() as tty:
-                sys.stderr.write(message)
-                sys.stderr.flush()
-                line = tty.readline()
-                if not line:
-                    raise EOFError
-                return line.strip()
-        except Exception as e:
-            if isinstance(e, EOFError):
-                raise e
-            console.print(
-                f"[yellow]Warning: Could not access TTY for input ({e}). "
-                "Returning empty.[/yellow]"
-            )
-            return ""
 
     def _execute_tool_call(
         self, part: ContentPart, duration: float | None = None

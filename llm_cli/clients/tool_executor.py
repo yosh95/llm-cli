@@ -11,7 +11,7 @@ from rich.markup import escape
 from rich.syntax import Syntax
 
 from llm_cli.clients.config import get_bool_setting, get_setting
-from llm_cli.modules.models import ContentPart, DataSource, Role
+from llm_cli.modules.models import ContentPart, DataSource
 from llm_cli.modules.tool_registry import registry
 from llm_cli.security.static_analyzer import analyze_python_safety
 from llm_cli.ui import (
@@ -112,17 +112,7 @@ class SecurityGuardrailHandler(BaseToolHandler):
             context.aborted = True
 
     def _find_user_prompt(self, session: AgentContext) -> str:
-        for history_msg in reversed(session.client.conversation):
-            if history_msg.role == Role.USER:
-                texts = [
-                    p.text
-                    for p in history_msg.parts
-                    if isinstance(p, ContentPart) and p.text
-                ]
-                texts += [p for p in history_msg.parts if isinstance(p, str)]
-                if texts:
-                    return "\n".join(texts)
-        return "No user prompt found"
+        return session.client.get_last_user_prompt() or "No user prompt found"
 
 
 class ReasoningDisplayHandler(BaseToolHandler):

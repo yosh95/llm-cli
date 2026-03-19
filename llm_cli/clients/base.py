@@ -237,6 +237,9 @@ class BaseLlmClient(ABC):
     def set_conversation_state(self, state: dict[str, Any]) -> None:
         self._session_manager.set_state(state)
 
+    def get_last_user_prompt(self) -> str | None:
+        return self._session_manager.get_last_user_prompt()
+
     def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
         self._session_manager.update_history(data, model_msg)
 

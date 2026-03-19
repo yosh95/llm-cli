@@ -8,7 +8,7 @@ class NumPyEmbedding:
         self.vocab_size = vocab_size
         self.d_model = d_model
         self.weight = np.random.normal(0, 0.02, (vocab_size, d_model)).astype(
-            np.float32
+            np.float64
         )
         self.grad_weight = np.zeros_like(self.weight)
 
@@ -26,7 +26,7 @@ class NumPyEmbedding:
 class NumPyRMSNorm:
     def __init__(self, d_model: int, eps: float = 1e-5):
         self.eps = eps
-        self.weight = np.ones(d_model, dtype=np.float32)
+        self.weight = np.ones(d_model, dtype=np.float64)
         self.grad_weight = np.zeros_like(self.weight)
         self.cache: dict[str, Any] = {}
 
@@ -68,9 +68,9 @@ class NumPyLinear:
         self.in_features = in_features
         self.out_features = out_features
         self.weight = np.random.normal(0, 0.02, (out_features, in_features)).astype(
-            np.float32
+            np.float64
         )
-        self.bias = np.zeros(out_features, dtype=np.float32) if bias else None
+        self.bias = np.zeros(out_features, dtype=np.float64) if bias else None
 
         self.grad_weight = np.zeros_like(self.weight)
         self.grad_bias = np.zeros_like(self.bias) if bias else None

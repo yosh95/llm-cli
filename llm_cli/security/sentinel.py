@@ -18,8 +18,8 @@ class MambaSentinel:
 
     def __init__(
         self,
-        d_model: int = 64,
-        n_layers: int = 1,
+        d_model: int = 128,
+        n_layers: int = 2,
         d_state: int = 8,
         d_conv: int = 4,
         expand: int = 1,

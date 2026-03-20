@@ -51,7 +51,7 @@ llm-cli "Analyze this website" https://example.com
 - **Human-in-the-Loop**: All critical actions (file edits, code execution) require explicit human approval by default.
 
 ### 🤖 Autonomous Agent & Tool Use
-The AI agent autonomously uses tools to perform complex tasks, such as understanding project structures before editing code.
+The AI agent autonomously uses tools to perform complex tasks, such as file management, web search, and Python execution.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/screenshot-tool-calling.png" width="800" alt="Autonomous Agent and Tool Use" />
@@ -154,7 +154,7 @@ For detailed architectural insights and the academic background of our security 
 - **集中力を削がないUI**: 画面のちらつきを抑え、SSH越しでも安定して動作するクリーンなターミナル出力。
 
 ### 🤖 自律型エージェントのツール実行
-AIがディレクトリ構造を確認し、コードを読み取ってから作業を行う様子。
+AIがファイル操作、Web検索、Python実行などのツールを自律的に使用し、複雑なタスクを遂行します。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/screenshot-tool-calling.png" width="800" alt="自律型エージェントのツール実行" />

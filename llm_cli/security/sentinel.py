@@ -71,19 +71,35 @@ class MambaSentinel:
             self.last_logits = None
 
     def get_states(self) -> dict[str, Any]:
-        """Returns a deep copy of the current inference states."""
-        import copy
+        """
+        Returns a lightweight snapshot of the current inference states.
 
+        Each per-layer state is a tuple of (conv_state, ssm_state, prev_Bx).
+        Only the NumPy arrays are copied; we avoid copy.deepcopy() because it
+        traverses the entire Python object graph and is ~10× slower than
+        targeted ndarray.copy() calls for large complex-valued arrays.
+        """
         with self._lock:
+            if self.states is None:
+                states_copy = None
+            else:
+                states_copy = [
+                    (
+                        c.copy() if c is not None else None,
+                        s.copy() if s is not None else None,
+                        p.copy() if p is not None else None,
+                    )
+                    for (c, s, p) in self.states
+                ]
             return {
-                "states": copy.deepcopy(self.states),
+                "states": states_copy,
                 "last_logits": self.last_logits.copy()
                 if self.last_logits is not None
                 else None,
             }
 
     def set_states(self, states_data: dict[str, Any]) -> None:
-        """Restores inference states from a saved dictionary."""
+        """Restores inference states from a snapshot produced by get_states()."""
         with self._lock:
             self.states = states_data["states"]
             self.last_logits = states_data["last_logits"]

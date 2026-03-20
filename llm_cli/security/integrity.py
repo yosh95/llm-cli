@@ -19,6 +19,15 @@ class ReasoningSentinelManager:
     Integrates with the audit log to provide anomaly scores.
     """
 
+    # Maximum number of tokens kept in the per-turn learning buffer.
+    # Kept small to bound background-thread CPU/memory use, especially on
+    # resource-constrained environments like Termux.
+    MAX_LEARN_TOKENS = 256
+
+    # Maximum number of bytes fed through step() for Prompt Anchoring.
+    # Longer prompts are truncated to keep the anchoring cost O(1) per turn.
+    MAX_ANCHOR_BYTES = 64
+
     def __init__(self, **kwargs: Any):
 
         from llm_cli.clients.config import config_manager
@@ -63,9 +72,10 @@ class ReasoningSentinelManager:
             mode=mode,
         )
         self.sentinel.load()
+        # Per-turn token buffer: cleared after each finalize_session() call.
+        # Cross-turn context is held in the Mamba SSM hidden state, not here.
         self.history_tokens: list[int] = []
         self._learning_lock = threading.Lock()
-        self.max_history = 2048  # Increased history for better context
         self.score_history: list[float] = []  # For Trust Trend visualization
 
         # Performance metrics
@@ -111,29 +121,57 @@ class ReasoningSentinelManager:
 
     def initialize_context(self, user_prompt: str) -> None:
         """
-        Inject the user's intent into the Sentinel's state without training.
-        This allows the model to 'understand' what the agent should be doing
-        by establishing an initial hidden state based on the user's request.
+        Stub kept for call-site compatibility.
+        Actual anchoring is performed inside process_chunk() just before scoring,
+        which avoids running a forward pass twice per turn.
+        """
+        # No-op: anchoring moved to process_chunk() to prevent double-execution.
+        # Previously this called process_text() at input time AND process_chunk()
+        # called it again at response time, wasting CPU and corrupting SSM state.
+
+    def _anchor_prompt(self, user_prompt: str) -> dict | None:
+        """
+        Lightweight Prompt Anchoring: feed a truncated, prefixed version of the
+        user intent through step() only — no full forward scan, no deepcopy.
+
+        Returns a state snapshot that must be restored after scoring, or None
+        if anchoring is skipped (sentinel disabled / no prompt).
         """
         if not self.enabled or not user_prompt:
-            return
+            return None
 
-        # Temporarily switch to enforce mode to avoid learning the prompt as
-        # the agent's own behavior. We want it to be the *context*.
-        original_mode = self.sentinel.mode
+        # Save current SSM state before anchoring (uses shallow copy via
+        # get_states, which already copies arrays — deepcopy is not needed here
+        # because we will restore immediately after process_chunk scoring).
+        snapshot = self.sentinel.get_states()
+
+        # Build a short anchor prefix and truncate to MAX_ANCHOR_BYTES.
+        anchor_bytes = f"Context: {user_prompt}\nAgent:".encode()[
+            : self.MAX_ANCHOR_BYTES
+        ]
+
+        orig_mode = self.sentinel.mode
         self.sentinel.mode = "enforce"
+        try:
+            for byte in anchor_bytes:
+                self.sentinel.step(byte)
+        finally:
+            self.sentinel.mode = orig_mode
 
-        # Prefixing with "Context:" helps the model distinguish intent from action
-        context_str = f"Context: {user_prompt}\nAgent reasoning:"
-        self.sentinel.process_text(context_str)
-
-        self.sentinel.mode = original_mode
-        logger.debug(f"Sentinel context initialized with prompt: {user_prompt[:30]}...")
+        logger.debug(
+            "Sentinel anchored on %d bytes of prompt: %s…",
+            len(anchor_bytes),
+            user_prompt[:30],
+        )
+        return snapshot
 
     def process_chunk(self, chunk: str, user_prompt: str | None = None) -> float:
         """
-        Process a text chunk from the LLM stream.
+        Process a text chunk from the LLM response.
         Returns the average anomaly score for the chunk.
+
+        Prompt Anchoring is performed inline here (not at input time) so that
+        the forward pass runs exactly once per chunk, not twice per turn.
         """
         import time
 
@@ -145,19 +183,9 @@ class ReasoningSentinelManager:
         start_time = time.perf_counter()
 
         # --- Prompt Anchoring (Intent Conditioning) ---
-        # If a user prompt is provided, we temporarily inject it into the Sentinel's
-        # hidden state to "anchor" the model's expectation to the user's intent.
-        # This significantly improves detection of subtle semantic deviations.
-        original_states = None
-        if user_prompt:
-            original_states = self.sentinel.get_states()
-            # Feed intent without scoring or permanent state change
-            intent_context = f"Context: {user_prompt}\nAgent reasoning:"
-            # Use enforce mode for anchoring to avoid training on the prompt
-            orig_mode = self.sentinel.mode
-            self.sentinel.mode = "enforce"
-            self.sentinel.process_text(intent_context)
-            self.sentinel.mode = orig_mode
+        # Temporarily shift the SSM hidden state toward the user's intent,
+        # then restore after scoring.  Cost is O(MAX_ANCHOR_BYTES) step() calls.
+        snapshot = self._anchor_prompt(user_prompt) if user_prompt else None
 
         bytes_data = chunk.encode("utf-8")
         scores: list[float] = []
@@ -167,13 +195,10 @@ class ReasoningSentinelManager:
             scores.append(score)
             self.history_tokens.append(byte)
 
-        # Restore original state after processing the chunk to keep anchoring fresh
-        # and prevent state drift from the re-injected context.
-        if original_states:
-            self.sentinel.set_states(original_states)
-
-        if len(self.history_tokens) > self.max_history:
-            self.history_tokens = self.history_tokens[-self.max_history :]
+        # Restore SSM state so persistent context is not contaminated by
+        # the re-injected anchor prefix.
+        if snapshot is not None:
+            self.sentinel.set_states(snapshot)
 
         avg_score = float(np.mean(scores)) if scores else 0.0
         self.current_score = avg_score
@@ -208,8 +233,18 @@ class ReasoningSentinelManager:
 
     def finalize_session(self, learn: bool | None = None) -> None:
         """
-        Finalize the session, optionally performing online learning update.
-        Learning is performed asynchronously in learn mode to improve UX.
+        Finalize the turn, optionally triggering a background learning update.
+
+        Design notes
+        ------------
+        * ``history_tokens`` is cleared here every turn.  Cross-turn context is
+          preserved inside the Mamba SSM hidden state (``sentinel.states``), so
+          the token buffer does not need to grow indefinitely.
+        * The learning sequence is capped at ``MAX_LEARN_TOKENS`` (most-recent
+          bytes) to bound memory and CPU usage.  On resource-constrained devices
+          (e.g. Termux) a full-history backward pass at L=2048 causes OOM kills.
+        * A non-blocking lock prevents overlapping background threads; if a
+          previous turn's learning is still running the current turn is skipped.
         """
         import numpy as np
 
@@ -218,11 +253,11 @@ class ReasoningSentinelManager:
             learn = self.sentinel.mode == "learn"
 
         if learn and len(self.history_tokens) > 1:
-            # Copy history to avoid race conditions during background update
-            tokens = list(self.history_tokens)
+            # Take only the most-recent MAX_LEARN_TOKENS bytes to cap compute.
+            tokens = self.history_tokens[-self.MAX_LEARN_TOKENS :]
 
             def run_learning() -> None:
-                # Ensure only one background learning process runs at a time
+                # Ensure only one background learning process runs at a time.
                 if not self._learning_lock.acquire(blocking=False):
                     logger.debug(
                         "Sentinel learning already in progress, skipping turn."
@@ -233,8 +268,7 @@ class ReasoningSentinelManager:
 
                     start_learn = time.perf_counter()
 
-                    # Perform online learning on the collected session history
-                    # input: 0..N-1, target: 1..N
+                    # Online learning: predict token[t+1] from token[t].
                     input_ids = np.array([tokens[:-1]], dtype=np.int32)
                     targets = np.array([tokens[1:]], dtype=np.int32)
                     self.sentinel.update(input_ids, targets)
@@ -242,22 +276,21 @@ class ReasoningSentinelManager:
 
                     self.last_learning_time = time.perf_counter() - start_learn
                     logger.debug(
-                        f"Sentinel background learning complete ({len(tokens)} "
-                        f"tokens) in {self.last_learning_time:.4f}s."
+                        "Sentinel background learning complete (%d tokens) in %.4fs.",
+                        len(tokens),
+                        self.last_learning_time,
                     )
                 except Exception as e:
-                    logger.error(f"Sentinel background learning failed: {e}")
+                    logger.error("Sentinel background learning failed: %s", e)
                 finally:
                     self._learning_lock.release()
 
-            # Start learning in a background thread to prevent UX lag.
-            # We use a daemon thread so it doesn't block app exit.
+            # Daemon thread: does not block app exit.
             threading.Thread(target=run_learning, daemon=True).start()
 
-        # We keep history_tokens within max_history to allow cross-turn context,
-        # but for clean turns we might want to clear it.
-        # For Sentinel, cross-turn context is usually better.
-        # self.history_tokens = []
+        # Clear the per-turn buffer.  The SSM hidden state retains cross-turn
+        # context so we do not lose continuity between conversation turns.
+        self.history_tokens = []
 
 
 class IntegrityVerifier:

@@ -222,7 +222,10 @@ class ChatSession:
         if user_input.startswith("/"):
             return False
 
-        self.sentinel.initialize_context(user_input)
+        # Note: Sentinel context anchoring is performed inside process_chunk()
+        # (at response time), not here.  Running a forward pass on the user input
+        # before the LLM even responds would waste CPU and mutate SSM state for
+        # no detection benefit — secrets can only be detected in the *response*.
         if self.sentinel.suspected_secrets:
             if not self.ui.confirm_secret_transmission(self.sentinel.suspected_secrets):
                 self.sentinel.suspected_secrets = []

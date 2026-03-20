@@ -40,7 +40,8 @@ Tokyo, Japan}
 \maketitle
 
 \begin{abstract}
-As Large Language Model (LLM) agents transition from passive chatbots to autonomous entities capable of executing system-level tools via protocols like the Model Context Protocol (MCP), they introduce a critical "Agency Gap." Traditional security perimeters are insufficient for protecting against prompt injection, semantic drift, and future cryptographic threats. This paper proposes a unified, three-tier security framework designed to protect agent-based systems across three dimensions: Space, Behavior, and Time. First, we establish \textit{Structural Guardrails} (Space) using AST-based static analysis and secure sandboxing to contain malicious code execution. Second, we implement \textit{Behavioral Zero-Trust} (Behavior) monitoring using a Mamba-based Sentinel to detect anomalous reasoning in real-time and enforce workload identity. Third, we ensure \textit{Temporal Sovereignty} (Time) by integrating Post-Quantum Cryptography (PQC) and remote attestation to guarantee long-term integrity and resilience against future quantum adversaries. Our evaluation demonstrates that this "Triple-Lock" architecture provides robust, multi-layered defense with minimal computational overhead, maintaining agent responsiveness while ensuring system-wide security.
+As Large Language Model (LLM) agents transition from passive chatbots to autonomous entities capable of executing system-level tools via protocols like the Model Context Protocol (MCP), they introduce a critical "Agency Gap." Traditional security perimeters are insufficient for protecting against prompt injection, semantic drift, and future cryptographic threats. This paper proposes a unified, three-tier security framework designed to protect agent-based systems across three dimensions: Space, Behavior, and Time. First, we establish \textit{Structural Guardrails} (Space) using AST-based static analysis and environment isolation to contain malicious code execution.
+ Second, we implement \textit{Behavioral Zero-Trust} (Behavior) monitoring using a Mamba-based Sentinel to detect anomalous reasoning in real-time and enforce workload identity. Third, we ensure \textit{Temporal Sovereignty} (Time) by integrating Post-Quantum Cryptography (PQC) and remote attestation to guarantee long-term integrity and resilience against future quantum adversaries. Our evaluation demonstrates that this "Triple-Lock" architecture provides robust, multi-layered defense with minimal computational overhead, maintaining agent responsiveness while ensuring system-wide security.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -54,7 +55,7 @@ The OWASP Top 10 for LLM Applications \cite{owasp2023} identifies "Insecure Outp
 
 This paper presents a comprehensive "Triple-Lock" framework for Agentic Security, addressing the lifecycle of an agent's action through three integrated dimensions (Fig. \ref{fig:overview_arch}):
 \begin{enumerate}
-    \item \textbf{Structural Containment (Space):} Establishing deterministic safety boundaries using AST inspection and OS-level sandboxing (Bubblewrap) to ensure "Secure-by-Default" tool execution.
+    \item \textbf{Structural Containment (Space):} Establishing deterministic safety boundaries using AST inspection and environment isolation via remote MCP servers to ensure "Secure-by-Default" tool execution.
     \item \textbf{Behavioral Integrity (Behavior):} Implementing a Zero Trust Architecture (ZTA) where every action is verified by a verifiable workload identity and monitored by a Mamba-based "Reasoning Sentinel" to detect semantic anomalies.
     \item \textbf{Temporal Sovereignty (Time):} Protecting against future cryptographic threats (Shor's algorithm) using Post-Quantum Cryptography (PQC) to ensure the long-term confidentiality and non-repudiability of agent history.
 \end{enumerate}
@@ -91,8 +92,8 @@ Before execution, generated code is parsed into an Abstract Syntax Tree (AST). A
 \subsection{Path Guardrails and Resource Limits}
 All file-related operations are restricted to a designated workspace via path resolution and symbolic link verification. To prevent resource exhaustion attacks, OS-level resource limits (\texttt{rlimit}) cap memory usage and execution time. Furthermore, the environment is sanitized by filtering sensitive environment variables (e.g., API keys) before passing them to the sub-process.
 
-\subsection{Sandboxing with Bubblewrap}
-The final containment is provided by \textbf{Bubblewrap} (\texttt{bwrap}), which utilizes Linux namespaces to create an unprivileged sandbox. Specifically, the implementation mounts the minimum read-only set of system paths required for Python execution (\texttt{/usr}, \texttt{/lib}, \texttt{/lib64}, \texttt{/bin}, \texttt{/sbin}) and provides an isolated \texttt{/tmp} via \texttt{tmpfs}. The \texttt{--unshare-all} flag enforces full network, IPC, UTS, and PID namespace isolation, eliminating all outbound network access and host process visibility. In high-risk scenarios, CASS escalates the sandbox profile to "isolated," switching the workspace bind-mount from read-write (\texttt{--bind}) to read-only (\texttt{--ro-bind}) for scripts that only require analysis.
+\subsection{Environment Isolation via MCP and Containers}
+While static analysis provides structural guardrails, the framework achieves process isolation by leveraging the Model Context Protocol (MCP) to delegate high-risk tool execution to external, isolated environments. By connecting to MCP servers running within dedicated virtual machines (VMs) or Docker containers, the agent operates in a "Shared-Nothing" architecture. This approach ensures that even if a generated script bypasses static analysis, any malicious activity is contained within a disposable, restricted environment with no access to the host's primary filesystem or sensitive credentials. This multi-layered approach combines local structural safety with remote environment isolation, providing a robust defense-in-depth strategy.
 
 \section{Tier 2: Behavioral Zero-Trust (Behavior)}
 Identity ensures \textit{who} is calling the tool, while monitoring ensures \textit{why}.
@@ -138,7 +139,7 @@ To synthesize the three tiers into a cohesive "Triple-Lock" architecture, we int
 
 The "Triple-Lock" architecture operates as a unified pipeline governed by CASS (Fig. \ref{fig:detailed_arch}). When an agent requests a tool call:
 1. \textbf{Risk Assessment (CASS):} The system evaluates the requested tool (e.g., \texttt{search\_web} vs. \texttt{execute\_python}) to determine the required security posture.
-2. \textbf{Tier 1 - Structural Containment:} The \textbf{Guardrail Manager} applies AST analysis, enforces path/resource limits, and prepares the unprivileged Bubblewrap sandbox.
+2. \textbf{Tier 1 - Structural Containment:} The \textbf{Guardrail Manager} applies AST analysis, enforces path/resource limits, and coordinates environment isolation.
 3. \textbf{Tier 2 - Behavioral Verification:} The \textbf{Zero-Trust Controller} verifies the RBAC-embedded Identity Token and computes the Mamba Surprise Score. The Sentinel identifies statistical anomalies in the output stream, flagging sequences that deviate from the established behavioral baseline.
 4. \textbf{Tier 3 - Temporal Anchoring:} For high-risk operations, the \textbf{PQC Module} signs the request with a Hybrid-PQC token and encapsulates the resulting audit log using ML-KEM to ensure long-term integrity.
 

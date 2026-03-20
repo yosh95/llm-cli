@@ -18,9 +18,9 @@
     % Tier 1: Space
     \node [component, fill=green!5, right=1.2cm of cass, yshift=2.8cm] (ast) {AST Static Analysis \\ \textit{(Module Whitelist)}};
     \node [component, fill=green!5, right=of ast] (path) {Path Guardrails \\ \textit{(Chroot/Symlinks)}};
-    \node [component, fill=green!5, right=of path] (bwrap) {Bubblewrap Sandbox \\ \textit{(Namespaces/rlimit)}};
+    \node [component, fill=green!5, right=of path] (isolated_env) {Isolated Environment \\ \textit{(VM/Container via MCP)}};
     
-    \node [tierbox, fit=(ast) (path) (bwrap), label={[title]above:Tier 1: Structural Guardrails (Space)}] (t1box) {};
+    \node [tierbox, fit=(ast) (path) (isolated_env), label={[title]above:Tier 1: Structural Guardrails (Space)}] (t1box) {};
 
     % Tier 2: Behavior
     \node [component, fill=purple!5, right=1.2cm of cass] (identity) {Workload Identity \\ \textit{(JWT/RBAC/OOB)}};
@@ -43,7 +43,7 @@
 
     % Flows within tiers
     \path [line] (ast) -- (path);
-    \path [line] (path) -- (bwrap);
+    \path [line] (path) -- (isolated_env);
     \path [line] (identity) -- (mamba);
     \path [line] (pqc_sig) -- (pqc_kem);
     \path [line] (pqc_kem) -- (attest);
@@ -51,7 +51,7 @@
     % Final Execution
     \node [rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em, right=2.0cm of mamba, font=\small\bfseries] (exec) {Secure \\ Tool \\ Execution};
 
-    \path [line] (bwrap.east) -- +(0.4,0) |- (exec.160);
+    \path [line] (isolated_env.east) -- +(0.4,0) |- (exec.160);
     \path [line] (mamba.east) -- (exec.west);
     \path [line] (attest.east) -- +(0.4,0) |- (exec.200);
 

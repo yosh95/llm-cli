@@ -65,7 +65,6 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 
 ### 1. Execution Security & Isolation
 - **No-Shell Architecture**: To prevent command injection, system interactions are performed via Python execution with `shell=False`.
-- **Sandboxing (Linux)**: Optional isolation using `bubblewrap` to contain the AI's execution environment.
 - **Explanation Enforcement**: Every tool automatically mandates an `explanation` parameter, forcing the LLM to justify its intent in natural language before execution.
 - **Static Analysis**: Pre-execution scanning of AI-generated code for suspicious imports or risky patterns.
 
@@ -166,7 +165,6 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 
 ### 1. 実行環境の安全性と隔離
 - **No-Shell アーキテクチャ**: システム操作は `shell=False` のPython実行に限定。シェルインジェクションを構造的に防止。
-- **サンドボックス**: Linux環境では `bubblewrap` によるプロセスの隔離が可能です。
 - **Human-in-the-Loop**: 全てのツール実行に AI による意図の説明を強制し、人間の承認を介するワークフローを提供。
 
 ### 2. アイデンティティと非否認性 (耐量子暗号)

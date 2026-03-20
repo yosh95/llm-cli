@@ -22,40 +22,12 @@ def benchmark_phase_1_guardrails() -> None:
         latencies.append((time.perf_counter() - t) * 1000)
     print(f"AST Safety Analysis: {mean(latencies):.4f} ms")
 
-    # 2. Sandbox Overhead
+    # 2. Python Execution Base Latency
     base_cmd = ["python3", "-c", "print('hello')"]
     t = time.perf_counter()
     subprocess.run(base_cmd, capture_output=True)
     base_lat = (time.perf_counter() - t) * 1000
-
-    bwrap_cmd = [
-        "bwrap",
-        "--ro-bind",
-        "/usr",
-        "/usr",
-        "--ro-bind",
-        "/lib",
-        "/lib",
-        "--ro-bind",
-        "/lib64",
-        "/lib64",
-        "--proc",
-        "/proc",
-        "--dev",
-        "/dev",
-        "--unshare-all",
-        "python3",
-        "-c",
-        "print('hello')",
-    ]
-    bwrap_available = (
-        subprocess.run(["which", "bwrap"], capture_output=True).returncode == 0
-    )
-    if bwrap_available:
-        t = time.perf_counter()
-        subprocess.run(bwrap_cmd, capture_output=True)
-        bwrap_lat = (time.perf_counter() - t) * 1000
-        print(f"Sandbox Overhead (Bwrap): {bwrap_lat - base_lat:.2f} ms")
+    print(f"Base Execution Latency: {base_lat:.2f} ms")
 
     # 3. Effectiveness (Simplified sample)
     test_cases = [

@@ -23,10 +23,6 @@ allowed_env_vars = []
 # Treat static analysis warnings as errors
 static_analysis_is_error = true
 
-# Default sandbox profile ("isolated" or "standard")
-# "isolated" mounts the workspace as read-only.
-sandbox_profile = "isolated"
-
 # Explicitly forbidden paths. Use absolute paths or "~" expansion.
 # These will be blocked even if they are within an allowed path.
 blocked_paths = [

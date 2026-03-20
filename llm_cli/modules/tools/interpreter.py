@@ -52,9 +52,7 @@ logger = logging.getLogger(__name__)
         "required": ["code"],
     },
 )
-def execute_python(
-    code: str, __security_requirements__: dict[str, Any] | None = None
-) -> Any:
+def execute_python(code: str) -> Any:
     from llm_cli.security.pqc import sign_tool_result
 
     # Use a default timeout of 300 seconds.
@@ -123,120 +121,6 @@ def execute_python(
 
     # Prepare command for execution
     cmd = [python_exe, tmp_path]
-
-    # Bubblewrap (bwrap) support for Linux sandboxing
-    # Only attempt if on Linux and not in a restricted environment like Termux
-    use_bwrap = (
-        platform.system() == "Linux"
-        and not is_termux
-        and not is_android
-        and get_setting("use_bwrap", "security") is not False
-    )
-
-    if use_bwrap:
-        import shutil
-
-        bwrap_path = shutil.which("bwrap")
-        if bwrap_path:
-            # Construct bwrap command
-            # --ro-bind /usr /usr: Mount system libs as read-only
-            # --dev /dev: Necessary devices
-            # --proc /proc: Necessary for some python ops
-            # --tmpfs /tmp: Private tmp
-            # --bind . /app: Bind current dir to /app
-            # --die-with-parent: Kill sandbox if parent dies
-            cwd = str(Path.cwd())
-            sandbox_profile = (__security_requirements__ or {}).get(
-                "sandbox_profile"
-            ) or "standard"
-
-            # Define mapping for main directory binding
-            # Isolated: Read-only bind for current directory
-            # Standard: Read-write bind for current directory
-            cwd_bind_flag = "--bind"
-            if sandbox_profile == "isolated":
-                cwd_bind_flag = "--ro-bind"
-                logger.info("CASS: Applying isolated sandbox profile (Read-Only CWD)")
-
-            sandbox_cmd = [
-                bwrap_path,
-                "--ro-bind",
-                "/usr",
-                "/usr",
-                "--ro-bind",
-                "/lib",
-                "/lib",
-                "--ro-bind",
-                "/lib64",
-                "/lib64",
-                "--ro-bind",
-                "/bin",
-                "/bin",
-                "--ro-bind",
-                "/sbin",
-                "/sbin",
-                "--ro-bind",
-                "/etc/alternatives",
-                "/etc/alternatives",
-                "--proc",
-                "/proc",
-                "--dev",
-                "/dev",
-                "--tmpfs",
-                "/tmp",
-                "--unshare-all",  # Isolate network, ipc, uts, etc. (Tier 3)
-                cwd_bind_flag,
-                cwd,
-                cwd,
-                "--bind",
-                tmp_path,
-                tmp_path,
-                "--chdir",
-                cwd,
-                "--die-with-parent",
-            ]
-
-            # Add binds for git configuration
-            home_path = Path.home()
-            for git_cfg in [".gitconfig", ".config/git/config"]:
-                cfg_path = home_path / git_cfg
-                if cfg_path.exists():
-                    sandbox_cmd.extend(["--ro-bind", str(cfg_path), str(cfg_path)])
-
-            # Add binds for directories in PATH that are in user's home
-            # (e.g., virtualenvs, .local/bin)
-            # This ensures tools like 'ruff' installed in these locations
-            # are accessible.
-            path_env = env.get("PATH", "")
-            home_dir = str(Path.home())
-            added_binds = set()
-            for p in path_env.split(os.pathsep):
-                if not p:
-                    continue
-                try:
-                    p_path = Path(p).resolve()
-                    if str(p_path).startswith(home_dir) and p_path.exists():
-                        target_to_bind = p_path
-                        # If it looks like a virtualenv, bind the root instead
-                        # of just 'bin'
-                        if (
-                            p_path.name == "bin"
-                            and (p_path.parent / "pyvenv.cfg").exists()
-                        ):
-                            target_to_bind = p_path.parent
-
-                        if str(target_to_bind) not in added_binds and not str(
-                            target_to_bind
-                        ).startswith(cwd):
-                            sandbox_cmd.extend(
-                                ["--ro-bind", str(target_to_bind), str(target_to_bind)]
-                            )
-                            added_binds.add(str(target_to_bind))
-                except Exception:
-                    continue
-
-            cmd = sandbox_cmd + cmd
-            logger.info("Using bubblewrap sandbox for Python execution")
 
     kwargs: dict[str, Any] = {
         "stdout": subprocess.PIPE,

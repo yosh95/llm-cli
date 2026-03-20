@@ -21,7 +21,6 @@ class SecurityPosture(TypedDict):
     require_pqc_signature: bool
     require_pqc_audit_encryption: bool
     mamba_enforcement: str  # "monitor_only", "strict_block"
-    sandbox_profile: str  # "standard", "isolated"
     use_intent_analyzer: bool
 
 
@@ -54,9 +53,6 @@ class CASSOrchestrator:
         """Get the required security posture for a specific tool execution."""
         risk_level = self.evaluate_risk(tool_name)
 
-        # Allow user to override sandbox profile in config.toml
-        user_sandbox_profile = get_setting("sandbox_profile", "security")
-
         if risk_level == RiskLevel.HIGH:
             logger.debug(
                 f"CASS: High risk detected for tool '{tool_name}'."
@@ -66,8 +62,6 @@ class CASSOrchestrator:
                 "require_pqc_signature": True,
                 "require_pqc_audit_encryption": True,
                 "mamba_enforcement": "strict_block",  # Block if Mamba score is RED
-                "sandbox_profile": user_sandbox_profile
-                or "isolated",  # Maximum Bubblewrap isolation
                 "use_intent_analyzer": False,  # Deprecated due to UX/latency
             }
         elif risk_level == RiskLevel.MEDIUM:
@@ -76,7 +70,6 @@ class CASSOrchestrator:
                 "require_pqc_signature": False,  # Fast classical RSA is sufficient
                 "require_pqc_audit_encryption": False,
                 "mamba_enforcement": "strict_block",
-                "sandbox_profile": user_sandbox_profile or "standard",
                 "use_intent_analyzer": False,
             }
         else:
@@ -85,6 +78,5 @@ class CASSOrchestrator:
                 "require_pqc_signature": False,
                 "require_pqc_audit_encryption": False,
                 "mamba_enforcement": "monitor_only",  # Log warnings but do not block
-                "sandbox_profile": user_sandbox_profile or "standard",
                 "use_intent_analyzer": False,
             }

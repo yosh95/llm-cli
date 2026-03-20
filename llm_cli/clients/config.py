@@ -148,15 +148,6 @@ class ConfigManager:
         config_dict = self.load_config()
         return cast(dict[str, str], config_dict.get("templates", {}))
 
-    def get_provider_tools(self, section: str) -> dict[str, str]:
-        config_dict = self.load_config()
-        return cast(dict[str, str], config_dict.get(section, {}).get("tools", {}))
-
 
 # Global instance
 config_manager = ConfigManager()
-
-
-def _load_config_from_file() -> dict[str, Any]:
-    """Deprecated: Use config_manager.load_config() instead."""
-    return config_manager.load_config()

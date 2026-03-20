@@ -3,6 +3,7 @@
 import requests
 
 from llm_cli.clients.config import config_manager
+from llm_cli.clients.exceptions import ConfigurationError
 from llm_cli.modules.tool_registry import tool
 
 # Check for Brave Search configuration
@@ -28,7 +29,9 @@ _brave_api_key = config_manager.get("brave", "api_key")
 def search_web(query: str) -> str:
     api_key = config_manager.get("brave", "api_key")
     if not api_key:
-        return "Error: Brave Search API key required (BRAVE_SEARCH_API_KEY)."
+        raise ConfigurationError(
+            "Brave Search API key required (BRAVE_SEARCH_API_KEY)."
+        )
 
     try:
         url = "https://api.search.brave.com/res/v1/web/search"

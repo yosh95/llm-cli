@@ -2,6 +2,9 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from llm_cli.clients.exceptions import ConfigurationError
 from llm_cli.modules.tools.web import (
     read_url_content,
     search_web,
@@ -101,7 +104,8 @@ def test_search_web_auth_error(monkeypatch):
 
     # We mock requests to ensure no network call happens
     with patch("requests.get") as mock_get:
-        result = search_web(query="test")
+        with pytest.raises(ConfigurationError) as excinfo:
+            search_web(query="test")
         mock_get.assert_not_called()
 
-    assert "Error: Brave Search API key required" in result
+    assert "Brave Search API key required" in str(excinfo.value)

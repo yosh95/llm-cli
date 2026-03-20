@@ -25,3 +25,9 @@ class ExitRequest(Exception):
     """Exception raised to request exiting the application."""
 
     pass
+
+
+class ConfigurationError(Exception):
+    """Raised when a tool is missing necessary environmental configuration."""
+
+    pass

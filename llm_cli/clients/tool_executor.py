@@ -11,6 +11,7 @@ from rich.markup import escape
 from rich.syntax import Syntax
 
 from llm_cli.clients.config import config_manager
+from llm_cli.clients.exceptions import ConfigurationError
 from llm_cli.modules.models import ContentPart, DataSource
 from llm_cli.modules.tool_registry import registry
 from llm_cli.security.static_analyzer import analyze_python_safety
@@ -278,6 +279,14 @@ class ExecutionHandler(BaseToolHandler):
                 **context.args,
             )
             context.result_data = result
+        except ConfigurationError as e:
+            report_error(str(e))
+            context.error_message = (
+                "Search function is currently unavailable due to environment "
+                "settings. Please inform the user to set the "
+                "BRAVE_SEARCH_API_KEY."
+            )
+            context.aborted = True
         except Exception as e:
             report_error(f"Tool execution failed: {e}")
             context.error_message = str(e)

@@ -113,3 +113,36 @@ default = "llama3.2:3b"
 enabled = true
 mode = "learn"
 checkpoint_path = "sentinel_state.npz"
+
+# =============================================================================
+# Model Context Protocol (MCP) Servers
+# =============================================================================
+# Each [[mcp_servers]] entry defines a server that the AI agent can use.
+#
+# Example: Connecting to a remote server via SSH to use llm-cli's MCP mode.
+# This allows the AI agent to execute commands on the remote server as tools.
+#
+# [[mcp_servers]]
+# name = "remote-agent"
+# command = "ssh"
+# args = ["-t", "user@remote-host", "llm-cli", "--mcp-server"]
+
+# =============================================================================
+# Templates (Reusable Prompts)
+# =============================================================================
+# You can define reusable prompts here and call them using --template <name>.
+#
+# [templates]
+# analyze = """
+# Analyze the current directory structure and provide a summary of the project's purpose,
+# key files, and how they interact. This should help as a project onboarding guide.
+# """
+# review = """
+# Perform a thorough code review of the provided snippet or file. Focus on:
+# 1. Readability and maintainability.
+# 2. Potential bugs or edge cases.
+# 3. Performance bottlenecks.
+# 4. Security vulnerabilities.
+# 5. Adherence to coding standards and best practices.
+# """
+

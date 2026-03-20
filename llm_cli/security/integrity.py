@@ -33,7 +33,7 @@ class ReasoningSentinelManager:
         if self.enabled is None:
             self.enabled = True
 
-        mode = get_setting("mode", "sentinel") or "train"
+        mode = get_setting("mode", "sentinel") or "learn"
 
         # Mamba-specific parameters from defaults
         d_model = int(get_setting("d_model", "sentinel") or 128)
@@ -118,10 +118,10 @@ class ReasoningSentinelManager:
         if not self.enabled or not user_prompt:
             return
 
-        # Temporarily switch to predict mode to avoid learning the prompt as
+        # Temporarily switch to enforce mode to avoid learning the prompt as
         # the agent's own behavior. We want it to be the *context*.
         original_mode = self.sentinel.mode
-        self.sentinel.mode = "predict"
+        self.sentinel.mode = "enforce"
 
         # Prefixing with "Context:" helps the model distinguish intent from action
         context_str = f"Context: {user_prompt}\nAgent reasoning:"
@@ -153,9 +153,9 @@ class ReasoningSentinelManager:
             original_states = self.sentinel.get_states()
             # Feed intent without scoring or permanent state change
             intent_context = f"Context: {user_prompt}\nAgent reasoning:"
-            # Use predict mode for anchoring to avoid training on the prompt
+            # Use enforce mode for anchoring to avoid training on the prompt
             orig_mode = self.sentinel.mode
-            self.sentinel.mode = "predict"
+            self.sentinel.mode = "enforce"
             self.sentinel.process_text(intent_context)
             self.sentinel.mode = orig_mode
 
@@ -209,13 +209,13 @@ class ReasoningSentinelManager:
     def finalize_session(self, learn: bool | None = None) -> None:
         """
         Finalize the session, optionally performing online learning update.
-        Learning is performed asynchronously in train mode to improve UX.
+        Learning is performed asynchronously in learn mode to improve UX.
         """
         import numpy as np
 
         # Determine if we should learn based on mode or explicit override
         if learn is None:
-            learn = self.sentinel.mode == "train"
+            learn = self.sentinel.mode == "learn"
 
         if learn and len(self.history_tokens) > 1:
             # Copy history to avoid race conditions during background update

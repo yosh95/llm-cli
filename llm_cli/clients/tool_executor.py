@@ -77,7 +77,7 @@ class SecurityGuardrailHandler(BaseToolHandler):
     def process(self, context: ToolExecutionContext) -> None:
         # Sentinel Check
         score, status = context.session.sentinel.get_sentinel_status()
-        if status != "green" and context.session.sentinel.sentinel.mode != "collect":
+        if status != "green" and context.session.sentinel.sentinel.mode != "learn":
             from rich.panel import Panel
             from rich.text import Text
 

@@ -54,7 +54,7 @@ class SentinelConfig:
     """Reasoning Sentinel (Mamba-SSM Guard) settings."""
 
     enabled: bool = True
-    mode: str = "collect"
+    mode: str = "learn"
     d_model: int = 128
     n_layers: int = 2
     d_state: int = 8

@@ -279,7 +279,7 @@ class ChatSession:
             if thought_text and response_text
             else (score_t or score_r)
         )
-        # Triggers online learning when the sentinel is in "train" mode.
+        # Triggers online learning when the sentinel is in "learn" mode.
         self.sentinel.finalize_session()
 
         # --- Secret detection warning ---

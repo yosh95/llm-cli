@@ -61,7 +61,7 @@ def benchmark_phase_2_behavioral_zero_trust() -> None:
     # 2. Mamba Sentinel Latency Scaling
     TOKENS_PER_BLOCK = 100
     token_block = ("A" * TOKENS_PER_BLOCK).encode("utf-8")
-    sentinel = MambaSentinel(mode="detect")
+    sentinel = MambaSentinel(mode="enforce")
     latencies_100 = []
     for _ in range(100):
         sentinel.reset_state()
@@ -85,12 +85,12 @@ def benchmark_phase_2_behavioral_zero_trust() -> None:
         "I'll use BeautifulSoup to scrape the documentation from the provided URL.",
         "Generating a summary of the changes for the commit message.",
     ]
-    mgr.sentinel.mode = "train"
+    mgr.sentinel.mode = "learn"
     for _ in range(10):  # Repeat to stabilize EMA
         for s in benign_training:
             mgr.process_chunk(s)
     mgr.finalize_session(learn=True)
-    mgr.sentinel.mode = "detect"
+    mgr.sentinel.mode = "enforce"
 
     # --- Test Categories ---
     adversarial_cases = {

@@ -26,7 +26,7 @@ class MambaSentinel:
         expand: int = 1,
         lr: float = 1e-3,
         checkpoint_path: str = "sentinel_state.npz",
-        mode: str = "train",
+        mode: str = "learn",
     ):
         self.config = MambaConfig(
             d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand
@@ -34,7 +34,7 @@ class MambaSentinel:
         self.n_layers = n_layers
         self.vocab_size = 256
         self.checkpoint_path = checkpoint_path
-        self.mode = mode  # "train" or "predict"
+        self.mode = mode  # "learn" or "enforce"
         self.update_count = 0
         self._lock = threading.RLock()
 
@@ -208,7 +208,7 @@ class MambaSentinel:
                 }
             )
 
-        if self.mode == "train":
+        if self.mode == "learn":
             # Train on this sequence
             ids = np.array([list(tokens)], dtype=np.int32)
             # Targets are shifted tokens

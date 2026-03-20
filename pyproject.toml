@@ -1,5 +1,5 @@
 [project]
-name = "llm_cli"
+name = "llm-secure-cli"
 version = "1.0.1"
 description = "A Unified Command-Line Interface for Multiple LLMs"
 authors = [
@@ -8,6 +8,13 @@ authors = [
 license = {text = "Apache License 2.0"}
 readme = "README.md"
 requires-python = ">=3.11"
+# Add classifiers for PyPI
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "curl_cffi>=0.15.0b2",
     "filetype",
@@ -42,7 +49,7 @@ dev = [
 [project.scripts]
 llm-cli-config = "llm_cli.apps.configure:main"
 llm-cli-security = "llm_cli.apps.identity_tool:main"
-llm = "llm_cli.apps.unified:main"
+llm-cli = "llm_cli.apps.unified:main"
 llm-cli-models = "llm_cli.apps.model_listing:main"
 
 [tool.setuptools.packages.find]

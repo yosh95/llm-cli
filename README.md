@@ -21,20 +21,20 @@
     pip install .
     ```
 2.  **Configure**: Run `llm-cli-config` to set your API keys (e.g., Gemini) or Ollama URL.
-3.  **Chat**: Type `llm` to start an interactive session.
+3.  **Chat**: Type `llm-cli` to start an interactive session.
 4.  **Help**: Type `/help` inside the chat to see all commands.
 
 ### One-Shot Examples
 ```bash
 # Ask a question using the default provider (e.g., Gemini)
-llm "What is the capital of France?"
+llm-cli "What is the capital of France?"
 
 # Use a local model via Ollama
-llm -p ollama -m llama3 "Explain quantum computing"
+llm-cli -p ollama -m llama3 "Explain quantum computing"
 
 # Analyze a local file or a URL
-llm "Summarize this PDF" ./document.pdf
-llm "Analyze this website" https://example.com
+llm-cli "Summarize this PDF" ./document.pdf
+llm-cli "Analyze this website" https://example.com
 ```
 
 ## ✨ Core Features (Product Ready)
@@ -85,7 +85,7 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 
 ## 📖 Advanced Commands & Power User Tips
 
-Inside the `llm` interactive session:
+Inside the `llm-cli` interactive session:
 - `/help`: Display all available commands.
 - `/p <provider>` / `/m <model>`: Switch the AI engine on the fly.
 - `/attach <path/URL>`: Add a file or website content to the context.
@@ -134,12 +134,12 @@ For detailed architectural insights and the academic background of our security 
     pip install .
     ```
 2.  **初期設定**: `llm-cli-config` を実行し、GeminiなどのAPIキーやOllamaのURLを設定。
-3.  **対話開始**: `llm` コマンドでスタート。
+3.  **対話開始**: `llm-cli` コマンドでスタート。
 4.  **ヘルプ**: チャット内で `/help` と入力するとコマンド一覧が表示されます。
 
 ## ✨ 主な機能 (実用ツールとして)
 
-- **統合インターフェース**: `llm` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
+- **統合インターフェース**: `llm-cli` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
 - **自律型エージェント**: ファイル操作、Python実行、Web検索、URL解析をAIが自律的に実行。
 - **MCP (Model Context Protocol) 対応**: リモートサーバーや外部サービスとの連携をサポート。
 - **マルチモーダル対応**: 画像、PDF、音声、動画の入力をサポート。画像・動画の生成も可能。

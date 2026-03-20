@@ -31,7 +31,7 @@ class RealMockClient(BaseLlmClient):
 
 def test_stdout_mcp_conflict():
     config = ClientConfig(client_class=RealMockClient, description="Test")
-    with patch("sys.argv", ["llm", "--stdout", "--mcp"]):
+    with patch("sys.argv", ["llm-cli", "--stdout", "--mcp"]):
         with patch("sys.stdin", new=StringIO("")):
             with patch("llm_cli.apps.cli_common.sys.stdin.isatty", return_value=True):
                 with pytest.raises(SystemExit) as excinfo:
@@ -41,7 +41,7 @@ def test_stdout_mcp_conflict():
 
 def test_stdout_mcp_server_conflict():
     config = ClientConfig(client_class=RealMockClient, description="Test")
-    with patch("sys.argv", ["llm", "--stdout", "--mcp-server"]):
+    with patch("sys.argv", ["llm-cli", "--stdout", "--mcp-server"]):
         with pytest.raises(SystemExit) as excinfo:
             run_client_cli(config)
         assert excinfo.value.code == 1
@@ -52,7 +52,7 @@ def test_stdout_disable_mcp():
     config = ClientConfig(client_class=mock_cls, description="Test")
 
     with patch("llm_cli.apps.cli_common.sys.stdin.isatty", return_value=True):
-        with patch("sys.argv", ["llm", "--stdout", "prompt"]):
+        with patch("sys.argv", ["llm-cli", "--stdout", "prompt"]):
             run_client_cli(config)
 
     call_kwargs = mock_cls.call_args[1]
@@ -68,7 +68,7 @@ def test_stdout_requires_input():
     # Mock stdin as tty (no input)
     with patch("llm_cli.apps.cli_common.sys.stdin.isatty", return_value=True):
         # Provide no sources
-        with patch("sys.argv", ["llm", "--stdout"]):
+        with patch("sys.argv", ["llm-cli", "--stdout"]):
             with pytest.raises(SystemExit) as excinfo:
                 run_client_cli(config)
             assert excinfo.value.code == 1

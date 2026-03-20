@@ -138,7 +138,7 @@ def run_client_cli(config: ClientConfig) -> None:
             f"[bold red]Switching to provider '{escape(e.provider)}' "
             "is not supported here.[/bold red]"
         )
-        console.print("Use [bold cyan]llm-unified[/bold cyan] for switching.")
+        console.print("Use [bold cyan]llm-cli[/bold cyan] for switching.")
         sys.exit(0)
     finally:
         # Ensure all resources (like browser sessions) are cleaned up on exit.

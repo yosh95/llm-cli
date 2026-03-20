@@ -36,20 +36,10 @@ class CASSOrchestrator:
 
     def __init__(self) -> None:
         # Define high-risk tools that can modify system state or execute arbitrary code
-        self.high_risk_tools = {
-            "execute_python",
-            "edit_file",
-            "create_or_overwrite_file",
-        }
+        self.high_risk_tools = set(get_setting("high_risk_tools", "security") or [])
 
         # Define medium-risk tools that can read potentially sensitive information
-        self.medium_risk_tools = {
-            "read_file_content",
-            "list_files_in_directory",
-            "search_files",
-            "search_web",
-            "read_url_content",
-        }
+        self.medium_risk_tools = set(get_setting("medium_risk_tools", "security") or [])
 
     def evaluate_risk(self, tool_name: str) -> RiskLevel:
         """Evaluate the risk level of a given tool."""

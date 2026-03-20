@@ -49,11 +49,7 @@ def log_audit(
             from llm_cli.security.pqc import SecureStorage
 
             # Encrypt high-risk tool arguments
-            high_risk_tools = {
-                "execute_python",
-                "edit_file",
-                "create_or_overwrite_file",
-            }
+            high_risk_tools = set(get_setting("high_risk_tools", "security") or [])
             if tool_name in high_risk_tools:
                 pub_kem = IdentityManager._get_kem_public_key_content()
                 args_bytes = json.dumps(args).encode()

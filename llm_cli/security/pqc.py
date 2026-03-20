@@ -183,11 +183,7 @@ class PQCAgilityManager:
         security_config = config.get("security", {})
 
         # Risk levels for specific tools
-        high_risk_tools = {
-            "execute_python",
-            "edit_file",
-            "create_or_overwrite_file",
-        }
+        high_risk_tools = set(security_config.get("high_risk_tools", []))
 
         # Dynamic context analysis (e.g., sensitive file access)
         # Defaults to a reasonable set if not specified in config
@@ -210,13 +206,7 @@ class PQCAgilityManager:
             return "ML-DSA-87"  # NIST Level 5 (Maximum Resilience)
 
         # Adaptive scaling for moderate tools
-        moderate_risk_tools = {
-            "read_file_content",
-            "list_files_in_directory",
-            "search_files",
-            "search_web",
-            "read_url_content",
-        }
+        moderate_risk_tools = set(security_config.get("medium_risk_tools", []))
         if tool_name in moderate_risk_tools:
             return "ML-DSA-65"  # NIST Level 3 (Balanced)
 

@@ -53,6 +53,20 @@ scaling_patterns = [
     "rm -rf"
 ]
 
+# Tool risk levels
+high_risk_tools = [
+    "execute_python",
+    "edit_file",
+    "create_or_overwrite_file"
+]
+medium_risk_tools = [
+    "read_file_content",
+    "list_files_in_directory",
+    "search_files",
+    "search_web",
+    "read_url_content"
+]
+
 [security.roles.admin]
 description = "Full access with guardrails"
 allow_all = true

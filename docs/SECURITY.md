@@ -39,13 +39,22 @@ intent_analyzer_provider = "google"
 intent_analyzer_model = "gemini-flash-lite-latest"
 blocked_paths = ["/etc/shadow", "/etc/passwd", "~/.ssh/id_rsa"]
 
-[security.roles.user]
-allowed_tools = ["list_files_in_directory", "read_file_content", "search_files"]
-[security.roles.user.scopes.read_file_content]
-allowed_paths = ["~/projects/*", "/tmp/llm_cli/*"]
+# Tool risk levels
+high_risk_tools = ["execute_python", "edit_file", "create_or_overwrite_file"]
+medium_risk_tools = ["read_file_content", "list_files_in_directory", "search_files", "search_web", "read_url_content"]
 
-[security.scaling_patterns]
-high_risk = ["rm -rf", "sudo", "chmod", ".ssh", "API_KEY"]
+# Dynamic scaling patterns for PQC security escalation.
+scaling_patterns = [
+    ".ssh/",
+    ".env",
+    "config",
+    "credential",
+    "password",
+    "sudo",
+    "rm -rf"
+]
+
+[security.roles.user]
 ```
 
 ## Summary

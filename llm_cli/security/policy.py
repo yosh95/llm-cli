@@ -148,11 +148,9 @@ class PolicyEngine:
                 logger.error(f"Failed to initialize Intent Analyzer: {e}")
                 # Configurable fail-open/closed.
                 # Zero-Trust default should be fail-closed for high-risk tools.
-                high_risk_tools = {
-                    "execute_python",
-                    "edit_file",
-                    "create_or_overwrite_file",
-                }
+                from llm_cli.clients.config import get_setting
+
+                high_risk_tools = set(get_setting("high_risk_tools", "security") or [])
                 if tool_name in high_risk_tools:
                     logger.error(f"Intent Analyzer failed. Blocked: '{tool_name}'")
                     return False

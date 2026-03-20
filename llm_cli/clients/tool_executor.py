@@ -134,8 +134,10 @@ class CodeSafetyHandler(BaseToolHandler):
     """Performs static analysis on executable code."""
 
     def process(self, context: ToolExecutionContext) -> None:
+        high_risk_tools = set(get_setting("high_risk_tools", "security") or [])
         if not (
-            context.name == "execute_python"
+            context.name in high_risk_tools
+            or context.name == "execute_python"
             or context.name.endswith("__execute_python")
         ):
             return

@@ -162,7 +162,24 @@ class TestPQCAgilityManager:
         """Provide a minimal config so the manager does not hit the filesystem."""
         monkeypatch.setattr(
             "llm_cli.clients.config._load_config_from_file",
-            lambda: {"security": {"scaling_patterns": [], "blocked_paths": []}},
+            lambda: {
+                "security": {
+                    "scaling_patterns": [],
+                    "blocked_paths": [],
+                    "high_risk_tools": [
+                        "execute_python",
+                        "edit_file",
+                        "create_or_overwrite_file",
+                    ],
+                    "medium_risk_tools": [
+                        "read_file_content",
+                        "list_files_in_directory",
+                        "search_files",
+                        "search_web",
+                        "read_url_content",
+                    ],
+                }
+            },
         )
 
     def test_high_risk_tools_use_ml_dsa_87(self):

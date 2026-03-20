@@ -116,6 +116,7 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
         return
 
     p_config = config.setdefault(provider, {})
+    p_defaults = DEFAULTS.get(provider, {})
 
     if provider == "brave":
         p_config["api_key"] = prompt_input(
@@ -125,7 +126,10 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
     elif provider == "ollama":
         p_config["api_url"] = prompt_input(
             "Ollama API URL",
-            p_config.get("api_url", "http://localhost:11434/v1/chat/completions"),
+            p_config.get(
+                "api_url",
+                p_defaults.get("api_url", "http://localhost:11434/v1/chat/completions"),
+            ),
         )
         p_config["api_key"] = prompt_input(
             "API Key (optional)", p_config.get("api_key"), secret=True
@@ -136,74 +140,95 @@ def configure_provider(config: dict[str, Any], provider: str, name: str) -> None
         )
 
     p_config["system_prompt"] = prompt_input(
-        "System Prompt (Optional)", p_config.get("system_prompt")
+        "System Prompt (Optional)",
+        p_config.get("system_prompt", p_defaults.get("system_prompt", "")),
     )
     p_config["disable_date_prompt"] = prompt_bool(
-        "Disable automatic date prompt?", p_config.get("disable_date_prompt", False)
+        "Disable automatic date prompt?",
+        p_config.get(
+            "disable_date_prompt", p_defaults.get("disable_date_prompt", False)
+        ),
     )
 
-    print(f"\nModel Aliases for {name} (Press Enter to keep default):")
+    print(f"\n[bold]Model Aliases for {name}[/bold]")
+    print("Aliases are shortcuts (e.g. 'pro') for full model IDs.")
     m_config = p_config.setdefault("models", {})
+    provider_defaults = p_defaults.get("models", {})
 
-    # Configure default models and aliases
-    provider_defaults = DEFAULTS.get(provider, {}).get("models", {})
-    for alias, def_model in provider_defaults.items():
-        current_val = m_config.get(alias, def_model)
-        user_input = prompt_input(f"Model for alias '{alias}'", current_val)
+    # Show current mappings
+    all_aliases = sorted(set(provider_defaults.keys()) | set(m_config.keys()))
+    print("Current model mappings:")
+    for alias in all_aliases:
+        val = m_config.get(alias, provider_defaults.get(alias))
+        print(f"  {alias:12} -> {val}")
 
-        # If the input looks like a dictionary string (common when defaults have dicts),
-        # try to convert it back to a real dictionary so tomli_w saves it correctly.
-        if isinstance(user_input, str) and user_input.startswith("{"):
-            try:
-                import ast
+    if prompt_bool("Modify these model aliases?", False):
+        for alias in all_aliases:
+            current_val = m_config.get(alias, provider_defaults.get(alias))
+            user_input = prompt_input(f"Model ID for alias '{alias}'", current_val)
 
-                parsed = ast.literal_eval(user_input)
-                if isinstance(parsed, dict):
-                    m_config[alias] = parsed
-                else:
+            # If the input looks like a dictionary string (common when defaults
+            # have dicts), try to convert it back to a real dictionary so
+            # tomli_w saves it correctly.
+            if isinstance(user_input, str) and user_input.startswith("{"):
+                try:
+                    import ast
+
+                    parsed = ast.literal_eval(user_input)
+                    if isinstance(parsed, dict):
+                        m_config[alias] = parsed
+                    else:
+                        m_config[alias] = user_input
+                except (ValueError, SyntaxError):
                     m_config[alias] = user_input
-            except (ValueError, SyntaxError):
+            else:
                 m_config[alias] = user_input
-        else:
-            m_config[alias] = user_input
 
 
 def configure_general(config: dict[str, Any]) -> None:
     """Configures general application settings, including data paths."""
     print("\n--- General Settings ---")
     g_config = config.setdefault("general", {})
+    def_g = DEFAULTS.get("general", {})
 
     providers = ["google", "openai", "anthropic", "xai", "ollama"]
-    current_p = g_config.get("unified_default_provider", "google")
+    current_p = g_config.get(
+        "unified_default_provider", def_g.get("unified_default_provider", "google")
+    )
     print(f"Available providers: {', '.join(providers)}")
     g_config["unified_default_provider"] = prompt_input("Default Provider", current_p)
 
     print("\nBehavior Settings:")
     g_config["request_timeout"] = int(
-        prompt_input("Request Timeout (seconds)", g_config.get("request_timeout", 1800))
+        prompt_input(
+            "Request Timeout (seconds)",
+            g_config.get("request_timeout", def_g.get("request_timeout", 1800)),
+        )
     )
     g_config["command_timeout"] = int(
         prompt_input(
             "Shell Command Timeout (seconds)",
-            g_config.get("command_timeout", 300),
+            g_config.get("command_timeout", def_g.get("command_timeout", 300)),
         )
     )
     g_config["max_command_memory_mb"] = int(
         prompt_input(
             "Max Command Memory (MB)",
-            g_config.get("max_command_memory_mb", 1024),
+            g_config.get(
+                "max_command_memory_mb", def_g.get("max_command_memory_mb", 1024)
+            ),
         )
     )
     g_config["max_output_length"] = int(
         prompt_input(
             "Default Tool Output Max Length (chars)",
-            g_config.get("max_output_length", 10000),
+            g_config.get("max_output_length", def_g.get("max_output_length", 30000)),
         )
     )
     g_config["max_output_lines"] = int(
         prompt_input(
             "Default Tool Output Max Lines",
-            g_config.get("max_output_lines", 500),
+            g_config.get("max_output_lines", def_g.get("max_output_lines", 500)),
         )
     )
 
@@ -212,9 +237,12 @@ def configure_security(config: dict[str, Any]) -> None:
     """Configures security settings."""
     print("\n--- Security Settings ---")
     s_config = config.setdefault("security", {})
+    def_s = DEFAULTS.get("security", {})
 
     # Configure Allowed Environment Variables
-    current_allowed_env = s_config.get("allowed_env_vars", [])
+    current_allowed_env = s_config.get(
+        "allowed_env_vars", def_s.get("allowed_env_vars", [])
+    )
     print(f"Current allowed environment variables: {current_allowed_env}")
     if prompt_bool("Modify allowed environment variables?", False):
         new_allowed_env = prompt_list(
@@ -226,13 +254,13 @@ def configure_security(config: dict[str, Any]) -> None:
     # Configure Missing Token Policy
     s_config["missing_token_policy"] = prompt_input(
         "Missing Token Policy (guest/deny)",
-        s_config.get("missing_token_policy", "guest"),
+        s_config.get(
+            "missing_token_policy", def_s.get("missing_token_policy", "guest")
+        ),
     )
 
     # Configure Default Roles
-    current_roles = s_config.get("default_roles", [])
-    if not current_roles:
-        current_roles = DEFAULTS.get("security", {}).get("default_roles", ["user"])
+    current_roles = s_config.get("default_roles", def_s.get("default_roles", ["user"]))
     print(f"Current default roles: {current_roles}")
     print(
         "[yellow]Warning: If 'admin' is not included in the roles, "
@@ -243,7 +271,9 @@ def configure_security(config: dict[str, Any]) -> None:
         s_config["default_roles"] = new_roles
 
     # Configure Allowed Paths
-    current_allowed_paths = s_config.get("allowed_paths", ["."])
+    current_allowed_paths = s_config.get(
+        "allowed_paths", def_s.get("allowed_paths", ["."])
+    )
     print(f"\nCurrent allowed paths: {current_allowed_paths}")
     if prompt_bool("Modify allowed paths?", False):
         new_allowed_paths = prompt_list(
@@ -252,9 +282,9 @@ def configure_security(config: dict[str, Any]) -> None:
         s_config["allowed_paths"] = new_allowed_paths
 
     # Configure Blocked Paths
-    current_blocked_paths = s_config.get("blocked_paths", [])
-    if not current_blocked_paths:
-        current_blocked_paths = DEFAULTS.get("security", {}).get("blocked_paths", [])
+    current_blocked_paths = s_config.get(
+        "blocked_paths", def_s.get("blocked_paths", [])
+    )
     print(f"Current blocked paths: {current_blocked_paths}")
     if prompt_bool("Modify blocked paths?", False):
         new_blocked_paths = prompt_list(
@@ -265,7 +295,7 @@ def configure_security(config: dict[str, Any]) -> None:
     # Configure Static Analysis Error setting
     current_sa_is_error = s_config.get(
         "static_analysis_is_error",
-        DEFAULTS.get("security", {}).get("static_analysis_is_error", True),
+        def_s.get("static_analysis_is_error", True),
     )
     s_config["static_analysis_is_error"] = prompt_bool(
         "Treat static analysis warnings as errors?", current_sa_is_error
@@ -360,14 +390,17 @@ def configure_sentinel(config: dict[str, Any]) -> None:
     """Configures the Reasoning Sentinel settings."""
     print("\n--- Reasoning Sentinel (Mamba-SSM Guard) ---")
     s_config = config.setdefault("sentinel", {})
+    def_sentinel = DEFAULTS.get("sentinel", {})
 
     s_config["enabled"] = prompt_bool(
-        "Enable Reasoning Sentinel monitoring?", s_config.get("enabled", True)
+        "Enable Reasoning Sentinel monitoring?",
+        s_config.get("enabled", def_sentinel.get("enabled", True)),
     )
 
     if s_config["enabled"]:
         s_config["mode"] = prompt_input(
-            "Sentinel Mode (learn/enforce)", s_config.get("mode", "learn")
+            "Sentinel Mode (learn/enforce)",
+            s_config.get("mode", def_sentinel.get("mode", "learn")),
         )
         print(
             "Note: Sentinel anomaly thresholds are now self-calibrating "

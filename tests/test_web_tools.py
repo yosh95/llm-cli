@@ -2,13 +2,21 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from llm_cli.clients.exceptions import ConfigurationError
 from llm_cli.modules.tools.web import (
     read_url_content,
     search_web,
 )
+
+
+def _get_result_text(result: str | dict) -> str:
+    """Extract the plain text from a tool result.
+
+    Tools (search_web, read_url_content) now return a signed
+    dict when PQC keys are available, or a plain str as a fallback.
+    """
+    if isinstance(result, dict):
+        return str(result.get("result", result.get("response", "")))
+    return result
 
 
 def test_read_url_content_basic(mock_curl_requests):
@@ -28,11 +36,9 @@ def test_read_url_content_basic(mock_curl_requests):
     mock_curl_requests.text = html_content
 
     # We expect markdownify to handle the conversion.
-    result = read_url_content("https://example.com")
+    result = _get_result_text(read_url_content("https://example.com"))
 
     # Check for markdown elements
-    # Both ATX headings and link preservation should be handled by markdownify
-    # but both should produce something readable.
     assert "Main Title" in result
     # Check if link is preserved
     assert "Link Text" in result
@@ -47,7 +53,7 @@ def test_read_url_content_basic(mock_curl_requests):
 def test_read_url_content_error(mock_curl_requests):
     """Test error handling in read_url_content."""
     with patch("curl_cffi.requests.get", side_effect=Exception("Connection error")):
-        result = read_url_content("https://example.com")
+        result = _get_result_text(read_url_content("https://example.com"))
 
     assert "Error: Failed to fetch content" in result
 
@@ -73,7 +79,7 @@ def test_search_web_success(mock_config):
     }
 
     with patch("requests.get", return_value=mock_response) as mock_get:
-        result = search_web(query="test query")
+        result = _get_result_text(search_web(query="test query"))
 
         # Check API call
         args, kwargs = mock_get.call_args
@@ -93,19 +99,19 @@ def test_search_web_no_results(mock_config):
     mock_response.json.return_value = {"web": {"results": []}}
 
     with patch("requests.get", return_value=mock_response):
-        result = search_web(query="empty")
+        result = _get_result_text(search_web(query="empty"))
         assert "No results found." in result
 
 
 def test_search_web_auth_error(monkeypatch):
     """Test search_web when credentials are missing."""
-    # Patch the module-level variables directly
-    monkeypatch.setattr("llm_cli.modules.tools.web._brave_api_key", None)
+    # Ensure Brave API key environment variable is not set
+    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
 
     # We mock requests to ensure no network call happens
     with patch("requests.get") as mock_get:
-        with pytest.raises(ConfigurationError) as excinfo:
-            search_web(query="test")
+        # The tool now returns a signed error message instead of raising an exception directly
+        result = _get_result_text(search_web(query="test"))
         mock_get.assert_not_called()
 
-    assert "Brave Search API key required" in str(excinfo.value)
+    assert "Error: Brave Search API key required" in result

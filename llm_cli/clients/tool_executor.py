@@ -188,11 +188,17 @@ class UserApprovalHandler(BaseToolHandler):
         elif "execute_python" in context.name:
             preview_python_code(context.args)
 
-        user_input = context.session._get_input(
-            "Allow execution? (y/N or feedback): ",
-            exit_on_escape=True,
-            raise_on_interrupt=True,
-        )
+        try:
+            user_input = context.session._get_input(
+                "Allow execution? (y/N or feedback): ",
+                exit_on_escape=True,
+                raise_on_interrupt=True,
+            )
+        except (KeyboardInterrupt, EOFError):
+            context.error_message = "Operation cancelled by user."
+            context.aborted = True
+            return
+
         if user_input.lower() not in ("y", "ｙ"):
             context.error_message = (
                 f"Rejected by user. Feedback: {user_input}"

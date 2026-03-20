@@ -504,6 +504,13 @@ class IntegrityVerifier:
 
         # Also verify the audit log chain
         if not self.verify_audit_log():
+            from llm_cli.consts import AUDIT_LOG_PATH
+
+            logger.error(
+                "Audit log integrity verification failed. "
+                "If you've intentionally modified the system, "
+                f"please clear the audit log file: {AUDIT_LOG_PATH}"
+            )
             all_ok = False
 
         if all_ok:

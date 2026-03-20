@@ -208,7 +208,6 @@ class IdentityManager:
     def generate_token(
         cls,
         user_id: str | None = None,
-        roles: list[str] | None = None,
         audience: str | None = None,
     ) -> str:
         """
@@ -222,7 +221,6 @@ class IdentityManager:
             "iat": now,
             "exp": now + 600,
             "jti": str(uuid.uuid4()),
-            "roles": roles or ["user"],
             "pqc": True,  # Flag indicating PQC coverage
             "pqc_kem_pub": cls.get_kem_public_key(),  # Advertise KEM capability
         }

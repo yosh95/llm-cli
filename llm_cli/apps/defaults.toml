@@ -119,6 +119,12 @@ checkpoint_path = "sentinel_state.npz"
 # =============================================================================
 # Each [[mcp_servers]] entry defines a server that the AI agent can use.
 #
+# zero_trust (Boolean):
+# If true, llm-cli injects a Post-Quantum Cryptography (PQC) signed Identity Token
+# and its public keys into the server's environment (MCP_AUTH_TOKEN).
+# The remote server (if llm-cli based) will verify this token to enforce ABAC.
+# Default is false.
+#
 # Example: Connecting to a remote server via SSH to use llm-cli's MCP mode.
 # This allows the AI agent to execute commands on the remote server as tools.
 #
@@ -126,6 +132,7 @@ checkpoint_path = "sentinel_state.npz"
 # name = "remote-agent"
 # command = "ssh"
 # args = ["-t", "user@remote-host", "llm-cli", "--mcp-server"]
+# zero_trust = true
 
 # =============================================================================
 # Templates (Reusable Prompts)

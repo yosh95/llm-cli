@@ -200,6 +200,12 @@ def configure_general(config: dict[str, Any]) -> None:
             g_config.get("max_output_length", 10000),
         )
     )
+    g_config["max_output_lines"] = int(
+        prompt_input(
+            "Default Tool Output Max Lines",
+            g_config.get("max_output_lines", 500),
+        )
+    )
 
 
 def configure_security(config: dict[str, Any]) -> None:

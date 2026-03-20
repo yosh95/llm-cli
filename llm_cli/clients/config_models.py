@@ -12,7 +12,8 @@ class GeneralConfig:
     request_timeout: int = 1800
     command_timeout: int = 300
     max_command_memory_mb: int = 1024
-    max_output_length: int = 10000
+    max_output_length: int = 30000
+    max_output_lines: int = 500
     max_chat_log_lines: int = 10000
     max_security_log_lines: int = 1000
     image_save_path: str = "~/Pictures/llm-cli"

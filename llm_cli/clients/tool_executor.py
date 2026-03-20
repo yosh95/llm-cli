@@ -290,11 +290,31 @@ class PostProcessHandler(BaseToolHandler):
         # Truncation
         res_str = str(context.result_data)
         max_len = int(config_manager.get("general", "max_output_length") or 10000)
+        max_lines = int(config_manager.get("general", "max_output_lines") or 500)
+
+        original_chars = len(res_str)
+        lines = res_str.splitlines()
+        original_lines = len(lines)
+
+        truncated = False
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            res_str = "\n".join(lines)
+            truncated = True
+
         if len(res_str) > max_len:
-            res_str = (
-                res_str[:max_len]
-                + f"\n\n... (Output truncated. Shown {max_len} of "
-                + f"{len(res_str)} chars.)"
+            # If still over limit, truncate by characters but try to keep whole lines
+            res_str = res_str[:max_len]
+            last_newline = res_str.rfind("\n")
+            if last_newline != -1:
+                res_str = res_str[:last_newline]
+            truncated = True
+
+        if truncated:
+            current_lines = len(res_str.splitlines())
+            res_str += (
+                f"\n\n... (Output truncated. Shown {current_lines} of "
+                f"{original_lines} lines, {len(res_str)} of {original_chars} chars.)"
             )
             context.result_data = res_str
 

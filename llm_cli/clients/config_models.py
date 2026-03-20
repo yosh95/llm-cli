@@ -44,9 +44,6 @@ class SecurityConfig:
     allowed_env_vars: list[str] = field(default_factory=list)
     static_analysis_is_error: bool = True
     scaling_patterns: list[str] = field(default_factory=list)
-    intent_analyzer_enabled: bool = False
-    intent_analyzer_provider: str = "google"
-    intent_analyzer_model: str = "gemini-flash-lite-latest"
 
 
 @dataclass

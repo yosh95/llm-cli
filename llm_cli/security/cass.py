@@ -21,7 +21,6 @@ class SecurityPosture(TypedDict):
     require_pqc_signature: bool
     require_pqc_audit_encryption: bool
     mamba_enforcement: str  # "monitor_only", "strict_block"
-    use_intent_analyzer: bool
 
 
 class CASSOrchestrator:
@@ -29,8 +28,7 @@ class CASSOrchestrator:
     Context-Adaptive Security Scaling (CASS) Orchestrator.
     Dynamically determines the required security posture based on the requested
     tool's risk profile. This eliminates the need for slow Dual-LLM intent
-    analysis for most operations, relying on high-speed Mamba Sentinel and
-    scaling up to Post-Quantum Cryptography only when necessary.
+    analysis for most operations, relying on high-speed Mamba Sentinel.
     """
 
     def __init__(self) -> None:
@@ -62,7 +60,6 @@ class CASSOrchestrator:
                 "require_pqc_signature": True,
                 "require_pqc_audit_encryption": True,
                 "mamba_enforcement": "strict_block",  # Block if Mamba score is RED
-                "use_intent_analyzer": False,  # Deprecated due to UX/latency
             }
         elif risk_level == RiskLevel.MEDIUM:
             logger.debug(f"CASS: Medium risk detected for tool '{tool_name}'.")
@@ -70,7 +67,6 @@ class CASSOrchestrator:
                 "require_pqc_signature": False,  # Fast classical RSA is sufficient
                 "require_pqc_audit_encryption": False,
                 "mamba_enforcement": "strict_block",
-                "use_intent_analyzer": False,
             }
         else:
             logger.debug(f"CASS: Low risk detected for tool '{tool_name}'.")
@@ -78,5 +74,4 @@ class CASSOrchestrator:
                 "require_pqc_signature": False,
                 "require_pqc_audit_encryption": False,
                 "mamba_enforcement": "monitor_only",  # Log warnings but do not block
-                "use_intent_analyzer": False,
             }

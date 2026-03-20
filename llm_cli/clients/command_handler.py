@@ -349,7 +349,6 @@ def handle_info(ctx: CommandContext) -> bool:
 
     from llm_cli.clients.base import console
     from llm_cli.modules.tool_registry import registry as tool_registry
-    from llm_cli.security.policy import policy_engine
 
     client = ctx.client
 
@@ -371,16 +370,6 @@ def handle_info(ctx: CommandContext) -> bool:
         )
         if active:
             info_table.add_row("Active Tools", f"[dim]{', '.join(active)}[/dim]")
-
-    ia_enabled = policy_engine.config.get("intent_analyzer_enabled", False)
-    if ia_enabled:
-        ia_provider = policy_engine.config.get("intent_analyzer_provider", "?")
-        ia_model = policy_engine.config.get("intent_analyzer_model", "?")
-        info_table.add_row(
-            "Intent Analyzer", f"[bold green]ON[/bold green] ({ia_provider}/{ia_model})"
-        )
-    else:
-        info_table.add_row("Intent Analyzer", "[dim]OFF[/dim]")
 
     info_table.add_row("History Length", f"{len(client.conversation)} messages")
 
@@ -413,7 +402,7 @@ def handle_info(ctx: CommandContext) -> bool:
 
             if sentinel.score_history:
                 trend = [
-                    " [green]█[/green]"
+                    "[green]█[/green]"
                     if s < t_yellow
                     else "[yellow]█[/yellow]"
                     if s < t_red

@@ -2,20 +2,11 @@ import fnmatch
 import logging
 import os
 from pathlib import Path
-from typing import Any, Protocol, TypedDict, runtime_checkable
+from typing import Any, TypedDict
 
 from llm_cli.security.path_validator import PathValidationError, validate_path
 
 logger = logging.getLogger(__name__)
-
-
-@runtime_checkable
-class IntentVerifier(Protocol):
-    """Protocol for intent analysis verification."""
-
-    def verify_action(
-        self, user_prompt: str, tool_name: str, args: dict[str, Any]
-    ) -> tuple[bool, str]: ...
 
 
 class RoleDefinition(TypedDict, total=False):
@@ -30,12 +21,6 @@ class RoleDefinition(TypedDict, total=False):
 class SecurityConfig(TypedDict, total=False):
     """Structure of the security configuration."""
 
-    intent_analyzer_enabled: bool
-    intent_analyzer_provider: str
-    intent_analyzer_model: str
-    intent_analyzer_fail_open: bool
-    intent_analyzer_fail_open_tools: list[str]
-    intent_analyzer_fail_closed_tools: list[str]
     roles: dict[str, RoleDefinition]
     subjects: dict[str, RoleDefinition]
     blocked_paths: list[str]
@@ -59,7 +44,6 @@ class PolicyEngine:
         from llm_cli.security.cass import CASSOrchestrator
 
         self.cass = CASSOrchestrator()
-        self.intent_analyzer: IntentVerifier | None = None
         self.roles: dict[str, RoleDefinition] = {}
         self._config: SecurityConfig = {}
         self.subjects: dict[str, RoleDefinition] = {}
@@ -110,79 +94,7 @@ class PolicyEngine:
 
     def reinitialize(self, config: SecurityConfig | None = None) -> None:
         """Reload configuration and reset the engine state."""
-        self.intent_analyzer = None
         self._load_security_config(config)
-
-    def _analyze_intent(
-        self, user_prompt: str, tool_name: str, args: dict[str, Any]
-    ) -> bool:
-        """
-        Uses a secondary LLM to verify if the tool call aligns with user intent.
-        High-assurance mode for scenarios where MambaSentinel's utility is not fully
-        proven or when the CASS orchestrator requires stronger verification.
-        Note: This is disabled by default due to high latency.
-        """
-        posture = self.cass.get_security_requirements(tool_name)
-
-        # If CASS determines we don't need the legacy intent analyzer, bypass it.
-        # This is the default behavior now to maintain high responsiveness.
-        if not posture.get("use_intent_analyzer", False) and not self.config.get(
-            "intent_analyzer_enabled", False
-        ):
-            return True
-
-        if not user_prompt:
-            logger.warning("Intent Analysis Skipped: No user prompt context available.")
-            return True
-
-        if not self.intent_analyzer:
-            try:
-                from llm_cli.security.intent_analyzer import IntentAnalyzer
-
-                provider = str(self.config.get("intent_analyzer_provider", "google"))
-                model = str(
-                    self.config.get("intent_analyzer_model", "gemini-flash-lite-latest")
-                )
-                self.intent_analyzer = IntentAnalyzer(provider, model)
-            except Exception as e:
-                logger.error(f"Failed to initialize Intent Analyzer: {e}")
-                # Configurable fail-open/closed.
-                # Zero-Trust default should be fail-closed for high-risk tools.
-                from llm_cli.clients.config import get_setting
-
-                high_risk_tools = set(get_setting("high_risk_tools", "security") or [])
-                if tool_name in high_risk_tools:
-                    logger.error(f"Intent Analyzer failed. Blocked: '{tool_name}'")
-                    return False
-
-                fail_open = bool(self.config.get("intent_analyzer_fail_open", False))
-                fail_open_tools = set(
-                    self.config.get("intent_analyzer_fail_open_tools", [])
-                )
-                fail_closed_tools = set(
-                    self.config.get("intent_analyzer_fail_closed_tools", [])
-                )
-                if tool_name in fail_open_tools:
-                    return True
-                if tool_name in fail_closed_tools:
-                    return False
-                return True if fail_open else False
-
-        logger.info(
-            f"🧠 Verifying Intent: Prompt='{user_prompt[:50]}...' Tool='{tool_name}'"
-        )
-        is_safe, reason = self.intent_analyzer.verify_action(
-            user_prompt, tool_name, args
-        )
-
-        if not is_safe:
-            logger.warning(f"⛔ Intent Mismatch Detected: {reason}")
-            # We print to console directly to inform user
-            print(f"SECURITY ALERT: Intent Analyzer Blocked Action.\nReason: {reason}")
-            return False
-
-        logger.info("✅ Intent Verified")
-        return True
 
     def evaluate(
         self,
@@ -199,17 +111,11 @@ class PolicyEngine:
 
         user_id = context.get("user_id", "unknown")
         user_roles = context.get("roles", ["guest"])
-        user_prompt = context.get("user_prompt", "")
 
         logger.info(
             f"🛡️  Policy Evaluation: Tool='{tool_name}', User='{user_id}', "
             f"Roles={user_roles}"
         )
-
-        # 0. Intent Analysis (Dynamic Guardrail)
-        if self.config.get("intent_analyzer_enabled", False):
-            if not self._analyze_intent(user_prompt, tool_name, arguments):
-                return False
 
         # 1. Subject-specific Evaluation (Highest Priority)
         if user_id in self.subjects:

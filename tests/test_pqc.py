@@ -56,7 +56,7 @@ def test_hybrid_signer_token():
     # Setup PQC key
     pqc_pub, pqc_priv = PQCProvider.generate_keypair()
 
-    payload = {"sub": "test_user", "roles": ["admin"]}
+    payload = {"sub": "test_user", "pqc": True}
 
     # Create hybrid token
     hybrid_token = HybridSigner.create_hybrid_token(payload, rsa_priv, pqc_priv)
@@ -69,7 +69,7 @@ def test_hybrid_signer_token():
     )
     assert verified_payload is not None
     assert verified_payload["sub"] == "test_user"
-    assert verified_payload["roles"] == ["admin"]
+    assert "roles" not in verified_payload
 
 
 def test_identity_manager_integration(tmp_path, monkeypatch):
@@ -80,7 +80,7 @@ def test_identity_manager_integration(tmp_path, monkeypatch):
 
     # Generate token
     token = IdentityManager.generate_token(
-        user_id="pqc_tester", roles=["security_audit"]
+        user_id="pqc_tester"
     )
     assert isinstance(token, str)
 
@@ -88,7 +88,7 @@ def test_identity_manager_integration(tmp_path, monkeypatch):
     payload = IdentityManager.verify_token(token)
     assert payload is not None
     assert payload["sub"] == "pqc_tester"
-    assert payload["roles"] == ["security_audit"]
+    assert "roles" not in payload
     assert payload.get("pqc") is True
 
 

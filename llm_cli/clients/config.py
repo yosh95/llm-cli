@@ -81,27 +81,34 @@ class ConfigManager:
 
     def get(self, section: str, key: str, default: Any = None) -> Any:
         """Gets a setting value using (section, key) order."""
-        # Prioritize environment variables for API keys
+        # API keys MUST come from environment variables for security.
+        # This also serves as the "active" flag for a provider.
         if key == "api_key":
-            env_vars = []
-            if section == "google":
-                env_vars = ["GEMINI_API_KEY", "GOOGLE_API_KEY"]
-            elif section == "anthropic":
-                env_vars = ["ANTHROPIC_API_KEY"]
-            elif section == "openai":
-                env_vars = ["OPENAI_API_KEY"]
-            elif section == "xai":
-                env_vars = ["XAI_API_KEY"]
-            else:
-                env_vars = [f"{section.upper()}_API_KEY"]
-
+            env_map = {
+                "google": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+                "openai": ["OPENAI_API_KEY"],
+                "anthropic": ["ANTHROPIC_API_KEY"],
+                "xai": ["XAI_API_KEY"],
+                "ollama": ["OLLAMA_API_KEY"],
+                "brave": ["BRAVE_SEARCH_API_KEY"],
+            }
+            env_vars = env_map.get(section, [])
             for env_var in env_vars:
                 val = os.environ.get(env_var)
                 if val:
                     return val
+            return None  # Provider is inactive if no env var is found
 
         config_dict = self.load_config()
         return config_dict.get(section, {}).get(key, default)
+
+    def get_active_providers(self) -> list[str]:
+        """Returns a list of providers that have an API key set in env vars."""
+        active = []
+        for provider in ["google", "openai", "anthropic", "xai", "ollama"]:
+            if self.get(provider, "api_key"):
+                active.append(provider)
+        return active
 
     def get_bool(self, section: str, key: str, default: bool = False) -> bool:
         """Gets a boolean setting value using (section, key) order."""

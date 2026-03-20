@@ -47,9 +47,8 @@ dev = [
 ]
 
 [project.scripts]
-llm-cli-config = "llm_cli.apps.configure:main"
-llm-cli-security = "llm_cli.apps.identity_tool:main"
 llm-cli = "llm_cli.apps.unified:main"
+llm-cli-security = "llm_cli.apps.identity_tool:main"
 llm-cli-models = "llm_cli.apps.model_listing:main"
 
 [tool.setuptools.packages.find]

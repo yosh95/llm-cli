@@ -9,54 +9,53 @@ from llm_cli.modules.tool_registry import tool
 _brave_api_key = config_manager.get("brave", "api_key")
 
 
-if _brave_api_key:
-
-    @tool(
-        name="search_web",
-        description=(
-            "Search the web using Brave Search to find information on the internet."
-        ),
-        parameters={
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The search query (keywords or question).",
-                },
+@tool(
+    name="search_web",
+    description=(
+        "Search the web using Brave Search to find information on the internet."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The search query (keywords or question).",
             },
-            "required": ["query"],
         },
-    )
-    def search_web(query: str) -> str:
-        if not _brave_api_key:
-            return "Error: Brave Search API key required."
+        "required": ["query"],
+    },
+)
+def search_web(query: str) -> str:
+    api_key = config_manager.get("brave", "api_key")
+    if not api_key:
+        return "Error: Brave Search API key required (BRAVE_SEARCH_API_KEY)."
 
-        try:
-            url = "https://api.search.brave.com/res/v1/web/search"
-            headers = {
-                "Accept": "application/json",
-                "X-Subscription-Token": _brave_api_key,
-            }
-            params = {"q": query}
-            resp = requests.get(url, headers=headers, params=params, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
+    try:
+        url = "https://api.search.brave.com/res/v1/web/search"
+        headers = {
+            "Accept": "application/json",
+            "X-Subscription-Token": api_key,
+        }
+        params = {"q": query}
+        resp = requests.get(url, headers=headers, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
 
-            results = data.get("web", {}).get("results", [])
-            if not results:
-                return f"### Search Results for: {query}\n\nNo results found."
+        results = data.get("web", {}).get("results", [])
+        if not results:
+            return f"### Search Results for: {query}\n\nNo results found."
 
-            output = [f"### Search Results for: {query}\n"]
-            for i, res in enumerate(results[:10], 1):
-                title = res.get("title", "No Title")
-                link = res.get("url", "#")
-                snippet = res.get("description", "No description available.")
-                output.append(f"{i}. **[{title}]({link})**")
-                output.append(f"   {snippet}\n")
+        output = [f"### Search Results for: {query}\n"]
+        for i, res in enumerate(results[:10], 1):
+            title = res.get("title", "No Title")
+            link = res.get("url", "#")
+            snippet = res.get("description", "No description available.")
+            output.append(f"{i}. **[{title}]({link})**")
+            output.append(f"   {snippet}\n")
 
-            return "\n".join(output)
-        except Exception as e:
-            return f"Error searching '{query}' with Brave Search: {e}"
+        return "\n".join(output)
+    except Exception as e:
+        return f"Error searching '{query}' with Brave Search: {e}"
 
 
 @tool(

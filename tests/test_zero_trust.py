@@ -43,15 +43,12 @@ def test_identity_key_generation(identity_manager):
 
 def test_token_verification(identity_manager):
     """Test token signing and verification flow."""
-    token = identity_manager.generate_token(
-        user_id="alice", roles=["admin"], audience="server1"
-    )
+    token = identity_manager.generate_token(user_id="alice", audience="server1")
 
     # Verify with correct audience
     payload = identity_manager.verify_token(token, expected_audience="server1")
     assert payload is not None
     assert payload["sub"] == "alice"
-    assert "admin" in payload["roles"]
     assert payload["aud"] == "server1"
 
     # Verify with wrong audience
@@ -65,48 +62,42 @@ def test_token_verification(identity_manager):
 @pytest.fixture
 def policy_engine(tmp_path, monkeypatch):
     # Align ABAC scope tests with path normalization + validate_path() sandboxing.
-    # Set CWD to a temporary project directory so validate_path() accepts it.
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     monkeypatch.chdir(project_dir)
 
     config = {
-        "roles": {
-            "developer": {
-                "allowed_tools": ["edit_file", "read_file_content"],
-                "scopes": {
-                    # Use a scope under the current project directory
-                    "edit_file": {"allowed_paths": [str(project_dir / "*")]},
-                },
-            }
-        },
-        "subjects": {"banned_user": {"denied_tools": ["edit_file"]}},
+        "allowed_paths": ["."],
+        "high_risk_tools": ["edit_file"],
+        "medium_risk_tools": ["read_file_content"],
+        "blocked_paths": ["/etc/passwd"],
     }
     return PolicyEngine(config)
 
 
 def test_policy_scope_enforcement(policy_engine):
-    context = {"roles": ["developer"], "user_id": "dev_user"}
+    # HIGH RISK tool requires PQC proof
+    context = {"user_id": "dev_user", "has_pqc_proof": True}
 
     # Allowed path
     assert policy_engine.evaluate("edit_file", {"path": "./main.py"}, context) is True
 
     # Disallowed path (Out of scope)
+    # Using a path that is clearly outside the project_dir (which is now CWD)
     assert (
-        policy_engine.evaluate("edit_file", {"path": "../outside.txt"}, context)
+        policy_engine.evaluate("edit_file", {"path": "/tmp/outside.txt"}, context)
         is False
     )
 
 
-def test_policy_subject_ban(policy_engine):
-    # Even if role allows it, subject ban should block it
-    context = {"roles": ["developer"], "user_id": "banned_user"}
+def test_pqc_proof_requirement(policy_engine):
+    # HIGH RISK tool without PQC proof should fail even if path is okay
+    context = {"user_id": "dev_user", "has_pqc_proof": False}
     assert policy_engine.evaluate("edit_file", {"path": "./main.py"}, context) is False
 
 
 def test_global_guardrails(policy_engine):
-    # Admin context
-    context = {"roles": ["admin"], "user_id": "admin"}
+    context = {"user_id": "admin", "has_pqc_proof": True}
 
     # Blocked path should be blocked globally
     assert (

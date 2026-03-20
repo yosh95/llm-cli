@@ -24,9 +24,18 @@
     cd llm-cli
     pip install .
     ```
-2.  **Configure**: Run `llm-cli-config` to set your API keys (e.g., Gemini) or Ollama URL.
-3.  **Chat**: Type `llm-cli` to start an interactive session.
-4.  **Help**: Type `/help` inside the chat to see all commands.
+2.  **Set API Keys**: Set your API keys as environment variables (Recommended).
+    ```bash
+    export GEMINI_API_KEY="your-api-key"
+    # or OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, OLLAMA_API_KEY
+    ```
+3.  **Configure (Optional)**: Run `llm-cli --init-config` to generate a customizable `config.toml`.
+    ```bash
+    llm-cli --init-config
+    # Edit ~/.llm_cli/config.toml to add MCP servers or customize behavior.
+    ```
+4.  **Chat**: Type `llm-cli` to start an interactive session.
+5.  **Help**: Type `/help` inside the chat to see all commands.
 
 ### One-Shot Examples
 ```bash
@@ -63,10 +72,12 @@ The AI agent autonomously uses tools to perform complex tasks, such as file mana
 
 As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** compliance in mind, `llm-cli` implements a multi-layered security architecture to mitigate the risks associated with autonomous AI agents.
 
-### 1. Execution Security & Isolation
-- **No-Shell Architecture**: To prevent command injection, system interactions are performed via Python execution with `shell=False`.
-- **Explanation Enforcement**: Every tool automatically mandates an `explanation` parameter, forcing the LLM to justify its intent in natural language before execution.
-- **Static Analysis**: Pre-execution scanning of AI-generated code for suspicious imports or risky patterns.
+### 1. Zero Trust & Access Control (ABAC)
+`llm-cli` implements **Attribute-Based Access Control (ABAC)** instead of traditional RBAC.
+- **Risk-based Scaling**: Security requirements automatically scale based on the tool's risk level (HIGH/MEDIUM/LOW).
+- **Identity Proof**: High-risk actions (e.g., Python execution) require a valid **PQC-signed identity**.
+- **Path Guardrails**: Tools are restricted by path attributes (defaulting to the current directory).
+- **Explanation Enforcement**: Every tool mandates an `explanation` parameter, forcing the LLM to justify its intent.
 
 ### 2. Identity & Non-Repudiation (Post-Quantum Ready)
 - **Hybrid Identity Tokens**: Uses **RS256** combined with **Post-Quantum Cryptography (ML-DSA)** to sign tool execution requests, ensuring long-term non-repudiation.

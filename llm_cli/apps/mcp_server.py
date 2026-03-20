@@ -62,8 +62,9 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
             payload = id_manager.verify_token(token)
             if payload:
                 user_context = {
-                    "roles": list(payload.get("roles", ["user"])),
                     "user_id": str(payload.get("sub", "unknown")),
+                    "user_prompt": "Execution via MCP",
+                    "has_pqc_proof": payload.get("pqc", False),
                 }
                 logger.info(f"Authenticated User: {user_context['user_id']}")
             else:
@@ -71,7 +72,7 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
                 logger.warning("Invalid Auth Token provided. Access Denied.")
                 return "⛔ Authentication Failed: Invalid Token."
         else:
-            # Case B: No Token - Apply Missing Token Policy (e.g., from Claude Desktop)
+            # Case B: No Token - Apply Missing Token Policy
             logger.info(
                 f"No Auth Token found. Applying missing_token_policy: "
                 f"'{MISSING_TOKEN_POLICY}'"
@@ -79,17 +80,18 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
             if MISSING_TOKEN_POLICY == "deny":
                 return "⛔ Access Denied: Authentication required."
 
-            # Assign the fallback role (e.g., "guest")
+            # Assign the fallback identity
             user_context = {
-                "roles": [MISSING_TOKEN_POLICY],
                 "user_id": "anonymous_client",
+                "user_prompt": "Execution via MCP (No Token)",
+                "has_pqc_proof": False,
             }
 
-        # 2. Policy Enforcement (Zero Trust / RBAC)
+        # 2. Policy Enforcement (Zero Trust / ABAC)
         if not policy_engine.evaluate(tool_name, kwargs, user_context):
             error_msg = (
-                f"⛔ Security Policy Violation: Role '{user_context.get('roles')}' "
-                f"is not allowed to use '{tool_name}'."
+                f"⛔ Security Policy Violation: User '{user_context.get('user_id')}' "
+                f"is not allowed to use '{tool_name}' in this context."
             )
             logger.warning(error_msg)
             return error_msg
@@ -104,7 +106,6 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
 
         audit_context = {
             "user_id": user_context.get("user_id"),
-            "roles": user_context.get("roles"),
             "audience": os.environ.get("MCP_SERVER_NAME"),
             "trace_id": get_current_trace_id(),
             "model": audit_model,

@@ -21,34 +21,40 @@ class RoleDefinition(TypedDict, total=False):
 class SecurityConfig(TypedDict, total=False):
     """Structure of the security configuration."""
 
-    roles: dict[str, RoleDefinition]
-    subjects: dict[str, RoleDefinition]
     blocked_paths: list[str]
+    allowed_paths: list[str]
+    high_risk_tools: list[str]
+    medium_risk_tools: list[str]
+    missing_token_policy: str
 
 
 class EvaluationContext(TypedDict, total=False):
     """Context for policy evaluation."""
 
     user_id: str
-    roles: list[str]
     user_prompt: str
+    has_pqc_proof: bool  # Whether a valid PQC signature was provided/verified
 
 
 class PolicyEngine:
     """
-    Enhanced Role-Based Access Control (RBAC) & Attribute-Based Access Control (ABAC).
-    Determines permissions based on user roles, subjects, and resource scopes.
+    Attribute-Based Access Control (ABAC) driven by Risk Levels.
+    Determines permissions based on tool risk, user identity proof (PQC),
+    and resource scopes.
     """
 
     def __init__(self, config: SecurityConfig | None = None):
         from llm_cli.security.cass import CASSOrchestrator
 
         self.cass = CASSOrchestrator()
-        self.roles: dict[str, RoleDefinition] = {}
         self._config: SecurityConfig = {}
-        self.subjects: dict[str, RoleDefinition] = {}
         if config:
             self._load_security_config(config)
+            # Propagate risk level overrides to CASS
+            if "high_risk_tools" in self._config:
+                self.cass.high_risk_tools = set(self._config["high_risk_tools"])
+            if "medium_risk_tools" in self._config:
+                self.cass.medium_risk_tools = set(self._config["medium_risk_tools"])
 
     @property
     def config(self) -> SecurityConfig:
@@ -62,13 +68,8 @@ class PolicyEngine:
         self._config = value
 
     def _load_security_config(self, config: SecurityConfig | None = None) -> None:
-        """
-        Loads security configuration from the config file and merges any
-        provided overrides.
-        """
+        """Loads security configuration from the config file."""
         provided_config = config or {}
-
-        # 1. Load base security settings from the global config file
         self._config = {}
         try:
             from llm_cli.clients.config import config_manager
@@ -77,23 +78,10 @@ class PolicyEngine:
             self._config.update(full_conf.get("security", {}))  # type: ignore
         except (ImportError, AttributeError):
             pass
-
-        # 2. Override with caller-supplied values
         self._config.update(provided_config)
 
-        # 3. Subject-specific overrides (e.g., specific user@host)
-        self.subjects = self._config.get("subjects", {})
-
-        # 4. Merge user-defined roles
-        if "roles" in self._config:
-            for role_name, role_def in self._config["roles"].items():
-                if role_name in self.roles:
-                    self.roles[role_name].update(role_def)
-                else:
-                    self.roles[role_name] = role_def
-
     def reinitialize(self, config: SecurityConfig | None = None) -> None:
-        """Reload configuration and reset the engine state."""
+        """Reload configuration."""
         self._load_security_config(config)
 
     def evaluate(
@@ -103,69 +91,40 @@ class PolicyEngine:
         context: EvaluationContext,
     ) -> bool:
         """
-        Evaluate if the current user/context can execute the tool with given arguments.
+        Evaluate if the tool execution is permitted based on risk and identity proof.
         """
-        # Ensure latest config is used if we were initialized with default empty dict
+        from llm_cli.security.cass import RiskLevel
+
         if not self.config:
             self.reinitialize()
 
         user_id = context.get("user_id", "unknown")
-        user_roles = context.get("roles", ["guest"])
+        has_pqc = context.get("has_pqc_proof", False)
+        risk_level = self.cass.evaluate_risk(tool_name)
 
         logger.info(
-            f"🛡️  Policy Evaluation: Tool='{tool_name}', User='{user_id}', "
-            f"Roles={user_roles}"
+            f"🛡️  ABAC Evaluation: Tool='{tool_name}', Risk='{risk_level.value}', "
+            f"User='{user_id}', PQC_Proof={has_pqc}"
         )
 
-        # 1. Subject-specific Evaluation (Highest Priority)
-        if user_id in self.subjects:
-            subject_policy = self.subjects[user_id]
-            if tool_name in subject_policy.get("denied_tools", []):
-                return False
-            if tool_name in subject_policy.get("allowed_tools", []):
-                from typing import cast
-
-                return self._verify_scope(
-                    tool_name, arguments, cast(dict[str, Any], subject_policy)
-                )
-
-        # 2. Role-based Evaluation
-        is_allowed = False
-        final_policy: RoleDefinition = {}
-
-        for role_name in user_roles:
-            role_def = self.roles.get(role_name)
-            if not role_def:
-                continue
-
-            if role_def.get("allow_all", False):
-                is_allowed = True
-                final_policy = role_def
-                break
-
-            allowed_tools = role_def.get("allowed_tools", [])
-            if tool_name in allowed_tools or "*" in allowed_tools:
-                is_allowed = True
-                final_policy = role_def
-                break
-
-        if not is_allowed:
-            logger.warning(f"⛔ Access Denied: No role allows tool '{tool_name}'")
+        # 1. Identity Requirement (High Risk requires PQC)
+        if risk_level == RiskLevel.HIGH and not has_pqc:
+            msg = f"⛔ Access Denied: High-risk tool '{tool_name}' requires PQC proof."
+            logger.warning(msg)
             return False
 
-        # 3. Scope Verification (ABAC)
-        # Check if the policy has specific restrictions for this tool
-        from typing import cast
-
+        # 2. Scope Verification (Path restrictions, etc.)
+        # We use a global scope defined in the config
+        global_scope = {"allowed_paths": self.config.get("allowed_paths", ["."])}
         if not self._verify_scope(
-            tool_name, arguments, cast(dict[str, Any], final_policy)
+            tool_name, arguments, {"scopes": {tool_name: global_scope}}
         ):
             logger.warning(
                 f"⛔ Access Denied: Arguments out of scope for tool '{tool_name}'"
             )
             return False
 
-        # 4. Global Safety Guardrails (Last line of defense)
+        # 3. Global Safety Guardrails
         if not self._global_guardrails(tool_name, arguments):
             return False
 
@@ -202,9 +161,23 @@ class PolicyEngine:
                 candidates = {str(raw_path), normalized_target}
 
                 def _match_any(candidate: str) -> bool:
+                    cwd = Path.cwd().resolve()
                     for pattern in allowed_patterns:
-                        # Expand/resolve patterns that look like paths.
                         pat = str(pattern)
+                        # Special case: "." means everything under CWD
+                        if pat == ".":
+                            try:
+                                candidate_path = Path(candidate).resolve()
+                                if (
+                                    candidate_path == cwd
+                                    or cwd in candidate_path.parents
+                                ):
+                                    return True
+                            except Exception:
+                                pass
+                            continue
+
+                        # Expand/resolve patterns that look like paths.
                         expanded_pat = str(Path(pat).expanduser())
                         resolved_pat = expanded_pat
                         try:

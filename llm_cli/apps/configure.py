@@ -408,6 +408,48 @@ def configure_sentinel(config: dict[str, Any]) -> None:
         )
 
 
+def init_config(force: bool = False) -> None:
+    """Initializes config.toml by copying defaults with commented values."""
+    if CONFIG_FILE_PATH.exists() and not force:
+        print(f"[yellow]Config already exists at {CONFIG_FILE_PATH}[/yellow]")
+        print("Use --force-init-config to overwrite.")
+        return
+
+    if not DEFAULTS_FILE.exists():
+        print(
+            f"[red]Error: Default configuration file not found at {DEFAULTS_FILE}[/red]"
+        )
+        return
+
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+    with DEFAULTS_FILE.open("r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    commented_lines = []
+    commented_lines.append("# llm-cli Configuration\n")
+    commented_lines.append(
+        "# API Keys MUST be set via environment variables (e.g., OPENAI_API_KEY).\n"
+    )
+    commented_lines.append(
+        "# Other settings can be customized by uncommenting them below.\n\n"
+    )
+
+    for line in lines:
+        stripped = line.strip()
+        # Comment out lines that are not empty, not comments, and not section headers
+        if stripped and not stripped.startswith("[") and not stripped.startswith("#"):
+            commented_lines.append(f"# {line}")
+        else:
+            commented_lines.append(line)
+
+    with CONFIG_FILE_PATH.open("w", encoding="utf-8") as f:
+        f.writelines(commented_lines)
+
+    print(f"[bold green]Initialized config at {CONFIG_FILE_PATH}[/bold green]")
+    print("[dim]Edit this file to customize behavior or add MCP servers.[/dim]")
+
+
 def main() -> None:
     try:
         print("========================================")

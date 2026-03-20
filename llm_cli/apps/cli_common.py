@@ -54,6 +54,14 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
         "--mcp-server", action="store_true", help="Run as an MCP server"
     )
     parser.add_argument("--session", help="Load a saved session JSON file on startup")
+    parser.add_argument(
+        "--init-config", action="store_true", help="Initialize ~/.llm_cli/config.toml"
+    )
+    parser.add_argument(
+        "--force-init-config",
+        action="store_true",
+        help="Force overwrite ~/.llm_cli/config.toml",
+    )
 
     for arg_name, arg_config in config.extra_args:
         parser.add_argument(arg_name, **arg_config)
@@ -64,6 +72,33 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
 def run_client_cli(config: ClientConfig) -> None:
     parser = create_standard_parser(config)
     args = parser.parse_args()
+
+    from llm_cli.clients.config import config_manager
+
+    # Handle configuration initialization
+    if args.init_config or args.force_init_config:
+        from llm_cli.apps.configure import init_config
+
+        init_config(force=args.force_init_config)
+        sys.exit(0)
+
+    # Check for at least one active provider
+    active_providers = config_manager.get_active_providers()
+    if not active_providers:
+        console.print(
+            "[bold red]Error: No API keys found in environment variables.[/bold red]"
+        )
+        console.print("\nPlease set at least one of the following:")
+        console.print("  - [cyan]OPENAI_API_KEY[/cyan]")
+        console.print("  - [cyan]ANTHROPIC_API_KEY[/cyan]")
+        console.print("  - [cyan]GEMINI_API_KEY[/cyan] (or GOOGLE_API_KEY)")
+        console.print("  - [cyan]XAI_API_KEY[/cyan]")
+        console.print(
+            "  - [cyan]OLLAMA_API_KEY[/cyan] (required for Ollama even if local)"
+        )
+        console.print("\nTo initialize a config file for other settings, run:")
+        console.print("  [bold]llm-cli --init-config[/bold]")
+        sys.exit(1)
 
     if args.stdout and args.mcp:
         console.print("[red]Error: --stdout and --mcp cannot be used together.[/red]")

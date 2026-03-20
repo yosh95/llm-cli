@@ -75,7 +75,7 @@ class SecurityGuardrailHandler(BaseToolHandler):
     """Checks Sentinel anomalies and Security Policy Engine."""
 
     def process(self, context: ToolExecutionContext) -> None:
-        # Sentinel Check
+        # 1. Sentinel Check
         score, status = context.session.sentinel.get_sentinel_status()
         if status != "green" and context.session.sentinel.sentinel.mode != "learn":
             from rich.panel import Panel
@@ -93,7 +93,32 @@ class SecurityGuardrailHandler(BaseToolHandler):
             )
             console.print(Panel(msg, title="🚨 Sentinel Alert", border_style=color))
 
-        # Policy Engine Check
+        # 2. PQC Identity Pre-check for High-Risk Tools
+        from llm_cli.security.cass import CASSOrchestrator, RiskLevel
+        from llm_cli.security.identity import IdentityManager
+
+        risk_level = CASSOrchestrator().evaluate_risk(context.name)
+        enforcement = config_manager.get("security", "pqc_enforcement") or "warn"
+        is_strict = enforcement == "strict_block"
+
+        has_pqc = False
+        try:
+            IdentityManager._ensure_keys()
+            has_pqc = True
+        except Exception as e:
+            if is_strict and risk_level == RiskLevel.HIGH:
+                err_msg = (
+                    f"High-risk tool '{context.name}' blocked: "
+                    "Secure identity (PQC keys) missing or corrupted. "
+                    "Please run 'llm-cli --init-config' and ensure environment is safe."
+                )
+                report_error(err_msg)
+                context.error_message = err_msg
+                context.aborted = True
+                return
+            logger.warning(f"PQC Identity check failed: {e}")
+
+        # 3. Policy Engine Check (ABAC)
         from llm_cli.security.policy import EvaluationContext, policy_engine
 
         user_prompt = self._find_user_prompt(context.session)
@@ -101,8 +126,8 @@ class SecurityGuardrailHandler(BaseToolHandler):
             "user_id": str(
                 config_manager.get("security", "default_user_id") or "current_user"
             ),
-            "roles": list(config_manager.get("security", "default_roles") or ["user"]),
             "user_prompt": user_prompt,
+            "has_pqc_proof": has_pqc,
         }
         if not policy_engine.evaluate(context.name, context.args, eval_ctx):
             context.error_message = (

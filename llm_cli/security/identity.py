@@ -49,8 +49,8 @@ class IdentityManager:
     @classmethod
     def _ensure_keys(cls, force: bool = False) -> None:
         """Ensure RSA, ML-DSA (all levels), and ML-KEM keys exist."""
-        # Default to strict mode (1) unless explicitly disabled (0)
-        strict_mode = os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1"
+        # Default to flexible mode (0) for seamless UX
+        strict_mode = os.getenv("LLM_CLI_STRICT_SECURITY", "0") == "1"
 
         # If force is True, we bypass strict mode (e.g., during explicit keygen command)
         if force:
@@ -60,7 +60,7 @@ class IdentityManager:
             if strict_mode:
                 raise FileNotFoundError(
                     f"Security Check: Key directory {cls._KEY_DIR} not found. "
-                    "Keys must be pre-provisioned."
+                    "In Strict Mode, keys must be pre-provisioned."
                 )
             cls._KEY_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -69,9 +69,9 @@ class IdentityManager:
             if strict_mode:
                 raise FileNotFoundError(
                     f"Security Check: RSA key missing at {cls._PRIVATE_KEY_PATH}. "
-                    "Keys must be pre-provisioned."
+                    "In Strict Mode, keys must be pre-provisioned."
                 )
-            logger.info(f"Generating new RSA key pair in {cls._KEY_DIR}...")
+            logger.info("Initializing your secure identity (TOFU)...")
             private_key = rsa.generate_private_key(
                 public_exponent=65537, key_size=2048, backend=default_backend()
             )

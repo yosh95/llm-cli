@@ -138,11 +138,13 @@ class UnifiedClient(BaseLlmClient):
     def _handle_provider_command(self, ctx: Any) -> bool:
         """Handler for the /provider command."""
         args = ctx.args
+        active_providers = config_manager.get_active_providers()
+
         if not args:
             from rich.table import Table
 
             table = Table(
-                title="Available Providers",
+                title="Active Providers",
                 show_header=True,
                 header_style="bold magenta",
             )
@@ -153,12 +155,24 @@ class UnifiedClient(BaseLlmClient):
             info = client_registry.get_provider_info()
             for alias in sorted(info.keys()):
                 section = info[alias]
+                # Filter by active providers only
+                if section not in active_providers:
+                    continue
+
                 is_active = section == self.current_provider_name
                 active_mark = "[bold green]*[/bold green]" if is_active else ""
                 table.add_row(active_mark, alias, section)
 
             console.print(table)
             console.print("[dim]Usage: /p <alias> to switch provider[/dim]")
+            return True
+
+        if (
+            args not in active_providers
+            and client_registry.get_config_section(args) not in active_providers
+        ):
+            msg = f"[red]Error: {args} is inactive (API Key missing).[/red]"
+            console.print(msg)
             return True
 
         if self._activate_provider(args):

@@ -11,52 +11,30 @@ max_output_lines = 500
 max_security_log_lines = 1000
 
 # =============================================================================
-# Security
+# Security (Attribute-Based Access Control)
 # =============================================================================
 [security]
-# Default roles for local session tools. Note: Policy engine still evaluates these.
-default_roles = ["user"]
-default_user_id = "current_user"
+# API Keys MUST be set via environment variables.
+# e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, XAI_API_KEY, OLLAMA_API_KEY
+# For Brave Search, use BRAVE_SEARCH_API_KEY.
 
-# Path-based access control (Whitelist/Blacklist)
-# "." represents the current working directory.
+# Path-based access control (Resource Attributes)
 allowed_paths = ["."]
 allowed_env_vars = []
 
-# Treat static analysis warnings as errors
+# Treat static analysis warnings for Python code as errors
 static_analysis_is_error = true
 
 # Explicitly forbidden paths. Use absolute paths or "~" expansion.
-# These will be blocked even if they are within an allowed path.
 blocked_paths = [
-    "/etc",
-    "/var",
-    "/root",
-    "/bin",
-    "/sbin",
-    "/usr",
-    "/dev",
-    "/proc",
-    "/sys",
-    "/boot"
+    "/etc", "/var", "/root", "/bin", "/sbin", "/usr", "/dev", "/proc", "/sys", "/boot"
 ]
 
-# Dynamic scaling patterns for PQC security escalation.
-scaling_patterns = [
-    ".ssh/",
-    ".env",
-    "config",
-    "credential",
-    "password",
-    "sudo",
-    "rm -rf"
-]
-
-# Tool risk levels
+# Risk Level Classification
 high_risk_tools = [
     "execute_python",
     "edit_file",
-    "create_or_overwrite_file"
+    "create_or_overwrite_file",
 ]
 medium_risk_tools = [
     "read_file_content",
@@ -66,45 +44,15 @@ medium_risk_tools = [
     "read_url_content"
 ]
 
-[security.roles.admin]
-description = "Full access with guardrails"
-allow_all = true
-
-[security.roles.user]
-description = "Standard user access"
-allowed_tools = [
-    "list_files_in_directory",
-    "search_files",
-    "read_file_content",
-    "read_url_content",
-    "edit_file",
-    "search_web"
-]
-# Scopes defined in sub-sections (tomli-w handles this)
-[security.roles.user.scopes.edit_file]
-allowed_paths = ["~/*", "./*"]
-[security.roles.user.scopes.read_file_content]
-allowed_paths = ["~/*", "./*"]
-[security.roles.user.scopes.search_files]
-allowed_paths = ["~/*", "./*"]
-
-[security.roles.guest]
-description = "Read-only access"
-allowed_tools = [
-    "list_files_in_directory",
-    "search_files",
-    "read_file_content"
-]
-[security.roles.guest.scopes.read_file_content]
-allowed_paths = ["./docs/*", "*.md"]
-[security.roles.guest.scopes.search_files]
-allowed_paths = ["./docs/*", "./llm_cli/*"]
+# Security Posture (CASS)
+# warn: log security violations but allow execution
+# strict_block: block execution if security requirements (like PQC proof) are not met
+pqc_enforcement = "warn"
 
 # =============================================================================
-# Gemini (Google)
+# Google Gemini
 # =============================================================================
 [google]
-
 [google.models]
 default = "gemini-3-flash-preview"
 lite = "gemini-3.1-flash-lite-preview"
@@ -117,7 +65,6 @@ image-pro = "gemini-3-pro-image-preview"
 # OpenAI
 # =============================================================================
 [openai]
-
 [openai.models]
 default = "gpt-5.4-mini"
 nano = "gpt-5.4-nano"
@@ -129,7 +76,6 @@ image = "chatgpt-image-latest"
 # =============================================================================
 [anthropic]
 max_tokens = 8192
-
 [anthropic.models]
 default = "claude-sonnet-4-6"
 haiku = "claude-haiku-4-5-20251001"
@@ -140,7 +86,6 @@ opus = "claude-opus-4-6"
 # xAI (Grok)
 # =============================================================================
 [xai]
-
 [xai.models]
 default = "grok-4-1-fast-reasoning"
 non-reasoning = "grok-4-1-fast-non-reasoning"
@@ -151,13 +96,13 @@ image = "grok-imagine-image-pro"
 # Brave Search
 # =============================================================================
 [brave]
+# API key is set via BRAVE_SEARCH_API_KEY environment variable.
 
 # =============================================================================
 # Ollama (Local LLMs)
 # =============================================================================
 [ollama]
 api_url = "http://localhost:11434/v1/chat/completions"
-
 [ollama.models]
 default = "llama3.2:3b"
 
@@ -167,10 +112,4 @@ default = "llama3.2:3b"
 [sentinel]
 enabled = true
 mode = "learn"
-d_model = 128
-n_layers = 2
-d_state = 8
-d_conv = 4
-expand = 1
-lr = 0.001
 checkpoint_path = "sentinel_state.npz"

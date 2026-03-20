@@ -10,14 +10,14 @@ from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 def mock_config():
     with (
         patch(
-            "llm_cli.clients.config.get_model_aliases",
+            "llm_cli.clients.config.config_manager.get_model_aliases",
             return_value={"default": "gpt-4-turbo"},
         ),
-        patch("llm_cli.clients.base.get_setting") as mock_get_setting,
-        patch("llm_cli.clients.openai.get_setting") as mock_openai_get_setting,
+        patch("llm_cli.clients.config.config_manager.get") as mock_get_setting,
+        patch("llm_cli.clients.config.config_manager.get") as mock_openai_get_setting,
     ):
 
-        def get_setting_side_effect(key, section=None):
+        def get_setting_side_effect(section, key=None):
             if key == "api_key":
                 return "sk-test"
             if key == "api_url":

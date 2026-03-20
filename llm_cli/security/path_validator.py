@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from llm_cli.clients.config import _load_config_from_file
+from llm_cli.clients.config import config_manager
 
 
 class PathValidationError(Exception):
@@ -18,7 +18,7 @@ def validate_path(path: str) -> Path:
     2. Checks against whitelist (allowed_paths).
     3. Checks against blacklist (blocked_paths).
     """
-    config = _load_config_from_file()
+    config = config_manager.load_config()
     security_config = config.get("security", {})
 
     allowed_paths = security_config.get("allowed_paths", ["."])

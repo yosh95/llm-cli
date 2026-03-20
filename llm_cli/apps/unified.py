@@ -4,7 +4,7 @@ from typing import Any, TypeVar
 
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
 from llm_cli.clients.base import BaseLlmClient, console
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 from llm_cli.clients.registry import client_registry
 from llm_cli.modules.models import DataSource
 
@@ -23,7 +23,7 @@ class UnifiedClient(BaseLlmClient):
         self.clients: dict[str, BaseLlmClient] = {}
         self.client_kwargs = kwargs
 
-        default_p = get_setting("unified_default_provider", "general")
+        default_p = config_manager.get("general", "unified_default_provider")
         if not initial_provider and not default_p:
             console.print(
                 "[bold red]Error: No default provider is configured.[/bold red]\n"

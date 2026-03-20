@@ -10,7 +10,9 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 
 @pytest.fixture(autouse=True)
 def mock_path_config():
-    with patch("llm_cli.security.path_validator._load_config_from_file") as mock_load:
+    with patch(
+        "llm_cli.security.path_validator.config_manager.load_config"
+    ) as mock_load:
         mock_load.return_value = {
             "security": {
                 "allowed_paths": [".", "/var"],

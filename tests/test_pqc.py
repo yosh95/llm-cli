@@ -161,7 +161,7 @@ class TestPQCAgilityManager:
     def _patch_config(self, monkeypatch):
         """Provide a minimal config so the manager does not hit the filesystem."""
         monkeypatch.setattr(
-            "llm_cli.clients.config._load_config_from_file",
+            "llm_cli.clients.config.config_manager.load_config",
             lambda: {
                 "security": {
                     "scaling_patterns": [],
@@ -233,7 +233,7 @@ class TestPQCAgilityManager:
         in 'scaling_patterns' the sensitive-context branch cannot fire.
         """
         monkeypatch.setattr(
-            "llm_cli.clients.config._load_config_from_file",
+            "llm_cli.clients.config.config_manager.load_config",
             lambda: {"security": {"scaling_patterns": [".ssh/"], "blocked_paths": []}},
         )
         level = PQCAgilityManager.get_required_level(

@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.resource_manager import (
     limit_process_resources,
@@ -58,13 +58,15 @@ def execute_python(code: str) -> Any:
     # Use a default timeout of 300 seconds.
     timeout = int(
         str(
-            get_setting("command_timeout", "general")
+            config_manager.get("general", "command_timeout")
             or os.environ.get("LLM_CLI_COMMAND_TIMEOUT", "300")
         )
     )
 
     # Read memory limit from config, default to 1024MB (1GB)
-    mem_limit_mb = int(str(get_setting("max_command_memory_mb", "general") or "1024"))
+    mem_limit_mb = int(
+        str(config_manager.get("general", "max_command_memory_mb") or "1024")
+    )
 
     # Environment variables filtering
     safe_env_keys = {
@@ -85,7 +87,7 @@ def execute_python(code: str) -> Any:
         "GIT_COMMITTER_EMAIL",
         "GIT_CONFIG_NOSYSTEM",
     }
-    user_allowed_env = get_setting("allowed_env_vars", "security")
+    user_allowed_env = config_manager.get("security", "allowed_env_vars")
     if isinstance(user_allowed_env, list):
         for key in user_allowed_env:
             if isinstance(key, str):

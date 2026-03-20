@@ -11,7 +11,7 @@ from prompt_toolkit.completion import (
 )
 from prompt_toolkit.document import Document
 
-from llm_cli.clients.config import get_templates
+from llm_cli.clients.config import config_manager
 
 if TYPE_CHECKING:
     from llm_cli.clients.base import BaseLlmClient
@@ -81,7 +81,7 @@ class LlmCliCompleter(Completer):
                     yield Completion(alias, start_position=start_pos)
 
         elif cmd in self.template_cmds:
-            templates = get_templates()
+            templates = config_manager.get_templates()
             for name in templates:
                 if name.startswith(arg_prefix):
                     yield Completion(name, start_position=start_pos)

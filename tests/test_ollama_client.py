@@ -9,11 +9,11 @@ from llm_cli.modules.models import DataSource
 @pytest.fixture
 def ollama_client():
     with patch(
-        "llm_cli.clients.config.get_setting",
+        "llm_cli.clients.config.config_manager.get",
         return_value="http://localhost:11434/v1/chat/completions",
     ):
         with patch(
-            "llm_cli.clients.config.get_model_aliases",
+            "llm_cli.clients.config.config_manager.get_model_aliases",
             return_value={"default": "llama3.2"},
         ):
             client = OllamaClient(initial_model_alias="default")

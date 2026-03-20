@@ -11,6 +11,7 @@ import pytest
 import llm_cli.apps.configure
 import llm_cli.clients.config
 from llm_cli import consts
+from llm_cli.clients.config import config_manager
 
 # Disable strict mode during tests to allow dynamic key/manifest generation
 os.environ["LLM_CLI_STRICT_SECURITY"] = "0"
@@ -28,7 +29,7 @@ llm_cli.apps.configure.CONFIG_DIR = consts.CONFIG_DIR
 
 # Inject dummy configuration to allow module-level checks in tools/web.py to pass
 # during test collection.
-llm_cli.clients.config._config_cache = {
+config_manager._config_cache = {
     "google": {
         "api_key": "dummy_test_key",
         "cse_id": "dummy_test_cse_id",
@@ -168,9 +169,9 @@ def temp_empty_file(tmp_path):
 
 @pytest.fixture
 def mock_config(monkeypatch, mock_api_key, tmp_path):
-    """Mock the config module to return test values."""
+    """Mock the config_manager to return test values."""
 
-    def mock_get_setting(key, section):
+    def mock_get(section, key):
         if key in ("image_save_path", "audio_save_path", "video_save_path"):
             return str(tmp_path)
 
@@ -208,37 +209,14 @@ def mock_config(monkeypatch, mock_api_key, tmp_path):
             "gemini-flash": "gemini-1.5-flash",
         }
 
-    def mock_get_provider_tools(section):
-        return {"search": '{"type": "google_search_retrieval_tool"}'}
+    from llm_cli.clients.config import config_manager
 
-    # Patch the original definition
-    monkeypatch.setattr("llm_cli.clients.config.get_setting", mock_get_setting)
+    # Patch the config_manager instance methods
+    monkeypatch.setattr(config_manager, "get", mock_get)
     monkeypatch.setattr(
-        "llm_cli.clients.config.get_model_aliases", mock_get_model_aliases
+        config_manager, "get_bool", lambda s, k, d=False: bool(mock_get(s, k) or d)
     )
-    monkeypatch.setattr(
-        "llm_cli.clients.config.get_provider_tools", mock_get_provider_tools
-    )
-
-    # Patch where it is imported and used
-    modules_to_patch = [
-        "llm_cli.clients.base",
-        "llm_cli.clients.base_helpers",
-        "llm_cli.clients.openai",
-        "llm_cli.clients.claude",
-        "llm_cli.clients.grok",
-        "llm_cli.clients.gemini",
-        "llm_cli.modules.tools.web",
-        "llm_cli.modules.tools.interpreter",
-        "llm_cli.apps.unified",
-    ]
-
-    for module in modules_to_patch:
-        try:
-            monkeypatch.setattr(f"{module}.get_setting", mock_get_setting)
-        except AttributeError:
-            # Module might not have imported it or not loaded yet
-            pass
+    monkeypatch.setattr(config_manager, "get_model_aliases", mock_get_model_aliases)
 
 
 @pytest.fixture

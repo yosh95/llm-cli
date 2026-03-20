@@ -16,7 +16,7 @@ import requests
 from rich.console import Console
 from rich.table import Table
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 
 console = Console()
 
@@ -135,7 +135,8 @@ def get_xai_config() -> ModelListingConfig:
 
 def get_ollama_config() -> ModelListingConfig:
     api_url = (
-        get_setting("api_url", "ollama") or "http://localhost:11434/v1/chat/completions"
+        config_manager.get("ollama", "api_url")
+        or "http://localhost:11434/v1/chat/completions"
     )
     if "/v1" in api_url:
         base_url = api_url.split("/v1")[0]
@@ -184,7 +185,7 @@ MODEL_LISTING_REGISTRY: dict[str, Callable[[], ModelListingConfig]] = {
 
 def list_models(config: ModelListingConfig, args: argparse.Namespace) -> None:
     """Generic model listing implementation."""
-    api_key = get_setting(config.api_key_setting, config.config_section)
+    api_key = config_manager.get(config.config_section, config.api_key_setting)
     if api_key is None and config.config_section not in ("ollama",):
         console.print(f"[red]{config.provider_name} API Key not found in config.[/red]")
         console.print("[yellow]Please run 'llm-cli-config' to set it up.[/yellow]")
@@ -295,7 +296,7 @@ def main() -> None:
         for p_name in primary_providers:
             config_factory = MODEL_LISTING_REGISTRY[p_name]
             config = config_factory()
-            api_key = get_setting(config.api_key_setting, config.config_section)
+            api_key = config_manager.get(config.config_section, config.api_key_setting)
 
             # Check if configured
             # (Ollama doesn't strictly need an API key in this context)

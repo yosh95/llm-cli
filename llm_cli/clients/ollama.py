@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
@@ -25,14 +25,14 @@ class OllamaClient(BaseLlmClient):
             pdf_as_base64=False,  # Per user instruction: don't make pdf to base64
             **kwargs,
         )
-        config_url = get_setting("api_url", "ollama")
+        config_url = config_manager.get("ollama", "api_url")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
     def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
-        from llm_cli.clients.config import get_model_aliases
+        from llm_cli.clients.config import config_manager
 
-        self.available_models = get_model_aliases("ollama")
+        self.available_models = config_manager.get_model_aliases("ollama")
 
     def _send(
         self, data: list[DataSource]

@@ -10,7 +10,7 @@ from typing import Any, Protocol, runtime_checkable
 from rich.markup import escape
 from rich.syntax import Syntax
 
-from llm_cli.clients.config import get_bool_setting, get_setting
+from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource
 from llm_cli.modules.tool_registry import registry
 from llm_cli.security.static_analyzer import analyze_python_safety
@@ -99,9 +99,9 @@ class SecurityGuardrailHandler(BaseToolHandler):
         user_prompt = self._find_user_prompt(context.session)
         eval_ctx: EvaluationContext = {
             "user_id": str(
-                get_setting("default_user_id", "security") or "current_user"
+                config_manager.get("security", "default_user_id") or "current_user"
             ),
-            "roles": list(get_setting("default_roles", "security") or ["user"]),
+            "roles": list(config_manager.get("security", "default_roles") or ["user"]),
             "user_prompt": user_prompt,
         }
         if not policy_engine.evaluate(context.name, context.args, eval_ctx):
@@ -134,7 +134,7 @@ class CodeSafetyHandler(BaseToolHandler):
     """Performs static analysis on executable code."""
 
     def process(self, context: ToolExecutionContext) -> None:
-        high_risk_tools = set(get_setting("high_risk_tools", "security") or [])
+        high_risk_tools = set(config_manager.get("security", "high_risk_tools") or [])
         if not (
             context.name in high_risk_tools
             or context.name == "execute_python"
@@ -154,7 +154,9 @@ class CodeSafetyHandler(BaseToolHandler):
                 title="Static Analysis Risk",
                 style="red",
             )
-            if get_bool_setting("static_analysis_is_error", "security", default=True):
+            if config_manager.get_bool(
+                "security", "static_analysis_is_error", default=True
+            ):
                 context.error_message = "Static analysis failed. Blocked."
                 context.aborted = True
 
@@ -170,7 +172,7 @@ class UserApprovalHandler(BaseToolHandler):
         _, status = context.session.sentinel.get_sentinel_status()
         if (
             status == "red"
-            and get_setting("mamba_enforcement", "security") == "strict_block"
+            and config_manager.get("security", "mamba_enforcement") == "strict_block"
         ):
             skip_approval = False
             print_block(
@@ -287,7 +289,7 @@ class PostProcessHandler(BaseToolHandler):
 
         # Truncation
         res_str = str(context.result_data)
-        max_len = int(get_setting("max_output_length", "general") or 10000)
+        max_len = int(config_manager.get("general", "max_output_length") or 10000)
         if len(res_str) > max_len:
             res_str = (
                 res_str[:max_len]
@@ -362,7 +364,7 @@ def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
     from llm_cli.security.cass import RiskLevel
 
     is_signed = isinstance(result_data, dict) and "pqc_signature" in result_data
-    enforcement = get_setting("pqc_enforcement", "security") or "warn"
+    enforcement = config_manager.get("security", "pqc_enforcement") or "warn"
     is_strict = enforcement == "strict_block"
 
     if not is_signed:

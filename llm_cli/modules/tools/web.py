@@ -2,11 +2,11 @@
 
 import requests
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 from llm_cli.modules.tool_registry import tool
 
 # Check for Brave Search configuration
-_brave_api_key = get_setting("api_key", "brave")
+_brave_api_key = config_manager.get("brave", "api_key")
 
 
 if _brave_api_key:

@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 from llm_cli.consts import AUDIT_LOG_PATH
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ def log_audit(
     Reasoning Integrity scoring.
     """
     path = AUDIT_LOG_PATH
-    max_lines = int(get_setting("max_audit_log_lines", "general") or 10000)
+    max_lines = int(config_manager.get("general", "max_audit_log_lines") or 10000)
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +49,9 @@ def log_audit(
             from llm_cli.security.pqc import SecureStorage
 
             # Encrypt high-risk tool arguments
-            high_risk_tools = set(get_setting("high_risk_tools", "security") or [])
+            high_risk_tools = set(
+                config_manager.get("security", "high_risk_tools") or []
+            )
             if tool_name in high_risk_tools:
                 pub_kem = IdentityManager._get_kem_public_key_content()
                 args_bytes = json.dumps(args).encode()

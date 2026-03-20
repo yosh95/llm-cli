@@ -21,7 +21,7 @@ class ReasoningSentinelManager:
 
     def __init__(self, **kwargs: Any):
 
-        from llm_cli.clients.config import get_setting
+        from llm_cli.clients.config import config_manager
         from llm_cli.security.sentinel import MambaSentinel
 
         # Per-instance integrity score (replaces the former module-level global).
@@ -29,26 +29,26 @@ class ReasoningSentinelManager:
         self.current_score: float | None = None
 
         # Load settings
-        self.enabled = get_setting("enabled", "sentinel")
+        self.enabled = config_manager.get("sentinel", "enabled")
         if self.enabled is None:
             self.enabled = True
 
-        mode = get_setting("mode", "sentinel") or "learn"
+        mode = config_manager.get("sentinel", "mode") or "learn"
 
         # Mamba-specific parameters from defaults
-        d_model = int(get_setting("d_model", "sentinel") or 128)
-        n_layers = int(get_setting("n_layers", "sentinel") or 4)
-        d_state = int(get_setting("d_state", "sentinel") or 16)
-        d_conv = int(get_setting("d_conv", "sentinel") or 4)
-        expand = int(get_setting("expand", "sentinel") or 2)
-        lr = float(get_setting("lr", "sentinel") or 1e-3)
+        d_model = int(config_manager.get("sentinel", "d_model") or 128)
+        n_layers = int(config_manager.get("sentinel", "n_layers") or 4)
+        d_state = int(config_manager.get("sentinel", "d_state") or 16)
+        d_conv = int(config_manager.get("sentinel", "d_conv") or 4)
+        expand = int(config_manager.get("sentinel", "expand") or 2)
+        lr = float(config_manager.get("sentinel", "lr") or 1e-3)
 
         # Override with kwargs if provided
         d_model = kwargs.get("d_model", d_model)
         n_layers = kwargs.get("n_layers", n_layers)
 
         checkpoint_name = (
-            get_setting("checkpoint_path", "sentinel") or "sentinel_state.npz"
+            config_manager.get("sentinel", "checkpoint_path") or "sentinel_state.npz"
         )
         checkpoint_path = str(LLM_CLI_BASE_DIR / checkpoint_name)
 

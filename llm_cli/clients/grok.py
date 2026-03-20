@@ -5,7 +5,7 @@ import time
 from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
@@ -35,14 +35,14 @@ class GrokClient(BaseLlmClient):
             pdf_as_base64=False,
             **kwargs,
         )
-        config_url = get_setting("api_url", "xai")
+        config_url = config_manager.get("xai", "api_url")
         self.api_url = config_url if config_url else DEFAULT_API_URL
 
     def _load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
-        from llm_cli.clients.config import get_model_aliases
+        from llm_cli.clients.config import config_manager
 
-        self.available_models = get_model_aliases("xai")
+        self.available_models = config_manager.get_model_aliases("xai")
 
     def _is_image_model(self) -> bool:
         """Determines if the current model is an image generation model."""

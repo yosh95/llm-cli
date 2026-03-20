@@ -8,7 +8,9 @@ from llm_cli.modules.tools.file_ops import edit_file
 @pytest.fixture(autouse=True)
 def mock_path_config(tmp_path):
     # Mock the configuration to allow the temporary directory
-    with patch("llm_cli.security.path_validator._load_config_from_file") as mock_load:
+    with patch(
+        "llm_cli.security.path_validator.config_manager.load_config"
+    ) as mock_load:
         mock_load.return_value = {
             "security": {
                 "allowed_paths": [str(tmp_path)],

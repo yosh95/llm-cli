@@ -71,9 +71,9 @@ class PolicyEngine:
         # 1. Load base security settings from the global config file
         self._config = {}
         try:
-            from llm_cli.clients.config import _load_config_from_file
+            from llm_cli.clients.config import config_manager
 
-            full_conf = _load_config_from_file()
+            full_conf = config_manager.load_config()
             self._config.update(full_conf.get("security", {}))  # type: ignore
         except (ImportError, AttributeError):
             pass

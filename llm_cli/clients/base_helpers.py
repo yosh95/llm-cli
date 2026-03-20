@@ -12,7 +12,7 @@ from rich.console import Group
 from rich.panel import Panel
 from rich.syntax import Syntax
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -49,13 +49,13 @@ def save_inline_media_and_get_log_entry(
         from llm_cli.modules.media_utils import generate_safe_filename
 
         image_save_path = (
-            client._expand(get_setting("image_save_path", "general")) or "."
+            client._expand(config_manager.get("general", "image_save_path")) or "."
         )
         audio_save_path = (
-            client._expand(get_setting("audio_save_path", "general")) or "."
+            client._expand(config_manager.get("general", "audio_save_path")) or "."
         )
         video_save_path = (
-            client._expand(get_setting("video_save_path", "general")) or "."
+            client._expand(config_manager.get("general", "video_save_path")) or "."
         )
 
         if mime_type.startswith("audio/"):

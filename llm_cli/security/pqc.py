@@ -177,9 +177,9 @@ class PQCAgilityManager:
         for simplicity. In a full production deployment, separate keys per
         security level would be managed to satisfy cryptographic isolation.
         """
-        from llm_cli.clients.config import _load_config_from_file
+        from llm_cli.clients.config import config_manager
 
-        config = _load_config_from_file()
+        config = config_manager.load_config()
         security_config = config.get("security", {})
 
         # Risk levels for specific tools
@@ -308,7 +308,7 @@ class AuditAnchoring:
         try:
             import datetime
 
-            from llm_cli.clients.config import get_setting
+            from llm_cli.clients.config import config_manager
             from llm_cli.consts import SECURITY_LOG_PATH
 
             SECURITY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -317,7 +317,9 @@ class AuditAnchoring:
                 f.write(f"[{ts}] 🔗 [POST-QUANTUM ANCHOR] Merkle Root: {root}\n")
 
             # Trim the security log to prevent it from growing indefinitely
-            max_lines = int(get_setting("max_security_log_lines", "general") or 1000)
+            max_lines = int(
+                config_manager.get("general", "max_security_log_lines") or 1000
+            )
             with SECURITY_LOG_PATH.open("r", encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
             if len(lines) > max_lines:

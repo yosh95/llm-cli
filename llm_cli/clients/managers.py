@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 
-from llm_cli.clients import config as _config
+from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 console = Console()
 
 
-class ConfigManager:
+class ProviderConfigManager:
     """Manages provider-specific and general configuration settings."""
 
     def __init__(self, section: str, disable_system_prompt: bool = False):
@@ -37,21 +37,21 @@ class ConfigManager:
         self._refresh_system_prompt()
 
     def _refresh_general_settings(self) -> None:
-        raw_timeout = _config.get_setting("request_timeout", "general")
+        raw_timeout = config_manager.get("general", "request_timeout")
         try:
             self.request_timeout = int(raw_timeout) if raw_timeout else None
         except (ValueError, TypeError):
             self.request_timeout = None
 
-        raw_max_lines = _config.get_setting("max_chat_log_lines", "general")
+        raw_max_lines = config_manager.get("general", "max_chat_log_lines")
         try:
             self.max_chat_log_lines = int(raw_max_lines) if raw_max_lines else 10000
         except (ValueError, TypeError):
             self.max_chat_log_lines = 10000
 
     def _refresh_system_prompt(self) -> None:
-        raw_prompt = _config.get_setting("system_prompt", self.section) or ""
-        disable_date_prompt = _config.get_setting("disable_date_prompt", self.section)
+        raw_prompt = config_manager.get(self.section, "system_prompt") or ""
+        disable_date_prompt = config_manager.get(self.section, "disable_date_prompt")
 
         self.system_prompt = ""
         if not disable_date_prompt:
@@ -79,7 +79,7 @@ class ModelManager:
 
     def load_model_aliases(self) -> None:
         """Loads model aliases from the configuration."""
-        self.available_models = _config.get_model_aliases(self.section)
+        self.available_models = config_manager.get_model_aliases(self.section)
         if not self.available_models:
             console.print(
                 f"[yellow]Warning: No models configured for {self.section}. "
@@ -90,7 +90,7 @@ class ModelManager:
         """Sets the active model and its configuration using its alias."""
         if alias in self.available_models:
             self.current_alias = alias
-            self.model_config = _config.get_model_config(self.section, alias)
+            self.model_config = config_manager.get_model_config(self.section, alias)
             self.model = self.model_config.get("model", self.available_models[alias])
             return True
         return False

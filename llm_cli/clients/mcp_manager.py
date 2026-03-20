@@ -8,7 +8,7 @@ from typing import Any
 
 from rich.console import Console
 
-from llm_cli.clients.config import get_mcp_servers
+from llm_cli.clients.config import config_manager
 from llm_cli.mcp_lib import ClientSession, StdioServerParameters, stdio_client
 from llm_cli.security.identity import IdentityManager
 
@@ -22,7 +22,7 @@ class MCPManager:
     """Manages connections to multiple MCP servers."""
 
     def __init__(self) -> None:
-        self.servers_config = get_mcp_servers()
+        self.servers_config = config_manager.get_mcp_servers()
         self.sessions: dict[str, ClientSession] = {}
         self.exit_stack = AsyncExitStack()
 

@@ -8,7 +8,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 
 
 class TestPathValidatorAdvanced:
-    @patch("llm_cli.security.path_validator._load_config_from_file")
+    @patch("llm_cli.security.path_validator.config_manager.load_config")
     def test_allowed_paths_whitelist(self, mock_load_config):
         """Should allow access only within the allowed_paths whitelist."""
         mock_load_config.return_value = {
@@ -32,7 +32,7 @@ class TestPathValidatorAdvanced:
         ):
             validate_path("/etc/passwd")
 
-    @patch("llm_cli.security.path_validator._load_config_from_file")
+    @patch("llm_cli.security.path_validator.config_manager.load_config")
     def test_path_not_in_whitelist(self, mock_load_config):
         """Should block paths not explicitly in the whitelist."""
         mock_load_config.return_value = {

@@ -10,8 +10,10 @@ class TestOpenAIImageGeneration:
     @pytest.fixture
     def mock_openai_client(self):
         with (
-            patch("llm_cli.clients.config.get_setting") as mock_get_setting,
-            patch("llm_cli.clients.config.get_model_aliases") as mock_get_aliases,
+            patch("llm_cli.clients.config.config_manager.get") as mock_get_setting,
+            patch(
+                "llm_cli.clients.config.config_manager.get_model_aliases"
+            ) as mock_get_aliases,
         ):
             # Mock configuration
             def get_setting_side_effect(key, section):

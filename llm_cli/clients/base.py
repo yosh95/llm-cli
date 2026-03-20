@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Any
 import requests
 from rich.console import Console
 
-from llm_cli.clients.config import get_setting
+from llm_cli.clients.config import config_manager
 from llm_cli.clients.managers import (
-    ConfigManager,
     LoggingManager,
     MediaManager,
     ModelManager,
+    ProviderConfigManager,
     SessionManager,
     ToolManager,
 )
@@ -47,7 +47,7 @@ class BaseLlmClient(ABC):
         disable_system_prompt: bool = False,
         enable_mcp: bool = False,
         live_debug: bool = False,
-        config_manager: ConfigManager | None = None,
+        provider_config_manager: ProviderConfigManager | None = None,
         model_manager: ModelManager | None = None,
         session_manager: SessionManager | None = None,
         tool_manager: ToolManager | None = None,
@@ -61,7 +61,7 @@ class BaseLlmClient(ABC):
         self.render_markdown = render_markdown
 
         # Specialized Managers (Injected or Newly Created)
-        self._config_manager = config_manager or ConfigManager(
+        self._config_manager = provider_config_manager or ProviderConfigManager(
             config_section, disable_system_prompt
         )
         self._model_manager = model_manager or ModelManager(config_section)
@@ -71,7 +71,7 @@ class BaseLlmClient(ABC):
         self._logging_manager = logging_manager or LoggingManager(live_debug)
 
         # Initial Setup
-        self.api_key = get_setting(api_key_name, config_section)
+        self.api_key = config_manager.get(config_section, api_key_name)
         self._set_initial_model(initial_model_alias)
 
         from llm_cli.consts import CHAT_LOG_PATH, HISTORY_LOG_PATH

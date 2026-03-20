@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.syntax import Syntax
 
-from llm_cli.clients.config import get_setting, get_templates
+from llm_cli.clients.config import config_manager
 from llm_cli.clients.exceptions import (
     CheckpointRequest,
     ExitRequest,
@@ -103,7 +103,7 @@ def handle_model(ctx: CommandContext) -> bool:
 
 
 def handle_template(ctx: CommandContext) -> bool:
-    templates = get_templates()
+    templates = config_manager.get_templates()
     args = ctx.args
     from llm_cli.clients.base import console
 
@@ -135,12 +135,12 @@ def handle_checkpoint(_ctx: CommandContext) -> bool:
 
 def handle_reload(ctx: CommandContext) -> bool:
     from llm_cli.clients.base import console
-    from llm_cli.clients.config import reload_config
+    from llm_cli.clients.config import config_manager
     from llm_cli.security.policy import policy_engine
 
-    reload_config()
-    ctx.client.api_key = get_setting(
-        ctx.client._api_key_name, ctx.client.config_section
+    config_manager.load_config(reload=True)
+    ctx.client.api_key = config_manager.get(
+        ctx.client.config_section, ctx.client._api_key_name
     )
     ctx.client._refresh_general_settings()
     ctx.client._refresh_system_prompt()

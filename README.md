@@ -24,26 +24,27 @@
     cd llm-cli
     pip install .
     ```
-2.  **Set API Keys**: Set your API keys as environment variables (Recommended).
+2.  **Set API Keys**: `llm-cli` requires API keys to be set as environment variables.
     ```bash
     export GEMINI_API_KEY="your-api-key"
-    # or OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, OLLAMA_API_KEY
+    # Supported: OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, OLLAMA_API_KEY, BRAVE_SEARCH_API_KEY
     ```
-3.  **Configure (Optional)**: Run `llm-cli --init-config` to generate a customizable `config.toml`.
+3.  **Chat**: Type `llm-cli` to start an interactive session.
+    *   **Config-less usage**: If the API key is set, the tool is ready to use immediately without a `config.toml`.
+4.  **Configure (Optional)**: To customize behavior or add MCP servers, run:
     ```bash
     llm-cli --init-config
-    # Edit ~/.llm_cli/config.toml to add MCP servers or customize behavior.
+    # Edit ~/.llm_cli/config.toml to modify settings.
     ```
-4.  **Chat**: Type `llm-cli` to start an interactive session.
 5.  **Help**: Type `/help` inside the chat to see all commands.
 
 ### One-Shot Examples
 ```bash
-# Ask a question using the default provider (e.g., Gemini)
+# Ask a question using the default provider (Gemini)
 llm-cli "What is the capital of France?"
 
-# Use a local model via Ollama
-llm-cli -p ollama -m llama3 "Explain quantum computing"
+# Use a specific provider and model
+llm-cli -p anthropic -m sonnet "Explain quantum computing"
 
 # Analyze a local file or a URL
 llm-cli "Summarize this PDF" ./document.pdf
@@ -54,7 +55,8 @@ llm-cli "Analyze this website" https://example.com
 
 - **Unified Provider Access**: Seamlessly switch between Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **Local LLMs (Ollama)**.
 - **Autonomous Agent**: Let the AI manage files, execute Python code (replacing risky shell commands), and search the web.
-- **MCP (Model Context Protocol) Support**: Connect to remote resources or services. Manage files on remote servers via SSH or integrate with third-party tools via Docker.
+- **Config-free Execution**: Start using immediately by just providing an environment variable.
+- **MCP (Model Context Protocol) Support**: Connect to remote resources or services via custom servers.
 - **Multimodal capabilities**: Support for Images, PDFs, Audio, and Video.
 - **Operational Stability**: A clean, flicker-free UI designed for long-term "Deep Work" sessions and SSH-based environments.
 - **Human-in-the-Loop**: All critical actions (file edits, code execution) require explicit human approval by default.
@@ -73,7 +75,7 @@ The AI agent autonomously uses tools to perform complex tasks, such as file mana
 As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** compliance in mind, `llm-cli` implements a multi-layered security architecture to mitigate the risks associated with autonomous AI agents.
 
 ### 1. Zero Trust & Access Control (ABAC)
-`llm-cli` implements **Attribute-Based Access Control (ABAC)** instead of traditional RBAC.
+`llm-cli` implements **Attribute-Based Access Control (ABAC)**, moving away from traditional RBAC for more granular security.
 - **Risk-based Scaling**: Security requirements automatically scale based on the tool's risk level (HIGH/MEDIUM/LOW).
 - **Identity Proof**: High-risk actions (e.g., Python execution) require a valid **PQC-signed identity**.
 - **Path Guardrails**: Tools are restricted by path attributes (defaulting to the current directory).
@@ -88,12 +90,6 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 - **Reasoning Sentinel (SSM-based)**: A built-in **Mamba (State Space Model)** implementation monitors the LLM's reasoning tokens in real-time. It detects statistical anomalies that may indicate prompt injection or "model hallucination" leading to risky behavior.
 - **Tamper-Evident Audit Logs**: Audit trails are protected using **Chained Hashing** and optionally encrypted with **ML-KEM (Kyber)** for confidentiality.
 - **Merkle Tree Anchoring**: Log batches are anchored via Merkle Roots to prevent historical revisionism.
-
-### 4. Regulatory Alignment (EU AI Act)
-`llm-cli` provides technical controls aligned with the obligations of a **GPAI (General Purpose AI) Deployer**:
-- **Transparency**: Clear explanation of AI-driven actions and reasoning integrity scores.
-- **Robustness**: Real-time monitoring and anomaly detection.
-- **Accountability**: Cryptographically signed audit trails for forensic analysis.
 
 ---
 
@@ -112,7 +108,7 @@ Inside the `llm-cli` interactive session:
 ### 💡 Power User Tips
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
 - **External Editor (`Ctrl+X, Ctrl+E`)**: Open the current prompt in your default editor (`vim`, `nano`, etc.) for complex editing.
-- **Templates**: Define reusable prompts in `~/.config/llm_cli/config.toml` and call them with `/t <name>`.
+- **Templates**: Define reusable prompts in `~/.llm_cli/config.toml` and call them with `/t <name>`.
 
 ## 🔑 Security Management
 Use the `llm-cli-security` tool to manage your cryptographic identity:
@@ -151,14 +147,25 @@ For detailed architectural insights and the academic background of our security 
     cd llm-cli
     pip install .
     ```
-2.  **初期設定**: `llm-cli-config` を実行し、GeminiなどのAPIキーやOllamaのURLを設定。
+2.  **APIキーの設定**: APIキーを環境変数として設定します。
+    ```bash
+    export GEMINI_API_KEY="your-api-key"
+    # 対応: OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, OLLAMA_API_KEY, BRAVE_SEARCH_API_KEY
+    ```
 3.  **対話開始**: `llm-cli` コマンドでスタート。
-4.  **ヘルプ**: チャット内で `/help` と入力するとコマンド一覧が表示されます。
+    *   **設定ファイル不要**: APIキーさえ設定されていれば、`config.toml` なしですぐに利用可能です。
+4.  **詳細設定 (任意)**: MCPサーバーの追加や動作のカスタマイズを行いたい場合は、以下のコマンドを実行します。
+    ```bash
+    llm-cli --init-config
+    # ~/.llm_cli/config.toml を編集して設定を調整してください。
+    ```
+5.  **ヘルプ**: チャット内で `/help` と入力するとコマンド一覧が表示されます。
 
 ## ✨ 主な機能 (実用ツールとして)
 
 - **統合インターフェース**: `llm-cli` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
 - **自律型エージェント**: ファイル操作、Python実行、Web検索、URL解析をAIが自律的に実行。
+- **設定不要の即時利用**: 環境変数を設定するだけで、セットアップの手間なく利用可能。
 - **MCP (Model Context Protocol) 対応**: リモートサーバーや外部サービスとの連携をサポート。
 - **マルチモーダル対応**: 画像、PDF、音声、動画の入力をサポート。画像・動画の生成も可能。
 - **集中力を削がないUI**: 画面のちらつきを抑え、SSH越しでも安定して動作するクリーンなターミナル出力。
@@ -174,9 +181,11 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 
 本ツールは **CISSP/CISA/CCSP** の各ドメインにおける管理策、および **EU AI Act（欧州AI法）** の技術的要件を意識して設計されています。
 
-### 1. 実行環境の安全性と隔離
-- **No-Shell アーキテクチャ**: システム操作は `shell=False` のPython実行に限定。シェルインジェクションを構造的に防止。
-- **Human-in-the-Loop**: 全てのツール実行に AI による意図の説明を強制し、人間の承認を介するワークフローを提供。
+### 1. 属性ベースアクセス制御 (ABAC)
+`llm-cli` は、従来のRBAC（ロールベース）を廃止し、より柔軟で厳格な **属性ベースアクセス制御 (ABAC)** を採用しています。
+- **リスクベース・スケーリング**: ツールのリスクレベル（HIGH/MEDIUM/LOW）に応じて、要求されるセキュリティ強度が自動的に変化します。
+- **アイデンティティ証明**: 高リスクな操作（Python実行など）には、**耐量子暗号 (PQC)** による署名付き証明が必要です。
+- **パス・ガードレール**: 操作可能な範囲を属性（ディレクトリ・パスなど）で制限します。
 
 ### 2. アイデンティティと非否認性 (耐量子暗号)
 - **ハイブリッド署名**: **RS256** と **耐量子暗号 (ML-DSA)** を組み合わせ、ツール実行リクエストの正当性を長期的に保証（非否認性）。
@@ -189,7 +198,7 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 ### 💡 パワーユーザー向け機能
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。
 - **外部エディタ編集 (`Ctrl+X, Ctrl+E`)**: プロンプト入力を `vim` や `nano` で編集。
-- **テンプレート**: 頻繁に使うプロンプトを設定ファイルに定義し、`/t <名前>` で呼び出し。
+- **テンプレート**: 頻繁に使うプロンプトを `~/.llm_cli/config.toml` に定義し、`/t <名前>` で呼び出し。
 
 ---
 

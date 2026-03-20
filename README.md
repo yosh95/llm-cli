@@ -7,7 +7,7 @@
 [English] | [日本語](#japanese-description)
 
 <p align="center">
-  <img src="images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
+  <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
 </p>
 
 ---
@@ -16,6 +16,10 @@
 
 1.  **Install**:
     ```bash
+    # Recommended: Install from PyPI
+    pip install llm-secure-cli
+
+    # Alternatively, install from source
     git clone https://github.com/yosh95/llm-cli.git
     cd llm-cli
     pip install .
@@ -50,7 +54,7 @@ llm-cli "Analyze this website" https://example.com
 The AI agent autonomously uses tools to perform complex tasks, such as understanding project structures before editing code.
 
 <p align="center">
-  <img src="images/screenshot-tool-calling.png" width="800" alt="Autonomous Agent and Tool Use" />
+  <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/screenshot-tool-calling.png" width="800" alt="Autonomous Agent and Tool Use" />
 </p>
 
 ---
@@ -122,13 +126,17 @@ For detailed architectural insights and the academic background of our security 
 `llm-cli` は、Gemini, OpenAI, Claude, Grok、および Ollama を介したローカルLLMを一元的に操作できる、高い安全性を備えたCLIツールです。開発者の「深い集中（Deep Work）」を妨げない安定した対話環境と、プロフェッショナルな要求に応える高度なセキュリティ機能を両立しています。
 
 <p align="center">
-  <img src="images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
+  <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
 </p>
 
 ## 🚀 クイックスタート
 
 1.  **インストール**:
     ```bash
+    # 推奨: PyPIからインストール
+    pip install llm-secure-cli
+
+    # あるいはソースからインストール
     git clone https://github.com/yosh95/llm-cli.git
     cd llm-cli
     pip install .
@@ -149,7 +157,7 @@ For detailed architectural insights and the academic background of our security 
 AIがディレクトリ構造を確認し、コードを読み取ってから作業を行う様子。
 
 <p align="center">
-  <img src="images/screenshot-tool-calling.png" width="800" alt="自律型エージェントのツール実行" />
+  <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/screenshot-tool-calling.png" width="800" alt="自律型エージェントのツール実行" />
 </p>
 
 ## 🛡️ セキュリティとガバナンス (プロフェッショナル向け)

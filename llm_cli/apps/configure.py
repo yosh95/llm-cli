@@ -381,7 +381,7 @@ def configure_sentinel(config: dict[str, Any]) -> None:
 
     if s_config["enabled"]:
         s_config["mode"] = prompt_input(
-            "Sentinel Mode (detect/collect)", s_config.get("mode", "collect")
+            "Sentinel Mode (train/predict)", s_config.get("mode", "train")
         )
         print(
             "Note: Sentinel anomaly thresholds are now self-calibrating "

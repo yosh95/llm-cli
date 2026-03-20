@@ -79,9 +79,7 @@ def test_identity_manager_integration(tmp_path, monkeypatch):
     monkeypatch.setattr("llm_cli.security.identity.KEY_DIR", key_dir)
 
     # Generate token
-    token = IdentityManager.generate_token(
-        user_id="pqc_tester"
-    )
+    token = IdentityManager.generate_token(user_id="pqc_tester")
     assert isinstance(token, str)
 
     # Verify token

@@ -19,7 +19,6 @@ from llm_cli.ui import (
     print_block,
     report_error,
     report_success,
-    report_warning,
 )
 
 logger = logging.getLogger(__name__)
@@ -270,7 +269,13 @@ class PostProcessHandler(BaseToolHandler):
         from llm_cli.security.cass import CASSOrchestrator
 
         risk_level = CASSOrchestrator().evaluate_risk(context.name)
-        context.result_data = _verify_pqc_signature(context.result_data, risk_level)
+        try:
+            context.result_data = _verify_pqc_signature(context.result_data, risk_level)
+        except ValueError as e:
+            # Handle specific security failure messages to return directly to LLM
+            context.error_message = str(e)
+            context.aborted = True
+            return
 
         # Truncation
         res_str = str(context.result_data)
@@ -354,11 +359,16 @@ def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
 
     if not is_signed:
         if risk_level == RiskLevel.HIGH:
-            msg = "High-risk tool missing PQC signature."
-            if is_strict:
-                report_error(f"PQC Enforcement: {msg} Blocked.")
-                raise ValueError(msg)
-            report_warning(f"CASS Warning: {msg}")
+            msg = (
+                "High-risk tool missing PQC signature. Please generate keys "
+                "using 'llm-cli-security keygen' to enable high-risk operations."
+            )
+            report_error(f"PQC Enforcement: {msg} Blocked.")
+            # Returning a message to the LLM as requested
+            llm_msg = (
+                "This tool is high-risk and is prohibited in the current environment."
+            )
+            raise ValueError(llm_msg)
         return result_data
 
     import base64

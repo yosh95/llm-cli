@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_cli.clients.openai import OpenAIClient
+from llm_cli.clients.openai import DEFAULT_API_URL, OpenAIClient
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 
 
@@ -13,184 +13,322 @@ def mock_config():
             "llm_cli.clients.config.config_manager.get_model_aliases",
             return_value={"default": "gpt-4-turbo"},
         ),
-        patch("llm_cli.clients.config.config_manager.get") as mock_get_setting,
-        patch("llm_cli.clients.config.config_manager.get") as mock_openai_get_setting,
+        patch("llm_cli.clients.config.config_manager.get") as mock_get,
     ):
 
-        def get_setting_side_effect(section, key=None):
+        def get_side_effect(section, key=None):
             if key == "api_key":
                 return "sk-test"
             if key == "api_url":
-                return "https://custom.api/v1"
+                return None  # Use default URL
             if key == "system_prompt":
                 return ""
             return None
 
-        # We need to mock it in both places because OpenAIClient calls get_setting directly
-        # for api_url in its __init__, and BaseLlmClient calls it for api_key.
-        mock_get_setting.side_effect = get_setting_side_effect
-        mock_openai_get_setting.side_effect = get_setting_side_effect
-
-        yield mock_get_setting
+        mock_get.side_effect = get_side_effect
+        yield mock_get
 
 
 @pytest.fixture
 def client(mock_config):
-    return OpenAIClient(stdout=False)
+    c = OpenAIClient(stdout=False)
+    # Disable system prompt so message-building tests are not affected by the
+    # auto-injected "Current date: ..." prefix from ProviderConfigManager.
+    c.system_prompt_enabled = False
+    return c
+
+
+# ---------------------------------------------------------------------------
+# Initialization
+# ---------------------------------------------------------------------------
 
 
 def test_initialization(client):
-    """Test OpenAI client initialization."""
+    """Client initializes with correct model, key, and default URL."""
     assert client.model == "gpt-4-turbo"
     assert client.api_key == "sk-test"
-    # Should use custom URL if provided in config
-    assert client.api_url == "https://custom.api/v1"
+    assert client.api_url == DEFAULT_API_URL
     assert client.pdf_as_base64 is True
 
 
-def test_build_input_items_text(client):
-    """Test building input items for Responses API."""
+def test_initialization_custom_url():
+    """Client picks up a custom api_url from config."""
+    with (
+        patch(
+            "llm_cli.clients.config.config_manager.get_model_aliases",
+            return_value={"default": "gpt-4-turbo"},
+        ),
+        patch("llm_cli.clients.config.config_manager.get") as mock_get,
+    ):
+
+        def get_side_effect(section, key=None):
+            if key == "api_url":
+                return "https://custom.proxy/v1/chat/completions"
+            if key == "api_key":
+                return "sk-test"
+            return None
+
+        mock_get.side_effect = get_side_effect
+        c = OpenAIClient(stdout=False)
+        assert c.api_url == "https://custom.proxy/v1/chat/completions"
+
+
+# ---------------------------------------------------------------------------
+# _build_openai_compatible_messages – plain text / image / PDF
+# ---------------------------------------------------------------------------
+
+
+def test_build_messages_single_text(client):
+    """Single text DataSource becomes a user message with string content."""
     data = [DataSource(content="Hello world", content_type="text/plain")]
-    items = client._build_input_items(data)
+    msgs = client._build_openai_compatible_messages(data)
 
-    assert len(items) == 1
-    assert items[0]["type"] == "message"
-    assert items[0]["role"] == "user"
-    assert items[0]["content"][0]["type"] == "input_text"
-    assert items[0]["content"][0]["text"] == "Hello world"
+    assert len(msgs) == 1
+    assert msgs[0]["role"] == "user"
+    # Mixin wraps single items in a list; content is a list with one text part
+    content = msgs[0]["content"]
+    assert isinstance(content, list)
+    assert content[0]["type"] == "text"
+    assert content[0]["text"] == "Hello world"
 
 
-def test_build_input_items_image(client):
-    """Test building input items with base64 image."""
+def test_build_messages_image(client):
+    """Image DataSource becomes an image_url content part."""
     data = [DataSource(content="base64img", content_type="image/jpeg")]
-    items = client._build_input_items(data)
+    msgs = client._build_openai_compatible_messages(data)
 
-    assert len(items) == 1
-    assert items[0]["content"][0]["type"] == "input_image"
-    assert items[0]["content"][0]["image_url"] == "data:image/jpeg;base64,base64img"
+    assert len(msgs) == 1
+    assert msgs[0]["role"] == "user"
+    content = msgs[0]["content"]
+    assert isinstance(content, list)
+    assert content[0]["type"] == "image_url"
+    assert content[0]["image_url"]["url"] == "data:image/jpeg;base64,base64img"
 
 
-def test_responses_api_parsing_text(client):
-    """Test parsing text response from Responses API."""
-    data = [DataSource(content="Hi", content_type="text/plain")]
+def test_build_messages_pdf(client):
+    """PDF DataSource is embedded as a file part when pdf_as_base64 is True."""
+    data = [
+        DataSource(
+            content="pdfdata",
+            content_type="application/pdf",
+            metadata={"filename": "doc.pdf"},
+        )
+    ]
+    msgs = client._build_openai_compatible_messages(data)
 
-    mock_resp_json = {
-        "output": [
-            {
-                "type": "message",
-                "content": [{"type": "output_text", "text": "Hello there!"}],
-            }
-        ],
-        "usage": {"total_tokens": 50},
+    assert len(msgs) == 1
+    content = msgs[0]["content"]
+    assert isinstance(content, list)
+    # OpenAI Chat Completions API requires the "file" content part format
+    assert content[0]["type"] == "file"
+    file_obj = content[0]["file"]
+    assert file_obj["filename"] == "doc.pdf"
+    assert file_obj["file_data"] == "data:application/pdf;base64,pdfdata"
+
+
+def test_build_messages_pdf_in_history(client):
+    """PDF in conversation history (inline_data) is embedded as a file part."""
+    client.conversation = [
+        Message(
+            role=Role.USER,
+            parts=[
+                ContentPart(text="Here is a document"),
+                ContentPart(
+                    inline_data={
+                        "mimeType": "application/pdf",
+                        "data": "historypdfdata",
+                        "filename": "history.pdf",
+                    }
+                ),
+            ],
+        ),
+        Message(role=Role.MODEL, parts=[ContentPart(text="Got the PDF")]),
+    ]
+    data = [DataSource(content="What does it say?", content_type="text/plain")]
+    msgs = client._build_openai_compatible_messages(data)
+
+    # History user message should contain the file part
+    user_hist = msgs[0]
+    assert user_hist["role"] == "user"
+    content = user_hist["content"]
+    file_parts = [p for p in content if p.get("type") == "file"]
+    assert len(file_parts) == 1
+    file_obj = file_parts[0]["file"]
+    assert file_obj["filename"] == "history.pdf"
+    assert file_obj["file_data"] == "data:application/pdf;base64,historypdfdata"
+
+
+def test_build_messages_mixed_text_and_image(client):
+    """Text + image in same turn produces a multi-part user message."""
+    data = [
+        DataSource(content="Look at this", content_type="text/plain"),
+        DataSource(content="imgdata", content_type="image/png"),
+    ]
+    msgs = client._build_openai_compatible_messages(data)
+
+    assert len(msgs) == 1
+    content = msgs[0]["content"]
+    assert isinstance(content, list)
+    assert content[0] == {"type": "text", "text": "Look at this"}
+    assert content[1]["type"] == "image_url"
+
+
+# ---------------------------------------------------------------------------
+# _build_openai_compatible_messages – conversation history
+# ---------------------------------------------------------------------------
+
+
+def test_build_messages_with_history(client):
+    """History is serialised before the new user turn."""
+    client.conversation = [
+        Message(role=Role.USER, parts=[ContentPart(text="First question")]),
+        Message(role=Role.MODEL, parts=[ContentPart(text="First answer")]),
+    ]
+    data = [DataSource(content="Second question", content_type="text/plain")]
+    msgs = client._build_openai_compatible_messages(data)
+
+    # system prompt is empty in fixture, so no system message
+    assert msgs[0]["role"] == "user"
+    assert msgs[1]["role"] == "assistant"
+    assert msgs[1]["content"][0]["text"] == "First answer"
+    assert msgs[2]["role"] == "user"
+
+
+def test_build_messages_tool_round_trip(client):
+    """Tool call → tool result history is serialised correctly."""
+    tool_call = {"id": "call_1", "name": "calc", "args": {"expr": "2+2"}}
+    tool_resp = {"id": "call_1", "name": "calc", "response": {"result": "4"}}
+
+    client.conversation = [
+        Message(role=Role.USER, parts=[ContentPart(text="What's 2+2?")]),
+        Message(role=Role.MODEL, parts=[ContentPart(function_call=tool_call)]),
+        Message(role=Role.TOOL, parts=[ContentPart(function_response=tool_resp)]),
+    ]
+    data = [DataSource(content="Thanks", content_type="text/plain")]
+    msgs = client._build_openai_compatible_messages(data)
+
+    # user | assistant (with tool_calls) | tool | user
+    assert msgs[0]["role"] == "user"
+
+    assistant_msg = msgs[1]
+    assert assistant_msg["role"] == "assistant"
+    assert assistant_msg["tool_calls"][0]["id"] == "call_1"
+    assert assistant_msg["tool_calls"][0]["function"]["name"] == "calc"
+
+    tool_msg = msgs[2]
+    assert tool_msg["role"] == "tool"
+    assert tool_msg["tool_call_id"] == "call_1"
+    assert tool_msg["content"] == "4"
+
+    assert msgs[3]["role"] == "user"
+
+
+# ---------------------------------------------------------------------------
+# _send – text response
+# ---------------------------------------------------------------------------
+
+
+def _make_chat_response(content: str, tool_calls=None, usage=None):
+    """Build a minimal Chat Completions API response dict."""
+    message: dict = {"role": "assistant", "content": content}
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+    return {
+        "choices": [{"message": message, "finish_reason": "stop"}],
+        "usage": usage
+        or {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = mock_resp_json
 
-    with patch.object(client, "_post", return_value=mock_response):
+def test_send_text_response(client):
+    """_send parses a plain text Chat Completions response correctly."""
+    data = [DataSource(content="Hi", content_type="text/plain")]
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = _make_chat_response("Hello there!")
+
+    with patch.object(client, "_post", return_value=mock_resp):
         (text, thought), usage = client._send(data)
 
-        assert text == "Hello there!"
-        assert thought == ""
-        assert usage["total_tokens"] == 50
+    assert text == "Hello there!"
+    assert thought == ""
+    assert usage["total_tokens"] == 15
 
 
-def test_responses_api_parsing_reasoning(client):
-    """Test parsing reasoning summary from Responses API."""
-    data = [DataSource(content="Solve", content_type="text/plain")]
+def test_send_updates_conversation_history(client):
+    """After _send the MODEL reply is appended to conversation."""
+    data = [DataSource(content="Ping", content_type="text/plain")]
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = _make_chat_response("Pong")
 
-    mock_resp_json = {
-        "output": [
-            {
-                "type": "reasoning",
-                "summary": [{"type": "summary_text", "text": "Thinking deeply..."}],
-            },
-            {
-                "type": "message",
-                "content": [{"type": "output_text", "text": "Solution is 42"}],
-            },
-        ]
-    }
+    with patch.object(client, "_post", return_value=mock_resp):
+        client._send(data)
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = mock_resp_json
-
-    with patch.object(client, "_post", return_value=mock_response):
-        (text, thought), _ = client._send(data)
-
-        assert text == "Solution is 42"
-        assert thought == "Thinking deeply..."
+    last = client.conversation[-1]
+    assert last.role == Role.MODEL
+    assert last.parts[0].text == "Pong"
 
 
-def test_responses_api_parsing_function_call(client):
-    """Test parsing function calls from Responses API."""
+def test_send_includes_system_prompt(client):
+    """When system_prompt is set it is prepended as a system message."""
+    client.system_prompt = "You are helpful."
+    client.system_prompt_enabled = True
+    data = [DataSource(content="Hello", content_type="text/plain")]
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = _make_chat_response("Hi!")
+
+    with patch.object(client, "_post", return_value=mock_resp) as mock_post:
+        client._send(data)
+
+    payload = mock_post.call_args[1]["json_data"]
+    assert payload["messages"][0] == {"role": "system", "content": "You are helpful."}
+
+
+def test_send_no_system_prompt_when_disabled(client):
+    """When system_prompt_enabled is False no system message is injected."""
+    client.system_prompt = "You are helpful."
+    client.system_prompt_enabled = False
+    data = [DataSource(content="Hello", content_type="text/plain")]
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = _make_chat_response("Hi!")
+
+    with patch.object(client, "_post", return_value=mock_resp) as mock_post:
+        client._send(data)
+
+    payload = mock_post.call_args[1]["json_data"]
+    assert all(m["role"] != "system" for m in payload["messages"])
+
+
+# ---------------------------------------------------------------------------
+# _send – tool calls
+# ---------------------------------------------------------------------------
+
+
+def test_send_parses_tool_call(client):
+    """_send stores a function_call ContentPart when the model requests a tool."""
     data = [DataSource(content="Do it", content_type="text/plain")]
+    tc = [
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {"name": "my_tool", "arguments": '{"arg": "val"}'},
+        }
+    ]
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = _make_chat_response("", tool_calls=tc)
 
-    mock_resp_json = {
-        "output": [
-            {
-                "type": "function_call",
-                "call_id": "call_abc",
-                "name": "my_tool",
-                "arguments": '{"arg": "val"}',
-            }
-        ]
-    }
+    with patch.object(client, "_post", return_value=mock_resp):
+        client._send(data)
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = mock_resp_json
-
-    with patch.object(client, "_post", return_value=mock_response):
-        (text, thought), _ = client._send(data)
-
-        # Verify history update
-        last_msg = client.conversation[-1]
-        assert last_msg.role == Role.MODEL
-        fc = last_msg.parts[0].function_call
-        assert fc["id"] == "call_abc"
-        assert fc["name"] == "my_tool"
-        assert fc["args"] == {"arg": "val"}
+    last = client.conversation[-1]
+    assert last.role == Role.MODEL
+    fc = last.parts[0].function_call
+    assert fc["id"] == "call_abc"
+    assert fc["name"] == "my_tool"
+    assert fc["args"] == {"arg": "val"}
 
 
-def test_image_generation_routing(client):
-    """Test that image models route to _send_image_generation."""
-    client.model = "dall-e-3"
-    assert client._is_image_model() is True
-
-    with patch.object(client, "_send_image_generation") as mock_img_gen:
-        mock_img_gen.return_value = (("Image generated", ""), None)
-        client._send([])
-        mock_img_gen.assert_called_once()
-
-
-def test_send_image_generation_success(client):
-    """Test successful image generation via DALL-E."""
-    client.model = "dall-e-3"
-    data = [DataSource(content="A cat", content_type="text/plain")]
-
-    mock_response = MagicMock()
-    # Mock response with b64_json
-    mock_response.json.return_value = {
-        "data": [{"b64_json": "fake_base64_data", "revised_prompt": "A cute cat"}]
-    }
-
-    with (
-        patch.object(client, "_post", return_value=mock_response),
-        patch.object(
-            client,
-            "_save_inline_media_and_get_log_entry",
-            return_value=("Image saved", "path/to/img"),
-        ),
-    ):
-        (text, _), _ = client._send(data)
-
-        assert "Image saved" in text
-        assert "Revised Prompt" in text
-        assert "A cute cat" in text
-
-
-def test_send_with_tools(client):
-    """Test _send with tools enabled."""
+def test_send_with_tools_payload(client):
+    """When tools are enabled the payload contains the tools array."""
     client.tools_enabled = True
     client.active_tools = ["test_tool"]
     data = [DataSource(content="Use the tool", content_type="text/plain")]
@@ -205,54 +343,102 @@ def test_send_with_tools(client):
             },
         }
     ]
-
-    mock_resp_json = {
-        "output": [
-            {
-                "type": "message",
-                "content": [{"type": "output_text", "text": "Tool used"}],
-            }
-        ],
-        "usage": {"total_tokens": 10},
-    }
-
-    mock_response = MagicMock()
-    mock_response.json.return_value = mock_resp_json
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = _make_chat_response("Tool used")
 
     with (
         patch(
             "llm_cli.clients.openai.registry.get_openai_spec",
             return_value=mock_tool_spec,
-        ) as mock_registry,
-        patch.object(client, "_post", return_value=mock_response) as mock_post,
+        ),
+        patch.object(client, "_post", return_value=mock_resp) as mock_post,
     ):
         client._send(data)
 
-        mock_registry.assert_called_once()
-        # Verify payload contains tools
-        call_args = mock_post.call_args
-        payload = call_args[1]["json_data"]
-        assert "tools" in payload
-        assert payload["tools"][0]["name"] == "test_tool"
+    payload = mock_post.call_args[1]["json_data"]
+    assert "tools" in payload
+    assert payload["tool_choice"] == "auto"
+    assert payload["tools"][0]["function"]["name"] == "test_tool"
+
+
+# ---------------------------------------------------------------------------
+# _send – error handling
+# ---------------------------------------------------------------------------
 
 
 def test_send_api_error(client):
-    """Test error handling in _send."""
+    """Network/API errors return (None, None), None without raising."""
     data = [DataSource(content="Hello", content_type="text/plain")]
 
     with (
         patch.object(client, "_post", side_effect=Exception("API Error")),
         patch.object(client, "_report_error") as mock_report,
     ):
-        (text, thought), _ = client._send(data)
+        (text, thought), usage = client._send(data)
 
-        assert text is None
-        assert thought is None
-        mock_report.assert_called_once()
+    assert text is None
+    assert thought is None
+    assert usage is None
+    mock_report.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Image generation routing
+# ---------------------------------------------------------------------------
+
+
+def test_image_model_detection(client):
+    """_is_image_model returns True for dall-e and image model names."""
+    client.model = "dall-e-3"
+    assert client._is_image_model() is True
+
+    client.model = "gpt-image-1"
+    assert client._is_image_model() is True
+
+    client.model = "gpt-4o"
+    assert client._is_image_model() is False
+
+
+def test_image_generation_routing(client):
+    """_send delegates to _send_image_generation for image models."""
+    client.model = "dall-e-3"
+
+    with patch.object(
+        client, "_send_image_generation", return_value=(("ok", ""), None)
+    ) as mock_img:
+        client._send([])
+        mock_img.assert_called_once()
+
+
+def test_send_image_generation_success(client):
+    """Image generation returns a display message and updates history."""
+    client.model = "dall-e-3"
+    data = [DataSource(content="A cat", content_type="text/plain")]
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "data": [{"b64_json": "fake_b64", "revised_prompt": "A cute cat"}]
+    }
+
+    with (
+        patch.object(client, "_post", return_value=mock_response),
+        patch.object(
+            client,
+            "_save_inline_media_and_get_log_entry",
+            return_value=("Image saved", "path/to/img"),
+        ),
+    ):
+        (text, thought), usage = client._send(data)
+
+    assert "Image saved" in text
+    assert "Revised Prompt" in text
+    assert "A cute cat" in text
+    assert thought == ""
+    assert usage is None
 
 
 def test_send_image_generation_url_response(client):
-    """Test image generation with URL response."""
+    """Image generation also works when the API returns a URL instead of b64."""
     client.model = "dall-e-3"
     data = [DataSource(content="A cat", content_type="text/plain")]
 
@@ -272,71 +458,19 @@ def test_send_image_generation_url_response(client):
         ),
     ):
         (text, _), _ = client._send(data)
-        assert "Image saved" in text
+
+    assert "Image saved" in text
 
 
-def test_send_image_generation_failure(client):
-    """Test image generation failure (no data)."""
+def test_send_image_generation_no_data(client):
+    """Image generation with empty data item returns failure message."""
     client.model = "dall-e-3"
     data = [DataSource(content="A cat", content_type="text/plain")]
 
     mock_response = MagicMock()
-    mock_response.json.return_value = {"data": [{}]}  # Empty data
+    mock_response.json.return_value = {"data": [{}]}
 
     with patch.object(client, "_post", return_value=mock_response):
         (text, _), _ = client._send(data)
-        assert "Failed to retrieve image data" in text
 
-
-def test_build_input_items_with_history_and_tools(client):
-    """Test building input items with complex history including tool calls."""
-    # 1. User asks
-    user_msg = Message(role=Role.USER, parts=[ContentPart(text="What's 2+2?")])
-    client.conversation.append(user_msg)
-
-    # 2. Model calls tool
-    tool_call = {"id": "call_1", "name": "calc", "args": {"expr": "2+2"}}
-    model_msg = Message(role=Role.MODEL, parts=[ContentPart(function_call=tool_call)])
-    client.conversation.append(model_msg)
-
-    # 3. Tool responds
-    tool_resp = {"id": "call_1", "name": "calc", "response": {"result": "4"}}
-    tool_msg = Message(role=Role.TOOL, parts=[ContentPart(function_response=tool_resp)])
-    client.conversation.append(tool_msg)
-
-    # 4. New user input
-    data = [DataSource(content="Great", content_type="text/plain")]
-
-    items = client._build_input_items(data)
-
-    # Verify structure
-    # Item 0: User message
-    assert items[0]["role"] == "user"
-    assert items[0]["content"][0]["text"] == "What's 2+2?"
-
-    # Item 1: Function call (part of model message logic, but here it's added as a separate item type for this API?)
-    # Wait, looking at the code:
-    # Logic in _build_input_items:
-    # - It iterates history.
-    # - If TOOL role: adds "function_call_output" items.
-    # - If MODEL role with function_call: adds "function_call" items IF the tool_id is in "responded_tool_ids".
-
-    # Check the tool call output item (from step 3)
-    # The code iterates chronologically.
-
-    # Let's trace expected items:
-    # 1. User message (from user_msg)
-    # 2. Function call (from model_msg) -> "function_call" item
-    # 3. Function output (from tool_msg) -> "function_call_output" item
-    # 4. New user message (from data)
-
-    # Find function call item
-    fc_item = next((i for i in items if i.get("type") == "function_call"), None)
-    assert fc_item is not None
-    assert fc_item["call_id"] == "call_1"
-
-    # Find function output item
-    fo_item = next((i for i in items if i.get("type") == "function_call_output"), None)
-    assert fo_item is not None
-    assert fo_item["call_id"] == "call_1"
-    assert fo_item["output"] == "4"
+    assert "Failed to retrieve image data" in text

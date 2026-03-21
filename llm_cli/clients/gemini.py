@@ -224,14 +224,15 @@ class GeminiClient(BaseLlmClient):
                                 text_part["thoughtSignature"] = p.thought_signature
                             msg_parts.append(text_part)
                         if p.inline_data:
-                            msg_parts.append(
-                                {
-                                    "inlineData": {
-                                        "mimeType": p.inline_data.get("mimeType", ""),
-                                        "data": p.inline_data.get("data", ""),
-                                    }
+                            inline_part: dict[str, Any] = {
+                                "inlineData": {
+                                    "mimeType": p.inline_data.get("mimeType", ""),
+                                    "data": p.inline_data.get("data", ""),
                                 }
-                            )
+                            }
+                            if p.thought_signature:
+                                inline_part["thoughtSignature"] = p.thought_signature
+                            msg_parts.append(inline_part)
                         if p.function_call:
                             fc = p.function_call
                             tool_id = fc.get("id")

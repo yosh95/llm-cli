@@ -52,9 +52,11 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
     with patch("requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
-        # Update mock response to Interactions API format
+        # generateContent API response format
         mock_response.json.return_value = {
-            "outputs": [{"type": "text", "text": "Heard audio"}],
+            "candidates": [
+                {"content": {"role": "model", "parts": [{"text": "Heard audio"}]}}
+            ],
             "usageMetadata": {"totalTokenCount": 5},
         }
         mock_post.return_value = mock_response
@@ -63,27 +65,24 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
 
         # Check payload
         args, kwargs = mock_post.call_args
-        if kwargs.get("json"):
-            payload = kwargs["json"]
-        else:
-            payload = args[1]  # json might be positional or passed as json=...
+        payload = kwargs.get("json") or args[1]
 
-        # Interactions API uses 'input' list
-        # Expected input item: {"type": "audio", "uri": "...", "mime_type": "..."}
+        # generateContent API uses 'contents' list
+        assert "contents" in payload
 
-        assert "input" in payload
-        input_items = payload["input"]
-
+        # The audio should appear as fileData inside the user turn
         found_audio = False
-        for item in input_items:
-            if (
-                item.get("type") == "audio"
-                and item.get("uri") == "https://gemini.api/files/abc"
-            ):
-                found_audio = True
-                break
+        for content_item in payload["contents"]:
+            for part in content_item.get("parts", []):
+                fd = part.get("fileData", {})
+                if (
+                    fd.get("fileUri") == "https://gemini.api/files/abc"
+                    and fd.get("mimeType") == "audio/wav"
+                ):
+                    found_audio = True
+                    break
 
-        assert found_audio, f"Audio input not found in payload: {payload}"
+        assert found_audio, f"Audio fileData not found in contents: {payload}"
 
 
 def test_base_client_audio_as_base64(mock_config_audio, tmp_path):

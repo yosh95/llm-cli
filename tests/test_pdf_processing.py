@@ -67,30 +67,31 @@ class TestPDFProcessing:
         with patch("requests.post") as mock_post:
             mock_res = MagicMock()
             mock_res.status_code = 200
-            mock_res.json.return_value = {"outputs": [{"type": "text", "text": "OK"}]}
+            # generateContent API response format
+            mock_res.json.return_value = {
+                "candidates": [
+                    {"content": {"role": "model", "parts": [{"text": "OK"}]}}
+                ],
+                "usageMetadata": {"totalTokenCount": 5},
+            }
             mock_post.return_value = mock_res
 
             client._send(data)
 
             args, kwargs = mock_post.call_args
-            if kwargs.get("json"):
-                payload = kwargs["json"]
-            else:
-                payload = args[1]  # json might be positional or passed as json=...
+            payload = kwargs.get("json") or args[1]
 
-            # Check input list for document type
-            # Expected: {"type": "document", "data": "base64...", "mime_type": "application/pdf"}
-            assert "input" in payload
+            # generateContent API uses 'contents' with inlineData parts
+            assert "contents" in payload
             found_pdf = False
-            for item in payload["input"]:
-                if (
-                    item.get("type") == "document"
-                    and item.get("mime_type") == "application/pdf"
-                ):
-                    found_pdf = True
-                    break
+            for content_item in payload["contents"]:
+                for part in content_item.get("parts", []):
+                    inline = part.get("inlineData", {})
+                    if inline.get("mimeType") == "application/pdf":
+                        found_pdf = True
+                        break
 
-            assert found_pdf, f"PDF input not found in payload: {payload}"
+            assert found_pdf, f"PDF inlineData not found in contents: {payload}"
 
     def test_pdf_url_fetching_gemini(
         self,

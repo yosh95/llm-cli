@@ -15,12 +15,12 @@ class GeminiClient(BaseLlmClient):
 
     Supports multimodal inputs (images, video, audio, PDF) using both
     inline base64 and the Gemini File API for larger files.
+
+    Uses the standard generateContent API with full conversation history
+    sent on every request (stateless — no server-side session IDs).
     """
 
     BASE_API_URL = "https://generativelanguage.googleapis.com/v1beta"
-    INTERACTIONS_API_URL = (
-        "https://generativelanguage.googleapis.com/v1beta/interactions"
-    )
     UPLOAD_API_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files"
     # Increase upload timeout to 1 hour to support large files
     UPLOAD_TIMEOUT = 3600
@@ -39,7 +39,6 @@ class GeminiClient(BaseLlmClient):
             ),
             **kwargs,
         )
-        self.last_interaction_id: str | None = None
 
     def _handle_command(
         self,
@@ -52,37 +51,6 @@ class GeminiClient(BaseLlmClient):
             return True
 
         return False
-
-    def clear_history(self) -> None:
-        """Clears history and resets Gemini interaction ID."""
-        super().clear_history()
-        self.last_interaction_id = None
-
-    def get_conversation_state(self) -> dict[str, Any]:
-        """Returns the conversation state including Gemini's interaction ID."""
-        state = super().get_conversation_state()
-        state["last_interaction_id"] = self.last_interaction_id
-        return state
-
-    def set_conversation_state(self, state: dict[str, Any]) -> None:
-        """Restores the conversation state including Gemini's interaction ID."""
-        super().set_conversation_state(state)
-        self.last_interaction_id = state.get("last_interaction_id")
-
-    def set_model(self, alias: str) -> bool:
-        """Resets interaction ID when model changes."""
-        old_model = self.model
-        if super().set_model(alias):
-            if self.model != old_model:
-                self.last_interaction_id = None
-            return True
-        return False
-
-    def set_custom_model(self, model_name: str) -> None:
-        """Resets interaction ID when model changes."""
-        if model_name != self.model:
-            self.last_interaction_id = None
-        super().set_custom_model(model_name)
 
     def _process_single_source(self, source: str) -> DataSource | None:
         """Override to handle Gemini-specific File API uploads for media."""
@@ -134,32 +102,17 @@ class GeminiClient(BaseLlmClient):
         """Determines if the current model is an image generation model."""
         return "image" in self.model.lower() or "imagen" in self.model.lower()
 
-    @staticmethod
-    def _mime_to_interaction_type(mime: str) -> str:
-        """Converts MIME type to Gemini Interactions API input type."""
-        if mime.startswith("audio/"):
-            return "audio"
-        if mime.startswith("video/"):
-            return "video"
-        if mime == "application/pdf":
-            return "document"
-        return "image"
-
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
-        """Sends the request to Gemini using the Interactions API."""
-        if not self.conversation:
-            self.last_interaction_id = None
-
-        interaction_input = self._prepare_interaction_input(data)
+        """Sends the request to Gemini using the generateContent API."""
         is_image_model = self._is_image_model()
-        payload = self._build_request_payload(interaction_input, is_image_model)
+        contents = self._build_contents(data)
+        payload = self._build_request_payload(contents, is_image_model)
 
         try:
-            res_json = self._call_interactions_api(payload)
-            self.last_interaction_id = res_json.get("id")
-            model_msg = self._parse_interaction_response(res_json)
+            res_json = self._call_generate_content_api(payload)
+            model_msg = self._parse_generate_content_response(res_json)
             self._update_local_state(data, model_msg, res_json)
 
             display_text = ""
@@ -208,110 +161,146 @@ class GeminiClient(BaseLlmClient):
             self._report_error("Gemini", e)
             return (None, None), None
 
-    def _prepare_interaction_input(
-        self, data: list[DataSource]
-    ) -> list[dict[str, Any]]:
-        """Prepares input list for Interactions API."""
-        interaction_input: list[dict[str, Any]] = []
+    def _build_contents(self, data: list[DataSource]) -> list[dict[str, Any]]:
+        """
+        Builds the ``contents`` array for the generateContent API.
 
-        if self.conversation and self.conversation[-1].role == Role.TOOL:
-            for part in self.conversation[-1].parts:
-                if isinstance(part, ContentPart) and part.function_response:
-                    fr = part.function_response
-                    interaction_input.append(
-                        {
-                            "type": "function_result",
-                            "name": fr.get("name"),
-                            "call_id": fr.get("id"),
-                            "result": fr.get("response", {}).get("result"),
-                        }
-                    )
+        The full conversation history (self.conversation) is serialised on
+        every request so no server-side session state is required.
+        """
+        contents: list[dict[str, Any]] = []
 
+        for msg, responded_tool_ids in self._iter_history():
+            if msg.role == Role.TOOL:
+                # Tool results → role "user" with function_response parts
+                tool_parts: list[dict[str, Any]] = []
+                for p in msg.parts:
+                    if isinstance(p, ContentPart) and p.function_response:
+                        fr = p.function_response
+                        tool_id = fr.get("id")
+                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
+                            result = fr.get("response", {}).get("result", "")
+                            tool_parts.append(
+                                {
+                                    "functionResponse": {
+                                        "id": tool_id,
+                                        "name": fr.get("name"),
+                                        "response": {"result": str(result)},
+                                    }
+                                }
+                            )
+                if tool_parts:
+                    contents.append({"role": "user", "parts": tool_parts})
+            else:
+                role = "model" if msg.role == Role.MODEL else "user"
+                msg_parts: list[dict[str, Any]] = []
+                for p in msg.parts:
+                    if isinstance(p, str):
+                        msg_parts.append({"text": p})
+                    elif isinstance(p, ContentPart):
+                        if p.thought:
+                            # thoughtSignature is a part-level sibling field
+                            thought_part: dict[str, Any] = {
+                                "thought": True,
+                                "text": p.thought,
+                            }
+                            if p.thought_signature:
+                                thought_part["thoughtSignature"] = p.thought_signature
+                            msg_parts.append(thought_part)
+                        if p.text and p.text.strip():
+                            text_part: dict[str, Any] = {"text": p.text}
+                            if p.thought_signature and not p.thought:
+                                # Signature on a plain-text part (non-FC response)
+                                text_part["thoughtSignature"] = p.thought_signature
+                            msg_parts.append(text_part)
+                        if p.inline_data:
+                            msg_parts.append(
+                                {
+                                    "inlineData": {
+                                        "mimeType": p.inline_data.get("mimeType", ""),
+                                        "data": p.inline_data.get("data", ""),
+                                    }
+                                }
+                            )
+                        if p.function_call:
+                            fc = p.function_call
+                            tool_id = fc.get("id")
+                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
+                                # thoughtSignature is a part-level sibling of
+                                # functionCall — must be echoed back exactly as
+                                # received to satisfy Gemini 3 validation.
+                                fc_part: dict[str, Any] = {
+                                    "functionCall": {
+                                        "id": tool_id,
+                                        "name": fc.get("name", "unknown"),
+                                        "args": fc.get("args", {}),
+                                    }
+                                }
+                                if p.thought_signature:
+                                    fc_part["thoughtSignature"] = p.thought_signature
+                                msg_parts.append(fc_part)
+                if msg_parts:
+                    contents.append({"role": role, "parts": msg_parts})
+
+        # Append the incoming user turn
+        user_parts: list[dict[str, Any]] = []
         for item in data:
             file_uri = item.metadata.get("file_uri")
             if file_uri:
-                interaction_input.append(
+                user_parts.append(
                     {
-                        "type": self._mime_to_interaction_type(item.content_type),
-                        "uri": file_uri,
-                        "mime_type": item.content_type,
+                        "fileData": {
+                            "mimeType": item.content_type,
+                            "fileUri": file_uri,
+                        }
                     }
                 )
             elif any(
                 item.content_type.startswith(t)
                 for t in ["image/", "audio/", "video/", "application/pdf"]
             ):
-                interaction_input.append(
+                user_parts.append(
                     {
-                        "type": self._mime_to_interaction_type(item.content_type),
-                        "data": item.content,
-                        "mime_type": item.content_type,
+                        "inlineData": {
+                            "mimeType": item.content_type,
+                            "data": item.content,
+                        }
                     }
                 )
             else:
-                interaction_input.append({"type": "text", "text": str(item.content)})
-        return interaction_input
+                user_parts.append({"text": str(item.content)})
+
+        if user_parts:
+            contents.append({"role": "user", "parts": user_parts})
+
+        return contents
 
     def _build_request_payload(
-        self, interaction_input: list[dict[str, Any]], is_image_model: bool
+        self, contents: list[dict[str, Any]], is_image_model: bool
     ) -> dict[str, Any]:
-        """Constructs the full request payload."""
-        if is_image_model:
-            text_parts = [
-                inp.get("text", "")
-                for inp in interaction_input
-                if inp.get("type") == "text"
-            ]
-            other_parts = [
-                inp for inp in interaction_input if inp.get("type") != "text"
-            ]
-            if text_parts:
-                interaction_input = [
-                    {"type": "text", "text": " ".join(text_parts).strip()}
-                ] + other_parts
+        """Constructs the full request payload for generateContent."""
+        payload: dict[str, Any] = {"contents": contents}
 
-        payload: dict[str, Any] = {"model": self.model, "input": interaction_input}
         if self.system_prompt and self.system_prompt_enabled:
-            payload["system_instruction"] = self.system_prompt
-
-        if self.last_interaction_id:
-            payload["previous_interaction_id"] = self.last_interaction_id
-        elif not is_image_model or len(interaction_input) > 1:
-            context = self._build_context_text()
-            if context:
-                payload["input"].insert(0, {"type": "text", "text": context})
+            payload["system_instruction"] = {"parts": [{"text": self.system_prompt}]}
 
         if is_image_model:
-            payload["response_modalities"] = ["IMAGE"]
-            payload.pop("generation_config", None)
+            payload["generation_config"] = {"response_modalities": ["IMAGE", "TEXT"]}
 
         if self.active_tools and self.tools_enabled:
-            spec = registry.get_gemini_interactions_spec(
+            spec = registry.get_gemini_spec(
                 self.active_tools, provider=self.config_section
             )
             if spec:
                 payload["tools"] = spec
+
         return payload
 
-    def _build_context_text(self) -> str | None:
-        """Builds context string from history."""
-        parts = []
-        for msg in self.conversation:
-            role = msg.role.upper()
-            txt = "".join(
-                p.text
-                if isinstance(p, ContentPart) and p.text
-                else (p if isinstance(p, str) else "")
-                for p in msg.parts
-            )
-            if txt:
-                parts.append(f"[{role}]: {txt}")
-        return "\n\n".join(parts) if parts else None
-
-    def _call_interactions_api(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Calls the Interactions API."""
+    def _call_generate_content_api(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Calls the generateContent API."""
+        url = f"{self.BASE_API_URL}/models/{self.model}:generateContent"
         response = self._post(
-            self.INTERACTIONS_API_URL,
+            url,
             headers={
                 "x-goog-api-key": self.api_key,
                 "Content-Type": "application/json",
@@ -353,45 +342,72 @@ class GeminiClient(BaseLlmClient):
         self.conversation.append(model_msg)
         self.last_usage = res_json.get("usageMetadata") or res_json.get("usage")
 
-    def _parse_interaction_response(self, response_json: dict[str, Any]) -> Message:
-        """Parses Gemini Interactions API response into internal Message format."""
-        outputs = response_json.get("outputs", [])
-        if not outputs:
+    def _parse_generate_content_response(
+        self, response_json: dict[str, Any]
+    ) -> Message:
+        """Parses generateContent API response into internal Message format.
+
+        ``thoughtSignature`` is a part-level field (sibling of ``functionCall``
+        / ``text`` inside each element of the ``parts`` array).  It must be
+        preserved verbatim and echoed back in the next request so that Gemini 3
+        thinking models can validate the function-calling chain.
+        """
+        candidates = response_json.get("candidates", [])
+        if not candidates:
             return Message(
                 role=Role.MODEL, parts=[ContentPart(text="[No output from model]")]
             )
 
+        content = candidates[0].get("content", {})
+        raw_parts = content.get("parts", [])
+
         model_parts: list[str | ContentPart] = []
-        for output in outputs:
-            type_ = output.get("type")
+        for part in raw_parts:
+            # thoughtSignature is a sibling field at the part level.
+            # Capture it once and attach it to whichever ContentPart we build.
+            thought_sig: str | None = part.get("thoughtSignature")
 
-            # Thought handling (Not strictly defined in API docs yet)
-            # Or maybe it comes as text?
-            # API docs show 'text', 'function_call', 'image', 'audio'.
-            # Thinking/Reasoning might be just text with a specific flag?
-            # For now, treat text as text.
+            # Thinking / reasoning blocks  (part["thought"] == True)
+            if part.get("thought"):
+                model_parts.append(
+                    ContentPart(
+                        thought=part.get("text", ""),
+                        thought_signature=thought_sig,
+                    )
+                )
 
-            if type_ == "text":
-                text = output.get("text", "")
-                model_parts.append(ContentPart(text=text))
+            # Plain text
+            elif "text" in part:
+                model_parts.append(
+                    ContentPart(text=part["text"], thought_signature=thought_sig)
+                )
 
-            elif type_ == "function_call":
-                # API: {"type": "function_call", "name": "...", "id": ...}
-                fc = {
-                    "name": output.get("name"),
-                    "args": output.get("arguments"),
-                    "id": output.get("id"),  # Interactions API returns 'id' for call_id
-                }
-                model_parts.append(ContentPart(function_call=fc))
+            # Function / tool call
+            elif "functionCall" in part:
+                fc = part["functionCall"]
+                model_parts.append(
+                    ContentPart(
+                        function_call={
+                            "id": fc.get("id", fc.get("name")),
+                            "name": fc.get("name"),
+                            "args": fc.get("args", {}),
+                        },
+                        thought_signature=thought_sig,
+                    )
+                )
 
-            elif type_ == "image":
-                # API: {"type": "image", "data": "BASE64...", "mime_type": "..."}
-                mime_type = output.get("mime_type") or "image/png"
-                inline = {
-                    "mimeType": mime_type,
-                    "data": output.get("data"),
-                }
-                model_parts.append(ContentPart(inline_data=inline))
+            # Inline media (e.g. generated images)
+            elif "inlineData" in part:
+                inline = part["inlineData"]
+                model_parts.append(
+                    ContentPart(
+                        inline_data={
+                            "mimeType": inline.get("mimeType", "image/png"),
+                            "data": inline.get("data"),
+                        },
+                        thought_signature=thought_sig,
+                    )
+                )
 
         return Message(role=Role.MODEL, parts=model_parts)
 

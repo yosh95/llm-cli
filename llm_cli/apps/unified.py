@@ -63,12 +63,12 @@ class UnifiedClient:
         # It will create the ModelManager and ConfigManager for its specific provider.
         self._activate_provider(provider_name)
 
-        # 3. Setup custom command registry
-        import copy
+        # 3. Setup custom command registry (independent copy)
+        from llm_cli.clients.command_handler import Command, CommandRegistry, registry
 
-        from llm_cli.clients.command_handler import Command, registry
-
-        self.command_registry = copy.copy(registry)
+        self.command_registry = CommandRegistry()
+        for cmd in registry.commands.values():
+            self.command_registry.register(cmd)
         self.command_registry.register(
             Command(
                 "provider",
@@ -204,6 +204,16 @@ class UnifiedClient:
         else:
             console.print(f"[red]Unknown or unavailable provider: {args}[/red]")
             return True
+
+    def talk(
+        self,
+        initial_data: list[DataSource] | None = None,
+        sources: list[str] | None = None,
+    ) -> None:
+        """Starts an interactive chat session bound to this UnifiedClient."""
+        from llm_cli.clients.session import ChatSession
+
+        ChatSession(self).run(initial_data, sources)  # type: ignore
 
     def _send(
         self, data: list[DataSource]

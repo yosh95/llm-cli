@@ -213,6 +213,33 @@ class ChatSession:
             )
         ).strip()
 
+    def _sign_response(self, response_text: str) -> None:
+        """Signs the response for bi-directional verification."""
+        try:
+            from llm_cli.security.identity import IdentityManager
+            from llm_cli.security.pqc import ResponseSigner
+
+            verification_id = "initial"
+            if (
+                self.client.conversation
+                and self.client.conversation[-1].role == Role.TOOL
+            ):
+                last_part = self.client.conversation[-1].parts[0]
+                if isinstance(last_part, ContentPart):
+                    fr = last_part.function_response
+                    if isinstance(fr, dict):
+                        verification_id = fr.get("id", "root")
+
+            pqc_priv = IdentityManager._get_pqc_private_key_content()
+            signed_res = ResponseSigner.sign_response(
+                response_text, verification_id, pqc_priv
+            )
+            # Stored for external audit / "Verified" badge display.
+            self.last_response_signature = signed_res["pqc_signature"]
+        except Exception:
+            # Silent fail for signing errors in CLI
+            pass
+
     def _get_input(self, *args: Any, **kwargs: Any) -> str:
         """Proxy to SessionUI.get_input for backward compatibility/protocols."""
         return self.ui.get_input(*args, **kwargs)
@@ -304,31 +331,7 @@ class ChatSession:
 
         # --- Display response + PQC background signing ---
         if response_text:
-            # Bi-directional verification: sign the response so it can be
-            # correlated with the tool-execution audit trail later.
-            try:
-                from llm_cli.security.identity import IdentityManager
-                from llm_cli.security.pqc import ResponseSigner
-
-                verification_id = "initial"
-                if (
-                    self.client.conversation
-                    and self.client.conversation[-1].role == Role.TOOL
-                ):
-                    last_part = self.client.conversation[-1].parts[0]
-                    if isinstance(last_part, ContentPart):
-                        fr = last_part.function_response
-                        if isinstance(fr, dict):
-                            verification_id = fr.get("id", "root")
-
-                pqc_priv = IdentityManager._get_pqc_private_key_content()
-                signed_res = ResponseSigner.sign_response(
-                    response_text, verification_id, pqc_priv
-                )
-                # Stored for external audit / "Verified" badge display.
-                self.last_response_signature = signed_res["pqc_signature"]
-            except Exception:
-                pass
+            self._sign_response(response_text)
 
             if self.client.stdout:
                 print(response_text)

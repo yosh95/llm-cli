@@ -40,6 +40,8 @@ class BaseLlmClient(ABC):
     tools, media, and logging.
     """
 
+    api_key: str | None
+
     def __init__(
         self,
         initial_model_alias: str,

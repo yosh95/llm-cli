@@ -318,12 +318,29 @@ class MediaManager:
         self, inline_data: dict[str, Any], hint_text: str = ""
     ) -> tuple[str | None, Path | None]:
         """Saves generated images to disk."""
-        from llm_cli.clients import base_helpers
+        mime_type = inline_data.get("mimeType", "")
+        if mime_type.startswith("image/"):
+            import base64
+            import mimetypes
 
-        return base_helpers.save_inline_media_and_get_log_entry(
-            inline_data,
-            hint_text,
-        )
+            from llm_cli.clients.config import config_manager
+            from llm_cli.modules.media_utils import generate_safe_filename
+
+            image_save_path = config_manager.get("general", "image_save_path") or "."
+            save_dir = Path(image_save_path).expanduser()
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+            ext = mimetypes.guess_extension(mime_type) or ".png"
+            filename = generate_safe_filename(hint_text, ext=ext.strip("."))
+            target_path = save_dir / filename
+
+            try:
+                target_path.write_bytes(base64.b64decode(inline_data["data"]))
+                msg = f"\n\n🎨 Image generated and saved to: **{target_path}**\n"
+                return msg, target_path
+            except Exception as e:
+                console.print(f"[red]Failed to save image: {e}[/red]")
+        return None, None
 
 
 class LoggingManager:
@@ -341,22 +358,130 @@ class LoggingManager:
         if not self.live_debug:
             return
 
-        from llm_cli.clients import base_helpers
-
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         try:
-            base_helpers.print_live_debug(
+            self._print_live_debug(
                 timestamp, response_obj, request_payload, response_content
             )
         except Exception as e:
             console.print(f"[dim red]Live debug display failed: {e}[/dim red]")
 
-    def report_error(self, provider_name: str, e: Exception) -> None:
-        from llm_cli.clients import base_helpers
+    def _print_live_debug(
+        self,
+        timestamp: str,
+        response_obj: Any = None,
+        request_payload: Any = None,
+        response_content: Any = None,
+    ) -> None:
+        import json
 
-        base_helpers.report_error(provider_name, e)
+        from rich.console import Group
+        from rich.panel import Panel
+        from rich.syntax import Syntax
+
+        def _format_json(data: Any) -> str | Syntax:
+            if isinstance(data, (dict, list)):
+                try:
+                    return Syntax(
+                        json.dumps(data, indent=2, ensure_ascii=False),
+                        "json",
+                        theme="monokai",
+                        background_color="default",
+                        word_wrap=True,
+                    )
+                except Exception:
+                    pass
+            return str(data)
+
+        if response_obj:
+            req_info: list[Any] = []
+            if request_payload:
+                req_info.append(_format_json(request_payload))
+            elif hasattr(response_obj, "request"):
+                req = response_obj.request
+                req_info.append(f"[bold]URL:[/bold] {req.url}")
+                if req.body:
+                    try:
+                        b_str = (
+                            req.body.decode("utf-8")
+                            if isinstance(req.body, bytes)
+                            else str(req.body)
+                        )
+                        req_info.append(_format_json(json.loads(b_str)))
+                    except Exception:
+                        req_info.append(f"[dim]Raw Body:[/dim]\n{str(req.body)}")
+
+            if req_info:
+                console.print(
+                    Panel(
+                        Group(*req_info),
+                        title=f"[bold cyan]API Request ({timestamp})[/bold cyan]",
+                        border_style="cyan",
+                        expand=False,
+                    )
+                )
+
+            res_info: list[Any] = [f"[bold]Status:[/bold] {response_obj.status_code}"]
+            if response_content:
+                res_info.append(_format_json(response_content))
+            else:
+                try:
+                    res_info.append(_format_json(response_obj.json()))
+                except Exception:
+                    res_info.append(response_obj.text)
+
+            console.print(
+                Panel(
+                    Group(*res_info),
+                    title=f"[bold green]API Response ({timestamp})[/bold green]",
+                    border_style="green",
+                    expand=False,
+                )
+            )
+        else:
+            if request_payload:
+                console.print(
+                    Panel(
+                        _format_json(request_payload),
+                        title=f"[bold cyan]Payload Request ({timestamp})[/bold cyan]",
+                        border_style="cyan",
+                        expand=False,
+                    )
+                )
+            if response_content:
+                title_res = f"[bold green]Payload Response ({timestamp})[/bold green]"
+                console.print(
+                    Panel(
+                        _format_json(response_content),
+                        title=title_res,
+                        border_style="green",
+                        expand=False,
+                    )
+                )
+
+    def report_error(self, provider_name: str, e: Exception) -> None:
+        import json
+
+        import requests
+
+        error_msg = str(e)
+        if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+            try:
+                body_str = json.dumps(e.response.json(), indent=2, ensure_ascii=False)
+                error_msg += f"\nResponse Body: {body_str}"
+            except Exception:
+                if e.response.text:
+                    error_msg += f"\nResponse Body: {e.response.text}"
+        console.print(f"[bold red]{provider_name} Error: {error_msg}[/bold red]")
 
     def trim_log_file(self, path: Path, max_lines: int) -> None:
-        from llm_cli.clients import base_helpers
-
-        base_helpers.trim_log_file(console, path, max_lines)
+        try:
+            if not path.exists():
+                return
+            with path.open("r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+            if len(lines) > max_lines:
+                with path.open("w", encoding="utf-8", errors="replace") as f:
+                    f.writelines(lines[-max_lines:])
+        except Exception as e:
+            console.print(f"[dim red]Log trimming failed: {e}[/dim red]")

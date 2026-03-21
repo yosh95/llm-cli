@@ -2,7 +2,7 @@
 
 import mimetypes
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
@@ -152,192 +152,16 @@ class GeminiClient(BaseLlmClient):
         if not self.conversation:
             self.last_interaction_id = None
 
-        # Prepare input payload for Interactions API
-        interaction_input: list[dict[str, Any]] = []
-
-        # 1. Check for pending tool results in conversation history
-        # (These are added by ChatSession but not passed in 'data')
-        if self.conversation and self.conversation[-1].role == Role.TOOL:
-            for part in self.conversation[-1].parts:
-                if isinstance(part, ContentPart) and part.function_response:
-                    fr = part.function_response
-                    # Convert to Interactions API function_result format
-                    interaction_input.append(
-                        {
-                            "type": "function_result",
-                            "name": fr.get("name"),
-                            "call_id": fr.get("id"),
-                            "result": fr.get("response", {}).get("result"),
-                        }
-                    )
-
-        # 2. Process new user data
-        for item in data:
-            file_uri = item.metadata.get("file_uri")
-            if file_uri:
-                # Interactions API uses 'uri' field and specific type based on mime
-                input_type = self._mime_to_interaction_type(item.content_type)
-                interaction_input.append(
-                    {
-                        "type": input_type,
-                        "uri": file_uri,
-                        "mime_type": item.content_type,
-                    }
-                )
-            elif any(
-                item.content_type.startswith(t)
-                for t in ["image/", "audio/", "video/", "application/pdf"]
-            ):
-                # Inline base64 data
-                input_type = self._mime_to_interaction_type(item.content_type)
-                interaction_input.append(
-                    {
-                        "type": input_type,
-                        "data": item.content,  # Assuming base64 string
-                        "mime_type": item.content_type,
-                    }
-                )
-            else:
-                # Text content
-                interaction_input.append({"type": "text", "text": str(item.content)})
-
+        interaction_input = self._prepare_interaction_input(data)
         is_image_model = self._is_image_model()
-
-        # Construct request payload
-        payload: dict[str, Any] = {
-            "model": self.model,
-            "input": interaction_input,
-        }
-
-        # Add system instruction if enabled
-        if self.system_prompt and self.system_prompt_enabled:
-            payload["system_instruction"] = self.system_prompt
-
-        # For image models, consolidate all text input into a single prompt
-        # while preserving other media types (e.g. for image-to-image or context)
-        if is_image_model:
-            new_interaction_input = []
-            text_parts = []
-            for inp in interaction_input:
-                if inp.get("type") == "text":
-                    text_parts.append(inp.get("text", ""))
-                else:
-                    new_interaction_input.append(inp)
-
-            if text_parts:
-                new_interaction_input.insert(
-                    0, {"type": "text", "text": " ".join(text_parts).strip()}
-                )
-            interaction_input = new_interaction_input
-            payload["input"] = interaction_input
-
-        if self.last_interaction_id:
-            payload["previous_interaction_id"] = self.last_interaction_id
-        elif not is_image_model or len(interaction_input) > 1:
-            # No interaction ID (First turn). Inject context.
-            # We also inject context if it's an image model but we have
-            # multiple inputs (e.g. image + text), as it's likely a vision-related task.
-            context_text_parts = []
-
-            if self.conversation:
-                for msg in self.conversation:
-                    role_str = msg.role.upper()
-                    msg_text = ""
-                    for p in msg.parts:
-                        if isinstance(p, ContentPart):
-                            if p.text:
-                                msg_text += p.text
-                            elif p.function_call:
-                                name = p.function_call.get("name")
-                                msg_text += f"\n[Function Call: {name}]"
-                            elif p.function_response:
-                                name = p.function_response.get("name")
-                                msg_text += f"\n[Function Result: {name}]"
-                        elif isinstance(p, str):
-                            msg_text += p
-
-                    if msg_text:
-                        context_text_parts.append(f"[{role_str}]: {msg_text}")
-
-            if context_text_parts:
-                full_context = "\n\n".join(context_text_parts)
-                payload["input"].insert(0, {"type": "text", "text": full_context})
-
-        # Multimodal Output Configuration
-        if is_image_model:
-            payload["response_modalities"] = ["IMAGE"]
-            if "generation_config" in payload:
-                del payload["generation_config"]
-
-        # Tools - Send every time as Interactions API does not persist them
-        if self.active_tools and self.tools_enabled:
-            tools_payload = registry.get_gemini_interactions_spec(
-                self.active_tools, provider=self.config_section
-            )
-            if tools_payload:
-                payload["tools"] = tools_payload
+        payload = self._build_request_payload(interaction_input, is_image_model)
 
         try:
-            response = self._post(
-                self.INTERACTIONS_API_URL,
-                headers={
-                    "x-goog-api-key": self.api_key,
-                    "Content-Type": "application/json",
-                },
-                json_data=payload,
-                timeout=self.request_timeout,
-            )
-
-            self._log_debug(response_obj=response, request_payload=payload)
-            response.raise_for_status()
-            res_json = response.json()
-
-            # Store Interaction ID
+            res_json = self._call_interactions_api(payload)
             self.last_interaction_id = res_json.get("id")
-
-            # Parse Response
             model_msg = self._parse_interaction_response(res_json)
+            self._update_local_state(data, model_msg, res_json)
 
-            # Update history locally (for UI and saving)
-            # 1. Add User message (if we sent new data)
-            if data:
-                # Reconstruct user message parts for history
-                history_user_parts: list[str | ContentPart] = []
-                for item in data:
-                    file_uri = item.metadata.get("file_uri")
-                    if file_uri:
-                        history_user_parts.append(
-                            ContentPart(text=f"[File: {file_uri}]")
-                        )
-                    elif any(
-                        item.content_type.startswith(t)
-                        for t in ["image/", "audio/", "video/", "application/pdf"]
-                    ):
-                        # For inline data, we store slightly different structure
-                        # in history to reuse existing rendering logic
-                        history_user_parts.append(
-                            ContentPart(
-                                inline_data={
-                                    "mimeType": item.content_type,
-                                    "data": item.content,
-                                }
-                            )
-                        )
-                    else:
-                        history_user_parts.append(ContentPart(text=str(item.content)))
-
-                self.conversation.append(
-                    Message(role=Role.USER, parts=history_user_parts)
-                )
-
-            # 2. Add Model message
-            self.conversation.append(model_msg)
-            # Usage metadata is not always returned in Interactions API same way?
-            # Assuming it might be there or we skip it.
-            # Docs didn't explicitly show usage metadata in response examples.
-            self.last_usage = res_json.get("usageMetadata") or res_json.get("usage")
-
-            # Extract display text and thoughts (Copying logic from original _send)
             display_text = ""
             thought_text = ""
             last_saved_image_path = None
@@ -380,10 +204,154 @@ class GeminiClient(BaseLlmClient):
                             )
 
             return (display_text.strip(), thought_text.strip()), self.last_usage
-
         except Exception as e:
-            self._report_error("Gemini Interactions", e)
+            self._report_error("Gemini", e)
             return (None, None), None
+
+    def _prepare_interaction_input(
+        self, data: list[DataSource]
+    ) -> list[dict[str, Any]]:
+        """Prepares input list for Interactions API."""
+        interaction_input: list[dict[str, Any]] = []
+
+        if self.conversation and self.conversation[-1].role == Role.TOOL:
+            for part in self.conversation[-1].parts:
+                if isinstance(part, ContentPart) and part.function_response:
+                    fr = part.function_response
+                    interaction_input.append(
+                        {
+                            "type": "function_result",
+                            "name": fr.get("name"),
+                            "call_id": fr.get("id"),
+                            "result": fr.get("response", {}).get("result"),
+                        }
+                    )
+
+        for item in data:
+            file_uri = item.metadata.get("file_uri")
+            if file_uri:
+                interaction_input.append(
+                    {
+                        "type": self._mime_to_interaction_type(item.content_type),
+                        "uri": file_uri,
+                        "mime_type": item.content_type,
+                    }
+                )
+            elif any(
+                item.content_type.startswith(t)
+                for t in ["image/", "audio/", "video/", "application/pdf"]
+            ):
+                interaction_input.append(
+                    {
+                        "type": self._mime_to_interaction_type(item.content_type),
+                        "data": item.content,
+                        "mime_type": item.content_type,
+                    }
+                )
+            else:
+                interaction_input.append({"type": "text", "text": str(item.content)})
+        return interaction_input
+
+    def _build_request_payload(
+        self, interaction_input: list[dict[str, Any]], is_image_model: bool
+    ) -> dict[str, Any]:
+        """Constructs the full request payload."""
+        if is_image_model:
+            text_parts = [
+                inp.get("text", "")
+                for inp in interaction_input
+                if inp.get("type") == "text"
+            ]
+            other_parts = [
+                inp for inp in interaction_input if inp.get("type") != "text"
+            ]
+            if text_parts:
+                interaction_input = [
+                    {"type": "text", "text": " ".join(text_parts).strip()}
+                ] + other_parts
+
+        payload: dict[str, Any] = {"model": self.model, "input": interaction_input}
+        if self.system_prompt and self.system_prompt_enabled:
+            payload["system_instruction"] = self.system_prompt
+
+        if self.last_interaction_id:
+            payload["previous_interaction_id"] = self.last_interaction_id
+        elif not is_image_model or len(interaction_input) > 1:
+            context = self._build_context_text()
+            if context:
+                payload["input"].insert(0, {"type": "text", "text": context})
+
+        if is_image_model:
+            payload["response_modalities"] = ["IMAGE"]
+            payload.pop("generation_config", None)
+
+        if self.active_tools and self.tools_enabled:
+            spec = registry.get_gemini_interactions_spec(
+                self.active_tools, provider=self.config_section
+            )
+            if spec:
+                payload["tools"] = spec
+        return payload
+
+    def _build_context_text(self) -> str | None:
+        """Builds context string from history."""
+        parts = []
+        for msg in self.conversation:
+            role = msg.role.upper()
+            txt = "".join(
+                p.text
+                if isinstance(p, ContentPart) and p.text
+                else (p if isinstance(p, str) else "")
+                for p in msg.parts
+            )
+            if txt:
+                parts.append(f"[{role}]: {txt}")
+        return "\n\n".join(parts) if parts else None
+
+    def _call_interactions_api(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Calls the Interactions API."""
+        response = self._post(
+            self.INTERACTIONS_API_URL,
+            headers={
+                "x-goog-api-key": self.api_key,
+                "Content-Type": "application/json",
+            },
+            json_data=payload,
+            timeout=self.request_timeout,
+        )
+        self._log_debug(response_obj=response, request_payload=payload)
+        response.raise_for_status()
+        return cast(dict[str, Any], response.json())
+
+    def _update_local_state(
+        self, data: list[DataSource], model_msg: Message, res_json: dict[str, Any]
+    ) -> None:
+        """Updates internal conversation history and usage."""
+        if data:
+            parts: list[str | ContentPart] = []
+            for item in data:
+                if item.metadata.get("file_uri"):
+                    parts.append(
+                        ContentPart(text=f"[File: {item.metadata['file_uri']}]")
+                    )
+                elif any(
+                    item.content_type.startswith(t)
+                    for t in ["image/", "audio/", "video/", "application/pdf"]
+                ):
+                    parts.append(
+                        ContentPart(
+                            inline_data={
+                                "mimeType": item.content_type,
+                                "data": item.content,
+                            }
+                        )
+                    )
+                else:
+                    parts.append(ContentPart(text=str(item.content)))
+            self.conversation.append(Message(role=Role.USER, parts=parts))
+
+        self.conversation.append(model_msg)
+        self.last_usage = res_json.get("usageMetadata") or res_json.get("usage")
 
     def _parse_interaction_response(self, response_json: dict[str, Any]) -> Message:
         """Parses Gemini Interactions API response into internal Message format."""

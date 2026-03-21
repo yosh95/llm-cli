@@ -187,8 +187,11 @@ def list_models(config: ModelListingConfig, args: argparse.Namespace) -> None:
     """Generic model listing implementation."""
     api_key = config_manager.get(config.config_section, config.api_key_setting)
     if api_key is None and config.config_section not in ("ollama",):
-        console.print(f"[red]{config.provider_name} API Key not found in config.[/red]")
-        console.print("[yellow]Please run 'llm-cli-config' to set it up.[/yellow]")
+        console.print(f"[red]{config.provider_name} API Key not found.[/red]")
+        console.print(
+            "[yellow]Please set the appropriate environment variable "
+            "(e.g., export OPENAI_API_KEY='...').[/yellow]"
+        )
         return
 
     api_url = (
@@ -312,8 +315,8 @@ def main() -> None:
         if not any_configured:
             console.print(
                 "[yellow]No providers configured. "
-                "Please run 'llm-cli-config' or set environment variables "
-                "like OPENAI_API_KEY.[/yellow]"
+                "Please set an API key environment variable like OPENAI_API_KEY."
+                "[/yellow]"
             )
             available = ", ".join(sorted(MODEL_LISTING_REGISTRY.keys()))
             console.print(f"Available providers: {available}")

@@ -12,12 +12,17 @@ max_output_lines = 500
 max_security_log_lines = 1000
 
 # =============================================================================
-# Security (Attribute-Based Access Control)
+# Security & API Keys
 # =============================================================================
 [security]
-# API Keys MUST be set via environment variables.
-# e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, XAI_API_KEY, OLLAMA_API_KEY
-# For Brave Search, use BRAVE_SEARCH_API_KEY.
+# IMPORTANT: API Keys are NOT checked in this file for security reasons.
+# You MUST set them as environment variables (e.g., in ~/.bashrc, ~/.zshrc, or .env):
+#   - OpenAI:       OPENAI_API_KEY
+#   - Anthropic:    ANTHROPIC_API_KEY
+#   - Google/Gemini: GEMINI_API_KEY (or GOOGLE_API_KEY)
+#   - xAI/Grok:     XAI_API_KEY
+#   - Ollama:       OLLAMA_API_KEY (required even for local usage)
+#   - Brave Search: BRAVE_SEARCH_API_KEY (for web search tool)
 
 # Path-based access control (Resource Attributes)
 allowed_paths = ["."]

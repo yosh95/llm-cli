@@ -24,15 +24,23 @@ class UnifiedClient(BaseLlmClient):
         self.client_kwargs = kwargs
 
         default_p = config_manager.get("general", "unified_default_provider")
-        if not initial_provider and not default_p:
-            console.print(
-                "[bold red]Error: No default provider is configured.[/bold red]\n"
-                "Please set 'unified_default_provider' in the [general] section "
-                "of your config.toml or run [cyan]llm-cli-config[/cyan] to set it up."
-            )
-            import sys
+        active_providers = config_manager.get_active_providers()
 
-            sys.exit(1)
+        if not initial_provider:
+            if not default_p or default_p not in active_providers:
+                if active_providers:
+                    # Fallback to the first active provider
+                    # Priority: google -> openai -> anthropic -> xai -> ollama
+                    default_p = active_providers[0]
+                else:
+                    console.print(
+                        "[bold red]Error: No active providers found.[/bold red]\n"
+                        "Please set an API key environment variable "
+                        "(e.g., export GOOGLE_API_KEY='...')."
+                    )
+                    import sys
+
+                    sys.exit(1)
 
         initial_provider_name = str(initial_provider or default_p)
         config_section = (

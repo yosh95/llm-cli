@@ -5,21 +5,52 @@ from pathlib import Path
 from typing import Any, cast
 
 from llm_cli.clients.config_models import AppConfig
-from llm_cli.consts import CONFIG_FILE_PATH
+from llm_cli.consts import CONFIG_FILE_PATH, LLM_CLI_BASE_DIR
 
 
 class ConfigManager:
     _instance: "ConfigManager | None" = None
     _config_cache: dict[str, Any] | None = None
     _app_config: AppConfig | None = None
+    _env_loaded: bool = False
 
     def __new__(cls) -> "ConfigManager":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
+    def _load_env_files(self) -> None:
+        """Loads environment variables from .env files if they exist."""
+        if self._env_loaded:
+            return
+
+        # Priority: Current directory .env -> ~/.llm_cli/.env
+        dotenv_paths = [
+            Path(".env"),
+            LLM_CLI_BASE_DIR / ".env",
+        ]
+        for path in dotenv_paths:
+            if path.exists():
+                try:
+                    with path.open("r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line or line.startswith("#"):
+                                continue
+                            if "=" in line:
+                                key, val = line.split("=", 1)
+                                key = key.strip()
+                                # Simple stripping of quotes
+                                val = val.strip().strip("'").strip('"')
+                                if key and key not in os.environ:
+                                    os.environ[key] = val
+                except Exception:
+                    pass
+        self._env_loaded = True
+
     def load_config(self, reload: bool = False) -> dict[str, Any]:
         """Loads configuration from the TOML file and caches it."""
+        self._load_env_files()
         if self._config_cache is not None and not reload:
             return self._config_cache
 
@@ -81,6 +112,7 @@ class ConfigManager:
 
     def get(self, section: str, key: str, default: Any = None) -> Any:
         """Gets a setting value using (section, key) order."""
+        self._load_env_files()
         # API keys MUST come from environment variables for security.
         # This also serves as the "active" flag for a provider.
         if key == "api_key":

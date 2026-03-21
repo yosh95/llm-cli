@@ -323,7 +323,8 @@ class BaseLlmClient(ABC):
 
             report_error(
                 f"API key for '{self.config_section}' missing.\n"
-                "Please run llm-cli-config to set it up."
+                f"Please set the '{self.config_section.upper()}_API_KEY' "
+                "environment variable."
             )
             return
 
@@ -332,7 +333,7 @@ class BaseLlmClient(ABC):
 
             report_error(
                 f"No model for '{self.config_section}'.\n"
-                "Please run llm-cli-config to define model aliases."
+                "Please check your model aliases in config.toml."
             )
             return
 

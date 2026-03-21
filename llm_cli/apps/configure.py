@@ -428,12 +428,15 @@ def init_config(force: bool = False) -> None:
 
     commented_lines = []
     commented_lines.append("# llm-cli Configuration\n")
-    commented_lines.append(
-        "# API Keys MUST be set via environment variables (e.g., OPENAI_API_KEY).\n"
-    )
-    commented_lines.append(
-        "# Other settings can be customized by uncommenting them below.\n\n"
-    )
+    sep = "# " + "=" * 77 + "\n"
+    commented_lines.append(sep)
+    commented_lines.append("# IMPORTANT: API Keys are NOT stored in this file.\n")
+    commented_lines.append("# Set API Keys as env vars (e.g., in ~/.bashrc or .env):\n")
+    commented_lines.append("#   export OPENAI_API_KEY='your-key-here'\n")
+    commented_lines.append("#   export GEMINI_API_KEY='your-key-here'\n")
+    commented_lines.append("#   export ANTHROPIC_API_KEY='your-key-here'\n")
+    commented_lines.append(sep + "\n")
+    commented_lines.append("# Other settings can be customized below.\n\n")
 
     for line in lines:
         stripped = line.strip()

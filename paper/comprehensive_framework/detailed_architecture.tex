@@ -49,11 +49,11 @@
     \path [line] (pqc_kem) -- (attest);
 
     % Final Execution
-    \node [rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em, right=2.0cm of mamba, font=\small\bfseries] (exec) {Secure \\ Tool \\ Execution};
+    \node [rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em, right=5.5cm of mamba, font=\small\bfseries] (exec) {Secure \\ Tool \\ Execution};
 
-    \path [line] (isolated_env.east) -- +(0.4,0) |- (exec.160);
+    \path [line] (isolated_env.east) -- +(0.6,0) |- (exec.160);
     \path [line] (mamba.east) -- (exec.west);
-    \path [line] (attest.east) -- +(0.4,0) |- (exec.200);
+    \path [line] (attest.east) -- +(0.6,0) |- (exec.200);
 
     % MCP Server-Side (Zero Trust)
     \node [rectangle, draw, fill=gray!10, text width=8em, text centered, dotted, right=1.2cm of exec, font=\scriptsize] (server) {MCP Server-Side \\ \textbf{Secure Wrapper} \\ \textit{(Independent RBAC/Audit)}};
@@ -62,7 +62,7 @@
 
     % Response Loop
     \node [component, fill=orange!5, below=1.2cm of exec] (resp) {ResponseSigner \\ \textit{(Bi-directional Integrity)}};
-    \path [line] (server) |- (resp);
-    \path [line] (resp.west) -- +(-0.8,0) |- (request.south);
+    \path [line] (server.south) |- (resp.east);
+    \path [line] (resp.south) -- +(0,-2.5) -| (request.west);
 
 \end{tikzpicture}

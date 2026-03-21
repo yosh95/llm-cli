@@ -6,6 +6,26 @@
 
 [English] | [日本語](#japanese-description)
 
+---
+
+### 🎯 Purpose & Positioning
+
+Enterprise adoption of autonomous AI agents faces a fundamental, unsolved challenge: **how do you grant an AI meaningful agency while maintaining the security and governance standards that organizations require?** This project is one engineer's attempt to answer that question in working code.
+
+`llm-cli` was built primarily as a **personal daily-use tool** and as a **portfolio artifact** — a concrete demonstration of how CISSP/CISA/CCSP-level security principles (Zero Trust, ABAC, non-repudiation, PQC resilience, anomaly detection) can be applied to the novel threat surface introduced by autonomous LLM agents.
+
+**This tool is not certified or validated for enterprise production use.** No formal third-party security audit has been conducted, and the PQC primitives rely on pure-Python reference implementations that have not undergone independent cryptographic review. Deploying this in a regulated or mission-critical environment without additional validation would be inappropriate.
+
+Instead, its recommended uses are:
+
+- 🔍 **As a reference architecture** — for security engineers and architects exploring what a high-assurance agentic system *could* look like.
+- 🧪 **As an evaluation platform** — for studying the practical trade-offs between AI agent autonomy and deterministic security controls.
+- 📐 **As a design provocation** — a starting point for organizational discussions on agentic AI governance, not a finished answer.
+
+The accompanying [Technical Report](paper/comprehensive_framework/paper.pdf) details the threat model and architectural decisions behind this framework.
+
+---
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
 </p>
@@ -130,6 +150,26 @@ For detailed architectural insights and the academic background of our security 
 # llm-cli: 複数LLM対応 統合コマンドラインインターフェース
 
 `llm-cli` は、Gemini, OpenAI, Claude, Grok、および Ollama を介したローカルLLMを一元的に操作できる、高い安全性を備えたCLIツールです。開発者の「深い集中（Deep Work）」を妨げない安定した対話環境と、プロフェッショナルな要求に応える高度なセキュリティ機能を両立しています。
+
+---
+
+### 🎯 位置づけと目的
+
+企業における自律型 AI エージェントの活用には、根本的かつ未解決の課題があります。**「AIに十分な自律性を与えながら、組織が求めるセキュリティ標準とガバナンスをどう両立させるか」**――本プロジェクトは、その問いに対してエンジニアが動くコードで答えを試みたものです。
+
+`llm-cli` は主に**個人の日常利用ツール**として、また**ポートフォリオ**として開発されました。Zero Trust・ABAC・非否認性・耐量子暗号・異常検知といった CISSP/CISA/CCSP レベルのセキュリティ原則を、自律型 LLM エージェントがもたらす新しい脅威対象に適用すると、実装としてどのような形になるかを具体的に示すことを目的としています。
+
+**本ツールは、エンタープライズ本番環境への適用を保証・認定するものではありません。** 第三者による正式なセキュリティ監査は実施されておらず、PQC プリミティブは独立した暗号学的レビューを受けていない純粋 Python 参照実装に依存しています。規制対象業務やミッションクリティカルな環境への追加検証なしでの展開は推奨しません。
+
+本プロジェクトの推奨される活用方法は以下のとおりです。
+
+- 🔍 **参照アーキテクチャとして** ― 高保証なエージェントシステムが「どのような設計になりえるか」を探求するセキュリティエンジニア・アーキテクト向け。
+- 🧪 **評価プラットフォームとして** ― AI エージェントの自律性と決定論的セキュリティ制御の間にある実践的なトレードオフを検討するための実験基盤として。
+- 📐 **設計上の問いかけとして** ― 組織内における AI エージェントのガバナンス議論の起点として。完成した答えではなく、問いを深めるための素材として。
+
+設計の背景にある脅威モデルとアーキテクチャ上の意思決定については、[テクニカルレポート](paper/comprehensive_framework/paper.pdf)で詳述しています。
+
+---
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />

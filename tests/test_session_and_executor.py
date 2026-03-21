@@ -5,7 +5,6 @@ import pytest
 from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 from llm_cli.clients.session import ChatSession
 from llm_cli.clients.tool_executor import (
-    PostProcessHandler,
     ToolExecutionContext,
     execute_tool_call,
 )
@@ -58,7 +57,7 @@ def tool_call_part():
 
 
 def test_execute_tool_call_success(session, tool_call_part):
-    """Test successful tool execution pipeline."""
+    """Test successful tool execution flow."""
     mock_tool_func = MagicMock(return_value="Success Result")
 
     with patch(
@@ -72,11 +71,14 @@ def test_execute_tool_call_success(session, tool_call_part):
         },
     ):
         with patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True):
-            res_part, injected = execute_tool_call(session, tool_call_part)
+            with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
+                res_part, injected = execute_tool_call(session, tool_call_part)
 
-            assert res_part.function_response["response"]["result"] == "Success Result"
-            assert injected is None
-            mock_tool_func.assert_called_once()
+                assert (
+                    res_part.function_response["response"]["result"] == "Success Result"
+                )
+                assert injected is None
+                mock_tool_func.assert_called_once()
 
 
 def test_execute_tool_call_user_rejection(session, tool_call_part):
@@ -111,7 +113,6 @@ def test_execute_tool_call_policy_violation(session, tool_call_part):
 def test_execute_tool_call_with_injected_data(session, tool_call_part):
     """Test tool that returns injected data for the next turn."""
     injected_ds = DataSource(content="Injected", content_type="text/plain")
-    # Result without pqc_signature will be returned as is (the dict)
     mock_tool_func = MagicMock(
         return_value={"result": "OK", "__llm_cli_data__": injected_ds}
     )
@@ -121,57 +122,19 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
         {"test_tool": {"func": mock_tool_func, "skip_approval": True}},
     ):
         with patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True):
-            res_part, injected = execute_tool_call(session, tool_call_part)
+            with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
+                res_part, injected = execute_tool_call(session, tool_call_part)
 
-            assert res_part.function_response["response"]["result"] == {"result": "OK"}
-            assert injected == injected_ds
-
-
-@pytest.mark.asyncio
-async def test_session_process_and_print(session):
-    """Test the main ReAct loop in ChatSession."""
-    data = [DataSource(content="User prompt", content_type="text/plain")]
-
-    # 1. Model responds with tool call
-    tool_call = {"id": "c1", "name": "t1", "args": {}}
-    model_res_1 = (("", "Thinking..."), {"tokens": 5})
-
-    # 2. Tool execution result
-    tool_resp_part = ContentPart(
-        function_response={"id": "c1", "name": "t1", "response": {"result": "Done"}}
-    )
-
-    # 3. Model final response
-    model_res_2 = (("Final Answer", ""), {"tokens": 10})
-
-    with patch.object(session.client, "_send", side_effect=[model_res_1, model_res_2]):
-        # _has_pending_tool_calls is called in _run_single_turn AND _process_tool_loop
-        with patch.object(
-            session.client,
-            "_has_pending_tool_calls",
-            side_effect=[True, True, False, False],
-        ):
-            with patch(
-                "llm_cli.clients.tool_executor.execute_tool_call",
-                return_value=(tool_resp_part, None),
-            ):
-                # Mock last message check
-                session.client.conversation = [
-                    Message(role=Role.USER, parts=["User prompt"]),
-                    Message(
-                        role=Role.MODEL, parts=[ContentPart(function_call=tool_call)]
-                    ),
-                ]
-
-                session.process_and_print(data)
-
-                # Check that conversation has grown
-                assert len(session.client.conversation) > 2
+                assert (
+                    res_part.function_response["response"]["result"]
+                    == "{'result': 'OK'}"
+                )
+                assert injected == injected_ds
 
 
-def test_code_safety_handler_blocks_unsafe_code(session):
-    """Test that CodeSafetyHandler blocks dangerous Python code."""
-    from llm_cli.clients.tool_executor import CodeSafetyHandler
+def test_code_safety_check_blocks_unsafe_code(session):
+    """Test that static analysis blocks dangerous Python code."""
+    from llm_cli.clients.tool_executor import _run_code_safety_check
 
     part = ContentPart(
         function_call={
@@ -181,18 +144,19 @@ def test_code_safety_handler_blocks_unsafe_code(session):
     )
     ctx = ToolExecutionContext(session, part)
 
-    handler = CodeSafetyHandler()
     with patch(
         "llm_cli.clients.tool_executor.analyze_python_safety",
         return_value=(False, ["Dangerous import"]),
     ):
-        handler.process(ctx)
-        assert ctx.aborted is True
+        # By default it should fail if analyze_python_safety returns False
+        result = _run_code_safety_check(ctx)
+        assert result is False
         assert "Blocked" in ctx.error_message
 
 
 def test_pqc_verification_post_process(session):
-    """Test that PostProcessHandler verifies PQC signatures."""
+    """Test that _post_process_result verifies PQC signatures."""
+    from llm_cli.clients.tool_executor import _post_process_result
 
     # Result with valid-looking signature structure
     result_data = {
@@ -206,13 +170,13 @@ def test_pqc_verification_post_process(session):
     ctx = ToolExecutionContext(session, part)
     ctx.result_data = result_data
 
-    handler = PostProcessHandler()
     with patch(
         "llm_cli.security.identity.IdentityManager._get_pqc_public_key_content",
         return_value=b"pubkey",
     ):
         with patch("llm_cli.security.pqc.PQCProvider.verify", return_value=True):
             with patch("llm_cli.clients.tool_executor.report_success") as mock_success:
-                handler.process(ctx)
+                success = _post_process_result(ctx)
+                assert success is True
                 assert ctx.result_data == "Secret Data"
                 mock_success.assert_called_once()

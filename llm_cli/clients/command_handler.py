@@ -140,7 +140,7 @@ def handle_reload(ctx: CommandContext) -> bool:
     ctx.client.api_key = config_manager.get(
         ctx.client.config_section, ctx.client._api_key_name
     )
-    ctx.client._refresh_general_settings()
+    ctx.client.refresh_config()
     ctx.client._refresh_system_prompt()
     policy_engine.reinitialize()
     console.print("[green]Configuration reloaded from disk.[/green]")

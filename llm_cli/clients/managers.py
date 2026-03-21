@@ -2,156 +2,26 @@
 
 from __future__ import annotations
 
-import copy
 import dataclasses
-import datetime
 import json
 import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.ui import console
 
 
-class ProviderConfigManager:
-    """Manages provider-specific and general configuration settings."""
-
-    def __init__(self, section: str, disable_system_prompt: bool = False):
-        self.section = section
-        self._disable_system_prompt = disable_system_prompt
-        self.request_timeout: int | None = None
-        self.max_chat_log_lines: int = 10000
-        self.system_prompt: str = ""
-        self.system_prompt_enabled: bool = not disable_system_prompt
-
-        self.refresh()
-
-    def refresh(self) -> None:
-        """Reloads settings that can change at runtime."""
-        self._refresh_general_settings()
-        self._refresh_system_prompt()
-
-    def _refresh_general_settings(self) -> None:
-        raw_timeout = config_manager.get("general", "request_timeout")
-        try:
-            self.request_timeout = int(raw_timeout) if raw_timeout else None
-        except (ValueError, TypeError):
-            self.request_timeout = None
-
-        raw_max_lines = config_manager.get("general", "max_chat_log_lines")
-        try:
-            self.max_chat_log_lines = int(raw_max_lines) if raw_max_lines else 10000
-        except (ValueError, TypeError):
-            self.max_chat_log_lines = 10000
-
-    def _refresh_system_prompt(self) -> None:
-        raw_prompt = config_manager.get(self.section, "system_prompt") or ""
-        disable_date_prompt = config_manager.get(self.section, "disable_date_prompt")
-
-        parts = []
-        if not disable_date_prompt:
-            now = datetime.datetime.now().astimezone().strftime("%Y-%m-%d (%A)")
-            parts.append(f"Current date: {now}")
-
-        if raw_prompt:
-            parts.append(raw_prompt)
-
-        self.system_prompt = "\n".join(parts)
-        self.system_prompt_enabled = not self._disable_system_prompt
-
-
-class ModelManager:
-    """Manages model selection, aliases, and provider-specific display info."""
-
-    def __init__(self, section: str):
-        self.section = section
-        self.available_models: dict[str, Any] = {}
-        self.current_alias: str = ""
-        self.model: str = ""
-        self.model_config: dict[str, Any] = {}
-        self.load_model_aliases()
-
-    def load_model_aliases(self) -> None:
-        """Loads model aliases from the configuration."""
-        self.available_models = config_manager.get_model_aliases(self.section)
-        if not self.available_models:
-            console.print(
-                f"[yellow]Warning: No models configured for {self.section}. "
-                "Check config.toml.[/yellow]"
-            )
-
-    def set_model(self, alias: str) -> bool:
-        """Sets the active model and its configuration using its alias."""
-        if alias in self.available_models:
-            self.current_alias = alias
-            self.model_config = config_manager.get_model_config(self.section, alias)
-            self.model = self.model_config.get("model", self.available_models[alias])
-            return True
-        return False
-
-    def set_custom_model(self, model_name: str) -> None:
-        """Sets a custom model that is not in the configuration."""
-        self.current_alias = "custom"
-        self.model = model_name
-        self.model_config = {}
-
-    def get_model_icon(self) -> str:
-        """Returns an appropriate icon for the current provider."""
-        provider = self.section.lower()
-        icons = {
-            "google": "✨",
-            "gemini": "✨",
-            "openai": "🤖",
-            "anthropic": "🌿",
-            "claude": "🌿",
-            "xai": "🌌",
-            "grok": "🌌",
-            "ollama": "🦙",
-        }
-        for k, v in icons.items():
-            if k in provider:
-                return v
-        return "💡"
-
-    def get_display_name(self) -> str:
-        """Returns the formatted display name including icon and model name."""
-        return f"{self.get_model_icon()} ({self.model})"
-
-
 class SessionManager:
-    """Manages conversation history and session persistence."""
+    """Handles conversation history persistence (load/save)."""
 
-    def __init__(self) -> None:
-        self.conversation: list[Message] = []
-
-    def clear_history(self) -> None:
-        """Clears the current conversation history."""
-        self.conversation.clear()
-
-    def update_history(self, data: list[DataSource], model_msg: Message) -> None:
-        """Converts input data to USER messages and appends MODEL message."""
-        user_parts: list[str | ContentPart] = []
-        for d in data:
-            if d.content_type == "text/plain":
-                user_parts.append(ContentPart(text=str(d.content)))
-            else:
-                inline_data = {"mimeType": d.content_type, "data": d.content}
-                if "filename" in d.metadata:
-                    inline_data["filename"] = d.metadata["filename"]
-                user_parts.append(ContentPart(inline_data=inline_data))
-
-        if user_parts:
-            self.conversation.append(Message(role=Role.USER, parts=user_parts))
-        self.conversation.append(model_msg)
-
-    def load_session(self, path_str: str) -> tuple[bool, str]:
+    @staticmethod
+    def load_session(path_str: str) -> tuple[list[Message] | None, str]:
         """Loads a conversation session from a JSON file."""
         try:
             load_path = Path(path_str)
             if not load_path.exists():
-                return False, f"File not found: {load_path}"
+                return None, f"File not found: {load_path}"
 
             with load_path.open("r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -159,116 +29,43 @@ class SessionManager:
             loaded_conversation = []
             for msg_data in data:
                 role = Role(msg_data["role"])
-                parts: list[str | ContentPart] = []
-                for p in msg_data["parts"]:
-                    if isinstance(p, str):
-                        parts.append(p)
-                    elif isinstance(p, dict):
-                        parts.append(ContentPart(**p))
+                parts = [
+                    (ContentPart(**p) if isinstance(p, dict) else p)
+                    for p in msg_data["parts"]
+                ]
                 loaded_conversation.append(Message(role=role, parts=parts))
 
-            self.clear_history()
-            self.conversation = loaded_conversation
-            msg = f"Session loaded from {load_path} ({len(self.conversation)} messages)"
-            return True, msg
+            msg = (
+                f"Session loaded from {load_path} ({len(loaded_conversation)} messages)"
+            )
+            return loaded_conversation, msg
         except Exception as e:
-            return False, f"Failed to load session: {e}"
+            return None, f"Failed to load session: {e}"
 
-    def save_session(self, path_str: str) -> tuple[bool, str]:
+    @staticmethod
+    def save_session(path_str: str, conversation: list[Message]) -> tuple[bool, str]:
         """Saves the current conversation to a JSON file."""
         try:
             save_path = Path(path_str)
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
-            serializable_conversation = []
-            for msg in self.conversation:
-                msg_dict: dict[str, Any] = {"role": str(msg.role), "parts": []}
+            serializable = []
+            for msg in conversation:
+                parts: list[Any] = []
                 for part in msg.parts:
                     if isinstance(part, str):
-                        msg_dict["parts"].append(part)
+                        parts.append(part)
                     else:
                         p_dict = dataclasses.asdict(part)
-                        clean_part = {k: v for k, v in p_dict.items() if v is not None}
-                        msg_dict["parts"].append(clean_part)
-                serializable_conversation.append(msg_dict)
+                        parts.append({k: v for k, v in p_dict.items() if v is not None})
+                serializable.append({"role": str(msg.role), "parts": parts})
 
             with save_path.open("w", encoding="utf-8") as f:
-                json.dump(serializable_conversation, f, indent=2, ensure_ascii=False)
+                json.dump(serializable, f, indent=2, ensure_ascii=False)
 
             return True, f"Session saved to {save_path}"
         except Exception as e:
             return False, f"Failed to save session: {e}"
-
-    def get_state(self) -> dict[str, Any]:
-        """Returns the serializable state of the conversation."""
-        return {
-            "conversation": copy.deepcopy(self.conversation),
-        }
-
-    def set_state(self, state: dict[str, Any]) -> None:
-        """Restores the conversation state from a dictionary."""
-        self.conversation = state.get("conversation", [])
-
-    def get_last_user_prompt(self) -> str | None:
-        """Retrieves the most recent user prompt from history."""
-        for msg in reversed(self.conversation):
-            if msg.role == Role.USER:
-                texts = [
-                    p.text for p in msg.parts if isinstance(p, ContentPart) and p.text
-                ]
-                texts += [p for p in msg.parts if isinstance(p, str)]
-                if texts:
-                    return "\n".join(texts)
-        return None
-
-
-class ToolManager:
-    """Manages tool registration, MCP integration, and state."""
-
-    def __init__(self, initial_tools: list[str] | None = None):
-        from llm_cli.modules.tool_registry import registry
-
-        self.active_tools: list[str] = (
-            initial_tools if initial_tools is not None else list(registry.tools.keys())
-        )
-        self.tools_enabled: bool = True
-
-    def init_mcp(self, update_active_tools: bool) -> None:
-        """Initializes Model Context Protocol (MCP) tools."""
-        try:
-            from llm_cli.clients.mcp_manager import mcp_manager
-            from llm_cli.modules.tool_registry import registry
-
-            already_initialized = mcp_manager._initialized
-            remote_tool_names = registry.register_remote_tools(mcp_manager)
-            if remote_tool_names:
-                if not already_initialized:
-                    console.print(
-                        f"[dim cyan]Registered {len(remote_tool_names)} "
-                        "remote MCP tools.[/dim cyan]"
-                    )
-                if update_active_tools:
-                    for tn in remote_tool_names:
-                        if tn not in self.active_tools:
-                            self.active_tools.append(tn)
-        except ImportError:
-            pass
-        except Exception as e:
-            console.print(f"[yellow]Note: MCP initialization failed: {e}[/yellow]")
-
-    def get_responded_tool_ids(self, conversation: list[Message]) -> set[str]:
-        """Returns tool IDs that have responses in history."""
-        responded: set[str] = set()
-        for msg in conversation:
-            if msg.role == Role.TOOL:
-                for part in msg.parts:
-                    if isinstance(part, ContentPart) and part.function_response:
-                        tool_id = part.function_response.get("id")
-                        from llm_cli.consts import UNKNOWN_TOOL_ID
-
-                        if tool_id and tool_id != UNKNOWN_TOOL_ID:
-                            responded.add(tool_id)
-        return responded
 
 
 class MediaManager:
@@ -278,20 +75,19 @@ class MediaManager:
         self.pdf_as_base64 = pdf_as_base64
 
     def process_sources(self, sources: list[str]) -> list[DataSource]:
-        """Processes a list of input sources into DataSources."""
         return [
             processed for s in sources if (processed := self.process_single_source(s))
         ]
 
     def process_single_source(self, source: str) -> DataSource | None:
-        """Processes a single source string into a DataSource object."""
         from llm_cli.modules import media_utils
 
         if source.startswith("http"):
             content, ctype = media_utils.fetch_url_content(source, self.pdf_as_base64)
             if content:
-                parsed_url = urllib.parse.urlparse(source)
-                filename = Path(parsed_url.path).name or "downloaded_file"
+                filename = (
+                    Path(urllib.parse.urlparse(source).path).name or "downloaded_file"
+                )
                 return DataSource(
                     content=content,
                     content_type=ctype or "application/octet-stream",
@@ -302,186 +98,47 @@ class MediaManager:
 
         path = Path(source)
         if len(source) < 256 and path.exists() and path.is_file():
-            res_dict = media_utils.process_file(path, self.pdf_as_base64)
-            if res_dict:
+            res = media_utils.process_file(path, self.pdf_as_base64)
+            if res:
                 return DataSource(
-                    content=res_dict["content"],
-                    content_type=res_dict["content_type"],
+                    content=res["content"],
+                    content_type=res["content_type"],
                     is_file_or_url=True,
-                    metadata={"filename": res_dict.get("filename", path.name)},
+                    metadata={"filename": res.get("filename", path.name)},
                 )
-            return None
-
         return DataSource(content=source, content_type="text/plain")
 
     def save_inline_media(
         self, inline_data: dict[str, Any], hint_text: str = ""
     ) -> tuple[str | None, Path | None]:
-        """Saves generated images to disk."""
         mime_type = inline_data.get("mimeType", "")
-        if mime_type.startswith("image/"):
-            import base64
-            import mimetypes
+        if not mime_type.startswith("image/"):
+            return None, None
 
-            from llm_cli.clients.config import config_manager
-            from llm_cli.modules.media_utils import generate_safe_filename
+        import base64
+        import mimetypes
 
-            image_save_path = config_manager.get("general", "image_save_path") or "."
-            save_dir = Path(image_save_path).expanduser()
-            save_dir.mkdir(parents=True, exist_ok=True)
+        from llm_cli.clients.config import config_manager
+        from llm_cli.modules.media_utils import generate_safe_filename
 
-            ext = mimetypes.guess_extension(mime_type) or ".png"
-            filename = generate_safe_filename(hint_text, ext=ext.strip("."))
-            target_path = save_dir / filename
+        save_dir = Path(
+            config_manager.get("general", "image_save_path") or "."
+        ).expanduser()
+        save_dir.mkdir(parents=True, exist_ok=True)
+        target_path = save_dir / generate_safe_filename(
+            hint_text, ext=(mimetypes.guess_extension(mime_type) or ".png").strip(".")
+        )
 
-            try:
-                target_path.write_bytes(base64.b64decode(inline_data["data"]))
-                msg = f"\n\n🎨 Image generated and saved to: **{target_path}**\n"
-                return msg, target_path
-            except Exception as e:
-                console.print(f"[red]Failed to save image: {e}[/red]")
+        try:
+            data = inline_data["data"]
+            missing_padding = len(data) % 4
+            if missing_padding:
+                data += "=" * (4 - missing_padding)
+            target_path.write_bytes(base64.b64decode(data))
+            return (
+                f"\n\n🎨 Image generated and saved to: **{target_path}**\n",
+                target_path,
+            )
+        except Exception as e:
+            console.print(f"[red]Failed to save image: {e}[/red]")
         return None, None
-
-
-class LoggingManager:
-    """Handles logging, debug display, and error reporting."""
-
-    def __init__(self, live_debug: bool = False):
-        self.live_debug = live_debug
-
-    def log_debug(
-        self,
-        response_obj: Any = None,
-        request_payload: Any = None,
-        response_content: Any = None,
-    ) -> None:
-        if not self.live_debug:
-            return
-
-        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        try:
-            self._print_live_debug(
-                timestamp, response_obj, request_payload, response_content
-            )
-        except Exception as e:
-            console.print(f"[dim red]Live debug display failed: {e}[/dim red]")
-
-    def _print_live_debug(
-        self,
-        timestamp: str,
-        response_obj: Any = None,
-        request_payload: Any = None,
-        response_content: Any = None,
-    ) -> None:
-        import json
-
-        from rich.console import Group
-        from rich.panel import Panel
-        from rich.syntax import Syntax
-
-        def _format_json(data: Any) -> str | Syntax:
-            if isinstance(data, (dict, list)):
-                try:
-                    return Syntax(
-                        json.dumps(data, indent=2, ensure_ascii=False),
-                        "json",
-                        theme="monokai",
-                        background_color="default",
-                        word_wrap=True,
-                    )
-                except Exception:
-                    pass
-            return str(data)
-
-        if response_obj:
-            req_info: list[Any] = []
-            if request_payload:
-                req_info.append(_format_json(request_payload))
-            elif hasattr(response_obj, "request"):
-                req = response_obj.request
-                req_info.append(f"[bold]URL:[/bold] {req.url}")
-                if req.body:
-                    try:
-                        b_str = (
-                            req.body.decode("utf-8")
-                            if isinstance(req.body, bytes)
-                            else str(req.body)
-                        )
-                        req_info.append(_format_json(json.loads(b_str)))
-                    except Exception:
-                        req_info.append(f"[dim]Raw Body:[/dim]\n{str(req.body)}")
-
-            if req_info:
-                console.print(
-                    Panel(
-                        Group(*req_info),
-                        title=f"[bold cyan]API Request ({timestamp})[/bold cyan]",
-                        border_style="cyan",
-                        expand=False,
-                    )
-                )
-
-            res_info: list[Any] = [f"[bold]Status:[/bold] {response_obj.status_code}"]
-            if response_content:
-                res_info.append(_format_json(response_content))
-            else:
-                try:
-                    res_info.append(_format_json(response_obj.json()))
-                except Exception:
-                    res_info.append(response_obj.text)
-
-            console.print(
-                Panel(
-                    Group(*res_info),
-                    title=f"[bold green]API Response ({timestamp})[/bold green]",
-                    border_style="green",
-                    expand=False,
-                )
-            )
-        else:
-            if request_payload:
-                console.print(
-                    Panel(
-                        _format_json(request_payload),
-                        title=f"[bold cyan]Payload Request ({timestamp})[/bold cyan]",
-                        border_style="cyan",
-                        expand=False,
-                    )
-                )
-            if response_content:
-                title_res = f"[bold green]Payload Response ({timestamp})[/bold green]"
-                console.print(
-                    Panel(
-                        _format_json(response_content),
-                        title=title_res,
-                        border_style="green",
-                        expand=False,
-                    )
-                )
-
-    def report_error(self, provider_name: str, e: Exception) -> None:
-        import json
-
-        import requests
-
-        error_msg = str(e)
-        if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
-            try:
-                body_str = json.dumps(e.response.json(), indent=2, ensure_ascii=False)
-                error_msg += f"\nResponse Body: {body_str}"
-            except Exception:
-                if e.response.text:
-                    error_msg += f"\nResponse Body: {e.response.text}"
-        console.print(f"[bold red]{provider_name} Error: {error_msg}[/bold red]")
-
-    def trim_log_file(self, path: Path, max_lines: int) -> None:
-        try:
-            if not path.exists():
-                return
-            with path.open("r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
-            if len(lines) > max_lines:
-                with path.open("w", encoding="utf-8", errors="replace") as f:
-                    f.writelines(lines[-max_lines:])
-        except Exception as e:
-            console.print(f"[dim red]Log trimming failed: {e}[/dim red]")

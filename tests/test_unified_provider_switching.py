@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from llm_cli.apps.unified import UnifiedClient
-from llm_cli.clients.registry import client_registry
+from llm_cli.clients import client_registry
 
 
 def test_unified_client_switches_provider_via_alias(mock_config):

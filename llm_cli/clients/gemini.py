@@ -170,7 +170,17 @@ class GeminiClient(BaseLlmClient):
         """
         contents: list[dict[str, Any]] = []
 
-        for msg, responded_tool_ids in self._iter_history():
+        # Pre-calculate tool IDs with responses to ensure tool-calling validity
+        responded_tool_ids = set()
+        for msg in self.conversation:
+            if msg.role == Role.TOOL:
+                for part in msg.parts:
+                    if isinstance(part, ContentPart) and part.function_response:
+                        tid = part.function_response.get("id")
+                        if tid:
+                            responded_tool_ids.add(tid)
+
+        for msg in self.conversation:
             if msg.role == Role.TOOL:
                 # Tool results → role "user" with function_response parts
                 tool_parts: list[dict[str, Any]] = []
@@ -178,7 +188,7 @@ class GeminiClient(BaseLlmClient):
                     if isinstance(p, ContentPart) and p.function_response:
                         fr = p.function_response
                         tool_id = fr.get("id")
-                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
+                        if tool_id and tool_id in responded_tool_ids:
                             result = fr.get("response", {}).get("result", "")
                             tool_parts.append(
                                 {
@@ -225,7 +235,7 @@ class GeminiClient(BaseLlmClient):
                         if p.function_call:
                             fc = p.function_call
                             tool_id = fc.get("id")
-                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
+                            if tool_id and tool_id in responded_tool_ids:
                                 # thoughtSignature is a part-level sibling of
                                 # functionCall — must be echoed back exactly as
                                 # received to satisfy Gemini 3 validation.
@@ -424,6 +434,3 @@ class GeminiClient(BaseLlmClient):
         from llm_cli.clients.gemini_handlers import wait_for_file_active
 
         return wait_for_file_active(self, file_name)
-
-    def _print_help(self) -> None:
-        super()._print_help()

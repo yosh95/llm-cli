@@ -1,7 +1,6 @@
 # llm_cli/clients/mixins.py
 
 import json
-from collections.abc import Generator
 from typing import TYPE_CHECKING, Any, Protocol
 
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
@@ -19,8 +18,9 @@ class BaseClientInterface(Protocol):
     def system_prompt_enabled(self) -> bool: ...
     @property
     def pdf_as_base64(self) -> bool: ...
-    def _iter_history(self) -> Generator[tuple[Message, set[str]]]: ...
-    def _is_valid_tool_id(self, tool_id: str | None, responded: set[str]) -> bool: ...
+    @property
+    def conversation(self) -> list[Message]: ...
+    def _update_history(self, data: list[DataSource], model_msg: Message) -> None: ...
 
 
 class OpenAICompatibleMixin:
@@ -40,20 +40,26 @@ class OpenAICompatibleMixin:
         """
         msgs: list[dict[str, Any]] = []
 
-        if (
-            hasattr(self, "system_prompt")
-            and self.system_prompt
-            and self.system_prompt_enabled
-        ):
+        if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
-        for m, responded_tool_ids in self._iter_history():
+        # Pre-calculate tool IDs with responses
+        responded_tool_ids = set()
+        for msg in self.conversation:
+            if msg.role == Role.TOOL:
+                for part in msg.parts:
+                    if isinstance(part, ContentPart) and part.function_response:
+                        tid = part.function_response.get("id")
+                        if tid:
+                            responded_tool_ids.add(tid)
+
+        for m in self.conversation:
             if m.role == Role.TOOL:
                 for p in m.parts:
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
                         tool_id = func_resp.get("id")
-                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
+                        if tool_id and tool_id in responded_tool_ids:
                             result = func_resp.get("response", {}).get("result", "")
                             msgs.append(
                                 {
@@ -104,7 +110,7 @@ class OpenAICompatibleMixin:
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
-                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
+                            if tool_id and tool_id in responded_tool_ids:
                                 tool_calls.append(
                                     {
                                         "id": tool_id,
@@ -119,13 +125,13 @@ class OpenAICompatibleMixin:
                                 )
 
                 if content_parts or tool_calls:
-                    msg: dict[str, Any] = {
+                    new_msg: dict[str, Any] = {
                         "role": role,
                         "content": content_parts or None,
                     }
                     if tool_calls:
-                        msg["tool_calls"] = tool_calls
-                    msgs.append(msg)
+                        new_msg["tool_calls"] = tool_calls
+                    msgs.append(new_msg)
 
         user_content: list[dict[str, Any]] = []
         for d in data:
@@ -189,7 +195,17 @@ class ClaudeMessagesMixin:
         """
         msgs: list[dict[str, Any]] = []
 
-        for m, responded_tool_ids in self._iter_history():
+        # Pre-calculate tool IDs that have responses to ensure tool-calling validity
+        responded_tool_ids = set()
+        for msg in self.conversation:
+            if msg.role == Role.TOOL:
+                for part in msg.parts:
+                    if isinstance(part, ContentPart) and part.function_response:
+                        tid = part.function_response.get("id")
+                        if tid:
+                            responded_tool_ids.add(tid)
+
+        for m in self.conversation:
             if m.role == Role.TOOL:
                 # Tool results travel inside a synthetic ``user`` message as
                 # ``tool_result`` blocks – one block per tool response.
@@ -198,7 +214,7 @@ class ClaudeMessagesMixin:
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
                         tool_id = func_resp.get("id")
-                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
+                        if tool_id and tool_id in responded_tool_ids:
                             result = func_resp.get("response", {}).get("result", "")
                             tool_content.append(
                                 {
@@ -263,7 +279,7 @@ class ClaudeMessagesMixin:
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
-                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
+                            if tool_id and tool_id in responded_tool_ids:
                                 msg_parts.append(
                                     {
                                         "type": "tool_use",

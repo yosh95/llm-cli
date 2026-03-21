@@ -8,10 +8,14 @@ from llm_cli.modules.models import DataSource
 
 @pytest.fixture
 def ollama_client():
-    with patch(
-        "llm_cli.clients.config.config_manager.get",
-        return_value="http://localhost:11434/v1/chat/completions",
-    ):
+    def mock_get(section, key, default=None):
+        if section == "ollama" and key == "api_url":
+            return "http://localhost:11434/v1/chat/completions"
+        if section == "general" and key == "request_timeout":
+            return "30"
+        return default
+
+    with patch("llm_cli.clients.config.config_manager.get", side_effect=mock_get):
         with patch(
             "llm_cli.clients.config.config_manager.get_model_aliases",
             return_value={"default": "llama3.2"},

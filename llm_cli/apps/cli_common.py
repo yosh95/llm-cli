@@ -37,7 +37,7 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
     )
 
     if config.supports_provider_selection:
-        from llm_cli.clients.registry import client_registry
+        from llm_cli.clients import client_registry
 
         parser.add_argument(
             "-p",

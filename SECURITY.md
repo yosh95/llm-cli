@@ -360,6 +360,8 @@ mode    = "learn"   # "learn" during calibration, then "enforce"
    before switching to `enforce` mode.
 
 4. **Single RSA key pair** — `IdentityManager` currently uses one RSA-2048
-   key pair for all token generations.  A future release will provision
-   separate RSA key pairs per CASS security tier.
+   key pair for classical hybrid signing. However, full cryptographic
+   isolation is already achieved at the post-quantum layer through physically
+   separate ML-DSA-44/65/87 keys. Classical RSA separation is considered
+   a low-priority backlog item given the robust PQC agility implementation.
 

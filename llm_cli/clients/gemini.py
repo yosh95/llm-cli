@@ -137,6 +137,17 @@ class GeminiClient(BaseLlmClient):
         """Determines if the current model is an image generation model."""
         return "image" in self.model.lower() or "imagen" in self.model.lower()
 
+    @staticmethod
+    def _mime_to_interaction_type(mime: str) -> str:
+        """Converts MIME type to Gemini Interactions API input type."""
+        if mime.startswith("audio/"):
+            return "audio"
+        if mime.startswith("video/"):
+            return "video"
+        if mime == "application/pdf":
+            return "document"
+        return "image"
+
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
@@ -171,14 +182,7 @@ class GeminiClient(BaseLlmClient):
             file_uri = item.metadata.get("file_uri")
             if file_uri:
                 # Interactions API uses 'uri' field and specific type based on mime
-                input_type = "image"  # default
-                if item.content_type.startswith("audio/"):
-                    input_type = "audio"
-                elif item.content_type.startswith("video/"):
-                    input_type = "video"
-                elif item.content_type == "application/pdf":
-                    input_type = "document"
-
+                input_type = self._mime_to_interaction_type(item.content_type)
                 interaction_input.append(
                     {
                         "type": input_type,
@@ -191,14 +195,7 @@ class GeminiClient(BaseLlmClient):
                 for t in ["image/", "audio/", "video/", "application/pdf"]
             ):
                 # Inline base64 data
-                input_type = "image"
-                if item.content_type.startswith("audio/"):
-                    input_type = "audio"
-                elif item.content_type.startswith("video/"):
-                    input_type = "video"
-                elif item.content_type == "application/pdf":
-                    input_type = "document"
-
+                input_type = self._mime_to_interaction_type(item.content_type)
                 interaction_input.append(
                     {
                         "type": input_type,

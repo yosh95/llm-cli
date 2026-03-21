@@ -183,7 +183,6 @@ def handle_save(ctx: CommandContext) -> bool:
     except Exception as e:
         console.print(f"[red]Failed to save session: {e}[/red]")
         return True
-    return True
 
 
 def handle_load(ctx: CommandContext) -> bool:
@@ -482,8 +481,3 @@ def print_help(client: Optional["BaseLlmClient"] = None) -> None:
         "  Use [cyan]Ctrl+C[/cyan] or [cyan]Ctrl+D[/cyan] at any prompt to exit."
     )
     console.print(help_text)
-
-
-def setup_registry() -> None:
-    """Dummy function to satisfy potential callers."""
-    pass

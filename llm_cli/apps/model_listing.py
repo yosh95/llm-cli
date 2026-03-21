@@ -13,12 +13,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import requests
-from rich.console import Console
 from rich.table import Table
 
 from llm_cli.clients.config import config_manager
-
-console = Console()
+from llm_cli.ui import console
 
 
 @dataclass

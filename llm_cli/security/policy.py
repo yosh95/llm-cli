@@ -44,9 +44,9 @@ class PolicyEngine:
     """
 
     def __init__(self, config: SecurityConfig | None = None):
-        from llm_cli.security.cass import CASSOrchestrator
+        from llm_cli.security.cass import cass_orchestrator
 
-        self.cass = CASSOrchestrator()
+        self.cass = cass_orchestrator
         self._config: SecurityConfig = {}
         if config:
             self._load_security_config(config)

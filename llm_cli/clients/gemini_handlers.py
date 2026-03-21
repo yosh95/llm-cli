@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 
-from llm_cli.clients.base import console
 from llm_cli.modules.models import ContentPart, Message, Role
+from llm_cli.ui import console
 
 if TYPE_CHECKING:
     from llm_cli.clients.base import BaseLlmClient

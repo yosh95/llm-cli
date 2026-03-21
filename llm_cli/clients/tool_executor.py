@@ -14,7 +14,7 @@ from llm_cli.clients.config import config_manager
 from llm_cli.clients.exceptions import ConfigurationError
 from llm_cli.modules.models import ContentPart, DataSource
 from llm_cli.modules.tool_registry import registry
-from llm_cli.security.cass import CASSOrchestrator, RiskLevel, SecurityPosture
+from llm_cli.security.cass import RiskLevel, SecurityPosture
 from llm_cli.security.static_analyzer import analyze_python_safety
 from llm_cli.ui import (
     console,
@@ -68,7 +68,8 @@ class ToolExecutionContext:
             self.thought_signature = self.part.thought_signature
 
         # Evaluate risk and security requirements once
-        cass = CASSOrchestrator()
+        from llm_cli.security.cass import cass_orchestrator as cass
+
         self.risk_level = cass.evaluate_risk(self.name)
         self.security_requirements = cass.get_security_requirements(self.name)
 

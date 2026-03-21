@@ -6,16 +6,14 @@ import sys
 from contextlib import AsyncExitStack
 from typing import Any
 
-from rich.console import Console
-
 from llm_cli.clients.config import config_manager
 from llm_cli.mcp_lib import ClientSession, StdioServerParameters, stdio_client
 from llm_cli.security.identity import IdentityManager
+from llm_cli.ui import console
 
 # Set up logging for MCP client
 logging.basicConfig(level=logging.WARN, stream=sys.stderr)
 logger = logging.getLogger(__name__)
-console = Console()
 
 
 class MCPManager:

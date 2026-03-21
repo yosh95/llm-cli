@@ -13,6 +13,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 
 from llm_cli.clients.config import config_manager
+from llm_cli.ui import console
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -38,8 +39,6 @@ def trim_log_file(console: "Console", path: Path, max_lines: int) -> None:
 def save_inline_media_and_get_log_entry(
     inline_data: dict[str, Any], hint_text: str = ""
 ) -> tuple[str | None, Path | None]:
-    from llm_cli.clients.base import console
-
     mime_type = inline_data.get("mimeType", "")
     if (
         mime_type.startswith("image/")
@@ -139,8 +138,6 @@ def log_debug(
     try:
         print_live_debug(timestamp, response_obj, request_payload, response_content)
     except Exception as e:
-        from llm_cli.clients.base import console
-
         console.print(f"[dim red]Live debug display failed: {e}[/dim red]")
 
 
@@ -150,8 +147,6 @@ def print_live_debug(
     request_payload: Any = None,
     response_content: Any = None,
 ) -> None:
-    from llm_cli.clients.base import console
-
     def _format_json(data: Any) -> str | Syntax:
         if isinstance(data, (dict, list)):
             try:
@@ -231,8 +226,6 @@ def print_live_debug(
 
 
 def report_error(provider_name: str, e: Exception) -> None:
-    from llm_cli.clients.base import console
-
     error_msg = str(e)
     if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
         try:

@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 import datetime
 import json
+import urllib.parse
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-from rich.console import Console
+from typing import Any
 
 from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
-
-if TYPE_CHECKING:
-    pass
-
-console = Console()
+from llm_cli.ui import console
 
 
 class ProviderConfigManager:
@@ -190,8 +187,6 @@ class SessionManager:
                     if isinstance(part, str):
                         msg_dict["parts"].append(part)
                     else:
-                        import dataclasses
-
                         p_dict = dataclasses.asdict(part)
                         clean_part = {k: v for k, v in p_dict.items() if v is not None}
                         msg_dict["parts"].append(clean_part)
@@ -206,8 +201,6 @@ class SessionManager:
 
     def get_state(self) -> dict[str, Any]:
         """Returns the serializable state of the conversation."""
-        import copy
-
         return {
             "conversation": copy.deepcopy(self.conversation),
         }
@@ -292,8 +285,6 @@ class MediaManager:
 
     def process_single_source(self, source: str) -> DataSource | None:
         """Processes a single source string into a DataSource object."""
-        import urllib.parse
-
         from llm_cli.modules import media_utils
 
         if source.startswith("http"):

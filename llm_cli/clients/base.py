@@ -5,10 +5,9 @@ from __future__ import annotations
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import requests
-from rich.console import Console
 
 from llm_cli.clients.config import config_manager
 from llm_cli.clients.managers import (
@@ -20,11 +19,7 @@ from llm_cli.clients.managers import (
     ToolManager,
 )
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
-
-if TYPE_CHECKING:
-    pass
-
-console = Console()
+from llm_cli.ui import console
 
 
 class BaseLlmClient(ABC):
@@ -386,7 +381,6 @@ class BaseLlmClient(ABC):
         request_timeout: int | None = None,
     ) -> dict[Any, Any] | None:
         """Common polling logic for asynchronous jobs."""
-        from llm_cli.ui import console
 
         start_time = time.time()
         console.print("[dim]Operation started. Polling for results...[/dim]")

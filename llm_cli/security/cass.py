@@ -79,3 +79,6 @@ class CASSOrchestrator:
                 "require_pqc_audit_encryption": False,
                 "mamba_enforcement": "monitor_only",  # Log warnings but do not block
             }
+
+
+cass_orchestrator = CASSOrchestrator()

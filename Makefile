@@ -1,4 +1,4 @@
-.PHONY: help install lint format test check clean paper
+.PHONY: help install lint format test coverage check clean paper
 
 # Default target
 help:
@@ -7,7 +7,8 @@ help:
 	@echo "  make check    - Run format, lint, and test (integrated)"
 	@echo "  make lint     - Run linter (ruff, mypy)"
 	@echo "  make format   - Run formatter (ruff)"
-	@echo "  make test     - Run tests with coverage"
+	@echo "  make test     - Run tests"
+	@echo "  make coverage - Run tests with coverage report (terminal & html)"
 	@echo "  make paper    - Build LaTeX papers"
 	@echo "  make clean    - Remove temporary files and caches"
 
@@ -26,7 +27,10 @@ lint: format
 	mypy .
 
 test: lint
-	pytest --cov=llm_cli tests/
+	pytest tests/
+
+coverage: lint
+	pytest --cov=llm_cli --cov-report=term-missing --cov-report=html tests/
 
 paper:
 	$(MAKE) -C paper

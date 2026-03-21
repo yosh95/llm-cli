@@ -40,11 +40,7 @@ def save_inline_media_and_get_log_entry(
     inline_data: dict[str, Any], hint_text: str = ""
 ) -> tuple[str | None, Path | None]:
     mime_type = inline_data.get("mimeType", "")
-    if (
-        mime_type.startswith("image/")
-        or mime_type.startswith("audio/")
-        or mime_type.startswith("video/")
-    ):
+    if mime_type.startswith("image/"):
         from llm_cli.modules.media_utils import generate_safe_filename
 
         def _expand(p: str | None) -> str | None:
@@ -53,65 +49,13 @@ def save_inline_media_and_get_log_entry(
         image_save_path = (
             _expand(config_manager.get("general", "image_save_path")) or "."
         )
-        audio_save_path = (
-            _expand(config_manager.get("general", "audio_save_path")) or "."
-        )
-        video_save_path = (
-            _expand(config_manager.get("general", "video_save_path")) or "."
-        )
 
-        if mime_type.startswith("audio/"):
-            save_dir = Path(audio_save_path)
-            default_ext = ".mp3"
-            emoji = "🔊"
-            type_name = "Audio"
-        elif mime_type.startswith("video/"):
-            save_dir = Path(video_save_path)
-            default_ext = ".mp4"
-            emoji = "🎥"
-            type_name = "Video"
-        else:
-            save_dir = Path(image_save_path)
-            default_ext = ".png"
-            emoji = "🎨"
-            type_name = "Image"
+        save_dir = Path(image_save_path)
+        default_ext = ".png"
+        emoji = "🎨"
+        type_name = "Image"
 
         save_dir.mkdir(parents=True, exist_ok=True)
-
-        if "pcm" in mime_type.lower() or "l16" in mime_type.lower():
-            import wave
-
-            ext = ".wav"
-            filename = generate_safe_filename(hint_text, ext=ext.strip("."))
-            target_path = save_dir / filename
-
-            rate = 24000
-            if "rate=" in mime_type:
-                try:
-                    import re
-
-                    match = re.search(r"rate=(\d+)", mime_type)
-                    if match:
-                        rate = int(match.group(1))
-                except Exception:
-                    pass
-
-            try:
-                data_bytes = base64.b64decode(inline_data["data"])
-                with wave.open(str(target_path), "wb") as wav_file:
-                    wav_file.setnchannels(1)  # Mono
-                    wav_file.setsampwidth(2)  # 16-bit
-                    wav_file.setframerate(rate)
-                    wav_file.writeframes(data_bytes)
-
-                msg = (
-                    f"\n\n{emoji} {type_name} generated and saved to: "
-                    f"**{target_path}**\n"
-                )
-                return msg, target_path
-            except Exception as e:
-                console.print(f"[red]Failed to save PCM audio as WAV: {e}[/red]")
-                return None, None
 
         ext = mimetypes.guess_extension(mime_type) or default_ext
         filename = generate_safe_filename(hint_text, ext=ext.strip("."))

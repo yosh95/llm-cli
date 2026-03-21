@@ -317,7 +317,7 @@ class MediaManager:
     def save_inline_media(
         self, inline_data: dict[str, Any], hint_text: str = ""
     ) -> tuple[str | None, Path | None]:
-        """Saves generated media (images, audio, video) to disk."""
+        """Saves generated images to disk."""
         from llm_cli.clients import base_helpers
 
         return base_helpers.save_inline_media_and_get_log_entry(

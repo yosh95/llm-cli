@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -21,7 +20,6 @@ from llm_cli.clients.managers import (
     ToolManager,
 )
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
-from llm_cli.ui import console
 
 
 @dataclass
@@ -385,158 +383,6 @@ class BaseLlmClient(ABC):
         except Exception as e:
             self._report_error(f"{provider_name} Image processing", e)
             return (None, None), None
-
-    def _poll_until_complete(
-        self,
-        poll_url: str,
-        headers: dict,
-        status_key: str = "status",
-        completed_value: Any = "succeeded",
-        failed_values: tuple[Any, ...] = ("failed", "cancelled"),
-        timeout_seconds: int = 1800,
-        interval: int = 5,
-        request_timeout: int | None = None,
-    ) -> dict[Any, Any] | None:
-        """Common polling logic for asynchronous jobs."""
-
-        start_time = time.time()
-        console.print("[dim]Operation started. Polling for results...[/dim]")
-
-        while time.time() - start_time < timeout_seconds:
-            try:
-                response = self._get(poll_url, headers=headers, timeout=request_timeout)
-                response.raise_for_status()
-                res = response.json()
-                if not isinstance(res, dict):
-                    return None
-
-                status = res.get(status_key)
-                if status == completed_value:
-                    return res
-                elif status in failed_values:
-                    error = res.get("error", "Unknown error")
-                    if isinstance(error, dict):
-                        error = error.get("message", error)
-                    raise RuntimeError(str(error))
-
-                time.sleep(interval)
-            except Exception as e:
-                # Log and re-raise or handle as needed
-                raise e
-
-        raise TimeoutError("Polling timed out")
-
-    def _send_deferred_generation(
-        self,
-        start_url: str,
-        payload: dict[str, Any],
-        headers: dict[str, str],
-        provider_name: str,
-        poll_url_template: str,  # e.g. "https://api.example.com/v1/jobs/{}"
-        data: list[DataSource],
-        status_key: str = "status",
-        completed_value: str = "completed",
-        failed_values: tuple[str, ...] = ("failed",),
-    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
-        """Common logic for deferred generation (video, etc.) with polling."""
-        try:
-            # Step 1: Start generation
-            response = self._post(
-                start_url,
-                headers=headers,
-                json_data=payload,
-                timeout=self.request_timeout,
-            )
-            self._log_debug(response_obj=response, request_payload=payload)
-            response.raise_for_status()
-            res = response.json()
-
-            request_id = res.get("id") or res.get("request_id")
-            if not request_id:
-                return (
-                    (f"Failed to get request ID for {provider_name} generation.", ""),
-                    None,
-                )
-
-            # Step 2: Poll for results
-            poll_url = (
-                poll_url_template.format(request_id)
-                if "{}" in poll_url_template
-                else poll_url_template
-            )
-            poll_res = self._poll_until_complete(
-                poll_url=poll_url,
-                headers=headers,
-                status_key=status_key,
-                completed_value=completed_value,
-                failed_values=failed_values,
-                timeout_seconds=1800,
-                request_timeout=self.request_timeout,
-            )
-
-            if not poll_res:
-                return (("Failed to get poll result.", ""), None)
-
-            # Look for URL in common fields
-            video_url = poll_res.get("url") or poll_res.get("result_url")
-            if not video_url and "data" in poll_res:
-                items = poll_res["data"]
-                if isinstance(items, list) and items:
-                    video_url = items[0].get("url")
-                elif isinstance(items, dict):
-                    video_url = items.get("url")
-            if not video_url and "video" in poll_res:
-                video_url = poll_res["video"].get("url")
-
-            if not video_url:
-                return (
-                    (
-                        f"{provider_name} generation failed to retrieve URL.",
-                        "",
-                    ),
-                    None,
-                )
-
-            display_text = (
-                f"Successfully generated media.\n\n"
-                f"[Download Link]({video_url})\n\n**URL:** `{video_url}`"
-            )
-
-            # Download and save if possible
-            from llm_cli.modules.media_utils import fetch_url_content
-
-            media_data, mime_type = fetch_url_content(video_url)
-            if media_data and mime_type:
-                hint = payload.get("prompt", "")[:100]
-                log, _ = self._save_inline_media_and_get_log_entry(
-                    {"mimeType": mime_type, "data": media_data}, hint_text=hint
-                )
-                if log:
-                    display_text += f"\n\n{log}"
-
-                model_msg = Message(
-                    role=Role.MODEL,
-                    parts=[
-                        ContentPart(text=display_text),
-                        ContentPart(
-                            inline_data={"mimeType": mime_type, "data": media_data}
-                        ),
-                    ],
-                )
-            else:
-                model_msg = Message(
-                    role=Role.MODEL, parts=[ContentPart(text=display_text)]
-                )
-
-            self._update_history(data, model_msg)
-            return (display_text.strip(), ""), None
-
-        except TimeoutError:
-            self._report_error(provider_name, TimeoutError("Polling timed out"))
-            return (f"{provider_name} generation timed out", ""), None
-        except Exception as e:
-            self._report_error(provider_name, e)
-            return (f"{provider_name} generation failed: {e}", ""), None
 
     def talk(
         self,

@@ -18,8 +18,6 @@ class GeneralConfig:
     max_chat_log_lines: int = 10000
     max_security_log_lines: int = 1000
     image_save_path: str = "~/Pictures/llm-cli"
-    audio_save_path: str = "~/Music/llm-cli"
-    video_save_path: str = "~/Videos/llm-cli"
 
 
 @dataclass

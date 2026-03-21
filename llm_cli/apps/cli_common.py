@@ -9,9 +9,10 @@ from typing import Any
 
 from rich.markup import escape
 
-from llm_cli.clients.base import BaseLlmClient, console
+from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.exceptions import ProviderSwitchRequest
 from llm_cli.modules.tool_registry import registry
+from llm_cli.ui import console
 
 
 @dataclass

@@ -172,7 +172,7 @@ def mock_config(monkeypatch, mock_api_key, tmp_path):
     """Mock the config_manager to return test values."""
 
     def mock_get(section, key):
-        if key in ("image_save_path", "audio_save_path", "video_save_path"):
+        if key == "image_save_path":
             return str(tmp_path)
 
         config = {

@@ -130,11 +130,6 @@ class GeminiClient(BaseLlmClient):
 
         return super()._process_single_source(source)
 
-    def _is_video_model(self) -> bool:
-        """Determines if the current model is a video generation model."""
-        # Check specifically for Veo models
-        return "veo" in self.model.lower() and "generate" in self.model.lower()
-
     def _is_image_model(self) -> bool:
         """Determines if the current model is an image generation model."""
         return "image" in self.model.lower() or "imagen" in self.model.lower()
@@ -156,9 +151,6 @@ class GeminiClient(BaseLlmClient):
         """Sends the request to Gemini using the Interactions API."""
         if not self.conversation:
             self.last_interaction_id = None
-
-        if self._is_video_model():
-            return self._send_video_generation(data)
 
         # Prepare input payload for Interactions API
         interaction_input: list[dict[str, Any]] = []
@@ -209,7 +201,6 @@ class GeminiClient(BaseLlmClient):
                 # Text content
                 interaction_input.append({"type": "text", "text": str(item.content)})
 
-        is_tts_model = "tts" in self.model.lower()
         is_image_model = self._is_image_model()
 
         # Construct request payload
@@ -219,7 +210,7 @@ class GeminiClient(BaseLlmClient):
         }
 
         # Add system instruction if enabled
-        if self.system_prompt and self.system_prompt_enabled and not is_tts_model:
+        if self.system_prompt and self.system_prompt_enabled:
             payload["system_instruction"] = self.system_prompt
 
         # For image models, consolidate all text input into a single prompt
@@ -240,7 +231,7 @@ class GeminiClient(BaseLlmClient):
             interaction_input = new_interaction_input
             payload["input"] = interaction_input
 
-        if self.last_interaction_id and not is_tts_model:
+        if self.last_interaction_id:
             payload["previous_interaction_id"] = self.last_interaction_id
         elif not is_image_model or len(interaction_input) > 1:
             # No interaction ID (First turn). Inject context.
@@ -273,18 +264,13 @@ class GeminiClient(BaseLlmClient):
                 payload["input"].insert(0, {"type": "text", "text": full_context})
 
         # Multimodal Output Configuration
-        if is_tts_model or is_image_model:
-            if is_tts_model:
-                payload["response_modalities"] = ["AUDIO"]
-                if "generation_config" not in payload:
-                    payload["generation_config"] = {}
-            elif is_image_model:
-                payload["response_modalities"] = ["IMAGE"]
-                if "generation_config" in payload:
-                    del payload["generation_config"]
+        if is_image_model:
+            payload["response_modalities"] = ["IMAGE"]
+            if "generation_config" in payload:
+                del payload["generation_config"]
 
         # Tools - Send every time as Interactions API does not persist them
-        if self.active_tools and self.tools_enabled and not is_tts_model:
+        if self.active_tools and self.tools_enabled:
             tools_payload = registry.get_gemini_interactions_spec(
                 self.active_tools, provider=self.config_section
             )
@@ -430,18 +416,9 @@ class GeminiClient(BaseLlmClient):
                 }
                 model_parts.append(ContentPart(function_call=fc))
 
-            elif type_ in ("image", "audio", "video"):
+            elif type_ == "image":
                 # API: {"type": "image", "data": "BASE64...", "mime_type": "..."}
-                mime_type = output.get("mime_type")
-                if not mime_type:
-                    # Fallback for models that don't return mime_type (e.g. Gemini TTS)
-                    if type_ == "audio":
-                        mime_type = "audio/L16;rate=24000"
-                    elif type_ == "image":
-                        mime_type = "image/png"
-                    elif type_ == "video":
-                        mime_type = "video/mp4"
-
+                mime_type = output.get("mime_type") or "image/png"
                 inline = {
                     "mimeType": mime_type,
                     "data": output.get("data"),
@@ -449,14 +426,6 @@ class GeminiClient(BaseLlmClient):
                 model_parts.append(ContentPart(inline_data=inline))
 
         return Message(role=Role.MODEL, parts=model_parts)
-
-    def _send_video_generation(
-        self, data: list[DataSource]
-    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
-        """Handles video generation via Gemini/Veo API."""
-        from llm_cli.clients.gemini_handlers import send_video_generation
-
-        return send_video_generation(self, data)
 
     def _upload_file(
         self, path: Path, mime_type: str | None = None

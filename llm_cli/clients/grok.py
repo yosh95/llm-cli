@@ -10,8 +10,6 @@ from llm_cli.modules.tool_registry import registry
 
 DEFAULT_API_URL = "https://api.x.ai/v1/chat/completions"
 IMAGE_API_URL = "https://api.x.ai/v1/images/generations"
-VIDEO_GENERATION_URL = "https://api.x.ai/v1/videos/generations"
-VIDEO_RESULT_URL_TEMPLATE = "https://api.x.ai/v1/videos/{}"
 
 
 class GrokClient(BaseLlmClient):
@@ -48,12 +46,7 @@ class GrokClient(BaseLlmClient):
     def _is_image_model(self) -> bool:
         """Determines if the current model is an image generation model."""
         m = self.model.lower()
-        return "image" in m and "video" not in m
-
-    def _is_video_model(self) -> bool:
-        """Determines if the current model is a video generation model."""
-        m = self.model.lower()
-        return "video" in m
+        return "image" in m
 
     def _send(
         self, data: list[DataSource]
@@ -65,8 +58,6 @@ class GrokClient(BaseLlmClient):
         # we stay on this path.
         if self._is_image_model():
             return self._send_image_generation(data)
-        if self._is_video_model():
-            return self._send_video_generation(data)
 
         messages = self._build_messages(data)
         payload = {
@@ -166,32 +157,6 @@ class GrokClient(BaseLlmClient):
         except Exception as e:
             self._report_error("Grok Image", e)
             return (None, None), None
-
-    def _send_video_generation(
-        self, data: list[DataSource]
-    ) -> tuple[tuple[str | None, str | None], dict | None]:
-        """Handles video generation via Grok API (deferred)."""
-        full_prompt = self._build_prompt_from_history(data)
-        payload = {
-            "model": self.model,
-            "prompt": full_prompt,
-        }
-
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        return self._send_deferred_generation(
-            start_url=VIDEO_GENERATION_URL,
-            payload=payload,
-            headers=headers,
-            provider_name="Grok Video",
-            poll_url_template=VIDEO_RESULT_URL_TEMPLATE,
-            data=data,
-            status_key="status",
-            completed_value="completed",
-        )
 
     def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal history to Grok (OpenAI-compatible) format."""

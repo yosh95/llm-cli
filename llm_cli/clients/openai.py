@@ -45,11 +45,6 @@ class OpenAIClient(BaseLlmClient):
         m = self.model.lower()
         return "dall-e" in m or "image" in m
 
-    def _is_video_model(self) -> bool:
-        """Determines if the current model is a video generation model."""
-        m = self.model.lower()
-        return "sora" in m
-
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
@@ -58,8 +53,6 @@ class OpenAIClient(BaseLlmClient):
         """
         if self._is_image_model():
             return self._send_image_generation(data)
-        if self._is_video_model():
-            return self._send_video_generation(data)
 
         input_items = self._build_input_items(data)
         payload: dict[str, Any] = {
@@ -188,30 +181,6 @@ class OpenAIClient(BaseLlmClient):
         except Exception as e:
             self._report_error("OpenAI Image", e)
             return (None, None), None
-
-    def _send_video_generation(
-        self, data: list[DataSource]
-    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
-        """Handles video generation via OpenAI Sora API."""
-        full_prompt = self._build_prompt_from_history(data)
-        payload = {
-            "model": self.model,
-            "prompt": full_prompt,
-        }
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        return self._send_deferred_generation(
-            start_url="https://api.openai.com/v1/videos",
-            payload=payload,
-            headers=headers,
-            provider_name="OpenAI Sora",
-            poll_url_template="https://api.openai.com/v1/videos/{}",
-            data=data,
-            status_key="status",
-            completed_value="completed",
-        )
 
     def _build_input_items(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts the internal conversation history to OpenAI Responses API format."""

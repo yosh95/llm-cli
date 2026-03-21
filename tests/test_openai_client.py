@@ -163,17 +163,6 @@ def test_image_generation_routing(client):
         mock_img_gen.assert_called_once()
 
 
-def test_video_generation_routing(client):
-    """Test that video models route to _send_video_generation."""
-    client.model = "sora-1.0"
-    assert client._is_video_model() is True
-
-    with patch.object(client, "_send_video_generation") as mock_vid_gen:
-        mock_vid_gen.return_value = (("Video generated", ""), None)
-        client._send([])
-        mock_vid_gen.assert_called_once()
-
-
 def test_send_image_generation_success(client):
     """Test successful image generation via DALL-E."""
     client.model = "dall-e-3"
@@ -198,55 +187,6 @@ def test_send_image_generation_success(client):
         assert "Image saved" in text
         assert "Revised Prompt" in text
         assert "A cute cat" in text
-
-
-def test_send_video_generation_polling(client):
-    """Test video generation polling logic."""
-    client.model = "sora"
-    data = [DataSource(content="A movie", content_type="text/plain")]
-
-    # Mock initial POST response (creation)
-    mock_create_resp = MagicMock()
-    mock_create_resp.json.return_value = {"id": "vid_123"}
-
-    # Mock polling GET responses
-    # 1. Processing
-    mock_poll_processing = MagicMock()
-    mock_poll_processing.status_code = 200
-    mock_poll_processing.json.return_value = {"status": "processing"}
-
-    # 2. Completed
-    mock_poll_completed = MagicMock()
-    mock_poll_completed.status_code = 200
-    mock_poll_completed.json.return_value = {
-        "status": "completed",
-        "result_url": "https://example.com/video.mp4",
-    }
-
-    with (
-        patch.object(client, "_post", return_value=mock_create_resp) as mock_post,
-        patch.object(
-            client, "_get", side_effect=[mock_poll_processing, mock_poll_completed]
-        ) as mock_get,
-        patch("time.sleep"),
-        patch(
-            "llm_cli.modules.media_utils.fetch_url_content",
-            return_value=(b"video_bytes", "video/mp4"),
-        ),
-        patch.object(
-            client,
-            "_save_inline_media_and_get_log_entry",
-            return_value=("Video saved", "path"),
-        ),
-    ):
-        (text, _), _ = client._send(data)
-
-        assert "Video saved" in text
-        assert "https://example.com/video.mp4" in text
-
-        # Verify mocked calls
-        assert mock_post.called
-        assert mock_get.call_count == 2
 
 
 def test_send_with_tools(client):
@@ -346,55 +286,6 @@ def test_send_image_generation_failure(client):
     with patch.object(client, "_post", return_value=mock_response):
         (text, _), _ = client._send(data)
         assert "Failed to retrieve image data" in text
-
-
-def test_send_video_generation_failure_status(client):
-    """Test video generation failure status polling."""
-    client.model = "sora"
-    data = [DataSource(content="A movie", content_type="text/plain")]
-
-    mock_create_resp = MagicMock()
-    mock_create_resp.json.return_value = {"id": "vid_fail"}
-
-    mock_poll_fail = MagicMock()
-    mock_poll_fail.status_code = 200
-    mock_poll_fail.json.return_value = {
-        "status": "failed",
-        "error": {"message": "Generation failed"},
-    }
-
-    with (
-        patch.object(client, "_post", return_value=mock_create_resp),
-        patch.object(client, "_get", return_value=mock_poll_fail),
-        patch("time.sleep"),
-    ):
-        (text, _), _ = client._send(data)
-        assert "OpenAI Sora generation failed: Generation failed" in text
-
-
-def test_send_video_generation_timeout(client):
-    """Test video generation timeout."""
-    client.model = "sora"
-    data = [DataSource(content="A movie", content_type="text/plain")]
-
-    mock_create_resp = MagicMock()
-    mock_create_resp.json.return_value = {"id": "vid_timeout"}
-
-    # Always return processing
-    mock_poll = MagicMock()
-    mock_poll.status_code = 200
-    mock_poll.json.return_value = {"status": "processing"}
-
-    # Mock time.time to simulate timeout
-    # Initial call, then loop check (start), then loop check (timeout)
-    with (
-        patch.object(client, "_post", return_value=mock_create_resp),
-        patch.object(client, "_get", return_value=mock_poll),
-        patch("time.sleep"),
-        patch("time.time", side_effect=[0, 10, 2000]),
-    ):
-        (text, _), _ = client._send(data)
-        assert "OpenAI Sora generation timed out" in text
 
 
 def test_build_input_items_with_history_and_tools(client):

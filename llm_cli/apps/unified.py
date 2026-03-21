@@ -3,10 +3,11 @@
 from typing import Any, TypeVar
 
 from llm_cli.apps.cli_common import ClientConfig, run_client_cli
-from llm_cli.clients.base import BaseLlmClient, console
+from llm_cli.clients.base import BaseLlmClient
 from llm_cli.clients.config import config_manager
 from llm_cli.clients.registry import client_registry
 from llm_cli.modules.models import DataSource
+from llm_cli.ui import console
 
 T = TypeVar("T")
 

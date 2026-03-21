@@ -81,7 +81,7 @@ class ToolRegistry:
         if "required" not in parameters:
             parameters["required"] = []
         if "explanation" not in parameters["required"]:
-            parameters["required"].append("explanation")
+            parameters["required"] = ["explanation"] + parameters["required"]
 
         @functools.wraps(func)
         def wrapper(**kwargs: Any) -> Any:

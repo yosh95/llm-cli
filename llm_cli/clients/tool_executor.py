@@ -469,7 +469,12 @@ def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
 def preview_diff(args: dict[str, Any]) -> None:
     try:
         path, new_content = (Path(args.get("path", "")), args.get("content", ""))
-        if not path or not new_content:
+        if not path:
+            return
+        if not new_content:
+            print_block(
+                "[bold red]⚠️ Warning: 'content' is empty![/bold red]", style="red"
+            )
             return
         if path.exists():
             old_content = path.read_text(encoding="utf-8")

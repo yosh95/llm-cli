@@ -451,7 +451,12 @@ def edit_file(
             "path": {"type": "string", "description": "Path to save the file."},
             "content": {
                 "type": "string",
-                "description": "The exact string content to write.",
+                "description": (
+                    "The complete file content to write. "
+                    "This field is REQUIRED and must contain the full "
+                    "text of the file. "
+                    "Do not omit this field."
+                ),
             },
         },
         "required": ["path", "content"],

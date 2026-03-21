@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from llm_cli.clients.base import BaseLlmClient
+from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
@@ -29,9 +29,11 @@ class OpenAIClient(BaseLlmClient):
         """Initializes the OpenAI client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
-            api_key_name="api_key",
-            config_section="openai",
-            pdf_as_base64=True,
+            spec=ProviderSpec(
+                api_key_name="api_key",
+                config_section="openai",
+                pdf_as_base64=True,
+            ),
             **kwargs,
         )
         # Load custom API URL if provided, otherwise use default
@@ -191,117 +193,31 @@ class OpenAIClient(BaseLlmClient):
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Handles video generation via OpenAI Sora API."""
-
         full_prompt = self._build_prompt_from_history(data)
         payload = {
             "model": self.model,
             "prompt": full_prompt,
         }
-
-        # Assuming endpoint based on search results (similar to Images API)
-        # Note: This is based on preview documentation/community info
-        video_api_url = "https://api.openai.com/v1/videos"
-
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-
-        try:
-            # Step 1: Start generation
-            response = self._post(
-                video_api_url,
-                headers=headers,
-                json_data=payload,
-                timeout=self.request_timeout,
-            )
-            self._log_debug(response_obj=response, request_payload=payload)
-            response.raise_for_status()
-            res = response.json()
-
-            # Expecting an ID for polling
-            video_id = res.get("id")
-            if not video_id:
-                return ("Failed to get video ID from response.", ""), None
-
-            # Step 2: Poll for results
-            poll_res = self._poll_until_complete(
-                poll_url=f"{video_api_url}/{video_id}",
-                headers=headers,
-                status_key="status",
-                completed_value="completed",
-                failed_values=("failed",),
-                timeout_seconds=1800,
-                request_timeout=self.request_timeout,
-            )
-
-            if not poll_res:
-                return ("Failed to get poll result.", ""), None
-
-            # Look for URL in various possible fields
-            video_url = poll_res.get("result_url")
-            if not video_url:
-                # Try 'data' array like image API
-                if "data" in poll_res and poll_res["data"]:
-                    video_url = poll_res["data"][0].get("url")
-                # Try 'video' object
-                elif "video" in poll_res:
-                    video_url = poll_res["video"].get("url")
-
-            if not video_url:
-                return (
-                    "Video generation timed out or failed to retrieve URL.",
-                    "",
-                ), None
-
-            display_text = (
-                f"Successfully generated video.\n\n**Video URL:** `{video_url}`"
-            )
-
-            # Download and save
-            from llm_cli.modules.media_utils import fetch_url_content
-
-            video_data, mime_type = fetch_url_content(video_url)
-            if video_data and mime_type:
-                hint = full_prompt[:100]
-                log, saved_path = self._save_inline_media_and_get_log_entry(
-                    {"mimeType": mime_type, "data": video_data}, hint_text=hint
-                )
-                if log:
-                    display_text += f"\n\n{log}"
-
-                model_msg = Message(
-                    role=Role.MODEL,
-                    parts=[
-                        ContentPart(text=display_text),
-                        ContentPart(
-                            inline_data={"mimeType": mime_type, "data": video_data}
-                        ),
-                    ],
-                )
-                self.conversation.append(model_msg)
-            else:
-                self.conversation.append(
-                    Message(role=Role.MODEL, parts=[ContentPart(text=display_text)])
-                )
-
-            return (display_text.strip(), ""), None
-
-        except TimeoutError as e:
-            self._report_error("OpenAI Sora", e)
-            return ("Video generation timed out", ""), None
-        except Exception as e:
-            self._report_error("OpenAI Sora", e)
-            return (f"Video generation failed: {e}", ""), None
+        return self._send_deferred_generation(
+            start_url="https://api.openai.com/v1/videos",
+            payload=payload,
+            headers=headers,
+            provider_name="OpenAI Sora",
+            poll_url_template="https://api.openai.com/v1/videos/{}",
+            data=data,
+            status_key="status",
+            completed_value="completed",
+        )
 
     def _build_input_items(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts the internal conversation history to OpenAI Responses API format."""
         items = []
 
-        # Track tool_call_ids that have responses
-        responded_tool_ids = self._get_responded_tool_ids()
-
-        for m in self.conversation:
+        for m, responded_tool_ids in self._iter_history():
             if m.role == Role.TOOL:
                 # Add function call outputs
                 for p in m.parts:

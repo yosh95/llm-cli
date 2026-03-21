@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from llm_cli.clients.base import BaseLlmClient
+from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
@@ -29,9 +29,11 @@ class GrokClient(BaseLlmClient):
         """Initializes the Grok client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
-            api_key_name="api_key",
-            config_section="xai",
-            pdf_as_base64=False,
+            spec=ProviderSpec(
+                api_key_name="api_key",
+                config_section="xai",
+                pdf_as_base64=False,
+            ),
             **kwargs,
         )
         config_url = config_manager.get("xai", "api_url")
@@ -180,69 +182,16 @@ class GrokClient(BaseLlmClient):
             "Content-Type": "application/json",
         }
 
-        try:
-            # Step 1: Start generation
-            response = self._post(
-                VIDEO_GENERATION_URL,
-                headers=headers,
-                json_data=payload,
-                timeout=self.request_timeout,
-            )
-            self._log_debug(response_obj=response, request_payload=payload)
-            response.raise_for_status()
-            res = response.json()
-
-            request_id = res.get("request_id") or res.get("id")
-            if not request_id:
-                return (("Failed to get request_id for video generation.", ""), None)
-
-            # Step 2: Poll for results
-            poll_res = self._poll_until_complete(
-                poll_url=VIDEO_RESULT_URL_TEMPLATE.format(request_id),
-                headers=headers,
-                status_key="status",
-                completed_value="completed",
-                failed_values=("failed",),
-                timeout_seconds=1800,
-                request_timeout=self.request_timeout,
-            )
-
-            if not poll_res:
-                return (None, None), None
-
-            video_url = poll_res.get("url")
-            if not video_url and "data" in poll_res:
-                if isinstance(poll_res["data"], dict):
-                    video_url = poll_res["data"].get("url")
-                elif isinstance(poll_res["data"], list) and len(poll_res["data"]) > 0:
-                    video_url = poll_res["data"][0].get("url")
-
-            if not video_url:
-                return (
-                    (
-                        "Video generation timed out or failed to retrieve URL.",
-                        "",
-                    ),
-                    None,
-                )
-
-            display_text = (
-                f"Successfully generated video based on prompt.\n\n"
-                f"[Download Video]({video_url})\n\n**Video URL:** `{video_url}`"
-            )
-
-            # Update history with text representation
-            model_msg = Message(
-                role=Role.MODEL,
-                parts=[ContentPart(text=display_text)],
-            )
-            self._update_history(data, model_msg)
-
-            return ((display_text.strip(), ""), None)
-
-        except Exception as e:
-            self._report_error("Grok Video", e)
-            return ((f"Video generation failed: {e}", ""), None)
+        return self._send_deferred_generation(
+            start_url=VIDEO_GENERATION_URL,
+            payload=payload,
+            headers=headers,
+            provider_name="Grok Video",
+            poll_url_template=VIDEO_RESULT_URL_TEMPLATE,
+            data=data,
+            status_key="status",
+            completed_value="completed",
+        )
 
     def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal history to Grok (OpenAI-compatible) format."""
@@ -250,9 +199,7 @@ class GrokClient(BaseLlmClient):
         if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
-        responded_tool_ids = self._get_responded_tool_ids()
-
-        for m in self.conversation:
+        for m, responded_tool_ids in self._iter_history():
             if m.role == Role.TOOL:
                 for p in m.parts:
                     if isinstance(p, ContentPart) and p.function_response:

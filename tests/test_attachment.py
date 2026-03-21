@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from llm_cli.clients.base import BaseLlmClient
+from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 
 
 class MockClient(BaseLlmClient):
@@ -16,7 +16,7 @@ class MockClient(BaseLlmClient):
 def test_handle_attach_command():
     from llm_cli.modules.models import DataSource
 
-    client = MockClient("default", "KEY", "section", True, False)
+    client = MockClient("default", ProviderSpec("KEY", "section", True), stdout=False)
     pending_data = []
 
     with patch.object(client, "_process_single_source") as mock_process:
@@ -32,7 +32,7 @@ def test_handle_attach_command():
 
 
 def test_handle_attach_command_invalid():
-    client = MockClient("default", "KEY", "section", True, False)
+    client = MockClient("default", ProviderSpec("KEY", "section", True), stdout=False)
     pending_data = []
 
     # Case: Empty path

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Generator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,15 @@ from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.ui import console
 
 
+@dataclass
+class ProviderSpec:
+    """Configuration specific to an LLM provider."""
+
+    api_key_name: str
+    config_section: str
+    pdf_as_base64: bool
+
+
 class BaseLlmClient(ABC):
     """
     Abstract Base Class for LLM API clients.
@@ -34,9 +45,7 @@ class BaseLlmClient(ABC):
     def __init__(
         self,
         initial_model_alias: str,
-        api_key_name: str,
-        config_section: str,
-        pdf_as_base64: bool,
+        spec: ProviderSpec,
         stdout: bool = False,
         render_markdown: bool = True,
         initial_tools: list[str] | None = None,
@@ -51,26 +60,24 @@ class BaseLlmClient(ABC):
         logging_manager: LoggingManager | None = None,
     ):
         """Initializes the LLM client by setting up its managers."""
-        self.config_section = config_section
-        self._api_key_name = api_key_name
+        self.config_section = spec.config_section
+        self._api_key_name = spec.api_key_name
         self.stdout = stdout
         self.render_markdown = render_markdown
-        self.preferred_pdf_as_base64 = pdf_as_base64
+        self.preferred_pdf_as_base64 = spec.pdf_as_base64
 
         # Specialized Managers (Injected or Newly Created)
         self._config_manager = provider_config_manager or ProviderConfigManager(
-            config_section, disable_system_prompt
+            self.config_section, disable_system_prompt
         )
-        self._model_manager = model_manager or ModelManager(config_section)
+        self._model_manager = model_manager or ModelManager(self.config_section)
         self._session_manager = session_manager or SessionManager()
         self._tool_manager = tool_manager or ToolManager(initial_tools)
-        self._media_manager = media_manager or MediaManager(pdf_as_base64)
-        if media_manager:
-            self._media_manager.pdf_as_base64 = pdf_as_base64
+        self._media_manager = media_manager or MediaManager(spec.pdf_as_base64)
         self._logging_manager = logging_manager or LoggingManager(live_debug)
 
         # Initial Setup
-        self.api_key = config_manager.get(config_section, api_key_name)
+        self.api_key = config_manager.get(self.config_section, self._api_key_name)
         self._set_initial_model(initial_model_alias)
 
         from llm_cli.consts import CHAT_LOG_PATH, HISTORY_LOG_PATH
@@ -251,6 +258,10 @@ class BaseLlmClient(ABC):
     def _refresh_system_prompt(self) -> None:
         self._config_manager._refresh_system_prompt()
 
+    def refresh_config(self) -> None:
+        """Refreshes all configuration settings."""
+        self._config_manager.refresh()
+
     def _load_model_aliases(self) -> None:
         self._model_manager.load_model_aliases()
 
@@ -268,6 +279,12 @@ class BaseLlmClient(ABC):
         from llm_cli.consts import UNKNOWN_TOOL_ID
 
         return bool(tool_id and tool_id != UNKNOWN_TOOL_ID and tool_id in responded)
+
+    def _iter_history(self) -> Generator[tuple[Message, set[str]]]:
+        """Iterates through conversation history with responded tool IDs."""
+        responded_ids = self._get_responded_tool_ids()
+        for msg in self.conversation:
+            yield msg, responded_ids
 
     def _process_single_source(self, source: str) -> DataSource | None:
         return self._media_manager.process_single_source(source)
@@ -408,6 +425,118 @@ class BaseLlmClient(ABC):
                 raise e
 
         raise TimeoutError("Polling timed out")
+
+    def _send_deferred_generation(
+        self,
+        start_url: str,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+        provider_name: str,
+        poll_url_template: str,  # e.g. "https://api.example.com/v1/jobs/{}"
+        data: list[DataSource],
+        status_key: str = "status",
+        completed_value: str = "completed",
+        failed_values: tuple[str, ...] = ("failed",),
+    ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
+        """Common logic for deferred generation (video, etc.) with polling."""
+        try:
+            # Step 1: Start generation
+            response = self._post(
+                start_url,
+                headers=headers,
+                json_data=payload,
+                timeout=self.request_timeout,
+            )
+            self._log_debug(response_obj=response, request_payload=payload)
+            response.raise_for_status()
+            res = response.json()
+
+            request_id = res.get("id") or res.get("request_id")
+            if not request_id:
+                return (
+                    (f"Failed to get request ID for {provider_name} generation.", ""),
+                    None,
+                )
+
+            # Step 2: Poll for results
+            poll_url = (
+                poll_url_template.format(request_id)
+                if "{}" in poll_url_template
+                else poll_url_template
+            )
+            poll_res = self._poll_until_complete(
+                poll_url=poll_url,
+                headers=headers,
+                status_key=status_key,
+                completed_value=completed_value,
+                failed_values=failed_values,
+                timeout_seconds=1800,
+                request_timeout=self.request_timeout,
+            )
+
+            if not poll_res:
+                return (("Failed to get poll result.", ""), None)
+
+            # Look for URL in common fields
+            video_url = poll_res.get("url") or poll_res.get("result_url")
+            if not video_url and "data" in poll_res:
+                items = poll_res["data"]
+                if isinstance(items, list) and items:
+                    video_url = items[0].get("url")
+                elif isinstance(items, dict):
+                    video_url = items.get("url")
+            if not video_url and "video" in poll_res:
+                video_url = poll_res["video"].get("url")
+
+            if not video_url:
+                return (
+                    (
+                        f"{provider_name} generation failed to retrieve URL.",
+                        "",
+                    ),
+                    None,
+                )
+
+            display_text = (
+                f"Successfully generated media.\n\n"
+                f"[Download Link]({video_url})\n\n**URL:** `{video_url}`"
+            )
+
+            # Download and save if possible
+            from llm_cli.modules.media_utils import fetch_url_content
+
+            media_data, mime_type = fetch_url_content(video_url)
+            if media_data and mime_type:
+                hint = payload.get("prompt", "")[:100]
+                log, _ = self._save_inline_media_and_get_log_entry(
+                    {"mimeType": mime_type, "data": media_data}, hint_text=hint
+                )
+                if log:
+                    display_text += f"\n\n{log}"
+
+                model_msg = Message(
+                    role=Role.MODEL,
+                    parts=[
+                        ContentPart(text=display_text),
+                        ContentPart(
+                            inline_data={"mimeType": mime_type, "data": media_data}
+                        ),
+                    ],
+                )
+            else:
+                model_msg = Message(
+                    role=Role.MODEL, parts=[ContentPart(text=display_text)]
+                )
+
+            self._update_history(data, model_msg)
+            return (display_text.strip(), ""), None
+
+        except TimeoutError:
+            self._report_error(provider_name, TimeoutError("Polling timed out"))
+            return (f"{provider_name} generation timed out", ""), None
+        except Exception as e:
+            self._report_error(provider_name, e)
+            return (f"{provider_name} generation failed: {e}", ""), None
 
     def talk(
         self,

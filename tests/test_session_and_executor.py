@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_cli.clients.base import BaseLlmClient
+from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 from llm_cli.clients.session import ChatSession
 from llm_cli.clients.tool_executor import (
     PostProcessHandler,
@@ -14,7 +14,11 @@ from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 
 class MockClient(BaseLlmClient):
     def __init__(self, initial_model_alias="default", api_key="api_key"):
-        super().__init__(initial_model_alias, api_key, "google", True, False)
+        super().__init__(
+            initial_model_alias,
+            ProviderSpec(api_key, "google", True),
+            stdout=False,
+        )
 
     def _load_model_aliases(self):
         self.available_models = {"default": "test-model"}

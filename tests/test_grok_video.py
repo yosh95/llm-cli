@@ -109,7 +109,7 @@ class TestGrokVideoGeneration:
         )
 
         # Verify Result
-        assert "Successfully generated video" in response_text[0]
+        assert "Successfully generated media" in response_text[0]
         assert "https://example.com/video.mp4" in response_text[0]
 
         # Verify history update

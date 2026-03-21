@@ -278,47 +278,20 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.provider:
-        provider = args.provider.lower()
-        if provider not in MODEL_LISTING_REGISTRY:
-            console.print(f"[bold red]Error: Unknown provider '{provider}'.[/bold red]")
-            available = ", ".join(sorted(MODEL_LISTING_REGISTRY.keys()))
-            console.print(f"Available providers: {available}")
-            sys.exit(1)
+    if not args.provider:
+        parser.print_help()
+        sys.exit(0)
 
-        config_factory = MODEL_LISTING_REGISTRY[provider]
-        config = config_factory()
-        list_models(config, args)
-    else:
-        # If no provider is specified, list models for all configured providers
-        primary_providers = ["openai", "anthropic", "google", "xai", "ollama"]
-        any_configured = False
+    provider = args.provider.lower()
+    if provider not in MODEL_LISTING_REGISTRY:
+        console.print(f"[bold red]Error: Unknown provider '{provider}'.[/bold red]")
+        available = ", ".join(sorted(MODEL_LISTING_REGISTRY.keys()))
+        console.print(f"Available providers: {available}")
+        sys.exit(1)
 
-        for p_name in primary_providers:
-            config_factory = MODEL_LISTING_REGISTRY[p_name]
-            config = config_factory()
-            api_key = config_manager.get(config.config_section, config.api_key_setting)
-
-            # Check if configured
-            # (Ollama doesn't strictly need an API key in this context)
-            if api_key or config.config_section == "ollama":
-                if any_configured:
-                    console.print()  # Add newline between providers
-                provider_name = config.provider_name
-                msg = f"[bold blue]Listing models for {provider_name}...[/bold blue]"
-                console.print(msg)
-                list_models(config, args)
-                any_configured = True
-
-        if not any_configured:
-            console.print(
-                "[yellow]No providers configured. "
-                "Please set an API key environment variable like OPENAI_API_KEY."
-                "[/yellow]"
-            )
-            available = ", ".join(sorted(MODEL_LISTING_REGISTRY.keys()))
-            console.print(f"Available providers: {available}")
-            console.print("\nUsage: llm-cli-models <provider> [-v]")
+    config_factory = MODEL_LISTING_REGISTRY[provider]
+    config = config_factory()
+    list_models(config, args)
 
 
 if __name__ == "__main__":

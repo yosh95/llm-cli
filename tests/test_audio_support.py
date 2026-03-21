@@ -91,7 +91,7 @@ def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"binary mp3 data")
 
-    from llm_cli.clients.base import BaseLlmClient
+    from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 
     class ConcreteClient(BaseLlmClient):
         def _load_model_aliases(self):
@@ -107,7 +107,9 @@ def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
         mock_kind.mime = "audio/mpeg"
         mock_guess.return_value = mock_kind
 
-        client = ConcreteClient("default", "key", "google", True, True)
+        client = ConcreteClient(
+            "default", ProviderSpec("key", "google", True), stdout=True
+        )
         result = client._process_single_source(str(audio_file))
 
         assert isinstance(result, DataSource)

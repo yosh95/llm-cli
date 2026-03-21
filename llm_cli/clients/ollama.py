@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from llm_cli.clients.base import BaseLlmClient
+from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 from llm_cli.clients.config import config_manager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
@@ -20,9 +20,11 @@ class OllamaClient(BaseLlmClient):
         """Initializes the Ollama client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
-            api_key_name="api_key",
-            config_section="ollama",
-            pdf_as_base64=False,  # Per user instruction: don't make pdf to base64
+            spec=ProviderSpec(
+                api_key_name="api_key",
+                config_section="ollama",
+                pdf_as_base64=False,  # Per user instruction: don't make pdf to base64
+            ),
             **kwargs,
         )
         config_url = config_manager.get("ollama", "api_url")
@@ -104,19 +106,13 @@ class OllamaClient(BaseLlmClient):
         if self.system_prompt and self.system_prompt_enabled:
             msgs.append({"role": "system", "content": self.system_prompt})
 
-        responded_tool_ids = self._get_responded_tool_ids()
-
-        for m in self.conversation:
+        for m, responded_tool_ids in self._iter_history():
             if m.role == Role.TOOL:
                 for p in m.parts:
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
                         tool_id = func_resp.get("id")
-                        if (
-                            tool_id
-                            and tool_id != "unknown"
-                            and tool_id in responded_tool_ids
-                        ):
+                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
                             result = func_resp.get("response", {}).get("result", "")
                             msgs.append(
                                 {
@@ -153,11 +149,7 @@ class OllamaClient(BaseLlmClient):
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
-                            if (
-                                tool_id
-                                and tool_id != "unknown"
-                                and tool_id in responded_tool_ids
-                            ):
+                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
                                 tool_calls.append(
                                     {
                                         "id": tool_id,

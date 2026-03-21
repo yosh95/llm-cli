@@ -4,7 +4,7 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
-from llm_cli.clients.base import BaseLlmClient
+from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
@@ -32,9 +32,11 @@ class GeminiClient(BaseLlmClient):
         """Initializes the Gemini client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
-            api_key_name="api_key",
-            config_section="google",
-            pdf_as_base64=True,
+            spec=ProviderSpec(
+                api_key_name="api_key",
+                config_section="google",
+                pdf_as_base64=True,
+            ),
             **kwargs,
         )
         self.last_interaction_id: str | None = None

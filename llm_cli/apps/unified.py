@@ -51,13 +51,17 @@ class UnifiedClient(BaseLlmClient):
         )
 
         # Initialize as a base client first. This creates the shared managers.
+        from llm_cli.clients.base import ProviderSpec
+
         super().__init__(
             initial_model_alias=kwargs.get("initial_model_alias", "default"),
-            api_key_name="api_key",
-            config_section=config_section,
-            pdf_as_base64=kwargs.get(
-                "pdf_as_base64",
-                config_manager.get_bool("general", "pdf_as_base64", True),
+            spec=ProviderSpec(
+                api_key_name="api_key",
+                config_section=config_section,
+                pdf_as_base64=kwargs.get(
+                    "pdf_as_base64",
+                    config_manager.get_bool("general", "pdf_as_base64", True),
+                ),
             ),
             stdout=kwargs.get("stdout", False),
             render_markdown=kwargs.get("render_markdown", True),

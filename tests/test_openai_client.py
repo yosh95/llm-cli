@@ -369,7 +369,7 @@ def test_send_video_generation_failure_status(client):
         patch("time.sleep"),
     ):
         (text, _), _ = client._send(data)
-        assert "Video generation failed: Generation failed" in text
+        assert "OpenAI Sora generation failed: Generation failed" in text
 
 
 def test_send_video_generation_timeout(client):
@@ -394,7 +394,7 @@ def test_send_video_generation_timeout(client):
         patch("time.time", side_effect=[0, 10, 2000]),
     ):
         (text, _), _ = client._send(data)
-        assert "Video generation timed out" in text
+        assert "OpenAI Sora generation timed out" in text
 
 
 def test_build_input_items_with_history_and_tools(client):

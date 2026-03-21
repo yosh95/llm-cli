@@ -161,6 +161,4 @@ class GrokClient(BaseLlmClient, OpenAICompatibleMixin):
 
     def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal history to Grok (OpenAI-compatible) format."""
-        # Note: We don't include p.thought in history for Grok
-        # as Grok 4 doesn't return reasoning_content anyway in Chat API.
-        return self._build_openai_compatible_messages(data, include_thought=False)
+        return self._build_openai_compatible_messages(data)

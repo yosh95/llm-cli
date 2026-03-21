@@ -3,30 +3,35 @@
 from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient, ProviderSpec
+from llm_cli.clients.mixins import ClaudeMessagesMixin
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 
-class ClaudeClient(BaseLlmClient):
-    """
-    Client for interacting with the Anthropic Claude API.
+class ClaudeClient(BaseLlmClient, ClaudeMessagesMixin):
+    """Client for the Anthropic Claude Messages API.
 
     Supports vision, tool calling, and extended thinking modes.
 
-    Extended thinking allows Claude to reason through complex problems
-    before responding. Claude 4 models return summarized thinking content,
-    while Claude Sonnet 4.6 returns full thinking output.
+    Extended thinking allows Claude to reason through complex problems before
+    responding.  Claude 4 models return summarised thinking content; Claude
+    Sonnet 4.6 returns the full thinking output.
+
+    Message serialisation (history → wire format) is handled by
+    :class:`~llm_cli.clients.mixins.ClaudeMessagesMixin` so this class stays
+    focused on HTTP concerns and response parsing.
     """
 
     API_URL = "https://api.anthropic.com/v1/messages"
 
     def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
-        """Initializes the Claude client."""
         super().__init__(
             initial_model_alias=initial_model_alias,
             spec=ProviderSpec(
                 api_key_name="api_key",
                 config_section="anthropic",
+                # PDFs are sent as base64-encoded ``document`` blocks; the
+                # MediaManager must decode/encode the file before sending.
                 pdf_as_base64=True,
             ),
             **kwargs,
@@ -35,11 +40,12 @@ class ClaudeClient(BaseLlmClient):
     def _send(
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
-        """Sends the conversation history and new data to Claude."""
+        """Send conversation history + *data* to the Claude Messages API."""
         from llm_cli.clients.config import config_manager
 
-        messages = self._build_messages(data)
+        messages = self._build_claude_messages(data)
         max_tokens = int(config_manager.get("anthropic", "max_tokens") or 8192)
+
         payload: dict[str, Any] = {
             "model": self.model,
             "max_tokens": max_tokens,
@@ -64,12 +70,11 @@ class ClaudeClient(BaseLlmClient):
                 ]
 
             if self.active_tools and self.tools_enabled:
-                tools = registry.get_anthropic_spec(
+                payload["tools"] = registry.get_anthropic_spec(
                     self.active_tools, provider=self.config_section
                 )
-                payload["tools"] = tools
 
-            # Always enable Prompt Caching (fixed implementation as requested)
+            # Always enable Prompt Caching
             payload["cache_control"] = {"type": "ephemeral"}
 
             response = self._post(
@@ -85,6 +90,7 @@ class ClaudeClient(BaseLlmClient):
             model_parts: list[str | ContentPart] = []
             full_text = ""
             thought_text = ""
+
             for block in res.get("content", []):
                 if block["type"] == "text":
                     text_content = block["text"]
@@ -112,89 +118,7 @@ class ClaudeClient(BaseLlmClient):
             self._update_history(data, model_msg)
 
             return (full_text.strip(), thought_text.strip()), res.get("usage")
+
         except Exception as e:
             self._report_error("Claude", e)
             return (None, None), None
-
-    def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
-        """Converts internal conversation history to Claude API format."""
-        msgs: list[dict[str, Any]] = []
-
-        for m, responded_tool_ids in self._iter_history():
-            if m.role == Role.TOOL:
-                tool_content: list[dict[str, Any]] = []
-                for p in m.parts:
-                    if isinstance(p, ContentPart) and p.function_response:
-                        func_resp = p.function_response
-                        tool_id = func_resp.get("id")
-                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
-                            result = func_resp.get("response", {}).get("result", "")
-                            tool_content.append(
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": tool_id,
-                                    "content": str(result),
-                                }
-                            )
-                if tool_content:
-                    msgs.append({"role": "user", "content": tool_content})
-            else:
-                role = "assistant" if m.role == Role.MODEL else "user"
-                msg_parts: list[dict[str, Any]] = []
-                for p in m.parts:
-                    if isinstance(p, str):
-                        msg_parts.append({"type": "text", "text": p})
-                    elif isinstance(p, ContentPart):
-                        if p.thought:
-                            thinking_block = {"type": "thinking", "thinking": p.thought}
-                            if p.thought_signature:
-                                thinking_block["signature"] = p.thought_signature
-                            msg_parts.append(thinking_block)
-                        if p.text and p.text.strip():
-                            msg_parts.append({"type": "text", "text": p.text})
-                        if p.function_call:
-                            func_call = p.function_call
-                            tool_id = func_call.get("id")
-                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
-                                msg_parts.append(
-                                    {
-                                        "type": "tool_use",
-                                        "id": tool_id,
-                                        "name": func_call.get("name", "unknown"),
-                                        "input": func_call.get("args", {}),
-                                    }
-                                )
-                if msg_parts:
-                    msgs.append({"role": role, "content": msg_parts})
-
-        # Append incoming data for the next user message
-        user_content: list[dict[str, Any]] = []
-        for d in data:
-            if d.content_type == "text/plain":
-                user_content.append({"type": "text", "text": str(d.content)})
-            elif d.content_type.startswith("image/"):
-                user_content.append(
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": d.content_type,
-                            "data": d.content,
-                        },
-                    }
-                )
-            elif d.content_type == "application/pdf":
-                user_content.append(
-                    {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": d.content_type,
-                            "data": d.content,
-                        },
-                    }
-                )
-
-        if user_content:
-            msgs.append({"role": "user", "content": user_content})
-        return msgs

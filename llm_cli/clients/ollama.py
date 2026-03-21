@@ -103,5 +103,4 @@ class OllamaClient(BaseLlmClient, OpenAICompatibleMixin):
 
     def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal history to Ollama (OpenAI-compatible) format."""
-        # Ollama models often handle thought/reasoning tags in text content
-        return self._build_openai_compatible_messages(data, include_thought=True)
+        return self._build_openai_compatible_messages(data)

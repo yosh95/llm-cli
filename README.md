@@ -75,14 +75,14 @@ The AI agent autonomously uses tools to perform complex tasks, such as file mana
 As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** compliance in mind, `llm-cli` implements a multi-layered security architecture to mitigate the risks associated with autonomous AI agents.
 
 ### 1. Zero Trust & Access Control (ABAC)
-`llm-cli` implements **Attribute-Based Access Control (ABAC)**, moving away from traditional RBAC for more granular security.
+`llm-cli` implements **Attribute-Based Access Control (ABAC)**, providing granular security based on execution context and resource attributes.
 - **Risk-based Scaling**: Security requirements automatically scale based on the tool's risk level (HIGH/MEDIUM/LOW).
 - **Identity Proof**: High-risk actions (e.g., Python execution) require a valid **PQC-signed identity**.
 - **Path Guardrails**: Tools are restricted by path attributes (defaulting to the current directory).
 - **Explanation Enforcement**: Every tool mandates an `explanation` parameter, forcing the LLM to justify its intent.
 
 ### 2. Identity & Non-Repudiation (Post-Quantum Ready)
-- **Hybrid Identity Tokens**: Uses **RS256** combined with **Post-Quantum Cryptography (ML-DSA)** to sign tool execution requests, ensuring long-term non-repudiation.
+- **Hybrid Identity Tokens**: Uses **COSE (RFC 9052)** binary structures combining **RS256** with **Post-Quantum Cryptography (ML-DSA)** to sign tool execution requests, ensuring long-term non-repudiation.
 - **Client Integrity Attestation**: The client generates a signed manifest of its own source code state to prove the integrity of the execution environment.
 - **Bi-directional Verification**: Tool results are signed by the client, allowing the LLM to verify that the observations it receives are authentic and untampered.
 
@@ -182,13 +182,13 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 本ツールは **CISSP/CISA/CCSP** の各ドメインにおける管理策、および **EU AI Act（欧州AI法）** の技術的要件を意識して設計されています。
 
 ### 1. 属性ベースアクセス制御 (ABAC)
-`llm-cli` は、従来のRBAC（ロールベース）を廃止し、より柔軟で厳格な **属性ベースアクセス制御 (ABAC)** を採用しています。
+`llm-cli` は、実行コンテキストとリソース属性に基づいた **属性ベースアクセス制御 (ABAC)** を採用し、高度に粒度の細かいセキュリティを実現しています。
 - **リスクベース・スケーリング**: ツールのリスクレベル（HIGH/MEDIUM/LOW）に応じて、要求されるセキュリティ強度が自動的に変化します。
 - **アイデンティティ証明**: 高リスクな操作（Python実行など）には、**耐量子暗号 (PQC)** による署名付き証明が必要です。
 - **パス・ガードレール**: 操作可能な範囲を属性（ディレクトリ・パスなど）で制限します。
 
 ### 2. アイデンティティと非否認性 (耐量子暗号)
-- **ハイブリッド署名**: **RS256** と **耐量子暗号 (ML-DSA)** を組み合わせ、ツール実行リクエストの正当性を長期的に保証（非否認性）。
+- **ハイブリッド署名**: **COSE (RFC 9052)** を採用し、**RS256** と **耐量子暗号 (ML-DSA)** を組み合わせ、ツール実行リクエストの正当性をバイナリレベルで長期的に保証（非否認性）。
 - **完全性検証**: クライアント自身のソースコードの状態を署名付きマニフェストで証明し、実行環境の健全性を担保。
 
 ### 3. 観測可能性と異常検知

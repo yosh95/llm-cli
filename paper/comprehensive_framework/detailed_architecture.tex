@@ -23,7 +23,7 @@
     \node [tierbox, fit=(ast) (path) (isolated_env), label={[title]above:Tier 1: Structural Guardrails (Space)}] (t1box) {};
 
     % Tier 2: Behavior
-    \node [component, fill=purple!5, right=1.2cm of cass] (identity) {Workload Identity \\ \textit{(JWT/RBAC/OOB)}};
+    \node [component, fill=purple!5, right=1.2cm of cass] (identity) {Workload Identity \\ \textit{(COSE/ABAC/OOB)}};
     \node [component, fill=purple!5, right=of identity] (mamba) {Mamba Sentinel \\ \textit{($O(N)$ Cross-Entropy)}};
 
 \node [tierbox, fit=(identity) (mamba), label={[title]above:Tier 2: Behavioral Zero-Trust (Behavior)}] (t2box) {};
@@ -56,7 +56,7 @@
     \path [line] (attest.east) -- +(0.6,0) |- (exec.200);
 
     % MCP Server-Side (Zero Trust)
-    \node [rectangle, draw, fill=gray!10, text width=8em, text centered, dotted, right=1.2cm of exec, font=\scriptsize] (server) {MCP Server-Side \\ \textbf{Secure Wrapper} \\ \textit{(Independent RBAC/Audit)}};
+    \node [rectangle, draw, fill=gray!10, text width=8em, text centered, dotted, right=1.2cm of exec, font=\scriptsize] (server) {MCP Server-Side \\ \textbf{Secure Wrapper} \\ \textit{(Independent ABAC/Audit)}};
     
     \path [line, dashed] (exec) -- node[above, font=\tiny]{MCP/JSON-RPC} (server);
 

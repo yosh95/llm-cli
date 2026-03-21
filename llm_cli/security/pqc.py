@@ -1,17 +1,109 @@
+"""
+Post-Quantum Cryptography (PQC) module.
+
+Hybrid Signature implementation conforming to COSE (RFC 9052 / CBOR Object
+Signing and Encryption).  This module is intentionally self-contained:
+it uses ``cbor2`` and ``cryptography`` directly rather than a COSE helper
+library so that integration with non-standard ML-DSA algorithm identifiers
+is straightforward and fully auditable.
+
+COSE algorithm identifiers used
+--------------------------------
+- ``-257`` : RS256  – RSASSA-PKCS1-v1_5 w/ SHA-256  (classical)
+- ``-48``  : ML-DSA – NIST ML-DSA (Dilithium), custom registration
+
+COSE message structure (tag 98 = COSE_Sign)
+--------------------------------------------
+COSE_Sign = [
+    protected   : bstr .cbor header_map,   # {1: alg_id, ...}
+    unprotected : header_map,              # {}
+    payload     : bstr / nil,
+    signatures  : [+ COSE_Signature],
+]
+
+COSE_Signature = [
+    protected   : bstr .cbor header_map,
+    unprotected : header_map,
+    signature   : bstr,
+]
+
+Sig_Structure (the bytes that are signed) = [
+    "Signature",         # context
+    body_protected,      # protected header of the outer message
+    sign_protected,      # protected header of this signer
+    b"",                 # external_aad (empty)
+    payload,             # message payload
+]
+"""
+
 import base64
 import json
 import logging
 from typing import Any
 
+import cbor2
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+from cryptography.hazmat.primitives.serialization import (
+    load_pem_private_key,
+    load_pem_public_key,
+)
 from dilithium_py.ml_dsa import ML_DSA_44, ML_DSA_65, ML_DSA_87
 from kyber_py.ml_kem import ML_KEM_512, ML_KEM_768, ML_KEM_1024
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# COSE algorithm identifiers (RFC 9052 §9.1 + custom registration)
+# ---------------------------------------------------------------------------
+_COSE_ALG_RS256 = -257  # RSASSA-PKCS1-v1_5 with SHA-256
+_COSE_ALG_MLDSA = -48  # ML-DSA-65 (custom / IANA pending)
+
+# COSE header label for Algorithm (RFC 9052 §3.1)
+_COSE_HEADER_ALG = 1
+
+# CBOR tag for COSE_Sign
+_COSE_SIGN_TAG = 98
+
+
+# ---------------------------------------------------------------------------
+# Internal COSE helpers
+# ---------------------------------------------------------------------------
+
+
+def _encode_protected(alg_id: int) -> bytes:
+    """Encode a COSE protected header containing only the algorithm label."""
+    return cbor2.dumps({_COSE_HEADER_ALG: alg_id})
+
+
+def _build_sig_structure(
+    body_protected: bytes,
+    sign_protected: bytes,
+    payload: bytes,
+) -> bytes:
+    """
+    Build the Sig_Structure byte string per RFC 9052 §4.4.
+
+    Sig_Structure = [
+        context      : "Signature",
+        body_protected,
+        sign_protected,
+        external_aad : b"",
+        payload,
+    ]
+    """
+    return cbor2.dumps(["Signature", body_protected, sign_protected, b"", payload])
+
+
+# ---------------------------------------------------------------------------
+# ML-KEM (Key Encapsulation Mechanism)
+# ---------------------------------------------------------------------------
+
 
 class KEMProvider:
     """
-    Key Encapsulation Mechanism (KEM) using ML-KEM.
+    Key Encapsulation Mechanism (KEM) using ML-KEM (Kyber).
     Provides post-quantum cryptographic primitives for shared secret derivation.
     """
 
@@ -34,8 +126,9 @@ class KEMProvider:
         cls, public_key_bytes: bytes, variant: str = DEFAULT_VARIANT
     ) -> tuple[bytes, bytes]:
         """
-        Derives a shared secret and encapsulates it using the public key.
-        Returns: (ciphertext, shared_secret)
+        Derive a shared secret and encapsulate it using the public key.
+
+        Returns: ``(ciphertext, shared_secret)``
         """
         algo = cls.VARIANTS.get(variant, ML_KEM_768)
         # kyber-py returns (shared_secret, ciphertext)
@@ -44,14 +137,19 @@ class KEMProvider:
 
     @classmethod
     def decapsulate(
-        cls, ciphertext: bytes, private_key_bytes: bytes, variant: str = DEFAULT_VARIANT
+        cls,
+        ciphertext: bytes,
+        private_key_bytes: bytes,
+        variant: str = DEFAULT_VARIANT,
     ) -> bytes:
-        """
-        Decrypts the ciphertext to retrieve the shared secret.
-        """
+        """Decrypt the ciphertext to retrieve the shared secret."""
         algo = cls.VARIANTS.get(variant, ML_KEM_768)
-        # kyber-py decaps takes (sk, ct)
         return algo.decaps(private_key_bytes, ciphertext)  # type: ignore[no-any-return]
+
+
+# ---------------------------------------------------------------------------
+# Hybrid Encryption (ML-KEM + AES-256-GCM)
+# ---------------------------------------------------------------------------
 
 
 class SecureStorage:
@@ -61,25 +159,31 @@ class SecureStorage:
     """
 
     @classmethod
-    def encrypt(cls, data: bytes, recipient_public_key: bytes) -> dict:
+    def encrypt(cls, data: bytes, recipient_public_key: bytes) -> dict[str, str]:
         """
-        Encrypts data using a hybrid approach.
-        Returns: { 'kem_ct': b64, 'aes_ct': b64, 'nonce': b64, 'tag': b64 }
+        Encrypt *data* using a hybrid approach.
+
+        Returns::
+
+            {
+                'kem_ct': <b64>,
+                'aes_ct': <b64>,
+                'nonce':  <b64>,
+                'tag':    <b64>,
+                'algo':   'ML-KEM-768/AES-256-GCM',
+            }
         """
         import os
 
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-        # 1. KEM Encapsulation (Returns ct, ss)
         kem_ct, shared_secret = KEMProvider.encapsulate(recipient_public_key)
 
-        # 2. Symmetric Encryption (AES-256-GCM)
-        # Use first 32 bytes of shared secret for AES-256
         aesgcm = AESGCM(shared_secret[:32])
         nonce = os.urandom(12)
         ct_with_tag = aesgcm.encrypt(nonce, data, None)
 
-        # Split CT and Tag (cryptography appends tag at the end)
+        # cryptography appends the 16-byte tag at the end
         tag = ct_with_tag[-16:]
         actual_ct = ct_with_tag[:-16]
 
@@ -92,17 +196,13 @@ class SecureStorage:
         }
 
     @classmethod
-    def decrypt(cls, encrypted_packet: dict, private_key: bytes) -> bytes:
-        """
-        Decrypts a hybrid packet using the recipient's private key.
-        """
+    def decrypt(cls, encrypted_packet: dict[str, str], private_key: bytes) -> bytes:
+        """Decrypt a hybrid packet using the recipient's private key."""
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-        # 1. KEM Decapsulation
         kem_ct = base64.b64decode(encrypted_packet["kem_ct"])
         shared_secret = KEMProvider.decapsulate(kem_ct, private_key)
 
-        # 2. Symmetric Decryption
         nonce = base64.b64decode(encrypted_packet["nonce"])
         aes_ct = base64.b64decode(encrypted_packet["aes_ct"])
         tag = base64.b64decode(encrypted_packet["tag"])
@@ -111,13 +211,18 @@ class SecureStorage:
         return aesgcm.decrypt(nonce, aes_ct + tag, None)
 
 
+# ---------------------------------------------------------------------------
+# ML-DSA Digital Signatures
+# ---------------------------------------------------------------------------
+
+
 class PQCProvider:
     """
-    Digital Signature Provider using ML-DSA.
+    Digital Signature Provider using ML-DSA (Dilithium).
     Provides post-quantum cryptographic primitives for message signing.
     """
 
-    VARIANTS = {
+    VARIANTS: dict[str, Any] = {
         "ML-DSA-44": ML_DSA_44,  # NIST Level 2
         "ML-DSA-65": ML_DSA_65,  # NIST Level 3 (Default)
         "ML-DSA-87": ML_DSA_87,  # NIST Level 5
@@ -132,15 +237,18 @@ class PQCProvider:
 
     @classmethod
     def generate_keypair(cls, variant: str = DEFAULT_VARIANT) -> tuple[bytes, bytes]:
-        """Generate a signature keypair."""
+        """Generate a signature keypair ``(public_key, private_key)``."""
         algo = cls.VARIANTS.get(variant, ML_DSA_65)
         return algo.keygen()  # type: ignore[no-any-return]
 
     @classmethod
     def sign(
-        cls, message: bytes, private_key_bytes: bytes, variant: str = DEFAULT_VARIANT
+        cls,
+        message: bytes,
+        private_key_bytes: bytes,
+        variant: str = DEFAULT_VARIANT,
     ) -> bytes:
-        """Sign a message using the specified variant."""
+        """Sign *message* using the specified ML-DSA variant."""
         algo = cls.VARIANTS.get(variant, ML_DSA_65)
         return algo.sign(private_key_bytes, message, deterministic=True)  # type: ignore[no-any-return]
 
@@ -152,12 +260,17 @@ class PQCProvider:
         public_key_bytes: bytes,
         variant: str = DEFAULT_VARIANT,
     ) -> bool:
-        """Verify a signature using the specified variant."""
+        """Verify *signature* over *message*."""
         algo = cls.VARIANTS.get(variant, ML_DSA_65)
         try:
             return algo.verify(public_key_bytes, message, signature)  # type: ignore[no-any-return]
         except Exception:
             return False
+
+
+# ---------------------------------------------------------------------------
+# PQC Agility Manager
+# ---------------------------------------------------------------------------
 
 
 class PQCAgilityManager:
@@ -168,13 +281,16 @@ class PQCAgilityManager:
 
     @staticmethod
     def get_required_level(
-        tool_name: str, args: Any = None, environment_risk: str = "standard"
+        tool_name: str,
+        args: Any = None,
+        environment_risk: str = "standard",
     ) -> str:
         """
-        Determines the required security level based on a risk matrix.
+        Determine the required ML-DSA security level based on a risk matrix.
+
         Note: While this manager selects different variants (ML-DSA-44/65/87),
         the current IdentityManager implementation uses a single primary key pair
-        for simplicity. In a full production deployment, separate keys per
+        for simplicity.  In a full production deployment, separate keys per
         security level would be managed to satisfy cryptographic isolation.
         """
         from llm_cli.clients.config import config_manager
@@ -182,35 +298,34 @@ class PQCAgilityManager:
         config = config_manager.load_config()
         security_config = config.get("security", {})
 
-        # Risk levels for specific tools
         high_risk_tools = set(security_config.get("high_risk_tools", []))
 
-        # Dynamic context analysis (e.g., sensitive file access)
-        # Defaults to a reasonable set if not specified in config
-        sensitive_patterns = security_config.get("scaling_patterns", [])
-        # Also include blocked_paths as sensitive for scaling
+        sensitive_patterns = list(security_config.get("scaling_patterns", []))
         sensitive_patterns.extend(security_config.get("blocked_paths", []))
 
         is_sensitive_context = False
         if args:
             args_str = str(args).lower()
-            if any(str(pattern).lower() in args_str for pattern in sensitive_patterns):
+            if any(str(p).lower() in args_str for p in sensitive_patterns):
                 is_sensitive_context = True
 
-        # Policy Matrix
         if (
             environment_risk == "high"
             or tool_name in high_risk_tools
             or is_sensitive_context
         ):
-            return "ML-DSA-87"  # NIST Level 5 (Maximum Resilience)
+            return "ML-DSA-87"
 
-        # Adaptive scaling for moderate tools
         moderate_risk_tools = set(security_config.get("medium_risk_tools", []))
         if tool_name in moderate_risk_tools:
-            return "ML-DSA-65"  # NIST Level 3 (Balanced)
+            return "ML-DSA-65"
 
-        return "ML-DSA-44"  # NIST Level 2 (Optimized for Latency)
+        return "ML-DSA-44"
+
+
+# ---------------------------------------------------------------------------
+# Response Signer
+# ---------------------------------------------------------------------------
 
 
 class ResponseSigner:
@@ -226,10 +341,8 @@ class ResponseSigner:
         source_verification_id: str,
         private_key: bytes,
         variant: str = PQCProvider.DEFAULT_VARIANT,
-    ) -> dict:
-        """
-        Binds the LLM's response to the verified tool execution ID.
-        """
+    ) -> dict[str, str]:
+        """Bind the LLM's response to the verified tool-execution ID."""
         message = f"{source_verification_id}:{response_text}".encode()
         signature = PQCProvider.sign(message, private_key, variant=variant)
 
@@ -241,6 +354,11 @@ class ResponseSigner:
         }
 
 
+# ---------------------------------------------------------------------------
+# Audit Anchoring (Merkle Tree)
+# ---------------------------------------------------------------------------
+
+
 class AuditAnchoring:
     """
     Facilitates external anchoring of audit logs to prevent historical revisionism.
@@ -248,28 +366,22 @@ class AuditAnchoring:
     """
 
     @staticmethod
-    def generate_anchor_root(log_entries: list[dict]) -> str:
-        """
-        Generates a Merkle Root for a batch of audit logs.
-        """
+    def generate_anchor_root(log_entries: list[dict[str, Any]]) -> str:
+        """Generate a Merkle Root for a batch of audit log entries."""
         import hashlib
 
         if not log_entries:
             return "0" * 64
 
-        # 1. Generate leaves (hash of each entry)
         hashes = []
         for e in log_entries:
-            # Canonicalize entry for hashing
             entry_to_hash = {k: v for k, v in e.items() if k != "pqc_signature"}
             entry_str = json.dumps(entry_to_hash, sort_keys=True)
             hashes.append(hashlib.sha256(entry_str.encode()).hexdigest())
 
-        # 2. Build the tree level by level
         while len(hashes) > 1:
             if len(hashes) % 2 != 0:
-                hashes.append(hashes[-1])  # Duplicate last element if odd
-
+                hashes.append(hashes[-1])
             new_level = []
             for i in range(0, len(hashes), 2):
                 combined = (hashes[i] + hashes[i + 1]).encode()
@@ -281,15 +393,16 @@ class AuditAnchoring:
     @classmethod
     def create_external_anchor(cls) -> str | None:
         """
-        Performs the anchoring process: reads the audit log, generates Merkle Root,
-        and provides it as an immutable anchor.
+        Read the audit log, generate a Merkle Root, and record it in the
+        security log.  In production this root would be submitted to an
+        immutable ledger service.
         """
         from llm_cli.consts import AUDIT_LOG_PATH
 
         if not AUDIT_LOG_PATH.exists():
             return None
 
-        entries = []
+        entries: list[dict[str, Any]] = []
         with AUDIT_LOG_PATH.open("r", encoding="utf-8") as f:
             for line in f:
                 try:
@@ -302,9 +415,6 @@ class AuditAnchoring:
 
         root = cls.generate_anchor_root(entries)
 
-        # In a production system, this root would be sent to a Blockchain or
-        # a Managed Immutable Log Service.
-        # For this implementation, we log it to a dedicated security log.
         try:
             import datetime
 
@@ -316,7 +426,6 @@ class AuditAnchoring:
                 ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(f"[{ts}] 🔗 [POST-QUANTUM ANCHOR] Merkle Root: {root}\n")
 
-            # Trim the security log to prevent it from growing indefinitely
             max_lines = int(
                 config_manager.get("general", "max_security_log_lines") or 1000
             )
@@ -334,119 +443,247 @@ class AuditAnchoring:
         return root
 
 
+# ---------------------------------------------------------------------------
+# Hybrid COSE Signer  (RFC 9052 COSE_Sign, tag 98)
+# ---------------------------------------------------------------------------
+
+
 class HybridSigner:
     """
-    Implements Hybrid Signatures (Classical + Post-Quantum).
-    Ensures security even if one algorithm is compromised.
-    Includes the PQC signature within the JWT claims for standard compatibility.
-    """
+    Hybrid Signatures (Classical + Post-Quantum) conforming to RFC 9052.
 
-    def __init__(self, classical_signer: Any, pqc_provider: type[PQCProvider]):
-        self.classical = classical_signer
-        self.pqc = pqc_provider
+    Produces a ``COSE_Sign`` structure (CBOR tag 98) with two
+    ``COSE_Signature`` entries:
+
+    * Signer 0 – RSA-PKCS1v15-SHA256 (COSE alg ``-257``)
+    * Signer 1 – ML-DSA-65 (COSE alg ``-48``)
+
+    This implementation is intentionally independent of any COSE helper
+    library so that custom (non-registered) algorithm identifiers are fully
+    supported without monkey-patching.
+    """
 
     @classmethod
     def create_hybrid_token(
         cls,
-        payload: dict,
-        rsa_private_key: bytes,
+        payload: dict[str, Any],
+        rsa_private_key_pem: bytes,
         pqc_private_key: bytes,
         variant: str = PQCProvider.DEFAULT_VARIANT,
-    ) -> str:
+    ) -> bytes:
         """
-        Creates a JWT token where the PQC signature is embedded in the payload.
-        Structure: [Header].[Payload (with _pqc_sig)].[Classical_Signature]
+        Encode a ``COSE_Sign`` token signed by both RSA and ML-DSA.
+
+        Parameters
+        ----------
+        payload:
+            Arbitrary dict – will be serialised to CBOR.
+        rsa_private_key_pem:
+            PKCS#8 PEM-encoded RSA private key (bytes).
+        pqc_private_key:
+            Raw ML-DSA private key bytes.
+        variant:
+            ML-DSA variant name (default ``"ML-DSA-65"``).
+
+        Returns
+        -------
+        bytes
+            CBOR-encoded COSE_Sign message (CBOR tag 98).
         """
-        import jwt
+        payload_bytes = cbor2.dumps(payload)
 
-        # 1. Prepare PQC Signature of the payload content
-        # We sort keys to ensure deterministic representation for signing
-        canonical_payload = json.dumps(payload, sort_keys=True).encode()
-        pqc_sig = PQCProvider.sign(canonical_payload, pqc_private_key, variant=variant)
-        pqc_sig_b64 = base64.urlsafe_b64encode(pqc_sig).decode().rstrip("=")
+        # Protected header of the outer COSE_Sign (no algorithm here; each
+        # signer carries its own protected header)
+        body_protected = cbor2.dumps({})  # empty for the outer message
 
-        # 2. Embed PQC Signature into the payload as a claim
-        hybrid_payload = payload.copy()
-        hybrid_payload["_pqc"] = {
-            "sig": pqc_sig_b64,
-            "alg": variant,
+        # --- Signer 0: RSA-PKCS1v15-SHA256 (alg = -257) ---
+        rsa_sign_protected = _encode_protected(_COSE_ALG_RS256)
+        rsa_tbs = _build_sig_structure(
+            body_protected, rsa_sign_protected, payload_bytes
+        )
+        _rsa_key = load_pem_private_key(rsa_private_key_pem, password=None)
+        if not isinstance(_rsa_key, RSAPrivateKey):
+            raise TypeError("rsa_private_key_pem must encode an RSA private key")
+        rsa_sig: bytes = _rsa_key.sign(rsa_tbs, padding.PKCS1v15(), hashes.SHA256())
+        rsa_signature_entry: list[Any] = [rsa_sign_protected, {}, rsa_sig]
+
+        # --- Signer 1: ML-DSA (alg = -48) ---
+        # Store the variant name in the unprotected header so the verifier
+        # knows which ML-DSA level to use.
+        pqc_sign_protected = _encode_protected(_COSE_ALG_MLDSA)
+        pqc_uhdr: dict[int | str, Any] = {
+            # Label 4 = kid (key identifier) – we reuse it to carry the
+            # variant string as an informal extension.
+            4: variant.encode()
         }
+        pqc_tbs = _build_sig_structure(
+            body_protected, pqc_sign_protected, payload_bytes
+        )
+        pqc_sig = PQCProvider.sign(pqc_tbs, pqc_private_key, variant=variant)
+        pqc_signature_entry = [pqc_sign_protected, pqc_uhdr, pqc_sig]
 
-        # 3. Generate Classical JWT (Standard 3-part structure)
-        return jwt.encode(hybrid_payload, rsa_private_key, algorithm="RS256")
+        # --- Assemble COSE_Sign ---
+        cose_sign = cbor2.CBORTag(
+            _COSE_SIGN_TAG,
+            [
+                body_protected,  # protected (outer)
+                {},  # unprotected (outer)
+                payload_bytes,  # payload
+                [rsa_signature_entry, pqc_signature_entry],
+            ],
+        )
+        return cbor2.dumps(cose_sign)  # type: ignore[no-any-return]
 
     @classmethod
     def verify_hybrid_token(
         cls,
-        hybrid_token: str,
-        rsa_public_key: bytes,
+        cose_token: bytes,
+        rsa_public_key_pem: bytes,
         pqc_public_key_provider: Any = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """
-        Verifies both Classical and PQC signatures.
-        """
-        import jwt
+        Verify both RSA and ML-DSA signatures in a ``COSE_Sign`` token.
 
-        # 1. Verify Classical Signature and Decode
+        Parameters
+        ----------
+        cose_token:
+            Bytes produced by :meth:`create_hybrid_token`.
+        rsa_public_key_pem:
+            PEM-encoded RSA public key.
+        pqc_public_key_provider:
+            Optional callable ``(variant: str) -> bytes`` that returns the
+            ML-DSA public key for the given variant.  When *None*, falls back
+            to ``IdentityManager._get_pqc_public_key_content``.
+
+        Returns
+        -------
+        dict | None
+            Decoded payload dict on success, ``None`` on any failure.
+        """
         try:
-            # We first decode with classical verification to get the payload
-            payload = jwt.decode(
-                hybrid_token,
-                rsa_public_key,
-                algorithms=["RS256"],
-                options={"verify_aud": False},
+            top = cbor2.loads(cose_token)
+
+            # Unwrap CBOR tag 98 if present
+            if isinstance(top, cbor2.CBORTag):
+                if top.tag != _COSE_SIGN_TAG:
+                    logger.error(
+                        "Unexpected CBOR tag %d (expected %d)",
+                        top.tag,
+                        _COSE_SIGN_TAG,
+                    )
+                    return None
+                structure = top.value
+            else:
+                structure = top
+
+            if not isinstance(structure, list) or len(structure) != 4:
+                logger.error("Malformed COSE_Sign structure")
+                return None
+
+            body_protected: bytes
+            payload_bytes: bytes
+            signatures: list[Any]
+            body_protected, _uhdr, payload_bytes, signatures = structure
+
+            if len(signatures) < 2:
+                logger.warning(
+                    "COSE_Sign has %d signer(s); hybrid requires at least 2",
+                    len(signatures),
+                )
+                return None
+
+            # ------------------------------------------------------------------
+            # Signer 0: RSA-PKCS1v15-SHA256
+            # ------------------------------------------------------------------
+            rsa_entry = signatures[0]
+            if not isinstance(rsa_entry, list) or len(rsa_entry) != 3:
+                logger.error("Malformed RSA COSE_Signature entry")
+                return None
+
+            rsa_sign_protected: bytes
+            rsa_sign_protected, _rsa_uhdr, rsa_sig = rsa_entry
+
+            # Validate algorithm label
+            rsa_phdr = cbor2.loads(rsa_sign_protected)
+            if rsa_phdr.get(_COSE_HEADER_ALG) != _COSE_ALG_RS256:
+                logger.error(
+                    "RSA entry has unexpected alg %s", rsa_phdr.get(_COSE_HEADER_ALG)
+                )
+                return None
+
+            rsa_tbs = _build_sig_structure(
+                body_protected, rsa_sign_protected, payload_bytes
             )
-        except Exception as e:
-            logger.error(f"Classical signature verification failed: {e}")
-            return None
+            _rsa_pub = load_pem_public_key(rsa_public_key_pem)
+            if not isinstance(_rsa_pub, RSAPublicKey):
+                logger.error("rsa_public_key_pem does not encode an RSA public key")
+                return None
+            try:
+                _rsa_pub.verify(rsa_sig, rsa_tbs, padding.PKCS1v15(), hashes.SHA256())
+            except Exception as exc:
+                logger.error("Classical (RSA) signature verification failed: %s", exc)
+                return None
 
-        # 2. Extract and Verify PQC Signature from payload
-        pqc_data = payload.get("_pqc")
-        if not pqc_data or "sig" not in pqc_data:
-            logger.warning("PQC signature claim missing in hybrid token.")
-            return None
+            # ------------------------------------------------------------------
+            # Signer 1: ML-DSA
+            # ------------------------------------------------------------------
+            pqc_entry = signatures[1]
+            if not isinstance(pqc_entry, list) or len(pqc_entry) != 3:
+                logger.error("Malformed PQC COSE_Signature entry")
+                return None
 
-        pqc_sig_b64 = pqc_data["sig"]
-        variant = pqc_data.get("alg", PQCProvider.DEFAULT_VARIANT)
+            pqc_sign_protected: bytes
+            pqc_sign_protected, pqc_uhdr, pqc_sig = pqc_entry
 
-        try:
-            # Reconstruct the original payload (without the _pqc claim) to verify
-            original_payload = {k: v for k, v in payload.items() if k != "_pqc"}
-            canonical_payload = json.dumps(original_payload, sort_keys=True).encode()
+            pqc_phdr = cbor2.loads(pqc_sign_protected)
+            if pqc_phdr.get(_COSE_HEADER_ALG) != _COSE_ALG_MLDSA:
+                logger.error(
+                    "PQC entry has unexpected alg %s", pqc_phdr.get(_COSE_HEADER_ALG)
+                )
+                return None
 
-            # Decode PQC signature
-            padding = "=" * (4 - len(pqc_sig_b64) % 4)
-            pqc_sig = base64.urlsafe_b64decode(pqc_sig_b64 + padding)
+            # Retrieve the variant from the kid field (label 4)
+            variant_raw = pqc_uhdr.get(4, b"")
+            if isinstance(variant_raw, bytes):
+                variant = variant_raw.decode() or PQCProvider.DEFAULT_VARIANT
+            else:
+                variant = str(variant_raw) or PQCProvider.DEFAULT_VARIANT
 
-            # Get the appropriate public key for the variant
-            if pqc_public_key_provider:
-                pqc_pub = pqc_public_key_provider(variant)
+            if pqc_public_key_provider is not None:
+                pqc_pub: bytes = pqc_public_key_provider(variant)
             else:
                 from llm_cli.security.identity import IdentityManager
 
                 pqc_pub = IdentityManager._get_pqc_public_key_content(variant)
 
-            if not PQCProvider.verify(
-                canonical_payload, pqc_sig, pqc_pub, variant=variant
-            ):
-                raise ValueError(f"PQC verification failed for variant {variant}")
-        except Exception as e:
-            logger.error(
-                f"[SECURITY_ALERT] Post-Quantum signature verification failed: {e}"
+            pqc_tbs = _build_sig_structure(
+                body_protected, pqc_sign_protected, payload_bytes
             )
+            if not PQCProvider.verify(pqc_tbs, pqc_sig, pqc_pub, variant=variant):
+                logger.error("Post-Quantum (ML-DSA) signature verification failed")
+                return None
+
+            logger.info("✅ Hybrid COSE Signature Verified (RSA + ML-DSA)")
+            return cbor2.loads(payload_bytes)  # type: ignore[no-any-return]
+
+        except Exception as exc:
+            logger.error("COSE verification error: %s", exc)
             return None
 
-        logger.info(f"✅ Hybrid Signature Verified (RSA + {variant})")
-        return payload
+
+# ---------------------------------------------------------------------------
+# Tool-result signing helper
+# ---------------------------------------------------------------------------
 
 
-def sign_tool_result(result_text: str) -> str | dict:
+def sign_tool_result(result_text: str) -> str | dict[str, str]:
     """
     Sign a tool result with PQC (ML-DSA) for Bi-directional Verification.
 
     Returns a dict with ``result``, ``pqc_signature``, ``verification_id``,
     and ``algorithm`` when signing succeeds, or the plain string on failure.
-    The dict format is recognised and verified by ``tool_executor.execute_tool_call``.
+    The dict format is recognised and verified by
+    ``tool_executor.execute_tool_call``.
     """
     import uuid
 
@@ -460,8 +697,8 @@ def sign_tool_result(result_text: str) -> str | dict:
             source_verification_id=verification_id,
             private_key=pqc_priv,
         )
-        return signed  # dict: {result, verification_id, pqc_signature, algorithm}
-    except Exception as e:
+        return signed
+    except Exception as exc:
         # Signing is best-effort; never block tool execution on crypto failure.
-        logger.debug(f"Failed to sign tool result: {e}")
+        logger.debug("Failed to sign tool result: %s", exc)
         return result_text

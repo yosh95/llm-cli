@@ -244,8 +244,15 @@ class IdentityManager:
         rsa_priv = cls._get_private_key_content()
         pqc_priv = cls._get_pqc_private_key_content()
 
-        token = HybridSigner.create_hybrid_token(payload, rsa_priv, pqc_priv)
-        logger.debug(f"Generated PQC-Hybrid identity token for: {uid}")
+        # Generate COSE-based hybrid token (binary)
+        cose_token_bytes = HybridSigner.create_hybrid_token(payload, rsa_priv, pqc_priv)
+
+        # Encode to Base64url for JSON-RPC transport compatibility
+        import base64
+
+        token = base64.urlsafe_b64encode(cose_token_bytes).decode().rstrip("=")
+
+        logger.debug(f"Generated PQC-Hybrid identity token (COSE) for: {uid}")
         return token
 
     @classmethod
@@ -253,14 +260,20 @@ class IdentityManager:
         cls, token: str, expected_audience: str | None = None
     ) -> dict | None:
         """
-        Verify the validity of an incoming Hybrid token (RSA + PQC).
+        Verify the validity of an incoming Hybrid token (RSA + PQC) in COSE format.
         """
+        import base64
+
         try:
             rsa_pub = cls._get_public_key_content()
 
-            # Use HybridSigner for verification with a variant-aware key provider
+            # Decode from Base64url back to COSE binary
+            padding = "=" * (4 - len(token) % 4)
+            cose_token_bytes = base64.urlsafe_b64decode(token + padding)
+
+            # Use HybridSigner for verification
             payload = HybridSigner.verify_hybrid_token(
-                token, rsa_pub, cls._get_pqc_public_key_content
+                cose_token_bytes, rsa_pub, cls._get_pqc_public_key_content
             )
 
             if payload:

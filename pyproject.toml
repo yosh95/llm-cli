@@ -24,7 +24,7 @@ dependencies = [
     "requests",
     "rich",
     "tomli-w",
-    "PyJWT[crypto]",
+    "cbor2",
     "cryptography>=46.0.0",
     "dilithium-py",
     "kyber-py",

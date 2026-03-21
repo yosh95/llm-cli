@@ -93,9 +93,9 @@ opus = "claude-opus-4-6"
 # =============================================================================
 [xai]
 [xai.models]
-default = "grok-4-1-fast-reasoning"
-non-reasoning = "grok-4-1-fast-non-reasoning"
-reasoning = "grok-4-1-fast-reasoning"
+default = "grok-4.20-0309-reasoning"
+non-reasoning = "grok-4.20-0309-non-reasoning"
+reasoning = "grok-4.20-0309-reasoning"
 image = "grok-imagine-image-pro"
 
 # =============================================================================

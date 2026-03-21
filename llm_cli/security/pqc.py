@@ -49,8 +49,11 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
 )
-from dilithium_py.ml_dsa import ML_DSA_44, ML_DSA_65, ML_DSA_87
-from kyber_py.ml_kem import ML_KEM_512, ML_KEM_768, ML_KEM_1024
+
+from llm_cli.security.pqc_backend import (
+    get_kem_backend,
+    get_pqc_backend,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,37 +106,20 @@ def _build_sig_structure(
 
 class KEMProvider:
     """
-    Key Encapsulation Mechanism (KEM) using ML-KEM (Kyber).
-    Provides post-quantum cryptographic primitives for shared secret derivation.
+    Backward-compatible KEMProvider that delegates to the active KEMBackend.
     """
-
-    VARIANTS = {
-        "ML-KEM-512": ML_KEM_512,  # NIST Level 1
-        "ML-KEM-768": ML_KEM_768,  # NIST Level 3 (Default)
-        "ML-KEM-1024": ML_KEM_1024,  # NIST Level 5
-    }
 
     DEFAULT_VARIANT = "ML-KEM-768"
 
     @classmethod
     def generate_keypair(cls, variant: str = DEFAULT_VARIANT) -> tuple[bytes, bytes]:
-        """Generate a KEM keypair (public_key, private_key)."""
-        algo = cls.VARIANTS.get(variant, ML_KEM_768)
-        return algo.keygen()  # type: ignore[no-any-return]
+        return get_kem_backend().generate_keypair(variant)
 
     @classmethod
     def encapsulate(
         cls, public_key_bytes: bytes, variant: str = DEFAULT_VARIANT
     ) -> tuple[bytes, bytes]:
-        """
-        Derive a shared secret and encapsulate it using the public key.
-
-        Returns: ``(ciphertext, shared_secret)``
-        """
-        algo = cls.VARIANTS.get(variant, ML_KEM_768)
-        # kyber-py returns (shared_secret, ciphertext)
-        ss, ct = algo.encaps(public_key_bytes)
-        return ct, ss
+        return get_kem_backend().encapsulate(public_key_bytes, variant)
 
     @classmethod
     def decapsulate(
@@ -142,9 +128,7 @@ class KEMProvider:
         private_key_bytes: bytes,
         variant: str = DEFAULT_VARIANT,
     ) -> bytes:
-        """Decrypt the ciphertext to retrieve the shared secret."""
-        algo = cls.VARIANTS.get(variant, ML_KEM_768)
-        return algo.decaps(private_key_bytes, ciphertext)  # type: ignore[no-any-return]
+        return get_kem_backend().decapsulate(ciphertext, private_key_bytes, variant)
 
 
 # ---------------------------------------------------------------------------
@@ -218,28 +202,20 @@ class SecureStorage:
 
 class PQCProvider:
     """
-    Digital Signature Provider using ML-DSA (Dilithium).
-    Provides post-quantum cryptographic primitives for message signing.
+    Backward-compatible facade that delegates to the active PQCBackend.
+    This maintains API compatibility with existing code (identity.py etc.).
     """
-
-    VARIANTS: dict[str, Any] = {
-        "ML-DSA-44": ML_DSA_44,  # NIST Level 2
-        "ML-DSA-65": ML_DSA_65,  # NIST Level 3 (Default)
-        "ML-DSA-87": ML_DSA_87,  # NIST Level 5
-    }
 
     DEFAULT_VARIANT = "ML-DSA-65"
     ALGORITHM_NAME = DEFAULT_VARIANT
 
     @classmethod
     def is_available(cls) -> bool:
-        return True
+        return get_pqc_backend().is_available()
 
     @classmethod
     def generate_keypair(cls, variant: str = DEFAULT_VARIANT) -> tuple[bytes, bytes]:
-        """Generate a signature keypair ``(public_key, private_key)``."""
-        algo = cls.VARIANTS.get(variant, ML_DSA_65)
-        return algo.keygen()  # type: ignore[no-any-return]
+        return get_pqc_backend().generate_keypair(variant)
 
     @classmethod
     def sign(
@@ -248,9 +224,7 @@ class PQCProvider:
         private_key_bytes: bytes,
         variant: str = DEFAULT_VARIANT,
     ) -> bytes:
-        """Sign *message* using the specified ML-DSA variant."""
-        algo = cls.VARIANTS.get(variant, ML_DSA_65)
-        return algo.sign(private_key_bytes, message, deterministic=True)  # type: ignore[no-any-return]
+        return get_pqc_backend().sign(message, private_key_bytes, variant)
 
     @classmethod
     def verify(
@@ -260,12 +234,7 @@ class PQCProvider:
         public_key_bytes: bytes,
         variant: str = DEFAULT_VARIANT,
     ) -> bool:
-        """Verify *signature* over *message*."""
-        algo = cls.VARIANTS.get(variant, ML_DSA_65)
-        try:
-            return algo.verify(public_key_bytes, message, signature)  # type: ignore[no-any-return]
-        except Exception:
-            return False
+        return get_pqc_backend().verify(message, signature, public_key_bytes, variant)
 
 
 # ---------------------------------------------------------------------------

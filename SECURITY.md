@@ -9,23 +9,6 @@
 
 ---
 
-## Reporting a Vulnerability
-
-Please **do not** open a public GitHub issue for security vulnerabilities.
-
-Send a report to **yosh5295@gmail.com** with the subject line:
-`[llm-secure-cli] Security Vulnerability Report`
-
-Include:
-- A clear description of the vulnerability and its potential impact.
-- Reproduction steps or a proof-of-concept (where applicable).
-- Affected version(s) and environment details.
-
-We aim to acknowledge reports within **72 hours** and provide a resolution
-timeline within **7 business days**.
-
----
-
 ## Architecture Overview: Triple-Lock Framework
 
 `llm-secure-cli` implements a **Triple-Lock** security framework across three
@@ -380,12 +363,3 @@ mode    = "learn"   # "learn" during calibration, then "enforce"
    key pair for all token generations.  A future release will provision
    separate RSA key pairs per CASS security tier.
 
----
-
-## Security-Relevant Changelog
-
-| Version | Change |
-|---|---|
-| 1.0.2 | Drop `pycose`; replace with native `cbor2`-based `COSE_Sign` implementation; add `isinstance` narrowing for `RSAPrivateKey` / `RSAPublicKey`; `cbor2` promoted to direct dependency in `pyproject.toml` |
-| 1.0.1 | Add ML-KEM-768 hybrid encryption for audit logs; Merkle Tree anchoring; snapshot anchors across log rotation boundaries |
-| 1.0.0 | Initial release: hybrid RSA+ML-DSA identity tokens, Mamba Sentinel, AST guardrails, ABAC policy engine, remote attestation |

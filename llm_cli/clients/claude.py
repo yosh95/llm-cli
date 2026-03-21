@@ -128,11 +128,7 @@ class ClaudeClient(BaseLlmClient):
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
                         tool_id = func_resp.get("id")
-                        if (
-                            tool_id
-                            and tool_id != "unknown"
-                            and tool_id in responded_tool_ids
-                        ):
+                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
                             result = func_resp.get("response", {}).get("result", "")
                             tool_content.append(
                                 {
@@ -160,11 +156,7 @@ class ClaudeClient(BaseLlmClient):
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
-                            if (
-                                tool_id
-                                and tool_id != "unknown"
-                                and tool_id in responded_tool_ids
-                            ):
+                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
                                 msg_parts.append(
                                     {
                                         "type": "tool_use",

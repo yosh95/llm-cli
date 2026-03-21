@@ -1,9 +1,10 @@
-.PHONY: help install lint format test clean paper
+.PHONY: help install lint format test check clean paper
 
 # Default target
 help:
 	@echo "Available commands:"
 	@echo "  make install  - Install dependencies"
+	@echo "  make check    - Run format, lint, and test (integrated)"
 	@echo "  make lint     - Run linter (ruff, mypy)"
 	@echo "  make format   - Run formatter (ruff)"
 	@echo "  make test     - Run tests with coverage"
@@ -13,14 +14,18 @@ help:
 install:
 	pip install -e ".[dev,test]"
 
-lint:
-	ruff check .
-	mypy .
+# Integrated target: Run formatting, linting, and tests in order
+check: format lint test
 
 format:
 	ruff format .
+	ruff check --fix .
 
-test:
+lint: format
+	ruff check .
+	mypy .
+
+test: lint
 	pytest --cov=llm_cli tests/
 
 paper:

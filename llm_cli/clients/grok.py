@@ -1,7 +1,6 @@
 # llm_cli/clients/grok.py
 
 import json
-import time
 from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient
@@ -159,50 +158,9 @@ class GrokClient(BaseLlmClient):
             )
             self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
-            res = response.json()
-
-            data_item = res["data"][0]
-            revised_prompt = data_item.get("revised_prompt", "")
-            img_data = None
-            mime_type = "image/png"  # Default
-
-            # Handle both URL and Base64 response formats
-            if "b64_json" in data_item:
-                img_data = data_item["b64_json"]
-            elif "url" in data_item:
-                img_url = data_item["url"]
-                from llm_cli.modules.media_utils import fetch_url_content
-
-                img_data, fetched_mime = fetch_url_content(img_url)
-                if fetched_mime:
-                    mime_type = fetched_mime
-
-            if not img_data:
-                return ("Failed to retrieve image data from the response.", ""), None
-
-            # Use shared media saving logic from BaseLlmClient
-            display_text, _ = self._save_inline_media_and_get_log_entry(
-                {"mimeType": mime_type, "data": img_data}, hint_text=full_prompt[:100]
+            return self._handle_image_generation_response(
+                response.json(), full_prompt, data, "Grok"
             )
-            if not display_text:
-                display_text = (
-                    "Successfully generated image, but failed to save it locally."
-                )
-
-            if revised_prompt:
-                display_text += f"\n**Revised Prompt:** {revised_prompt}"
-
-            # Update history with the image data (base64)
-            model_msg = Message(
-                role=Role.MODEL,
-                parts=[
-                    ContentPart(text=display_text),
-                    ContentPart(inline_data={"mimeType": mime_type, "data": img_data}),
-                ],
-            )
-            self._update_history(data, model_msg)
-
-            return (display_text.strip(), ""), None
         except Exception as e:
             self._report_error("Grok Image", e)
             return (None, None), None
@@ -239,59 +197,25 @@ class GrokClient(BaseLlmClient):
                 return (("Failed to get request_id for video generation.", ""), None)
 
             # Step 2: Poll for results
-            video_url = None
-            start_time = time.time()
-            timeout_seconds = 1800  # 30 minutes timeout for video
-
-            # Notify user that generation started
-            from llm_cli.clients.base import console
-
-            console.print(
-                "[dim]Video generation started. Polling for results... "
-                "(this may take a few minutes)[/dim]"
+            poll_res = self._poll_until_complete(
+                poll_url=VIDEO_RESULT_URL_TEMPLATE.format(request_id),
+                headers=headers,
+                status_key="status",
+                completed_value="completed",
+                failed_values=("failed",),
+                timeout_seconds=1800,
+                request_timeout=self.request_timeout,
             )
 
-            while time.time() - start_time < timeout_seconds:
-                poll_url = VIDEO_RESULT_URL_TEMPLATE.format(request_id)
+            if not poll_res:
+                return (None, None), None
 
-                poll_response = self._get(
-                    poll_url,
-                    headers=headers,
-                    timeout=self.request_timeout,
-                )
-
-                if poll_response.status_code == 200:
-                    poll_res = poll_response.json()
-                    status = poll_res.get("status")
-
-                    if status == "completed":
-                        video_url = poll_res.get("url")
-                        if not video_url and "data" in poll_res:
-                            if isinstance(poll_res["data"], dict):
-                                video_url = poll_res["data"].get("url")
-                            elif (
-                                isinstance(poll_res["data"], list)
-                                and len(poll_res["data"]) > 0
-                            ):
-                                video_url = poll_res["data"][0].get("url")
-
-                        if video_url:
-                            break
-                    elif status == "failed":
-                        return (
-                            (
-                                f"Video generation failed: "
-                                f"{poll_res.get('error', 'Unknown error')}",
-                                "",
-                            ),
-                            None,
-                        )
-
-                elif poll_response.status_code not in (200, 202):
-                    # Log unexpected status but continue polling unless fatal
-                    pass
-
-                time.sleep(5)  # Poll interval
+            video_url = poll_res.get("url")
+            if not video_url and "data" in poll_res:
+                if isinstance(poll_res["data"], dict):
+                    video_url = poll_res["data"].get("url")
+                elif isinstance(poll_res["data"], list) and len(poll_res["data"]) > 0:
+                    video_url = poll_res["data"][0].get("url")
 
             if not video_url:
                 return (
@@ -318,7 +242,7 @@ class GrokClient(BaseLlmClient):
 
         except Exception as e:
             self._report_error("Grok Video", e)
-            return ((None, None), None)
+            return ((f"Video generation failed: {e}", ""), None)
 
     def _build_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts internal history to Grok (OpenAI-compatible) format."""
@@ -334,12 +258,7 @@ class GrokClient(BaseLlmClient):
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
                         tool_id = func_resp.get("id")
-                        is_responded = (
-                            tool_id
-                            and tool_id != "unknown"
-                            and tool_id in responded_tool_ids
-                        )
-                        if is_responded:
+                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
                             result = func_resp.get("response", {}).get("result", "")
                             msgs.append(
                                 {
@@ -378,12 +297,7 @@ class GrokClient(BaseLlmClient):
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
-                            is_responded = (
-                                tool_id
-                                and tool_id != "unknown"
-                                and tool_id in responded_tool_ids
-                            )
-                            if is_responded:
+                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
                                 tool_calls.append(
                                     {
                                         "id": tool_id,

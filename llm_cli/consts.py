@@ -13,3 +13,5 @@ SECURITY_LOG_PATH = LOG_DIR / "security.log"
 HISTORY_LOG_PATH = LOG_DIR / "history.log"
 CHAT_LOG_PATH = LOG_DIR / "chat.log"
 TRAINING_METRICS_LOG_PATH = LOG_DIR / "training_metrics.jsonl"
+
+UNKNOWN_TOOL_ID = "unknown"

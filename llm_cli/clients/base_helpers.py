@@ -36,7 +36,7 @@ def trim_log_file(console: "Console", path: Path, max_lines: int) -> None:
 
 
 def save_inline_media_and_get_log_entry(
-    client: Any, inline_data: dict[str, Any], hint_text: str = ""
+    inline_data: dict[str, Any], hint_text: str = ""
 ) -> tuple[str | None, Path | None]:
     from llm_cli.clients.base import console
 
@@ -48,14 +48,17 @@ def save_inline_media_and_get_log_entry(
     ):
         from llm_cli.modules.media_utils import generate_safe_filename
 
+        def _expand(p: str | None) -> str | None:
+            return str(Path(p).expanduser()) if p else None
+
         image_save_path = (
-            client._expand(config_manager.get("general", "image_save_path")) or "."
+            _expand(config_manager.get("general", "image_save_path")) or "."
         )
         audio_save_path = (
-            client._expand(config_manager.get("general", "audio_save_path")) or "."
+            _expand(config_manager.get("general", "audio_save_path")) or "."
         )
         video_save_path = (
-            client._expand(config_manager.get("general", "video_save_path")) or "."
+            _expand(config_manager.get("general", "video_save_path")) or "."
         )
 
         if mime_type.startswith("audio/"):

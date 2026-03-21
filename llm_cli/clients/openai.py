@@ -180,50 +180,9 @@ class OpenAIClient(BaseLlmClient):
             )
             self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
-            res = response.json()
-
-            data_item = res["data"][0]
-            revised_prompt = data_item.get("revised_prompt", "")
-            img_data = None
-            mime_type = "image/png"  # Default
-
-            # Handle both URL and Base64 response formats
-            if "b64_json" in data_item:
-                img_data = data_item["b64_json"]
-            elif "url" in data_item:
-                img_url = data_item["url"]
-                from llm_cli.modules.media_utils import fetch_url_content
-
-                img_data, fetched_mime = fetch_url_content(img_url)
-                if fetched_mime:
-                    mime_type = fetched_mime
-
-            if not img_data:
-                return ("Failed to retrieve image data from the response.", ""), None
-
-            # Use shared media saving logic from BaseLlmClient
-            display_text, _ = self._save_inline_media_and_get_log_entry(
-                {"mimeType": mime_type, "data": img_data}, hint_text=full_prompt[:100]
+            return self._handle_image_generation_response(
+                response.json(), full_prompt, data, "OpenAI"
             )
-            if not display_text:
-                display_text = (
-                    "Successfully generated image, but failed to save it locally."
-                )
-
-            if revised_prompt:
-                display_text += f"\n**Revised Prompt:** {revised_prompt}"
-
-            # Update history with the image data (base64)
-            model_msg = Message(
-                role=Role.MODEL,
-                parts=[
-                    ContentPart(text=display_text),
-                    ContentPart(inline_data={"mimeType": mime_type, "data": img_data}),
-                ],
-            )
-            self._update_history(data, model_msg)
-
-            return (display_text.strip(), ""), None
         except Exception as e:
             self._report_error("OpenAI Image", e)
             return (None, None), None
@@ -232,9 +191,6 @@ class OpenAIClient(BaseLlmClient):
         self, data: list[DataSource]
     ) -> tuple[tuple[str | None, str | None], dict[str, Any] | None]:
         """Handles video generation via OpenAI Sora API."""
-        import time
-
-        from llm_cli.clients.base import console
 
         full_prompt = self._build_prompt_from_history(data)
         payload = {
@@ -269,55 +225,28 @@ class OpenAIClient(BaseLlmClient):
                 return ("Failed to get video ID from response.", ""), None
 
             # Step 2: Poll for results
-            video_url = None
-            start_time = time.time()
-            timeout_seconds = 1800  # 30 minutes
-
-            console.print(
-                "[dim]Video generation started. Polling for results... "
-                "(this may take a few minutes)[/dim]"
+            poll_res = self._poll_until_complete(
+                poll_url=f"{video_api_url}/{video_id}",
+                headers=headers,
+                status_key="status",
+                completed_value="completed",
+                failed_values=("failed",),
+                timeout_seconds=1800,
+                request_timeout=self.request_timeout,
             )
 
-            while time.time() - start_time < timeout_seconds:
-                poll_url = f"{video_api_url}/{video_id}"
+            if not poll_res:
+                return ("Failed to get poll result.", ""), None
 
-                poll_response = self._get(
-                    poll_url,
-                    headers=headers,
-                    timeout=self.request_timeout,
-                )
-
-                if poll_response.status_code == 200:
-                    poll_res = poll_response.json()
-                    status = poll_res.get("status")
-
-                    if status == "completed":
-                        # Look for URL in various possible fields
-                        # result_url is common in OpenAI async patterns,
-                        # but check others too
-                        video_url = poll_res.get("result_url")
-                        if not video_url:
-                            # Try 'data' array like image API
-                            if "data" in poll_res and poll_res["data"]:
-                                video_url = poll_res["data"][0].get("url")
-                            # Try 'video' object
-                            elif "video" in poll_res:
-                                video_url = poll_res["video"].get("url")
-
-                        if video_url:
-                            break
-                    elif status == "failed":
-                        err = poll_res.get("error", {}).get("message", "Unknown error")
-                        return (f"Video generation failed: {err}", ""), None
-
-                    # If status is 'processing' or 'pending', continue polling
-                    pass
-
-                elif poll_response.status_code not in (200, 202):
-                    # Log unexpected status but continue polling unless fatal
-                    pass
-
-                time.sleep(5)
+            # Look for URL in various possible fields
+            video_url = poll_res.get("result_url")
+            if not video_url:
+                # Try 'data' array like image API
+                if "data" in poll_res and poll_res["data"]:
+                    video_url = poll_res["data"][0].get("url")
+                # Try 'video' object
+                elif "video" in poll_res:
+                    video_url = poll_res["video"].get("url")
 
             if not video_url:
                 return (
@@ -358,9 +287,12 @@ class OpenAIClient(BaseLlmClient):
 
             return (display_text.strip(), ""), None
 
+        except TimeoutError as e:
+            self._report_error("OpenAI Sora", e)
+            return ("Video generation timed out", ""), None
         except Exception as e:
             self._report_error("OpenAI Sora", e)
-            return (None, None), None
+            return (f"Video generation failed: {e}", ""), None
 
     def _build_input_items(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Converts the internal conversation history to OpenAI Responses API format."""
@@ -376,11 +308,7 @@ class OpenAIClient(BaseLlmClient):
                     if isinstance(p, ContentPart) and p.function_response:
                         func_resp = p.function_response
                         tool_id = func_resp.get("id")
-                        if (
-                            tool_id
-                            and tool_id != "unknown"
-                            and tool_id in responded_tool_ids
-                        ):
+                        if self._is_valid_tool_id(tool_id, responded_tool_ids):
                             result = func_resp.get("response", {}).get("result", "")
                             items.append(
                                 {
@@ -431,11 +359,7 @@ class OpenAIClient(BaseLlmClient):
                         if p.function_call:
                             func_call = p.function_call
                             tool_id = func_call.get("id")
-                            if (
-                                tool_id
-                                and tool_id != "unknown"
-                                and tool_id in responded_tool_ids
-                            ):
+                            if self._is_valid_tool_id(tool_id, responded_tool_ids):
                                 function_calls.append(
                                     {
                                         "type": "function_call",

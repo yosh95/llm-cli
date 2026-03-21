@@ -154,71 +154,58 @@ def send_video_generation(
             return ("Failed to get operation name for video generation.", ""), None
 
         # Step 2: Poll for results
-        video_uri = None
-        start_time = time.time()
-        timeout_seconds = 1800  # 30 minutes
-
-        console.print(
-            "[dim]Video generation started. Polling for results... "
-            "(this may take a few minutes)[/dim]"
-        )
-
-        while time.time() - start_time < timeout_seconds:
-            poll_url = f"{client.BASE_API_URL}/{operation_name}"  # type: ignore
-
-            poll_response = client._get(  # type: ignore
-                poll_url,
+        try:
+            op_res = client._poll_until_complete(  # type: ignore
+                poll_url=f"{client.BASE_API_URL}/{operation_name}",  # type: ignore
                 headers={"x-goog-api-key": client.api_key},
-                timeout=client.request_timeout,
+                status_key="done",
+                completed_value=True,
+                timeout_seconds=1800,
+                request_timeout=client.request_timeout,
             )
 
-            if poll_response.status_code == 200:
-                op_res = poll_response.json()
-                if op_res.get("done"):
-                    if "error" in op_res:
-                        err_msg = op_res["error"].get("message", "Unknown error")
-                        return (f"Video generation failed: {err_msg}", ""), None
+            if not op_res:
+                return ("Failed to get operation result.", ""), None
 
-                    # Extract video URI
-                    response_body = op_res.get("response", {})
+            if "error" in op_res:
+                err_msg = op_res["error"].get("message", "Unknown error")
+                return (f"Video generation failed: {err_msg}", ""), None
 
-                    # Try known patterns
-                    predictions = response_body.get("predictions", [])
-                    if predictions:
-                        vid = predictions[0].get("video", {})
-                        video_uri = vid.get("uri") or vid.get("url")
-                        if not video_uri:
-                            video_uri = predictions[0].get("url")
+            # Extract video URI
+            response_body = op_res.get("response", {})
+            video_uri = None
 
-                    if not video_uri:
-                        vid = response_body.get("result", {}).get("video", {})
-                        video_uri = vid.get("uri") or vid.get("url")
+            # Try known patterns
+            predictions = response_body.get("predictions", [])
+            if predictions:
+                vid = predictions[0].get("video", {})
+                video_uri = vid.get("uri") or vid.get("url")
+                if not video_uri:
+                    video_uri = predictions[0].get("url")
 
-                    if not video_uri:
-                        gen_resp = response_body.get("generateVideoResponse", {})
-                        samples = gen_resp.get("generatedSamples", [])
-                        if samples:
-                            vid = samples[0].get("video", {})
-                            video_uri = vid.get("uri") or vid.get("url")
+            if not video_uri:
+                vid = response_body.get("result", {}).get("video", {})
+                video_uri = vid.get("uri") or vid.get("url")
 
-                    if video_uri:
-                        break
-                    else:
-                        import json
+            if not video_uri:
+                gen_resp = response_body.get("generateVideoResponse", {})
+                samples = gen_resp.get("generatedSamples", [])
+                if samples:
+                    vid = samples[0].get("video", {})
+                    video_uri = vid.get("uri") or vid.get("url")
 
-                        debug_dump = json.dumps(op_res, indent=2, ensure_ascii=False)
-                        return (
-                            "Generation completed but no video URI found in response.\n"
-                            f"Response dump:\n{debug_dump}",
-                            "",
-                        ), None
+            if not video_uri:
+                import json
 
-                time.sleep(5)
-            else:
-                time.sleep(5)
+                debug_dump = json.dumps(op_res, indent=2, ensure_ascii=False)
+                return (
+                    "Generation completed but no video URI found in response.\n"
+                    f"Response dump:\n{debug_dump}",
+                    "",
+                ), None
 
-        if not video_uri:
-            return ("Video generation timed out.", ""), None
+        except Exception as e:
+            return (f"Polling failed: {e}", ""), None
 
         display_text = f"Successfully generated video.\n\n**Video URL:** `{video_uri}`"
 

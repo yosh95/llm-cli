@@ -22,6 +22,9 @@ class UnifiedClient(BaseLlmClient):
     def __init__(self, initial_provider: str | None = None, **kwargs: Any):
         self.clients: dict[str, BaseLlmClient] = {}
         self.client_kwargs = kwargs
+        self._fallback_model_manager: Any = None
+        self._fallback_config_manager: Any = None
+        self.active_client: BaseLlmClient | None = None
 
         default_p = config_manager.get("general", "unified_default_provider")
         active_providers = config_manager.get_active_providers()
@@ -80,21 +83,7 @@ class UnifiedClient(BaseLlmClient):
         )
 
         self.current_provider_name = initial_provider_name
-        self.active_client: BaseLlmClient | None = None
         self._activate_provider(self.current_provider_name)
-
-    def __getattr__(self, name: str) -> Any:
-        """Delegate any unknown attributes to the active client."""
-        if name == "active_client":
-            raise AttributeError(name)
-
-        active = self.__dict__.get("active_client")
-        if active is not None:
-            return getattr(active, name)
-
-        raise AttributeError(
-            f"'{type(self).__name__}' object has no attribute '{name}'"
-        )
 
     def _activate_provider(self, provider_alias: str) -> bool:
         """Switches the active provider and syncs managers."""
@@ -135,17 +124,58 @@ class UnifiedClient(BaseLlmClient):
 
         self.active_client = self.clients[config_section]
 
-        # Sync provider-specific managers and preferences to the unified client.
-        self._model_manager = self.active_client._model_manager
-        self._config_manager = self.active_client._config_manager
-        self.pdf_as_base64 = self.active_client.preferred_pdf_as_base64
-
         # Update own state from active client
         self.current_provider_name = config_section
         self.config_section = self.active_client.config_section
         self.api_key = self.active_client.api_key
 
         return True
+
+    # --- Property Overrides for Delegation ---
+
+    @property
+    def _model_manager(self) -> Any:
+        return (
+            self.active_client._model_manager
+            if self.active_client
+            else self._fallback_model_manager
+        )
+
+    @_model_manager.setter
+    def _model_manager(self, value: Any) -> None:
+        if self.active_client:
+            self.active_client._model_manager = value
+        else:
+            self._fallback_model_manager = value
+
+    @property
+    def _config_manager(self) -> Any:
+        return (
+            self.active_client._config_manager
+            if self.active_client
+            else self._fallback_config_manager
+        )
+
+    @_config_manager.setter
+    def _config_manager(self, value: Any) -> None:
+        if self.active_client:
+            self.active_client._config_manager = value
+        else:
+            self._fallback_config_manager = value
+
+    @property
+    def pdf_as_base64(self) -> bool:
+        return (
+            self.active_client.pdf_as_base64
+            if self.active_client
+            else super().pdf_as_base64
+        )
+
+    @pdf_as_base64.setter
+    def pdf_as_base64(self, value: bool) -> None:
+        if self.active_client:
+            self.active_client.pdf_as_base64 = value
+        self.preferred_pdf_as_base64 = value
 
     def _handle_provider_command(self, ctx: Any) -> bool:
         """Handler for the /provider command."""

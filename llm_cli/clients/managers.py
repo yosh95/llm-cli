@@ -53,16 +53,15 @@ class ProviderConfigManager:
         raw_prompt = config_manager.get(self.section, "system_prompt") or ""
         disable_date_prompt = config_manager.get(self.section, "disable_date_prompt")
 
-        self.system_prompt = ""
+        parts = []
         if not disable_date_prompt:
             now = datetime.datetime.now().astimezone().strftime("%Y-%m-%d (%A)")
-            self.system_prompt = f"Current date: {now}"
+            parts.append(f"Current date: {now}")
 
         if raw_prompt:
-            if self.system_prompt:
-                self.system_prompt += "\n"
-            self.system_prompt += raw_prompt
+            parts.append(raw_prompt)
 
+        self.system_prompt = "\n".join(parts)
         self.system_prompt_enabled = not self._disable_system_prompt
 
 
@@ -272,7 +271,9 @@ class ToolManager:
                 for part in msg.parts:
                     if isinstance(part, ContentPart) and part.function_response:
                         tool_id = part.function_response.get("id")
-                        if tool_id and tool_id != "unknown":
+                        from llm_cli.consts import UNKNOWN_TOOL_ID
+
+                        if tool_id and tool_id != UNKNOWN_TOOL_ID:
                             responded.add(tool_id)
         return responded
 
@@ -328,15 +329,9 @@ class MediaManager:
         """Saves generated media (images, audio, video) to disk."""
         from llm_cli.clients import base_helpers
 
-        # Dummy client-like object for base_helpers
-        class _Proxy:
-            def _expand(self, p: str | None) -> str | None:
-                return str(Path(p).expanduser()) if p else None
-
         return base_helpers.save_inline_media_and_get_log_entry(
-            _Proxy(),
             inline_data,
-            hint_text,  # type: ignore
+            hint_text,
         )
 
 

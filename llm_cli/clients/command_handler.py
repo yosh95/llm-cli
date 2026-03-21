@@ -20,6 +20,7 @@ from llm_cli.clients.exceptions import (
     ExitRequest,
     TemplateRequest,
 )
+from llm_cli.ui import console
 
 if TYPE_CHECKING:
     from llm_cli.clients.base import BaseLlmClient
@@ -81,7 +82,6 @@ class CommandRegistry:
 
 def handle_model(ctx: CommandContext) -> bool:
     client, args = ctx.client, ctx.args
-    from llm_cli.clients.base import console
 
     if not args:
         console.print("[bold]Available Models:[/bold]")
@@ -105,7 +105,6 @@ def handle_model(ctx: CommandContext) -> bool:
 def handle_template(ctx: CommandContext) -> bool:
     templates = config_manager.get_templates()
     args = ctx.args
-    from llm_cli.clients.base import console
 
     if not args:
         if not templates:
@@ -134,7 +133,6 @@ def handle_checkpoint(_ctx: CommandContext) -> bool:
 
 
 def handle_reload(ctx: CommandContext) -> bool:
-    from llm_cli.clients.base import console
     from llm_cli.clients.config import config_manager
     from llm_cli.security.policy import policy_engine
 
@@ -150,7 +148,6 @@ def handle_reload(ctx: CommandContext) -> bool:
 
 
 def handle_save(ctx: CommandContext) -> bool:
-    from llm_cli.clients.base import console
 
     client, args = ctx.client, ctx.args
     path_str = args
@@ -180,24 +177,17 @@ def handle_save(ctx: CommandContext) -> bool:
             console.print("[yellow]Save cancelled.[/yellow]")
             return True
 
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        with save_path.open("w", encoding="utf-8") as f:
-            json.dump(
-                [asdict(m) for m in client.conversation],
-                f,
-                indent=2,
-                ensure_ascii=False,
-            )
-        console.print(f"[green]Session saved to {save_path}[/green]")
+        if client.save_session(path_str):
+            return True
+        return False
     except Exception as e:
         console.print(f"[red]Failed to save session: {e}[/red]")
+        return True
     return True
 
 
 def handle_load(ctx: CommandContext) -> bool:
     if not ctx.args:
-        from llm_cli.clients.base import console
-
         console.print("[red]Usage: /load <path>[/red]")
         return True
     ctx.client.load_session(ctx.args)
@@ -205,7 +195,6 @@ def handle_load(ctx: CommandContext) -> bool:
 
 
 def handle_attach(ctx: CommandContext) -> bool:
-    from llm_cli.clients.base import console
 
     if not ctx.args:
         console.print("[red]Usage: /attach <path>[/red]")
@@ -231,7 +220,6 @@ def handle_attach(ctx: CommandContext) -> bool:
 
 
 def handle_dump(ctx: CommandContext) -> bool:
-    from llm_cli.clients.base import console
 
     client = ctx.client
     json_str = json.dumps(
@@ -291,7 +279,6 @@ def handle_raw(ctx: CommandContext) -> bool:
 
 def handle_clear(ctx: CommandContext) -> bool:
     ctx.client.clear_history()
-    from llm_cli.clients.base import console
 
     console.print("[yellow]Conversation history cleared.[/yellow]")
     return True
@@ -302,7 +289,6 @@ def handle_quit(_ctx: CommandContext) -> bool:
 
 
 def handle_tools(ctx: CommandContext) -> bool:
-    from llm_cli.clients.base import console
     from llm_cli.modules.tool_registry import registry as tool_registry
 
     client, args = ctx.client, ctx.args
@@ -338,7 +324,6 @@ def handle_tools(ctx: CommandContext) -> bool:
 def handle_debug(ctx: CommandContext) -> bool:
     ctx.client.live_debug = not ctx.client.live_debug
     status = "ENABLED" if ctx.client.live_debug else "DISABLED"
-    from llm_cli.clients.base import console
 
     console.print(f"[magenta]Live debug mode {status}.[/magenta]")
     return True
@@ -347,7 +332,6 @@ def handle_debug(ctx: CommandContext) -> bool:
 def handle_info(ctx: CommandContext) -> bool:
     from rich.table import Table
 
-    from llm_cli.clients.base import console
     from llm_cli.modules.tool_registry import registry as tool_registry
 
     client = ctx.client
@@ -484,7 +468,6 @@ def handle_command(
 
 
 def print_help(client: Optional["BaseLlmClient"] = None) -> None:
-    from llm_cli.clients.base import console
 
     reg = getattr(client, "command_registry", registry) if client else registry
 

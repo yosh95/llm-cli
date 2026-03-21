@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -18,7 +19,7 @@ from llm_cli.clients.managers import (
     SessionManager,
     ToolManager,
 )
-from llm_cli.modules.models import DataSource, Message
+from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 
 if TYPE_CHECKING:
     pass
@@ -267,6 +268,12 @@ class BaseLlmClient(ABC):
     def _trim_log_file(self, path: Path, max_lines: int) -> None:
         self._logging_manager.trim_log_file(path, max_lines)
 
+    def _is_valid_tool_id(self, tool_id: str | None, responded: set[str]) -> bool:
+        """Helper to validate tool ID against responded set."""
+        from llm_cli.consts import UNKNOWN_TOOL_ID
+
+        return bool(tool_id and tool_id != UNKNOWN_TOOL_ID and tool_id in responded)
+
     def _process_single_source(self, source: str) -> DataSource | None:
         return self._media_manager.process_single_source(source)
 
@@ -311,6 +318,102 @@ class BaseLlmClient(ABC):
         if text is None:
             return None
         return f"**{self.get_display_name()}:**  \n{text.strip()}"
+
+    def _handle_image_generation_response(
+        self,
+        response_json: dict[str, Any],
+        full_prompt: str,
+        original_data: list[DataSource],
+        provider_name: str,
+    ) -> tuple[tuple[str | None, str | None], dict | None]:
+        """Common logic to handle image generation response."""
+        try:
+            data_item = response_json["data"][0]
+            revised_prompt = data_item.get("revised_prompt", "")
+            img_data = None
+            mime_type = "image/png"  # Default
+
+            # Handle both URL and Base64 response formats
+            if "b64_json" in data_item:
+                img_data = data_item["b64_json"]
+            elif "url" in data_item:
+                img_url = data_item["url"]
+                from llm_cli.modules.media_utils import fetch_url_content
+
+                img_data, fetched_mime = fetch_url_content(img_url)
+                if fetched_mime:
+                    mime_type = fetched_mime
+
+            if not img_data:
+                return ("Failed to retrieve image data from the response.", ""), None
+
+            # Use shared media saving logic from BaseLlmClient
+            display_text, _ = self._save_inline_media_and_get_log_entry(
+                {"mimeType": mime_type, "data": img_data}, hint_text=full_prompt[:100]
+            )
+            if not display_text:
+                display_text = (
+                    "Successfully generated image, but failed to save it locally."
+                )
+
+            if revised_prompt:
+                display_text += f"\n**Revised Prompt:** {revised_prompt}"
+
+            # Update history with the image data (base64)
+            model_msg = Message(
+                role=Role.MODEL,
+                parts=[
+                    ContentPart(text=display_text),
+                    ContentPart(inline_data={"mimeType": mime_type, "data": img_data}),
+                ],
+            )
+            self._update_history(original_data, model_msg)
+
+            return (display_text.strip(), ""), None
+        except Exception as e:
+            self._report_error(f"{provider_name} Image processing", e)
+            return (None, None), None
+
+    def _poll_until_complete(
+        self,
+        poll_url: str,
+        headers: dict,
+        status_key: str = "status",
+        completed_value: Any = "succeeded",
+        failed_values: tuple[Any, ...] = ("failed", "cancelled"),
+        timeout_seconds: int = 1800,
+        interval: int = 5,
+        request_timeout: int | None = None,
+    ) -> dict[Any, Any] | None:
+        """Common polling logic for asynchronous jobs."""
+        from llm_cli.ui import console
+
+        start_time = time.time()
+        console.print("[dim]Operation started. Polling for results...[/dim]")
+
+        while time.time() - start_time < timeout_seconds:
+            try:
+                response = self._get(poll_url, headers=headers, timeout=request_timeout)
+                response.raise_for_status()
+                res = response.json()
+                if not isinstance(res, dict):
+                    return None
+
+                status = res.get(status_key)
+                if status == completed_value:
+                    return res
+                elif status in failed_values:
+                    error = res.get("error", "Unknown error")
+                    if isinstance(error, dict):
+                        error = error.get("message", error)
+                    raise RuntimeError(str(error))
+
+                time.sleep(interval)
+            except Exception as e:
+                # Log and re-raise or handle as needed
+                raise e
+
+        raise TimeoutError("Polling timed out")
 
     def talk(
         self,

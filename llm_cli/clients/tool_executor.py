@@ -14,6 +14,7 @@ from llm_cli.clients.config import config_manager
 from llm_cli.clients.exceptions import ConfigurationError
 from llm_cli.modules.models import ContentPart, DataSource
 from llm_cli.modules.tool_registry import registry
+from llm_cli.security.cass import CASSOrchestrator, RiskLevel, SecurityPosture
 from llm_cli.security.static_analyzer import analyze_python_safety
 from llm_cli.ui import (
     console,
@@ -54,6 +55,10 @@ class ToolExecutionContext:
     error_message: str | None = None
     aborted: bool = False
 
+    # Security fields
+    risk_level: RiskLevel = field(init=False)
+    security_requirements: SecurityPosture = field(init=False)
+
     def __post_init__(self) -> None:
         call = self.part.function_call
         if call:
@@ -61,6 +66,11 @@ class ToolExecutionContext:
             self.name = call["name"]
             self.args = call.get("args", {})
             self.thought_signature = self.part.thought_signature
+
+        # Evaluate risk and security requirements once
+        cass = CASSOrchestrator()
+        self.risk_level = cass.evaluate_risk(self.name)
+        self.security_requirements = cass.get_security_requirements(self.name)
 
 
 class BaseToolHandler(ABC):
@@ -95,10 +105,8 @@ class SecurityGuardrailHandler(BaseToolHandler):
             console.print(Panel(msg, title="🚨 Sentinel Alert", border_style=color))
 
         # 2. PQC Identity Pre-check for High-Risk Tools
-        from llm_cli.security.cass import CASSOrchestrator, RiskLevel
         from llm_cli.security.identity import IdentityManager
 
-        risk_level = CASSOrchestrator().evaluate_risk(context.name)
         enforcement = config_manager.get("security", "pqc_enforcement") or "warn"
         is_strict = enforcement == "strict_block"
 
@@ -107,7 +115,7 @@ class SecurityGuardrailHandler(BaseToolHandler):
             IdentityManager._ensure_keys()
             has_pqc = True
         except Exception as e:
-            if is_strict and risk_level == RiskLevel.HIGH:
+            if is_strict and context.risk_level == RiskLevel.HIGH:
                 err_msg = (
                     f"High-risk tool '{context.name}' blocked: "
                     "Secure identity (PQC keys) missing or corrupted. "
@@ -265,17 +273,11 @@ class ExecutionHandler(BaseToolHandler):
         if not tool_entry.get("interactive", False):
             console.print(f"[bold yellow]🏃 Executing {context.name}...[/bold yellow]")
 
-        # Context-aware security requirements from CASS
-        from llm_cli.security.cass import CASSOrchestrator
-
-        cass = CASSOrchestrator()
-        requirements = cass.get_security_requirements(context.name)
-
         try:
             result = tool_entry["func"](
                 __audit_model__=context.session.client.model,
                 __audit_sentinel__=context.session.sentinel,
-                __security_requirements__=requirements,
+                __security_requirements__=context.security_requirements,
                 **context.args,
             )
             context.result_data = result
@@ -310,11 +312,10 @@ class PostProcessHandler(BaseToolHandler):
             )
 
         # PQC Verification
-        from llm_cli.security.cass import CASSOrchestrator
-
-        risk_level = CASSOrchestrator().evaluate_risk(context.name)
         try:
-            context.result_data = _verify_pqc_signature(context.result_data, risk_level)
+            context.result_data = _verify_pqc_signature(
+                context.result_data, context.risk_level
+            )
         except ValueError as e:
             # Handle specific security failure messages to return directly to LLM
             context.error_message = str(e)

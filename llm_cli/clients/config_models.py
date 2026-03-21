@@ -9,6 +9,7 @@ class GeneralConfig:
     """General application settings."""
 
     unified_default_provider: str = "google"
+    pdf_as_base64: bool = True
     request_timeout: int = 1800
     command_timeout: int = 300
     max_command_memory_mb: int = 1024

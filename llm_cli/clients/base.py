@@ -59,6 +59,7 @@ class BaseLlmClient(ABC):
         self._api_key_name = api_key_name
         self.stdout = stdout
         self.render_markdown = render_markdown
+        self.preferred_pdf_as_base64 = pdf_as_base64
 
         # Specialized Managers (Injected or Newly Created)
         self._config_manager = provider_config_manager or ProviderConfigManager(
@@ -68,6 +69,8 @@ class BaseLlmClient(ABC):
         self._session_manager = session_manager or SessionManager()
         self._tool_manager = tool_manager or ToolManager(initial_tools)
         self._media_manager = media_manager or MediaManager(pdf_as_base64)
+        if media_manager:
+            self._media_manager.pdf_as_base64 = pdf_as_base64
         self._logging_manager = logging_manager or LoggingManager(live_debug)
 
         # Initial Setup

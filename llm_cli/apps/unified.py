@@ -44,7 +44,10 @@ class UnifiedClient(BaseLlmClient):
             initial_model_alias=kwargs.get("initial_model_alias", "default"),
             api_key_name="api_key",
             config_section=config_section,
-            pdf_as_base64=kwargs.get("pdf_as_base64", False),
+            pdf_as_base64=kwargs.get(
+                "pdf_as_base64",
+                config_manager.get_bool("general", "pdf_as_base64", True),
+            ),
             stdout=kwargs.get("stdout", False),
             render_markdown=kwargs.get("render_markdown", True),
             initial_tools=kwargs.get("initial_tools"),
@@ -124,9 +127,10 @@ class UnifiedClient(BaseLlmClient):
 
         self.active_client = self.clients[config_section]
 
-        # Sync provider-specific managers to the unified client's accessors.
+        # Sync provider-specific managers and preferences to the unified client.
         self._model_manager = self.active_client._model_manager
         self._config_manager = self.active_client._config_manager
+        self.pdf_as_base64 = self.active_client.preferred_pdf_as_base64
 
         # Update own state from active client
         self.current_provider_name = config_section

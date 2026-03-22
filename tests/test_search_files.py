@@ -41,7 +41,7 @@ def test_search_files_success(tmp_path, monkeypatch):
     (tmp_path / "cache" / "temp.txt").write_text("Hello in cache", encoding="utf-8")
 
     # Search for 'hello'
-    result = _get_result_text(search_files("hello"))
+    result = _get_result_text(search_files(query="hello"))
     assert "src/main.py:1:def hello():" in result
     assert "cache/temp.txt" not in result
 
@@ -50,7 +50,7 @@ def test_search_files_no_match(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "test.txt").write_text("no match here", encoding="utf-8")
 
-    result = _get_result_text(search_files("target"))
+    result = _get_result_text(search_files(query="target"))
     assert "No matches found." in result
 
 
@@ -59,7 +59,7 @@ def test_search_files_with_pattern(tmp_path, monkeypatch):
     (tmp_path / "test.py").write_text("pattern in python", encoding="utf-8")
     (tmp_path / "test.txt").write_text("pattern in text", encoding="utf-8")
 
-    result = _get_result_text(search_files("pattern", file_pattern="*.py"))
+    result = _get_result_text(search_files(query="pattern", file_pattern="*.py"))
     assert "test.py:1:pattern in python" in result
     assert "test.txt" not in result
 
@@ -67,11 +67,11 @@ def test_search_files_with_pattern(tmp_path, monkeypatch):
 def test_search_files_invalid_regex(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     # grep -P will fail on invalid regex like a unmatched bracket
-    result = _get_result_text(search_files("["))
+    result = _get_result_text(search_files(query="["))
     assert "Error" in result
 
 
 def test_search_files_security_violation(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    result = _get_result_text(search_files("test", directory="/etc"))
+    result = _get_result_text(search_files(query="test", directory="/etc"))
     assert "Security Error" in result

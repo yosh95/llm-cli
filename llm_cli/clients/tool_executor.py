@@ -327,18 +327,24 @@ def _post_process_result(ctx: ToolExecutionContext) -> bool:
 
 
 def _display_tool_request(ctx: ToolExecutionContext) -> None:
-    is_code_tool = any(
-        k in ctx.name for k in ("write_file", "edit_file", "execute_python")
-    )
-    if is_code_tool:
-        content = f"[cyan]{escape(ctx.name)}[/cyan]"
+    # Build concise arguments list, skipping redundant system fields
+    arg_parts = []
+    for k, v in ctx.args.items():
+        if k in ("explanation", "thought", "reasoning"):
+            continue
+
+        val_str = repr(v)
+        if len(val_str) > 120:
+            val_str = val_str[:120] + "..."
+
+        arg_parts.append(f"{k}={val_str}")
+
+    if arg_parts:
+        arg_str = ", ".join(arg_parts)
+        content = f"[cyan]{escape(ctx.name)}[/cyan]({escape(arg_str)})"
     else:
-        display_args = {
-            k: (v[:200] + "...") if isinstance(v, str) and len(v) > 200 else v
-            for k, v in ctx.args.items()
-            if k not in ("explanation", "thought", "reasoning")
-        }
-        content = f"[cyan]{escape(ctx.name)}[/cyan]({escape(str(display_args))})"
+        content = f"[cyan]{escape(ctx.name)}[/cyan]"
+
     print_block(
         content, title="[bold yellow]🤖 Agent Request[/bold yellow]", style="yellow"
     )

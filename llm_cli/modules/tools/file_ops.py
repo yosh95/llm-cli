@@ -96,11 +96,11 @@ def file_tool_handler(
     params={
         "type": "object",
         "properties": {
-            "query": {"type": "string", "description": "Regex pattern to search for."},
             "directory": {
                 "type": "string",
                 "description": "Directory to search in (default: current directory).",
             },
+            "query": {"type": "string", "description": "Regex pattern to search for."},
             "file_pattern": {
                 "type": "string",
                 "description": "File pattern to include (e.g., '*.py').",
@@ -111,8 +111,8 @@ def file_tool_handler(
 )
 @file_tool_handler
 def search_files(
-    query: str,
     directory: str = ".",
+    query: str = "",
     file_pattern: str | None = None,
 ) -> str:
     """Search for a pattern in files, excluding common cache directories."""
@@ -210,8 +210,8 @@ def list_files_in_directory(
     directory: str = ".",
     depth: int = 1,
     ignore_patterns: list[str] | None = None,
-    max_files: int = 500,
     include_hidden: bool = False,
+    max_files: int = 500,
 ) -> str:
     """Lists files in a directory tree with metadata."""
     validate_path(directory or ".")

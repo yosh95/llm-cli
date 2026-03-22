@@ -72,7 +72,8 @@ def test_handle_provider_command_integration(mock_config):
 
     with (
         patch(
-            "llm_cli.clients.registry.client_registry.get_config_section", return_value="openai"
+            "llm_cli.clients.registry.client_registry.get_config_section",
+            return_value="openai",
         ),
         patch(
             "llm_cli.clients.registry.client_registry.get_client_class",

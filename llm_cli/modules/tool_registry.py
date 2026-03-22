@@ -68,9 +68,8 @@ class ToolRegistry:
         if "properties" not in parameters:
             parameters["properties"] = {}
 
-        # Force inject 'explanation' parameter to encourage LLMs to explain
-        # their actions
-        parameters["properties"]["explanation"] = {
+        # Define 'explanation' parameter
+        explanation_spec = {
             "type": "string",
             "description": (
                 "A detailed explanation of why this tool is needed and what it will "
@@ -78,10 +77,32 @@ class ToolRegistry:
             ),
         }
 
+        # Order properties:
+        # 1. Primary identifier (path, directory, or url) if it exists
+        # 2. All other parameters in their original order (respecting developer intent)
+        # 3. 'explanation' at the very end (as a mandatory system-injected field)
+        ordered_properties = {}
+        original_props = parameters["properties"]
+
+        # 1. Move primary identifiers to front
+        for identifier in ["path", "directory", "url"]:
+            if identifier in original_props:
+                ordered_properties[identifier] = original_props.pop(identifier)
+
+        # 2. Add remaining original properties (respecting their defined order)
+        for k in list(original_props.keys()):
+            if k != "explanation":
+                ordered_properties[k] = original_props.pop(k)
+
+        # 3. Add explanation at the end
+        ordered_properties["explanation"] = explanation_spec
+
+        parameters["properties"] = ordered_properties
+
         if "required" not in parameters:
             parameters["required"] = []
         if "explanation" not in parameters["required"]:
-            parameters["required"] = ["explanation"] + parameters["required"]
+            parameters["required"] = parameters["required"] + ["explanation"]
 
         @functools.wraps(func)
         def wrapper(**kwargs: Any) -> Any:

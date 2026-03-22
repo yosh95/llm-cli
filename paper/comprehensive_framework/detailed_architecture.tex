@@ -13,25 +13,26 @@
 
     % CASS
     \node [diamond, draw, fill=orange!10, text width=6em, text centered, right=1.2cm of request, font=\scriptsize\bfseries] (cass) {CASS \\ Orchestrator};
+    \node [below=0.1cm of cass, font=\tiny, text width=5em, text centered] {(Risk-Adaptive Scaling)};
     \path [line] (request) -- (cass);
 
     % Tier 1: Space
-    \node [component, fill=green!5, right=1.2cm of cass, yshift=2.8cm] (ast) {AST Static Analysis \\ \textit{(Module Whitelist)}};
-    \node [component, fill=green!5, right=of ast] (path) {Path Guardrails \\ \textit{(Chroot/Symlinks)}};
-    \node [component, fill=green!5, right=of path] (isolated_env) {Isolated Environment \\ \textit{(VM/Container via MCP)}};
+    \node [component, fill=green!5, right=1.2cm of cass, yshift=3.2cm] (ast) {AST Static Analysis \\ \textit{(Strict Whitelist)}};
+    \node [component, fill=green!5, right=of ast] (path) {Path Guardrails \\ \textit{(Normalization)}};
+    \node [component, fill=green!5, right=of path] (isolated_env) {Isolated Environment \\ \textit{(Container via MCP)}};
     
     \node [tierbox, fit=(ast) (path) (isolated_env), label={[title]above:Tier 1: Structural Guardrails (Space)}] (t1box) {};
 
     % Tier 2: Behavior
-    \node [component, fill=purple!5, right=1.2cm of cass] (identity) {Workload Identity \\ \textit{(COSE/ABAC/OOB)}};
-    \node [component, fill=purple!5, right=of identity] (mamba) {Mamba Sentinel \\ \textit{($O(N)$ Cross-Entropy)}};
+    \node [component, fill=purple!5, right=1.2cm of cass, yshift=0.3cm] (identity) {Workload Identity \\ \textit{(ABAC / COSE Token)}};
+    \node [component, fill=purple!5, right=of identity] (mamba) {Mamba Sentinel \\ \textit{(EMA Self-Calibration)}};
 
 \node [tierbox, fit=(identity) (mamba), label={[title]above:Tier 2: Behavioral Zero-Trust (Behavior)}] (t2box) {};
 
 
     % Tier 3: Time
-    \node [component, fill=red!5, right=1.2cm of cass, yshift=-2.8cm] (pqc_sig) {PQC Identity \\ \textit{(ML-DSA-65)}};
-    \node [component, fill=red!5, right=of pqc_sig] (pqc_kem) {Hybrid Encryption \\ \textit{(ML-KEM-768)}};
+    \node [component, fill=red!5, right=1.2cm of cass, yshift=-2.8cm] (pqc_sig) {Hybrid PQC Sign \\ \textit{(ML-DSA-44/65/87)}};
+    \node [component, fill=red!5, right=of pqc_sig] (pqc_kem) {Audit Encryption \\ \textit{(ML-KEM-768)}};
     \node [component, fill=red!5, right=of pqc_kem] (attest) {Remote Attestation \\ \textit{(Security Manifest)}};
     
     \node [tierbox, fit=(pqc_sig) (pqc_kem) (attest), label={[title]above:Tier 3: Post-Quantum Resilience (Time)}] (t3box) {};

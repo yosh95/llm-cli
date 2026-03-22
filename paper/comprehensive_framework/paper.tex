@@ -135,32 +135,37 @@ To ensure the tamper-evidence of long-running logs, we implement \textbf{Audit C
 \section{System Architecture and Integration}
 \label{sec:arch}
 
-To synthesize the three tiers into a cohesive "Triple-Lock" architecture, we introduce \textbf{Context-Adaptive Security Scaling (CASS)}. CASS serves as the central orchestration engine, dynamically integrating the spatial, behavioral, and temporal defenses based on the specific risk profile of each tool execution request.
+To synthesize the three tiers into a cohesive ``Triple-Lock'' architecture, we introduce \textbf{Context-Adaptive Security Scaling (CASS)}. CASS serves as the central orchestration engine, dynamically integrating the spatial, behavioral, and temporal defenses based on the specific risk profile of each tool execution request (Fig. \ref{fig:detailed_arch}).
 
-The "Triple-Lock" architecture operates as a unified pipeline governed by CASS (Fig. \ref{fig:detailed_arch}). When an agent requests a tool call:
-1. \textbf{Risk Assessment (CASS):} The system evaluates the requested tool (e.g., \texttt{search\_web} vs. \texttt{execute\_python}) to determine the required security posture.
-2. \textbf{Tier 1 - Structural Containment:} The \textbf{Guardrail Manager} applies AST analysis, enforces path/resource limits, and coordinates environment isolation.
-3. \textbf{Tier 2 - Behavioral Verification:} The \textbf{Zero-Trust Controller} verifies the ABAC-embedded Identity Token and computes the Mamba Surprise Score. The Sentinel identifies statistical anomalies in the output stream, flagging sequences that deviate from the established behavioral baseline.
-4. \textbf{Tier 3 - Temporal Anchoring:} For high-risk operations, the \textbf{PQC Module} signs the request with a Hybrid-PQC token and encapsulates the resulting audit log using ML-KEM to ensure long-term integrity.
-
-By dynamically scaling security measures, the CASS orchestrator ensures that expensive quantum-resistant cryptographic operations and deep behavioral inspections are applied proportionally to the risk, achieving "Security with Agility."
+\subsection{CASS Orchestration Logic}
+CASS determines the required security posture by mapping the requested tool and its arguments to one of three risk levels defined in the system's \texttt{defaults.toml}. As shown in Table \ref{tab:cass_matrix}, this mapping ensures that computational resources are allocated proportionally to the security risk. High-risk tools such as \texttt{execute\_python} trigger the maximum security posture, including AST-based strict filtering, ML-DSA-87 signatures, and ML-KEM-768 audit encryption.
 
 \begin{table}[htbp]
-\caption{CASS PQC Agility Mapping}
+\caption{Tiered Security Enforcement via CASS}
 \centering
-\begin{tabularx}{\columnwidth}{|X|l|X|}
+\begin{tabularx}{\columnwidth}{|l|C|C|C|}
 \hline
-\textbf{Risk Profile} & \textbf{PQC Variant} & \textbf{Target Resilience} \\
+\textbf{Feature} & \textbf{Low Risk} & \textbf{Medium Risk} & \textbf{High Risk} \\
 \hline
-Standard (e.g., \texttt{search\_web}) & ML-DSA-44 & NIST Level 2 (Low Latency) \\
-Moderate (e.g., \texttt{read\_file\_content}) & ML-DSA-65 & NIST Level 3 (Balanced) \\
-High (e.g., \texttt{execute\_python}) & ML-DSA-87 & NIST Level 5 (Maximum) \\
+PQC Signature & ML-DSA-44 & ML-DSA-65 & ML-DSA-87 \\
+Audit Encrypt & Optional & AES-256 & ML-KEM-768 \\
+Sentinel Score & Log only & Notify & HITL Block \\
+AST Analysis & Basic & Restricted & Strict Whitelist \\
+Resource Limit & Standard & Tight & Restricted Shell \\
 \hline
 \end{tabularx}
-\label{tab:pqc_agility}
+\label{tab:cass_matrix}
 \end{table}
 
-The implementation provisions \textbf{three physically separate key pairs} on disk (\texttt{id\_pqc\_l2.key}, \texttt{id\_pqc\_l3.key}, \texttt{id\_pqc\_l5.key}) corresponding to each NIST security level. \texttt{PQCAgilityManager} selects the appropriate key path at runtime, achieving true cryptographic isolation between risk tiers without additional infrastructure.
+\subsection{Hybrid Identity Tokens (COSE/RFC 9052)}
+To ensure verifiable workload identity without the overhead of JSON-based JWT, we implement a native \textbf{COSE\_Sign} structure (CBOR tag 98) as defined in RFC 9052. Unlike conventional implementations, our framework utilizes a dual-signature approach that combines a classical RS256 (RSA-PKCS1v15) signature for backward compatibility with an ML-DSA signature (using the IANA-pending \texttt{alg=-48} identifier) for post-quantum integrity. 
+
+By implementing this directly via \texttt{cbor2} and \texttt{cryptography} instead of high-level libraries like \texttt{pycose}, we achieve a zero-dependency, fully auditable signature process. This ensures that the identity claim is non-repudiable and immune to ``Store Now, Decrypt Later'' (SNDL) attacks against the authentication channel.
+
+\subsection{Cryptographic Isolation and Attestation}
+To prevent cross-tier compromise, the architecture enforces physical separation of cryptographic material. Three independent ML-DSA key pairs (\texttt{id\_pqc\_l2.key}, \texttt{id\_pqc\_l3.key}, \texttt{id\_pqc\_l5.key}) are provisioned, ensuring that a compromise of a Level 2 key (used for low-risk tools) does not grant the ability to sign for High-Risk (Level 5) operations.
+
+Furthermore, the framework ensures the integrity of the execution environment through a signed \textbf{Integrity Manifest}. Upon startup, the \texttt{IntegrityVerifier} generates a SHA-256 hash of six critical security modules: \texttt{identity.py}, \texttt{policy.py}, \texttt{audit.py}, \texttt{pqc.py}, \texttt{static\_analyzer.py}, and \texttt{cass.py}. Remote MCP servers verify this attestation before accepting any tool requests, ensuring that the agent is running on an unmodified, authentic security stack. In \texttt{STRICT} mode, any modification to these files results in a refusal to boot, effectively eliminating the risk of runtime injection into the security logic.
 
 \section{Evaluation}
 We evaluated the framework on an AMD Ryzen 5 8540U system (16GB RAM).

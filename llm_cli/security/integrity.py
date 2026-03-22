@@ -102,15 +102,13 @@ class IntegrityVerifier:
             from llm_cli.security.identity import IdentityManager
             from llm_cli.security.pqc import PQCProvider
 
-            pqc_pub = IdentityManager._get_pqc_public_key_content()
-
             with audit_log_path.open("r", encoding="utf-8") as f:
                 last_hash = "0" * 64
                 for i, line in enumerate(f):
                     entry = json.loads(line)
                     provided_hash = entry.pop("hash", None)
                     pqc_sig_b64 = entry.pop("pqc_signature", None)
-                    entry.pop("pqc_algorithm", None)
+                    variant = entry.pop("pqc_algorithm", "ML-DSA-65")
 
                     # Check chain
                     is_snapshot = entry.get("event_type") == "__audit_snapshot__"
@@ -143,11 +141,20 @@ class IntegrityVerifier:
                         import base64
 
                         pqc_sig = base64.b64decode(pqc_sig_b64)
+                        # Get the public key for the specific variant used in this entry
+                        pqc_pub_variant = IdentityManager._get_pqc_public_key_content(
+                            variant=variant
+                        )
                         if not PQCProvider.verify(
-                            actual_hash.encode(), pqc_sig, pqc_pub
+                            actual_hash.encode(),
+                            pqc_sig,
+                            pqc_pub_variant,
+                            variant=variant,
                         ):
                             logger.error(
-                                f"Audit log verification failed at line {i + 1}"
+                                f"Audit log signature mismatch at line {i + 1} "
+                                f"(Variant: {variant}). This often happens if "
+                                "security keys were recently rotated."
                             )
                             return False
             logger.info("Audit log integrity verified.")
@@ -191,7 +198,8 @@ class IntegrityVerifier:
                             manifest_data.encode(), signature, pqc_pub
                         ):
                             logger.error(
-                                "Integrity check failed: Manifest signature mismatch"
+                                "Integrity check failed: Manifest signature mismatch. "
+                                "If you recently updated keys, rebuild the manifest."
                             )
                             return False
                         logger.debug("Manifest signature verified.")
@@ -257,11 +265,21 @@ class IntegrityVerifier:
         if not self.verify_audit_log():
             from llm_cli.consts import AUDIT_LOG_PATH
 
+            logger.error("--- Audit Log Integrity Failure ---")
             logger.error(
-                "Audit log integrity verification failed. "
-                "If you've intentionally modified the system, "
-                f"please clear the audit log file: {AUDIT_LOG_PATH}"
+                "The audit log's cryptographic chain is broken or signature is "
+                "invalid. This security measure ensures the history of tool "
+                "execution remains tamper-proof."
             )
+            logger.error(
+                "Common causes: manual editing of the log file, or security key "
+                "rotation (keygen). Since the current keys cannot verify the old "
+                "history, you must start a new log."
+            )
+            logger.error(
+                f"Action required: Delete or move the audit log file: {AUDIT_LOG_PATH}"
+            )
+            logger.error("----------------------------------")
             all_ok = False
 
         if all_ok:

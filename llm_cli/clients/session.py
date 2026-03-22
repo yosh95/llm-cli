@@ -156,12 +156,6 @@ class ChatSession:
                 if not user_input:
                     continue
 
-                if self._check_secrets_before_send(user_input):
-                    # Potential secret detected and user cancelled.
-                    # Keep the input for editing.
-                    prompt_default = user_input
-                    continue
-
             except (KeyboardInterrupt, EOFError):
                 break
 
@@ -265,13 +259,6 @@ class ChatSession:
     def _get_input(self, *args: Any, **kwargs: Any) -> str:
         """Proxy to SessionUI.get_input for backward compatibility/protocols."""
         return self.ui.get_input(*args, **kwargs)
-
-    def _check_secrets_before_send(self, user_input: str) -> bool:
-        """Check for secrets and ask for confirmation. Returns True if aborted."""
-        if user_input.startswith("/"):
-            return False
-
-        return False
 
     # ------------------------------------------------------------------
     # Single-responsibility helpers extracted from process_and_print

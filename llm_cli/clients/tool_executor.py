@@ -128,23 +128,22 @@ def execute_tool_call(
 
 def _run_security_checks(ctx: ToolExecutionContext) -> bool:
     """Checks Security Policy Engine and PQC Identity."""
-    # PQC Identity Check
+    # PQC Identity Check: Mandatory for ALL executions.
     from llm_cli.security.identity import IdentityManager
-
-    enforcement = config_manager.get("security", "pqc_enforcement") or "warn"
-    is_strict = enforcement == "strict_block"
 
     has_pqc = False
     try:
         IdentityManager._ensure_keys()
         has_pqc = True
-    except Exception as e:
-        if is_strict and ctx.risk_level == RiskLevel.HIGH:
-            err = f"High-risk tool '{ctx.name}' blocked: Secure identity (PQC) missing."
-            report_error(err)
-            ctx.error_message = err
-            return False
-        logger.warning(f"PQC Identity check failed: {e}")
+    except Exception:
+        # All tools now strictly require PQC identity.
+        err = (
+            f"Security Violation: Tool '{ctx.name}' blocked. "
+            f"Secure identity (PQC) missing."
+        )
+        report_error(err)
+        ctx.error_message = err
+        return False
 
     # Policy Engine Check
     from llm_cli.security.policy import EvaluationContext, policy_engine
@@ -345,21 +344,18 @@ def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
 
 
 def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
-    from llm_cli.security.cass import RiskLevel
 
     is_signed = isinstance(result_data, dict) and "pqc_signature" in result_data
-    enforcement = config_manager.get("security", "pqc_enforcement") or "warn"
-    is_strict = enforcement == "strict_block"
 
     if not is_signed:
-        if risk_level == RiskLevel.HIGH:
-            llm_msg = (
-                "This tool is high-risk and is prohibited in the current environment "
-                "(Missing PQC signature)."
-            )
-            report_error(f"PQC Enforcement: {llm_msg}")
-            raise ValueError(llm_msg)
-        return result_data
+        # Mandatory Security Policy: ALL tool responses must be signed.
+        # This ensures the audit trail is post-quantum verifiable.
+        msg = (
+            f"Security Violation: Missing PQC signature for tool response "
+            f"(Risk: {risk_level.value})."
+        )
+        report_error(f"PQC Enforcement: {msg}")
+        raise ValueError(msg)
 
     import base64
 
@@ -380,11 +376,10 @@ def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
             report_success(f"PQC Verified ({variant}) (ID: {v_id})")
         else:
             msg = f"PQC Signature Verification Failed (ID: {v_id})"
-            if is_strict and risk_level == RiskLevel.HIGH:
-                raise ValueError(msg)
             report_error(msg)
+            raise ValueError(msg)
     except Exception as e:
-        if is_strict and risk_level == RiskLevel.HIGH:
+        if isinstance(e, ValueError):
             raise e
         logger.warning(f"Signature verification error: {e}")
     return content

@@ -48,9 +48,8 @@ medium_risk_tools = [
 ]
 
 # Security Posture (CASS)
-# warn: log security violations but allow execution
-# strict_block: block execution if security requirements (like PQC proof) are not met
-pqc_enforcement = "warn"
+# All high-risk and medium-risk tools now require PQC identity proof by default
+# for robust non-repudiation and integrity.
 
 # =============================================================================
 # Google Gemini

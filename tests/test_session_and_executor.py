@@ -72,13 +72,19 @@ def test_execute_tool_call_success(session, tool_call_part):
     ):
         with patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True):
             with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
-                res_part, injected = execute_tool_call(session, tool_call_part)
+                # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
+                with patch(
+                    "llm_cli.clients.tool_executor._verify_pqc_signature",
+                    side_effect=lambda data, _: data,
+                ):
+                    res_part, injected = execute_tool_call(session, tool_call_part)
 
-                assert (
-                    res_part.function_response["response"]["result"] == "Success Result"
-                )
-                assert injected is None
-                mock_tool_func.assert_called_once()
+                    assert (
+                        res_part.function_response["response"]["result"]
+                        == "Success Result"
+                    )
+                    assert injected is None
+                    mock_tool_func.assert_called_once()
 
 
 def test_execute_tool_call_user_rejection(session, tool_call_part):
@@ -123,13 +129,18 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
     ):
         with patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True):
             with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
-                res_part, injected = execute_tool_call(session, tool_call_part)
+                # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
+                with patch(
+                    "llm_cli.clients.tool_executor._verify_pqc_signature",
+                    side_effect=lambda data, _: data,
+                ):
+                    res_part, injected = execute_tool_call(session, tool_call_part)
 
-                assert (
-                    res_part.function_response["response"]["result"]
-                    == "{'result': 'OK'}"
-                )
-                assert injected == injected_ds
+                    assert (
+                        res_part.function_response["response"]["result"]
+                        == "{'result': 'OK'}"
+                    )
+                    assert injected == injected_ds
 
 
 def test_code_safety_check_blocks_unsafe_code(session):

@@ -377,11 +377,9 @@ def mask_secrets(data: Any) -> Any:
     return data
 
 
-def init_config(force: bool = False) -> None:
+def init_config() -> None:
     """Initializes config.toml by copying defaults with commented values."""
-    if CONFIG_FILE_PATH.exists() and not force:
-        print(f"[yellow]Config already exists at {CONFIG_FILE_PATH}[/yellow]")
-        print("Use --force-init-config to overwrite.")
+    if CONFIG_FILE_PATH.exists():
         return
 
     if not DEFAULTS_FILE.exists():

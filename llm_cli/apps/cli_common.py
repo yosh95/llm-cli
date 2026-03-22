@@ -55,14 +55,6 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
         "--mcp-server", action="store_true", help="Run as an MCP server"
     )
     parser.add_argument("--session", help="Load a saved session JSON file on startup")
-    parser.add_argument(
-        "--init-config", action="store_true", help="Initialize ~/.llm_cli/config.toml"
-    )
-    parser.add_argument(
-        "--force-init-config",
-        action="store_true",
-        help="Force overwrite ~/.llm_cli/config.toml",
-    )
 
     for arg_name, arg_config in config.extra_args:
         parser.add_argument(arg_name, **arg_config)
@@ -74,14 +66,13 @@ def run_client_cli(config: ClientConfig) -> None:
     parser = create_standard_parser(config)
     args = parser.parse_args()
 
+    from llm_cli.apps.configure import init_config
     from llm_cli.clients.config import config_manager
+    from llm_cli.consts import CONFIG_FILE_PATH
 
-    # Handle configuration initialization
-    if args.init_config or args.force_init_config:
-        from llm_cli.apps.configure import init_config
-
-        init_config(force=args.force_init_config)
-        sys.exit(0)
+    # Automatically initialize configuration if it doesn't exist
+    if not CONFIG_FILE_PATH.exists():
+        init_config()
 
     # Check for at least one active provider
     active_providers = config_manager.get_active_providers()
@@ -99,8 +90,6 @@ def run_client_cli(config: ClientConfig) -> None:
             "\n[yellow]Note: Ollama is available without a key if hosted on "
             "localhost.[/yellow]"
         )
-        console.print("\nTo initialize a config file for other settings, run:")
-        console.print("  [bold]llm-cli --init-config[/bold]")
         sys.exit(1)
 
     if args.stdout and args.mcp:

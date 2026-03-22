@@ -50,10 +50,9 @@ The accompanying [Technical Report](paper/comprehensive_framework/paper.pdf) det
     # Supported: OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, OLLAMA_API_KEY, BRAVE_SEARCH_API_KEY
     ```
 3.  **Chat**: Type `llm-cli` to start an interactive session.
-    *   **Config-less usage**: If the API key is set, the tool is ready to use immediately without a `config.toml`.
-4.  **Configure (Optional)**: To customize behavior or add MCP servers, run:
+    *   **Automatic Initialization**: On the first run, `~/.llm_cli/config.toml` is automatically created.
+4.  **Configure (Optional)**: To customize behavior or add MCP servers, edit the configuration file:
     ```bash
-    llm-cli --init-config
     # Edit ~/.llm_cli/config.toml to modify settings.
     ```
 5.  **Help**: Type `/help` inside the chat to see all commands.
@@ -192,10 +191,9 @@ For detailed architectural insights and the academic background of our security 
     # 対応: OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, OLLAMA_API_KEY, BRAVE_SEARCH_API_KEY
     ```
 3.  **対話開始**: `llm-cli` コマンドでスタート。
-    *   **設定ファイル不要**: APIキーさえ設定されていれば、`config.toml` なしですぐに利用可能です。
-4.  **詳細設定 (任意)**: MCPサーバーの追加や動作のカスタマイズを行いたい場合は、以下のコマンドを実行します。
+    *   **設定の自動生成**: 初回起動時に `~/.llm_cli/config.toml` が自動的に作成されます。
+4.  **詳細設定 (任意)**: MCPサーバーの追加や動作のカスタマイズを行いたい場合は、生成された設定ファイルを編集します。
     ```bash
-    llm-cli --init-config
     # ~/.llm_cli/config.toml を編集して設定を調整してください。
     ```
 5.  **ヘルプ**: チャット内で `/help` と入力するとコマンド一覧が表示されます。

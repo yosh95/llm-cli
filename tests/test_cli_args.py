@@ -50,3 +50,15 @@ def test_removed_debug_argument(parser):
         parser.parse_args(["-d"])
     with pytest.raises(SystemExit):
         parser.parse_args(["--debug"])
+
+
+def test_removed_init_config_argument(parser):
+    """Test that the --init-config argument is removed and raises an error."""
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--init-config"])
+
+
+def test_removed_force_init_config_argument(parser):
+    """Test that the --force-init-config argument is removed and raises an error."""
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--force-init-config"])

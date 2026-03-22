@@ -1,4 +1,5 @@
 import getpass
+import hashlib
 import logging
 import os
 import socket
@@ -209,10 +210,11 @@ class IdentityManager:
         cls,
         user_id: str | None = None,
         audience: str | None = None,
+        tool_name: str | None = None,
+        risk_level: str | None = None,
+        args: dict | None = None,
     ) -> str:
-        """
-        Generate a signed Hybrid token (RSA + PQC) with Integrity Attestation.
-        """
+        """Generate a signed Hybrid token (RSA + PQC) with ABAC claims."""
         now = time.time()
         uid = user_id or cls.get_local_identity()
         payload = {
@@ -221,17 +223,25 @@ class IdentityManager:
             "iat": now,
             "exp": now + 600,
             "jti": str(uuid.uuid4()),
-            "pqc": True,  # Flag indicating PQC coverage
-            "pqc_kem_pub": cls.get_kem_public_key(),  # Advertise KEM capability
+            "pqc": True,
+            "pqc_kem_pub": cls.get_kem_public_key(),
         }
+
+        # --- ABAC Claims ---
+        if tool_name:
+            payload["tool"] = tool_name
+        if risk_level:
+            payload["risk_level"] = risk_level
+
+        # Workspace binding (SHA-256 of the current working directory)
+        payload["workspace"] = hashlib.sha256(
+            Path.cwd().as_posix().encode()
+        ).hexdigest()
 
         # Embed PQC Integrity Attestation (Remote Attestation)
         try:
-            from pathlib import Path
-
             from llm_cli.security.integrity import IntegrityVerifier
 
-            # Reach up to the project root where critical files are checked
             root_path = Path(__file__).resolve().parent.parent.parent
             verifier = IntegrityVerifier(root_path)
             payload["integrity_attestation"] = verifier.generate_attestation_token()
@@ -241,18 +251,27 @@ class IdentityManager:
         if audience:
             payload["aud"] = audience
 
+        # --- PQC Agility: Select ML-DSA variant based on risk ---
+        from llm_cli.security.pqc import PQCAgilityManager
+
+        variant = "ML-DSA-65"  # Default
+        if tool_name:
+            variant = PQCAgilityManager.get_required_level(tool_name, args=args)
+
         rsa_priv = cls._get_private_key_content()
-        pqc_priv = cls._get_pqc_private_key_content()
+        pqc_priv = cls._get_pqc_private_key_content(variant=variant)
 
         # Generate COSE-based hybrid token (binary)
-        cose_token_bytes = HybridSigner.create_hybrid_token(payload, rsa_priv, pqc_priv)
+        cose_token_bytes = HybridSigner.create_hybrid_token(
+            payload, rsa_priv, pqc_priv, variant=variant
+        )
 
         # Encode to Base64url for JSON-RPC transport compatibility
         import base64
 
         token = base64.urlsafe_b64encode(cose_token_bytes).decode().rstrip("=")
 
-        logger.debug(f"Generated PQC-Hybrid identity token (COSE) for: {uid}")
+        logger.debug(f"Generated PQC-Hybrid identity token ({variant}) for: {uid}")
         return token
 
     @classmethod

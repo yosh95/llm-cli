@@ -47,21 +47,6 @@ class SecurityConfig:
 
 
 @dataclass
-class SentinelConfig:
-    """Reasoning Sentinel (Mamba-SSM Guard) settings."""
-
-    enabled: bool = True
-    mode: str = "learn"
-    d_model: int = 128
-    n_layers: int = 2
-    d_state: int = 8
-    d_conv: int = 4
-    expand: int = 1
-    lr: float = 0.001
-    checkpoint_path: str = "sentinel_state.npz"
-
-
-@dataclass
 class McpServerConfig:
     """MCP Server configuration."""
 
@@ -77,7 +62,6 @@ class AppConfig:
 
     general: GeneralConfig = field(default_factory=GeneralConfig)
     security: SecurityConfig = field(default_factory=SecurityConfig)
-    sentinel: SentinelConfig = field(default_factory=SentinelConfig)
     mcp_servers: list[McpServerConfig] = field(default_factory=list)
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     templates: dict[str, str] = field(default_factory=dict)
@@ -97,13 +81,6 @@ class AppConfig:
                 k: v
                 for k, v in data.get("security", {}).items()
                 if k in SecurityConfig.__annotations__
-            }
-        )
-        sentinel = SentinelConfig(
-            **{
-                k: v
-                for k, v in data.get("sentinel", {}).items()
-                if k in SentinelConfig.__annotations__
             }
         )
 
@@ -129,7 +106,6 @@ class AppConfig:
         return cls(
             general=general,
             security=security,
-            sentinel=sentinel,
             mcp_servers=mcp_servers,
             providers=providers,
             templates=data.get("templates", {}),

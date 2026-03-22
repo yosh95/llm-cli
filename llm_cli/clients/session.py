@@ -33,7 +33,6 @@ from llm_cli.clients.exceptions import (
 from llm_cli.clients.session_ui import SessionUI
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
-from llm_cli.security.integrity import ReasoningSentinelManager
 from llm_cli.ui import (
     console,
     report_error,
@@ -115,7 +114,6 @@ class ChatSession:
 
         self.prompt_session: PromptSession = PromptSession(history=self.prompt_history)
         self.completer = LlmCliCompleter(self.client)
-        self.sentinel = ReasoningSentinelManager()
         self.ui = SessionUI(self.prompt_session, kb, kb_exit)
 
     def switch_client(self, new_client: BaseLlmClient) -> None:
@@ -273,15 +271,6 @@ class ChatSession:
         if user_input.startswith("/"):
             return False
 
-        # Note: Sentinel context anchoring is performed inside process_chunk()
-        # (at response time), not here.  Running a forward pass on the user input
-        # before the LLM even responds would waste CPU and mutate SSM state for
-        # no detection benefit — secrets can only be detected in the *response*.
-        if self.sentinel.suspected_secrets:
-            if not self.ui.confirm_secret_transmission(self.sentinel.suspected_secrets):
-                self.sentinel.suspected_secrets = []
-                return True
-            self.sentinel.suspected_secrets = []
         return False
 
     # ------------------------------------------------------------------
@@ -290,7 +279,7 @@ class ChatSession:
 
     def _run_single_turn(self, data: list[DataSource]) -> tuple[str | None, float]:
         """
-        Execute one LLM round-trip and handle Sentinel + display side-effects.
+        Execute one LLM round-trip and handle display side-effects.
         """
         display_name = self.client.get_display_name()
 
@@ -316,30 +305,6 @@ class ChatSession:
         # Unpack the (text, thought) / usage envelope.
         response_tuple, usage = res if res else ((None, None), None)
         response_text, thought_text = response_tuple
-
-        # --- Reasoning Sentinel with Prompt Anchoring ---
-        score_t = (
-            self.sentinel.process_chunk(thought_text, user_prompt=user_prompt)
-            if thought_text
-            else 0.0
-        )
-        score_r = (
-            self.sentinel.process_chunk(response_text, user_prompt=user_prompt)
-            if response_text
-            else 0.0
-        )
-        self.last_integrity_score = (
-            (score_t + score_r) / 2.0
-            if thought_text and response_text
-            else (score_t or score_r)
-        )
-        # Triggers online learning when the sentinel is in "learn" mode.
-        self.sentinel.finalize_session()
-
-        # --- Secret detection warning ---
-        if self.sentinel.suspected_secrets:
-            self.ui.print_secret_warning(self.sentinel.suspected_secrets)
-            self.sentinel.suspected_secrets = []
 
         if usage:
             self.client.last_usage = usage

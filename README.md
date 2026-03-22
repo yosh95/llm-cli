@@ -12,7 +12,7 @@
 
 Enterprise adoption of autonomous AI agents faces a fundamental, unsolved challenge: **how do you grant an AI meaningful agency while maintaining the security and governance standards that organizations require?** This project is one engineer's attempt to answer that question in working code.
 
-`llm-cli` was built primarily as a **personal daily-use tool** and as a **portfolio artifact** — a concrete demonstration of how CISSP/CISA/CCSP-level security principles (Zero Trust, ABAC, non-repudiation, PQC resilience, anomaly detection) can be applied to the novel threat surface introduced by autonomous LLM agents.
+`llm-cli` was built primarily as a **personal daily-use tool** and as a **portfolio artifact** — a concrete demonstration of how CISSP/CISA/CCSP-level security principles (Zero Trust, ABAC, non-repudiation, PQC resilience) can be applied to the novel threat surface introduced by autonomous LLM agents.
 
 **This tool is not certified or validated for enterprise production use.** No formal third-party security audit has been conducted, and the PQC primitives rely on pure-Python reference implementations that have not undergone independent cryptographic review. Deploying this in a regulated or mission-critical environment without additional validation would be inappropriate.
 
@@ -106,8 +106,7 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 - **Client Integrity Attestation**: The client generates a signed manifest of its own source code state to prove the integrity of the execution environment.
 - **Bi-directional Verification**: Tool results are signed by the client, allowing the LLM to verify that the observations it receives are authentic and untampered.
 
-### 3. Observability & Anomaly Detection
-- **Reasoning Sentinel (SSM-based)**: A built-in **Mamba (State Space Model)** implementation monitors the LLM's reasoning tokens in real-time. It detects statistical anomalies that may indicate prompt injection or "model hallucination" leading to risky behavior.
+### 3. Observability & Audit Compliance
 - **Tamper-Evident Audit Logs**: Audit trails are protected using **Chained Hashing** and optionally encrypted with **ML-KEM (Kyber)** for confidentiality.
 - **Merkle Tree Anchoring**: Log batches are anchored via Merkle Roots to prevent historical revisionism.
 
@@ -120,7 +119,7 @@ Inside the `llm-cli` interactive session:
 - `/p <provider>` / `/m <model>`: Switch the AI engine on the fly.
 - `/attach <path/URL>`: Add a file or website content to the context.
 - `/tools on|off`: Enable/disable autonomous tool use.
-- `/i`: Show session integrity and Reasoning Sentinel (anomaly) scores.
+- `/i`: Show session integrity and security status.
 - `/save` / `/load`: Manage conversation history.
 - `/cp`: Checkpoint (Summarize and clear history).
 - `/mcp`: Toggle or manage MCP server integrations.
@@ -157,7 +156,7 @@ For detailed architectural insights and the academic background of our security 
 
 企業における自律型 AI エージェントの活用には、根本的かつ未解決の課題があります。**「AIに十分な自律性を与えながら、組織が求めるセキュリティ標準とガバナンスをどう両立させるか」**――本プロジェクトは、その問いに対してエンジニアが動くコードで答えを試みたものです。
 
-`llm-cli` は主に**個人の日常利用ツール**として、また**ポートフォリオ**として開発されました。Zero Trust・ABAC・非否認性・耐量子暗号・異常検知といった CISSP/CISA/CCSP レベルのセキュリティ原則を、自律型 LLM エージェントがもたらす新しい脅威対象に適用すると、実装としてどのような形になるかを具体的に示すことを目的としています。
+`llm-cli` は主に**個人の日常利用ツール**として、また**ポートフォリオ**として開発されました。Zero Trust・ABAC・非否認性・耐量子暗号といった CISSP/CISA/CCSP レベルのセキュリティ原則を、自律型 LLM エージェントがもたらす新しい脅威対象に適用すると、実装としてどのような形になるかを具体的に示すことを目的としています。
 
 **本ツールは、エンタープライズ本番環境への適用を保証・認定するものではありません。** 第三者による正式なセキュリティ監査は実施されておらず、PQC プリミティブは独立した暗号学的レビューを受けていない純粋 Python 参照実装に依存しています。規制対象業務やミッションクリティカルな環境への追加検証なしでの展開は推奨しません。
 
@@ -231,9 +230,9 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 - **ハイブリッド署名**: **COSE (RFC 9052)** を採用し、**RS256** と **耐量子暗号 (ML-DSA)** を組み合わせ、ツール実行リクエストの正当性をバイナリレベルで長期的に保証（非否認性）。
 - **完全性検証**: クライアント自身のソースコードの状態を署名付きマニフェストで証明し、実行環境の健全性を担保。
 
-### 3. 観測可能性と異常検知
-- **推論異常モニタ (Reasoning Sentinel)**: **Mamba (SSM)** の実装により、LLMの推論プロセスをリアルタイム監視。プロンプトインジェクション等による統計的異常を検知。
+### 3. 観測可能性と監査ログ
 - **改ざん防止監査ログ**: ハッシュ連鎖（Chained Hashing）によるログ保護と、**ML-KEM (Kyber)** による機密性保護。
+- **Merkle Tree アンカリング**: ログのバッチを Merkle Root で固定し、履歴の改ざんを防止。
 
 ### 💡 パワーユーザー向け機能
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。

@@ -42,7 +42,6 @@ def test_session_provider_switching(mock_config):
     # 2. Initialize session with Gemini
     with (
         patch("llm_cli.clients.session.LlmCliCompleter"),
-        patch("llm_cli.clients.session.ReasoningSentinelManager"),
         patch("llm_cli.clients.session.SessionUI"),
     ):
         session = ChatSession(mock_gemini_instance)

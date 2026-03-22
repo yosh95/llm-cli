@@ -19,7 +19,7 @@
     \path [line] (request) -- (cass);
 
     % Tiers (arranged to avoid overlap)
-    \node [tier2, below=of cass] (t2) {\textbf{Tier 2: Behavior} \\ Zero-Trust \& Sentinel};
+    \node [tier2, below=of cass] (t2) {\textbf{Tier 2: Behavior} \\ Zero-Trust \& ABAC};
     \node [tier1, left=of t2] (t1) {\textbf{Tier 1: Space} \\ Structural Guardrails};
     \node [tier3, right=of t2] (t3) {\textbf{Tier 3: Time} \\ PQC Resilience};
 

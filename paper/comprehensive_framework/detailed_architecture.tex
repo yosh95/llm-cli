@@ -25,9 +25,9 @@
 
     % Tier 2: Behavior
     \node [component, fill=purple!5, right=1.2cm of cass, yshift=0.3cm] (identity) {Workload Identity \\ \textit{(ABAC / COSE Token)}};
-    \node [component, fill=purple!5, right=of identity] (mamba) {Mamba Sentinel \\ \textit{(EMA Self-Calibration)}};
+    \node [component, fill=purple!5, right=of identity] (workspace) {Workspace Binding \\ \textit{(SHA-256 Context)}};
 
-\node [tierbox, fit=(identity) (mamba), label={[title]above:Tier 2: Behavioral Zero-Trust (Behavior)}] (t2box) {};
+\node [tierbox, fit=(identity) (workspace), label={[title]above:Tier 2: Behavioral Zero-Trust (Behavior)}] (t2box) {};
 
 
     % Tier 3: Time
@@ -45,15 +45,15 @@
     % Flows within tiers
     \path [line] (ast) -- (path);
     \path [line] (path) -- (isolated_env);
-    \path [line] (identity) -- (mamba);
+    \path [line] (identity) -- (workspace);
     \path [line] (pqc_sig) -- (pqc_kem);
     \path [line] (pqc_kem) -- (attest);
 
     % Final Execution
-    \node [rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em, right=5.5cm of mamba, font=\small\bfseries] (exec) {Secure \\ Tool \\ Execution};
+    \node [rectangle, draw, fill=blue!10, text width=7em, text centered, rounded corners, minimum height=3em, right=5.5cm of workspace, font=\small\bfseries] (exec) {Secure \\ Tool \\ Execution};
 
     \path [line] (isolated_env.east) -- +(0.6,0) |- (exec.160);
-    \path [line] (mamba.east) -- (exec.west);
+    \path [line] (workspace.east) -- (exec.west);
     \path [line] (attest.east) -- +(0.6,0) |- (exec.200);
 
     % MCP Server-Side (Zero Trust)

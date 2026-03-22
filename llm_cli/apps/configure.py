@@ -377,28 +377,6 @@ def mask_secrets(data: Any) -> Any:
     return data
 
 
-def configure_sentinel(config: dict[str, Any]) -> None:
-    """Configures the Reasoning Sentinel settings."""
-    print("\n--- Reasoning Sentinel (Mamba-SSM Guard) ---")
-    s_config = config.setdefault("sentinel", {})
-    def_sentinel = DEFAULTS.get("sentinel", {})
-
-    s_config["enabled"] = prompt_bool(
-        "Enable Reasoning Sentinel monitoring?",
-        s_config.get("enabled", def_sentinel.get("enabled", True)),
-    )
-
-    if s_config["enabled"]:
-        s_config["mode"] = prompt_input(
-            "Sentinel Mode (learn/enforce)",
-            s_config.get("mode", def_sentinel.get("mode", "learn")),
-        )
-        print(
-            "Note: Sentinel anomaly thresholds are now self-calibrating "
-            "based on model loss."
-        )
-
-
 def init_config(force: bool = False) -> None:
     """Initializes config.toml by copying defaults with commented values."""
     if CONFIG_FILE_PATH.exists() and not force:
@@ -465,7 +443,6 @@ def main() -> None:
         # General and Security
         configure_general(config)
         configure_security(config)
-        configure_sentinel(config)
         configure_mcp(config)
 
         print("\nSummary of changes:")

@@ -421,44 +421,6 @@ def handle_info(ctx: CommandContext) -> bool:
 
     info_table.add_row("History Length", f"{len(client.conversation)} messages")
 
-    # Sentinel Info (Reasoning Integrity)
-    session = getattr(client, "_session", None)
-    if session and hasattr(session, "sentinel"):
-        sentinel = session.sentinel
-        current_score = sentinel.current_score
-        if current_score is not None:
-            t_yellow, t_red = sentinel.sentinel.get_dynamic_thresholds()
-            color = (
-                "green"
-                if current_score < t_yellow
-                else "yellow"
-                if current_score < t_red
-                else "red"
-            )
-            info_table.add_row(
-                "Reasoning Integrity",
-                f"[{color}]{current_score:.4f}[/{color}] (Anomaly Score) "
-                f"[dim](Warn: {t_yellow:.2f}, Crit: {t_red:.2f})[/dim]",
-            )
-            # Add timing stats if available
-            if sentinel.last_processing_time > 0:
-                timing_str = f"[dim]{sentinel.last_processing_time:.3f}s (Reasoning)"
-                if sentinel.last_learning_time > 0:
-                    timing_str += f", {sentinel.last_learning_time:.3f}s (Learning)"
-                timing_str += "[/dim]"
-                info_table.add_row("Sentinel Latency", timing_str)
-
-            if sentinel.score_history:
-                trend = [
-                    "[green]█[/green]"
-                    if s < t_yellow
-                    else "[yellow]█[/yellow]"
-                    if s < t_red
-                    else "[red]█[/red]"
-                    for s in sentinel.score_history
-                ]
-                info_table.add_row("Trust Trend", "".join(trend))
-
     if client.last_usage:
         usage_str = ", ".join(f"{k}: {v}" for k, v in client.last_usage.items())
         info_table.add_row("Last Usage", f"[yellow]{usage_str}[/yellow]")

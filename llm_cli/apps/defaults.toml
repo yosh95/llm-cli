@@ -111,14 +111,6 @@ api_url = "http://localhost:11434/v1/chat/completions"
 # default = "llama3.2:3b" # Commented out to prevent auto-activation without user config
 
 # =============================================================================
-# Reasoning Sentinel (Mamba-SSM Guard)
-# =============================================================================
-[sentinel]
-enabled = true
-mode = "learn"
-checkpoint_path = "sentinel_state.npz"
-
-# =============================================================================
 # Model Context Protocol (MCP) Servers
 # =============================================================================
 # Each [[mcp_servers]] entry defines a server that the AI agent can use.

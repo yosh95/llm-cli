@@ -10,7 +10,6 @@ PAPER_DIR = comprehensive_framework
 # Source Files
 PAPER_SRC = $(PAPER_DIR)/paper.tex
 PAPER_DIAG = $(PAPER_DIR)/unified_architecture.tex $(PAPER_DIR)/detailed_architecture.tex
-PAPER_IMG = $(PAPER_DIR)/sentinel_training.png
 
 # Output Files
 PAPER_PDF = $(PAPER_DIR)/paper.pdf
@@ -19,7 +18,7 @@ PAPER_PDF = $(PAPER_DIR)/paper.pdf
 
 all: $(PAPER_PDF) ## Compile the research paper
 
-$(PAPER_PDF): $(PAPER_SRC) $(PAPER_DIAG) $(PAPER_IMG)
+$(PAPER_PDF): $(PAPER_SRC) $(PAPER_DIAG)
 	$(LATEXMK) $(LATEXMK_FLAGS) $(PAPER_SRC)
 
 clean: ## Remove auxiliary files

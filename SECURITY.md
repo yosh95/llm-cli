@@ -127,8 +127,8 @@ COSE_Sign [CBOR tag 98]
     │       signature   : RSA-PKCS1v15/SHA-256 over Sig_Structure
     └── [1] COSE_Signature   alg = -48   (ML-DSA)
             protected   : cbor2.dumps({1: -48})
-            unprotected : {4: b"ML-DSA-65"}   ← kid = variant name
-            signature   : ML-DSA-65 over Sig_Structure
+            unprotected : {4: b"ML-DSA-65"}   ← kid = variant name (agility)
+            signature   : ML-DSA variant over Sig_Structure
 ```
 
 **Sig\_Structure (RFC 9052 §4.4):**
@@ -161,8 +161,9 @@ for Attribute-Based Access Control:
 |---|---|
 | `tool` | Requested tool name |
 | `risk_level` | `low` / `medium` / `high` |
-| `workspace` | SHA-256 of the workspace root path |
+| `workspace` | SHA-256 of the current workspace root path |
 | `iat` / `exp` | Issued-at / expiry (Unix timestamps) |
+| `integrity_attestation` | Signed manifest of core security files |
 
 Remote MCP servers verify the token signature and enforce policy against these
 claims.  Risk-level classification in `defaults.toml`:
@@ -171,35 +172,10 @@ claims.  Risk-level classification in `defaults.toml`:
 [security]
 high_risk_tools   = ["execute_python", "edit_file", "create_or_overwrite_file"]
 medium_risk_tools = ["read_file_content", "list_files_in_directory", "search_files"]
-# All other tools → low risk (ML-DSA-44)
+# All other tools → low risk
 ```
 
 Implementation: `llm_cli/security/policy.py`.
-
-### Mamba Reasoning Sentinel
-
-A byte-level Mamba (SSM) implementation (`llm_cli/security/sentinel.py`)
-monitors the LLM's reasoning stream in real time with O(N) complexity.
-
-**Surprise Score:** cross-entropy of the next byte given the SSM's current
-hidden state.  Thresholds adapt via Exponential Moving Average (EMA):
-
-| Alert level | Condition | Action |
-|---|---|---|
-| GREEN | score ≤ EMA + yellow\_margin | Normal operation |
-| YELLOW | score > EMA + yellow\_margin | Log + operator notification |
-| RED | score > EMA + red\_margin | HITL approval required for high-risk tools |
-
-**Training:** The sentinel learns a behavioural baseline during an initial
-calibration phase.  In the reference implementation a corpus of 6 benign
-sentences × 10 passes is used; production deployments should train on ≥50
-representative reasoning sessions before switching to `enforce` mode.
-
-```toml
-[sentinel]
-enabled = true
-mode    = "learn"   # switch to "enforce" after calibration
-```
 
 ### Bi-directional Verification (ResponseSigner)
 
@@ -229,11 +205,11 @@ pre-provisioned keys at startup.
 
 | Algorithm | NIST FIPS | Security Level | Key / Sig Sizes | Default use |
 |---|---|---|---|---|
-| ML-DSA-44 | FIPS 204 | Level 2 | pk=1 312 B, sk=2 528 B, sig=2 420 B | Standard tools |
-| ML-DSA-65 | FIPS 204 | Level 3 | pk=1 952 B, sk=4 032 B, sig=3 293 B | Identity (default) |
-| ML-DSA-87 | FIPS 204 | Level 5 | pk=2 592 B, sk=4 896 B, sig=4 595 B | `execute_python` |
+| ML-DSA-44 | FIPS 204 | Level 2 | pk=1 312 B, sk=2 528 B, sig=2 420 B | Low-risk tools |
+| ML-DSA-65 | FIPS 204 | Level 3 | pk=1 952 B, sk=4 032 B, sig=3 293 B | Standard identity |
+| ML-DSA-87 | FIPS 204 | Level 5 | pk=2 592 B, sk=4 896 B, sig=4 595 B | High-risk tools |
 | ML-KEM-512 | FIPS 203 | Level 1 | pk=800 B, sk=1 632 B, ct=768 B | — |
-| ML-KEM-768 | FIPS 203 | Level 3 | pk=1 184 B, sk=2 400 B, ct=1 088 B | Audit encryption (default) |
+| ML-KEM-768 | FIPS 203 | Level 3 | pk=1 184 B, sk=2 400 B, ct=1 088 B | Audit encryption |
 | ML-KEM-1024 | FIPS 203 | Level 5 | pk=1 568 B, sk=3 168 B, ct=1 568 B | — |
 
 Implementation: `dilithium-py` (ML-DSA) and `kyber-py` (ML-KEM) — pure-Python
@@ -241,8 +217,9 @@ FIPS-compliant reference implementations.
 
 ### PQC Agility (CASS)
 
-CASS selects the ML-DSA variant based on tool risk at runtime.  Three
-physically separate key pairs are provisioned on disk:
+CASS selects the ML-DSA variant based on tool risk at runtime. This agility
+applies both to identity tokens and audit signatures. Three physically
+separate key pairs are provisioned on disk:
 
 | File | Variant | NIST Level |
 |---|---|---|
@@ -314,10 +291,6 @@ pqc_enforcement          = "warn"
 
 # Static analysis errors block execution
 static_analysis_is_error = true
-
-[sentinel]
-enabled = true
-mode    = "learn"   # "learn" during calibration, then "enforce"
 ```
 
 ---
@@ -335,7 +308,7 @@ mode    = "learn"   # "learn" during calibration, then "enforce"
 > algorithm registry could not accommodate the IANA-pending ML-DSA identifier
 > (`alg=−48`) without monkey-patching, and v1.x API changes broke `Signer`
 > and `CoseSignature` usage repeatedly.  The replacement is a self-contained
-> ~50-line COSE\_Sign implementation using `cbor2` + `cryptography` that is
+> ~150-line COSE\_Sign implementation using `cbor2` + `cryptography` that is
 > fully auditable and stable across library versions.
 
 ---
@@ -358,13 +331,7 @@ mode    = "learn"   # "learn" during calibration, then "enforce"
    providing a native performance boost without sacrificing installation 
    simplicity.**
 
-3. **Mamba Sentinel training corpus** — the reference benchmark uses only
-   6 × 10 sentence passes.  With this minimal corpus the EMA baseline
-   stabilises at ~5.0–5.4 nats and score separation is insufficient for
-   reliable adversarial detection.  Use ≥50 genuine agent reasoning sessions
-   before switching to `enforce` mode.
-
-4. **Single RSA key pair** — `IdentityManager` currently uses one RSA-2048
+3. **Single RSA key pair** — `IdentityManager` currently uses one RSA-2048
    key pair for classical hybrid signing. However, full cryptographic
    isolation is already achieved at the post-quantum layer through physically
    separate ML-DSA-44/65/87 keys. Classical RSA separation is considered

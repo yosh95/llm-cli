@@ -19,16 +19,16 @@ class SecurityPosture(TypedDict):
     """Defines the security requirements scaled by CASS."""
 
     require_pqc_signature: bool
+    pqc_variant: str  # ML-DSA-44, 65, or 87
     require_pqc_audit_encryption: bool
-    mamba_enforcement: str  # "monitor_only", "strict_block"
+    ast_strictness: str  # "basic", "restricted", "strict"
 
 
 class CASSOrchestrator:
     """
     Context-Adaptive Security Scaling (CASS) Orchestrator.
     Dynamically determines the required security posture based on the requested
-    tool's risk profile. This eliminates the need for slow Dual-LLM intent
-    analysis for most operations, relying on high-speed Mamba Sentinel.
+    tool's risk profile.
     """
 
     def __init__(self) -> None:
@@ -62,22 +62,25 @@ class CASSOrchestrator:
             )
             return {
                 "require_pqc_signature": True,
+                "pqc_variant": "ML-DSA-87",
                 "require_pqc_audit_encryption": True,
-                "mamba_enforcement": "strict_block",  # Block if Mamba score is RED
+                "ast_strictness": "strict",
             }
         elif risk_level == RiskLevel.MEDIUM:
             logger.debug(f"CASS: Medium risk detected for tool '{tool_name}'.")
             return {
-                "require_pqc_signature": False,  # Fast classical RSA is sufficient
+                "require_pqc_signature": True,
+                "pqc_variant": "ML-DSA-65",
                 "require_pqc_audit_encryption": False,
-                "mamba_enforcement": "strict_block",
+                "ast_strictness": "restricted",
             }
         else:
             logger.debug(f"CASS: Low risk detected for tool '{tool_name}'.")
             return {
-                "require_pqc_signature": False,
+                "require_pqc_signature": True,
+                "pqc_variant": "ML-DSA-44",
                 "require_pqc_audit_encryption": False,
-                "mamba_enforcement": "monitor_only",  # Log warnings but do not block
+                "ast_strictness": "basic",
             }
 
 

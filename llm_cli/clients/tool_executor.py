@@ -31,8 +31,6 @@ class AgentContext(Protocol):
 
     @property
     def client(self) -> Any: ...
-    @property
-    def sentinel(self) -> Any: ...
     def _get_input(self, message: str, **kwargs: Any) -> str: ...
 
 
@@ -85,7 +83,7 @@ def execute_tool_call(
         return None
 
     try:
-        # 1. Security Guardrails (Sentinel, PQC, Policy)
+        # 1. Security Guardrails (PQC, Policy, ABAC)
         if not _run_security_checks(ctx):
             return _create_error_response(ctx), None
 
@@ -129,24 +127,7 @@ def execute_tool_call(
 
 
 def _run_security_checks(ctx: ToolExecutionContext) -> bool:
-    """Checks Sentinel anomalies and Security Policy Engine."""
-    # Sentinel Check
-    score, status = ctx.session.sentinel.get_sentinel_status()
-    if status != "green" and ctx.session.sentinel.sentinel.mode != "learn":
-        from rich.panel import Panel
-        from rich.text import Text
-
-        color = "red" if status == "red" else "yellow"
-        msg = Text(
-            f"Sentinel: Intent Deviation Detected (Score: {score:.2f})\n", style="bold"
-        )
-        msg.append(
-            "\nHigh probability of intent drift or safety violation."
-            if status == "red"
-            else "\nModerate deviation detected."
-        )
-        console.print(Panel(msg, title="🚨 Sentinel Alert", border_style=color))
-
+    """Checks Security Policy Engine and PQC Identity."""
     # PQC Identity Check
     from llm_cli.security.identity import IdentityManager
 
@@ -229,18 +210,6 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     tool_entry = registry.tools.get(ctx.name, {})
     skip_approval = tool_entry.get("skip_approval", False)
 
-    # CASS Escalation
-    _, status = ctx.session.sentinel.get_sentinel_status()
-    if (
-        status == "red"
-        and config_manager.get("security", "mamba_enforcement") == "strict_block"
-    ):
-        skip_approval = False
-        print_block(
-            "[bold red]CASS Escalation:[/bold red] Mandatory review required.",
-            style="red",
-        )
-
     if skip_approval:
         return True
 
@@ -281,7 +250,6 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
     try:
         result = tool_entry["func"](
             __audit_model__=ctx.session.client.model,
-            __audit_sentinel__=ctx.session.sentinel,
             __security_requirements__=ctx.security_requirements,
             **ctx.args,
         )

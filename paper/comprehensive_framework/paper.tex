@@ -106,9 +106,9 @@ To prevent "Session Hijacking" or "Replay Attacks" across different projects, ea
 \subsection{PQC Agility: Context-Adaptive Security Scaling}
 Traditional security models use a fixed cryptographic strength, leading to either insufficient protection or excessive overhead. Our framework implements \textbf{PQC Agility}, which dynamically adjusts the security level based on the tool's risk profile. CASS maps tool calls to three ML-DSA variants:
 \begin{itemize}
-    \item \textbf{ML-DSA-44 (Level 2):} Used for low-risk observations (e.g., \texttt{read_file}).
+    \item \textbf{ML-DSA-44 (Level 2):} Used for low-risk observations (e.g., \texttt{read\_file}).
     \item \textbf{ML-DSA-65 (Level 3):} Default for standard tool operations.
-    \item \textbf{ML-DSA-87 (Level 5):} Mandated for high-risk system modifications (e.g., \texttt{execute_python}).
+    \item \textbf{ML-DSA-87 (Level 5):} Mandated for high-risk system modifications (e.g., \texttt{execute\_python}).
 \end{itemize}
 This "Security-as-a-Service" approach ensures that mission-critical operations receive maximum protection while maintaining sub-millisecond overhead for frequent, low-risk interactions.
 

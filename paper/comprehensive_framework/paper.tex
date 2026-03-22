@@ -195,27 +195,29 @@ Tier 3 (PQC) & Future Decryption & 100.0\% (Immunity) \\
 \end{table}
 
 \subsection{Performance Latency}
-The total security overhead is summarized in Table \ref{tab:total_perf}. The cumulative latency ($\approx$55ms) is negligible compared to typical LLM inference times (500ms--3000ms), proving that comprehensive security does not impede agentic responsiveness. Mamba Sentinel latency is measured by processing exactly 100 single-byte ASCII tokens (100 bytes) through the SSM's streaming \texttt{step()} interface\footnote{The byte-level Mamba SSM treats each UTF-8 byte as one token. One ASCII character therefore maps to exactly one token. The \texttt{benchmark.py} artifact enforces \texttt{len(token\_block) == 100} via an assertion before the timed loop (100 iterations, AMD Ryzen 5 8540U, WSL2).}. Identity Signing latency includes both RSA-2048 and ML-DSA-65 operations plus the SHA-256 integrity attestation embedded in the binary COSE/CBOR payload. All components are measured independently; the total represents the worst-case sequential overhead for a single high-risk tool call.
+The security overhead was evaluated across two distinct x86-64 environments to measure the impact of virtualization and CPU generation. As shown in Table \ref{tab:total_perf}, the cumulative latency remains well below 250ms even on older hardware, which is negligible compared to typical LLM inference times (500ms--3000ms). This proves that the Triple-Lock framework maintains agent responsiveness across diverse deployment scenarios.
 
 \begin{table}[htbp]
-\caption{System Latency (Cumulative)}
+\caption{System Latency Comparison (ms)}
 \begin{center}
-\begin{tabular}{|l|r|l|}
+\begin{tabularx}{\columnwidth}{|l|X|X|}
 \hline
-\textbf{Component} & \textbf{Latency (ms)} & \textbf{Tier} \\
+\textbf{Component} & \textbf{WSL2 (Ryzen 5)} & \textbf{Native (i7-7700)} \\
 \hline
-AST + Anomaly Analysis & 0.05 & Tier 1 \\
-Bubblewrap Sandbox & 2.63 & Tier 1 \\
-Mamba Sentinel (per 100 tokens) & 10.28 & Tier 2 \\
-Identity Signing (RSA + ML-DSA) & 39.09 & Tier 2/3 \\
-KEM Encapsulation & 2.77 & Tier 3 \\
+AST + Static Analysis & 0.03 & 0.05 \\
+Subprocess Overhead & 18.50 & 27.43 \\
+Mamba Sentinel (100 tokens) & 27.30 & 57.66 \\
+Identity Signing (RSA+PQC) & 96.15 & 137.56 \\
+KEM Encapsulation & 2.86 & 4.37 \\
 \hline
-\textbf{Total Overhead} & \textbf{54.82} & --- \\
+\textbf{Total Overhead} & \textbf{144.84} & \textbf{227.07} \\
 \hline
-\end{tabular}
+\end{tabularx}
 \label{tab:total_perf}
 \end{center}
 \end{table}
+
+The results indicate that while newer architectures like Zen 4 (Ryzen 5 8540U) significantly accelerate pure-Python PQC operations, older systems (i7-7700) still provide sufficient performance for real-time agentic workflows. The $O(N)$ scaling of the Mamba Sentinel ensures that even on the legacy i7-7700, reasoning monitoring adds only $\approx$57ms per 100 tokens. Future optimizations will involve migrating to Rust-backed native PQC primitives (e.g., via the \texttt{cryptography} library) once NIST standards reach stability in mainline Python security packages, further reducing overhead without compromising the system's cross-platform portability.
 
 \section{Conclusion}
 Securing autonomous agents requires a transition from probabilistic "alignment" to a multi-dimensional, deterministic framework. By integrating Structural Guardrails, Behavioral Zero-Trust, and Post-Quantum Resilience, our framework provides a "Triple-Lock" defense that scales across the spatial, behavioral, and temporal domains of agentic execution. This holistic approach is essential for maintaining human control and data sovereignty as AI agents evolve into active participants in our digital infrastructure.

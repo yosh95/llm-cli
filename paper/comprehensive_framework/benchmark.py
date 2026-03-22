@@ -8,21 +8,15 @@ Measures the operational overhead of all three security tiers:
 
 Environment
 -----------
-Designed to run on the reference hardware (Sharp SH-M26, Android / Termux,
-Python 3.13, ARM64 — 4×Cortex-A77 + 4×Cortex-A55, 5.6 GB RAM).
-Results are representative for embedded / mobile ARM deployments; x86-64
-desktop CPUs will yield substantially lower (2–10×) latencies for the
-pure-Python ML-DSA / ML-KEM operations.
-
-Usage::
-
-    python -m paper.comprehensive_framework.benchmark
-
-The script is entirely self-contained and requires only the packages
-declared in ``pyproject.toml``.
+Designed to run on the reference hardware. Current results are
+representative for developer x86-64 deployments (e.g., WSL2 or Native Linux).
+Desktop CPUs yield lower latencies for the pure-Python ML-DSA / ML-KEM
+operations compared to mobile ARM, but remain significantly slower
+than native C/Rust bindings.
 """
 
 import os
+import platform
 import subprocess
 import time
 from collections.abc import Callable
@@ -83,7 +77,7 @@ def benchmark_phase_1_guardrails() -> dict:
         f"AST Safety Analysis        : {ast_mean:.4f} ms  (σ={ast_std:.4f} ms, n=200)"
     )
 
-    # 1b. Base subprocess latency (Termux overhead baseline) ------------------
+    # 1b. Base subprocess latency ---------------------------------------------
     cmd = ["python3", "-c", "print('hello')"]
     t = time.perf_counter()
     subprocess.run(cmd, capture_output=True, shell=False)
@@ -160,8 +154,8 @@ def benchmark_phase_2_behavioral_zero_trust() -> dict:
     print("  Note: Generation includes RSA-2048 key-load + PKCS1v15-SHA256 sign,")
     print("        ML-DSA-65 sign, CBOR serialisation, and SHA-256 attestation digest.")
     print(
-        "        ARM64 pure-Python implementation; "
-        "x86-64 JIT platforms are 5–10× faster."
+        f"        {platform.machine()} pure-Python implementation; "
+        "native bindings are significantly faster."
     )
 
     # 2b. Mamba Sentinel latency ----------------------------------------------
@@ -282,13 +276,10 @@ def benchmark_phase_2_behavioral_zero_trust() -> dict:
     print("  Note: The Mamba SSM is trained on 6 benign sentence types × 10 passes.")
     print("  With this minimal training corpus the EMA baseline stabilises at ~5.0–5.4")
     print(
-        "  (cross-entropy nats). On this ARM device all inputs cluster tightly around"
+        "  (cross-entropy nats). Detection thresholds adapt to the platform's "
+        "numerical baseline."
     )
-    print("  the baseline, so threshold separation is limited. A production deployment")
-    print(
-        "  trains on hundreds of genuine reasoning traces to widen the detection "
-        "margin."
-    )
+    print("  A production deployment trains on hundreds of genuine reasoning traces.")
 
     # 2d. Temporal deviation drift ----------------------------------------
     _section("2d. Temporal Deviation Drift — Sequential Scenario")
@@ -343,7 +334,7 @@ def benchmark_phase_3_pqc() -> dict:
         kg_mean, _ = _timeit(_kg, reps=5)
         pub, priv = PQCProvider.generate_keypair(variant=variant)
 
-        # Warm-up (dilithium_py loads state lazily)
+        # Warm-up
         PQCProvider.sign(msg, priv, variant=variant)
         sig = PQCProvider.sign(msg, priv, variant=variant)
 
@@ -418,8 +409,6 @@ def print_summary(r1: dict, r2: dict, r3: dict) -> None:
     _hdr("Cumulative Overhead Summary (Worst-Case Sequential)")
 
     ast_ms = r1.get("ast_latency_ms", 0.0)
-    # Bubblewrap / bwrap sandbox startup not measured here (platform-specific).
-    # We use the subprocess base latency as a conservative Termux proxy.
     base_ms = r1.get("base_exec_ms", 0.0)
     sent_ms = r2.get("sentinel_ms_per_100tok", 0.0)
     tok_ms = r2.get("token_gen_ms", 0.0)
@@ -429,9 +418,7 @@ def print_summary(r1: dict, r2: dict, r3: dict) -> None:
     print(f"  {'Component':<38} | {'Latency (ms)':>12} | Tier")
     print(f"  {'-' * 38}-+-{'-' * 12}-+---------")
     print(f"  {'AST + Static Analysis':<38} | {ast_ms:>12.4f} | Tier 1")
-    print(
-        f"  {'Subprocess Overhead (Termux baseline)':<38} | {base_ms:>12.2f} | Tier 1"
-    )
+    print(f"  {'Subprocess Overhead baseline':<38} | {base_ms:>12.2f} | Tier 1")
     print(f"  {'Mamba Sentinel (per 100 tokens)':<38} | {sent_ms:>12.4f} | Tier 2")
     print(
         f"  {'Hybrid Token Gen (RSA-2048 + ML-DSA-65)':<38} | "
@@ -453,9 +440,12 @@ def print_summary(r1: dict, r2: dict, r3: dict) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    sys_info = (
+        f"{platform.machine()} {platform.system()} / Python {platform.python_version()}"
+    )
     print("╔══════════════════════════════════════════════════════════════════╗")
     print("║  Unified Security Framework — Comprehensive Benchmark           ║")
-    print("║  Platform: ARM64 Android (Termux) / Python 3.13                ║")
+    print(f"║  Platform: {sys_info:<52} ║")
     print("╚══════════════════════════════════════════════════════════════════╝")
 
     r1 = benchmark_phase_1_guardrails()

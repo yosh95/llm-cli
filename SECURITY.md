@@ -349,9 +349,14 @@ mode    = "learn"   # "learn" during calibration, then "enforce"
 2. **Pure-Python PQC performance** — `dilithium-py` and `kyber-py` are
    significantly slower than native C/Rust bindings (see
    `paper/comprehensive_framework/benchmark.py` for measured numbers).
-   On ARM64 (Termux/Android), ML-DSA-65 signing takes ~107 ms; x86-64 with
-   native bindings achieves <5 ms.  Productions requiring sub-10ms signing
-   should evaluate `liboqs`-backed Python bindings.
+   On x86-64 (AMD Ryzen 5, WSL2), ML-DSA-65 signing takes ~57 ms (pure-Python);
+   native bindings achieve <5 ms. Productions requiring sub-10ms signing
+   should evaluate `liboqs`-backed Python bindings. **Note: We prioritize 
+   zero-dependency portability (especially for Termux/Android) in the 
+   current release. We plan to migrate to `python-cryptography` once 
+   NIST-standardized PQC primitives are integrated into its stable release, 
+   providing a native performance boost without sacrificing installation 
+   simplicity.**
 
 3. **Mamba Sentinel training corpus** — the reference benchmark uses only
    6 × 10 sentence passes.  With this minimal corpus the EMA baseline

@@ -100,7 +100,11 @@ class ChatSession:
         self.client = client
         # Attach session to client so commands can access it
         self.client._session = self
-        self.history_path = client.history_path
+        self._setup_from_client()
+
+    def _setup_from_client(self) -> None:
+        """Initializes or updates session state based on the current client."""
+        self.history_path = self.client.history_path
 
         self.prompt_history: Any
         if self.history_path:
@@ -110,9 +114,29 @@ class ChatSession:
             self.prompt_history = InMemoryHistory()
 
         self.prompt_session: PromptSession = PromptSession(history=self.prompt_history)
-        self.completer = LlmCliCompleter(client)
+        self.completer = LlmCliCompleter(self.client)
         self.sentinel = ReasoningSentinelManager()
         self.ui = SessionUI(self.prompt_session, kb, kb_exit)
+
+    def switch_client(self, new_client: BaseLlmClient) -> None:
+        """Explicitly switch the active client and sync state."""
+        old_client = self.client
+
+        # Sync state from old to new
+        new_client.conversation = old_client.conversation
+        new_client.active_tools = old_client.active_tools
+        new_client.tools_enabled = old_client.tools_enabled
+        new_client.live_debug = old_client.live_debug
+        new_client.system_prompt_enabled = old_client.system_prompt_enabled
+
+        # Update session reference
+        self.client = new_client
+        self.client._session = self
+
+        # Update UI components that depend on the client
+        self.completer = LlmCliCompleter(self.client)
+        self.prompt_session.completer = self.completer
+        # Note: We keep the same prompt_history and UI state
 
     def run(
         self,

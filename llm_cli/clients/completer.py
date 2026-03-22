@@ -69,7 +69,7 @@ class LlmCliCompleter(Completer):
         start_pos = -len(arg_prefix)
 
         if cmd in self.provider_cmds:
-            from llm_cli.clients import client_registry
+            from llm_cli.clients.registry import client_registry
 
             for alias in client_registry.list_aliases():
                 if alias.startswith(arg_prefix):

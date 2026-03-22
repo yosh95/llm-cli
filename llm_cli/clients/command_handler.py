@@ -137,6 +137,7 @@ def handle_reload(ctx: CommandContext) -> bool:
     from llm_cli.security.policy import policy_engine
 
     config_manager.load_config(reload=True)
+    # Update the actual underlying client's key
     ctx.client.api_key = config_manager.get(
         ctx.client.config_section, ctx.client._api_key_name
     )
@@ -144,6 +145,70 @@ def handle_reload(ctx: CommandContext) -> bool:
     ctx.client._refresh_system_prompt()
     policy_engine.reinitialize()
     console.print("[green]Configuration reloaded from disk.[/green]")
+    return True
+
+
+def handle_provider(ctx: CommandContext) -> bool:
+    """Handler for the /provider command."""
+    from rich.table import Table
+
+    from llm_cli.clients.registry import client_registry
+
+    client, args = ctx.client, ctx.args
+    active_providers = config_manager.get_active_providers()
+
+    if not args:
+        table = Table(
+            title="Active Providers", show_header=True, header_style="bold magenta"
+        )
+        table.add_column("Status", justify="center", width=4)
+        table.add_column("Alias", style="cyan", width=15)
+        table.add_column("Config Section", style="dim")
+
+        info = client_registry.get_provider_info()
+        for alias in sorted(info.keys()):
+            section = info[alias]
+            if section not in active_providers:
+                continue
+            is_active = section == client.config_section
+            active_mark = "[bold green]*[/bold green]" if is_active else ""
+            table.add_row(active_mark, alias, section)
+        console.print(table)
+        console.print("[dim]Usage: /p <alias> to switch provider[/dim]")
+        return True
+
+    # Validate provider
+    config_section = client_registry.get_config_section(args)
+    if not config_section or config_section not in active_providers:
+        console.print(f"[red]Error: {args} is inactive or unknown.[/red]")
+        return True
+
+    if config_section == client.config_section:
+        console.print(f"[yellow]Already using provider: {args}[/yellow]")
+        return True
+
+    # Create new client and switch
+    from typing import Any as AnyType
+
+    client_class: AnyType = client_registry.get_client_class(args)
+    if not client_class:
+        return False
+
+    new_client = client_class(
+        initial_tools=client.active_tools,
+        live_debug=client.live_debug,
+    )
+
+    session = getattr(client, "_session", None)
+    if session:
+        session.switch_client(new_client)
+        console.print(
+            f"[cyan]Switched to provider: {args} (Model: {new_client.model})[/cyan]"
+        )
+    else:
+        # Fallback if session is not available (though it should be)
+        console.print("[red]Error: Session not found, cannot switch.[/red]")
+
     return True
 
 
@@ -425,6 +490,7 @@ def setup_standard_commands(reg: CommandRegistry) -> None:
         Command("checkpoint", handle_checkpoint, "Summarize and clear history", ["cp"])
     )
     reg.register(Command("reload", handle_reload, "Reload config.toml from disk"))
+    reg.register(Command("provider", handle_provider, "List or switch provider", ["p"]))
     reg.register(Command("dump", handle_dump, "Dump conversation history as JSON"))
     reg.register(Command("raw", handle_raw, "Show conversation as raw text"))
     reg.register(Command("quit", handle_quit, "Exit the application", ["q"]))

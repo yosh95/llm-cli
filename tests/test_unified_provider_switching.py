@@ -3,86 +3,96 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from llm_cli.apps.unified import UnifiedClient
-from llm_cli.clients import client_registry
+from llm_cli.clients.command_handler import CommandContext, handle_provider
+from llm_cli.clients.registry import client_registry
+from llm_cli.clients.session import ChatSession
 
 
-def test_unified_client_switches_provider_via_alias(mock_config):
-    # Create mocks for the clients
+def test_unified_client_initialization(mock_config):
+    """Test that UnifiedClient correctly initializes the initial specific client."""
+    mock_gemini_instance = MagicMock()
+    mock_gemini_class = MagicMock(return_value=mock_gemini_instance)
+
+    with patch.object(
+        client_registry, "get_client_class", return_value=mock_gemini_class
+    ):
+        client = UnifiedClient(initial_provider="google")
+
+        # UnifiedClient should simply hold the real client instance
+        assert client.active_client == mock_gemini_instance
+        mock_gemini_class.assert_called_once()
+
+
+def test_session_provider_switching(mock_config):
+    """Test that ChatSession can explicitly switch between different client instances."""
+    # 1. Setup mocks for two different providers
     mock_openai_instance = MagicMock()
     mock_gemini_instance = MagicMock()
 
-    mock_openai_class = MagicMock(return_value=mock_openai_instance)
-    mock_gemini_class = MagicMock(return_value=mock_gemini_instance)
-
-    # Setup mock attributes
-    mock_openai_instance.available_models = {"default": "gpt-4"}
-    mock_gemini_instance.available_models = {"default": "gemini-pro"}
-
-    mock_openai_instance.current_alias = "default"
-    mock_gemini_instance.current_alias = "default"
-
-    mock_openai_instance.model = "gpt-4"
-    mock_gemini_instance.model = "gemini-pro"
-
     mock_openai_instance.config_section = "openai"
     mock_gemini_instance.config_section = "google"
-    mock_openai_instance.pdf_as_base64 = False
-    mock_gemini_instance.pdf_as_base64 = True
 
-    # Setup the registry with mocks
+    # State to be synced
+    mock_gemini_instance.conversation = [{"role": "user", "content": "hello"}]
+    mock_gemini_instance.active_tools = ["tool1"]
+    mock_gemini_instance.tools_enabled = True
+    mock_gemini_instance.live_debug = False
+    mock_gemini_instance.system_prompt_enabled = True
+
+    # 2. Initialize session with Gemini
     with (
-        patch.object(client_registry, "get_client_class") as mock_get_class,
-        patch.object(client_registry, "get_config_section") as mock_get_section,
-        patch.object(client_registry, "get_provider_info") as mock_get_info,
+        patch("llm_cli.clients.session.LlmCliCompleter"),
+        patch("llm_cli.clients.session.ReasoningSentinelManager"),
+        patch("llm_cli.clients.session.SessionUI"),
     ):
+        session = ChatSession(mock_gemini_instance)
+        assert session.client == mock_gemini_instance
 
-        def side_effect_class(alias):
-            if alias in ("google", "gemini"):
-                return mock_gemini_class
-            if alias in ("openai", "gpt"):
-                return mock_openai_class
-            return None
+        # 3. Perform the switch to OpenAI
+        session.switch_client(mock_openai_instance)
 
-        def side_effect_section(alias):
-            if alias in ("google", "gemini"):
-                return "google"
-            if alias in ("openai", "gpt"):
-                return "openai"
-            return None
+        # 4. Verify state was synced to the new client
+        assert session.client == mock_openai_instance
+        assert mock_openai_instance.conversation == mock_gemini_instance.conversation
+        assert mock_openai_instance.active_tools == ["tool1"]
+        assert mock_openai_instance._session == session
 
-        mock_get_class.side_effect = side_effect_class
-        mock_get_section.side_effect = side_effect_section
-        mock_get_info.return_value = {
-            "google": "google",
-            "gemini": "google",
-            "openai": "openai",
-            "gpt": "openai",
-        }
 
-        # Initialize UnifiedClient with google/gemini initially
-        client = UnifiedClient(initial_provider="google", stdout=True)
+def test_handle_provider_command_integration(mock_config):
+    """Test the /provider command triggers a switch in the session."""
+    mock_current_client = MagicMock()
+    mock_current_client.config_section = "google"
+    mock_current_client.active_tools = []
+    mock_current_client.live_debug = False
 
-        # Check initial state
-        assert client.current_provider_name == "google"
-        assert client.clients["google"] == mock_gemini_instance
+    mock_session = MagicMock()
+    mock_current_client._session = mock_session
 
-        # Switch to OpenAI using /p openai
-        client._handle_command("/p openai", None)
+    mock_new_client_class = MagicMock()
 
-        # Check if provider switched
-        assert client.current_provider_name == "openai"
-        assert "openai" in client.clients
-        assert client.clients["openai"] == mock_openai_instance
+    with (
+        patch(
+            "llm_cli.clients.registry.client_registry.get_config_section", return_value="openai"
+        ),
+        patch(
+            "llm_cli.clients.registry.client_registry.get_client_class",
+            return_value=mock_new_client_class,
+        ),
+        patch(
+            "llm_cli.clients.config.config_manager.get_active_providers",
+            return_value=["google", "openai"],
+        ),
+    ):
+        ctx = CommandContext(
+            client=mock_current_client, args="openai", pending_data=None, sources=None
+        )
 
-        # Switch back to Gemini using /provider gemini
-        client._handle_command("/provider gemini", None)
-        assert (
-            client.current_provider_name == "google"
-        )  # The config section name is 'google'
+        # Execute the command
+        handle_provider(ctx)
 
-        # Switch to OpenAI again using /p openai
-        client._handle_command("/p openai", None)
-        assert client.current_provider_name == "openai"
+        # Verify a new client was created and switched via the session
+        mock_new_client_class.assert_called_once()
+        mock_session.switch_client.assert_called_once()
 
 
 if __name__ == "__main__":

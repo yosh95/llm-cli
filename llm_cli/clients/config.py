@@ -129,6 +129,26 @@ class ConfigManager:
                 val = os.environ.get(env_var)
                 if val:
                     return val
+
+            # Special case for Ollama: Bypass API key requirement if hosted on localhost
+            # and a model is explicitly configured.
+            if section == "ollama":
+                try:
+                    config_dict = self.load_config()
+                    ollama_cfg = config_dict.get("ollama", {})
+                    base_url = str(ollama_cfg.get("base_url", ""))
+                    models = ollama_cfg.get("models", {})
+
+                    # Only bypass if localhost AND at least one model alias is defined
+                    if (
+                        "localhost" in base_url
+                        or "127.0.0.1" in base_url
+                        or not base_url
+                    ) and models:
+                        return "local_bypass"
+                except Exception:
+                    pass
+
             return None  # Provider is inactive if no env var is found
 
         config_dict = self.load_config()

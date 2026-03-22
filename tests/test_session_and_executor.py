@@ -151,7 +151,7 @@ def test_code_safety_check_blocks_unsafe_code(session):
         # By default it should fail if analyze_python_safety returns False
         result = _run_code_safety_check(ctx)
         assert result is False
-        assert "Blocked" in ctx.error_message
+        assert "blocked" in ctx.error_message.lower()
 
 
 def test_pqc_verification_post_process(session):

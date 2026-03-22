@@ -17,7 +17,10 @@ def validate_path(path: str) -> Path:
     1. Prevents directory traversal (..).
     2. Checks against whitelist (allowed_paths).
     3. Checks against blacklist (blocked_paths).
+    4. Protects the core security directory (Root of Trust).
     """
+    from llm_cli.consts import LLM_CLI_BASE_DIR
+
     config = config_manager.load_config()
     security_config = config.get("security", {})
 
@@ -33,6 +36,13 @@ def validate_path(path: str) -> Path:
         path_obj = Path(path).expanduser().resolve()
 
         # 2. Block sensitive paths even if absolute paths are somewhat allowed
+        # Explicitly protect the application's own configuration and identity keys
+        # (Root of Trust)
+        if path_obj == LLM_CLI_BASE_DIR or LLM_CLI_BASE_DIR in path_obj.parents:
+            raise PathValidationError(
+                f"Access to the security configuration directory is forbidden: {path}"
+            )
+
         for blocked_path_str in blocked_paths:
             try:
                 blocked_obj = Path(blocked_path_str).expanduser().resolve()

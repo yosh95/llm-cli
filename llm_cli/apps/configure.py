@@ -292,15 +292,6 @@ def configure_security(config: dict[str, Any]) -> None:
         )
         s_config["blocked_paths"] = new_blocked_paths
 
-    # Configure Static Analysis Error setting
-    current_sa_is_error = s_config.get(
-        "static_analysis_is_error",
-        def_s.get("static_analysis_is_error", True),
-    )
-    s_config["static_analysis_is_error"] = prompt_bool(
-        "Treat static analysis warnings as errors?", current_sa_is_error
-    )
-
 
 def configure_mcp(config: dict[str, Any]) -> None:
     """Configures MCP servers."""

@@ -216,15 +216,12 @@ def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
     if not is_safe:
         issue_str = "\n".join(f"• {i}" for i in issues)
         print_block(
-            f"[bold red]⚠️  Security Warning:[/bold red]\n{issue_str}",
+            f"[bold red]⚠️  Security Violation:[/bold red]\n{issue_str}",
             title="Static Analysis Risk",
             style="red",
         )
-        if config_manager.get_bool(
-            "security", "static_analysis_is_error", default=True
-        ):
-            ctx.error_message = "Static analysis failed. Blocked."
-            return False
+        ctx.error_message = "Static analysis failed. Execution blocked by policy."
+        return False
     return True
 
 

@@ -86,16 +86,18 @@ def run_client_cli(config: ClientConfig) -> None:
     # Check for at least one active provider
     active_providers = config_manager.get_active_providers()
     if not active_providers:
+        console.print("[bold red]Error: No active LLM providers found.[/bold red]")
         console.print(
-            "[bold red]Error: No API keys found in environment variables.[/bold red]"
+            "\nPlease set an API key environment variable for at least one provider:"
         )
-        console.print("\nPlease set at least one of the following:")
+        console.print("  - [cyan]GEMINI_API_KEY[/cyan] (or GOOGLE_API_KEY)")
         console.print("  - [cyan]OPENAI_API_KEY[/cyan]")
         console.print("  - [cyan]ANTHROPIC_API_KEY[/cyan]")
-        console.print("  - [cyan]GEMINI_API_KEY[/cyan] (or GOOGLE_API_KEY)")
         console.print("  - [cyan]XAI_API_KEY[/cyan]")
+        console.print("  - [cyan]OLLAMA_API_KEY[/cyan] (required for remote Ollama)")
         console.print(
-            "  - [cyan]OLLAMA_API_KEY[/cyan] (required for Ollama even if local)"
+            "\n[yellow]Note: Ollama is available without a key if hosted on "
+            "localhost.[/yellow]"
         )
         console.print("\nTo initialize a config file for other settings, run:")
         console.print("  [bold]llm-cli --init-config[/bold]")

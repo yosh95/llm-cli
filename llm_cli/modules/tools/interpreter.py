@@ -54,6 +54,16 @@ logger = logging.getLogger(__name__)
 )
 def execute_python(code: str) -> Any:
     from llm_cli.security.pqc import sign_tool_result
+    from llm_cli.security.static_analyzer import analyze_python_safety
+
+    # 0. Enforce static analysis before execution (Tier 1 Guardrail)
+    is_safe, issues = analyze_python_safety(code)
+    if not is_safe:
+        error_msg = (
+            "Security Violation: Python code failed static analysis.\n"
+            f"Issues: {', '.join(issues)}"
+        )
+        return sign_tool_result(error_msg)
 
     # Use a default timeout of 300 seconds.
     timeout = int(

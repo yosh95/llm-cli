@@ -76,16 +76,36 @@ def test_identity_manager_integration(tmp_path, monkeypatch):
     """Test IdentityManager's PQC integration."""
     # Use temporary directory for keys
     key_dir = tmp_path / "keys"
-    monkeypatch.setattr("llm_cli.security.identity.KEY_DIR", key_dir)
+    monkeypatch.setattr("llm_cli.security.identity.IdentityManager._KEY_DIR", key_dir)
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._TRUSTED_DIR", key_dir / "trusted"
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PRIVATE_KEY_PATH",
+        key_dir / "id_rsa",
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PUBLIC_KEY_PATH",
+        key_dir / "id_rsa.pub",
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PQC_PRIVATE_KEY_PATH",
+        key_dir / "id_pqc_l3.key",
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_PATH",
+        key_dir / "id_pqc_l3.pub",
+    )
 
-    # Generate token
-    token = IdentityManager.generate_token(user_id="pqc_tester")
+    # Use local identity for the test to ensure fallback works without trusted directory entry
+    local_id = IdentityManager.get_local_identity()
+    token = IdentityManager.generate_token(user_id=local_id)
     assert isinstance(token, str)
 
     # Verify token
     payload = IdentityManager.verify_token(token)
     assert payload is not None
-    assert payload["sub"] == "pqc_tester"
+    assert payload["sub"] == local_id
     assert "roles" not in payload
     assert payload.get("pqc") is True
 
@@ -118,8 +138,8 @@ def test_integrity_verifier_pqc(tmp_path, monkeypatch):
 
     verifier = IntegrityVerifier(root_path)
 
-    # 1. Establish trust (TOFU) - will sign with PQC
-    assert verifier.verify() is True
+    # 1. Establish trust (Admin Action) - will sign with PQC
+    assert verifier.rebuild_manifest() is True
     assert manifest_path.exists()
 
     with manifest_path.open() as f:

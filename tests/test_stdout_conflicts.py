@@ -47,8 +47,9 @@ def test_stdout_mcp_server_conflict():
         assert excinfo.value.code == 1
 
 
+@patch("llm_cli.security.integrity.verify_installation", return_value=None)
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-def test_stdout_disable_mcp():
+def test_stdout_disable_mcp(mock_verify):
     mock_cls = MagicMock()
     config = ClientConfig(client_class=mock_cls, description="Test")
 

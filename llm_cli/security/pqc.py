@@ -37,7 +37,6 @@ Sig_Structure (the bytes that are signed) = [
 """
 
 import base64
-import json
 import logging
 from typing import Any
 
@@ -321,95 +320,6 @@ class ResponseSigner:
             "pqc_signature": base64.urlsafe_b64encode(signature).decode(),
             "algorithm": variant,
         }
-
-
-# ---------------------------------------------------------------------------
-# Audit Anchoring (Merkle Tree)
-# ---------------------------------------------------------------------------
-
-
-class AuditAnchoring:
-    """
-    Facilitates external anchoring of audit logs to prevent historical revisionism.
-    Uses a binary Merkle Tree for efficient integrity verification.
-    """
-
-    @staticmethod
-    def generate_anchor_root(log_entries: list[dict[str, Any]]) -> str:
-        """Generate a Merkle Root for a batch of audit log entries."""
-        import hashlib
-
-        if not log_entries:
-            return "0" * 64
-
-        hashes = []
-        for e in log_entries:
-            entry_to_hash = {k: v for k, v in e.items() if k != "pqc_signature"}
-            entry_str = json.dumps(entry_to_hash, sort_keys=True)
-            hashes.append(hashlib.sha256(entry_str.encode()).hexdigest())
-
-        while len(hashes) > 1:
-            if len(hashes) % 2 != 0:
-                hashes.append(hashes[-1])
-            new_level = []
-            for i in range(0, len(hashes), 2):
-                combined = (hashes[i] + hashes[i + 1]).encode()
-                new_level.append(hashlib.sha256(combined).hexdigest())
-            hashes = new_level
-
-        return hashes[0]
-
-    @classmethod
-    def create_external_anchor(cls) -> str | None:
-        """
-        Read the audit log, generate a Merkle Root, and record it in the
-        security log.  In production this root would be submitted to an
-        immutable ledger service.
-        """
-        from llm_cli.consts import AUDIT_LOG_PATH
-
-        if not AUDIT_LOG_PATH.exists():
-            return None
-
-        entries: list[dict[str, Any]] = []
-        with AUDIT_LOG_PATH.open("r", encoding="utf-8") as f:
-            for line in f:
-                try:
-                    entries.append(json.loads(line))
-                except Exception:
-                    continue
-
-        if not entries:
-            return None
-
-        root = cls.generate_anchor_root(entries)
-
-        try:
-            import datetime
-
-            from llm_cli.clients.config import config_manager
-            from llm_cli.consts import SECURITY_LOG_PATH
-
-            SECURITY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with SECURITY_LOG_PATH.open("a", encoding="utf-8") as f:
-                ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"[{ts}] 🔗 [POST-QUANTUM ANCHOR] Merkle Root: {root}\n")
-
-            max_lines = int(
-                config_manager.get("general", "max_security_log_lines") or 1000
-            )
-            with SECURITY_LOG_PATH.open("r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
-            if len(lines) > max_lines:
-                with SECURITY_LOG_PATH.open(
-                    "w", encoding="utf-8", errors="replace"
-                ) as f:
-                    f.writelines(lines[-max_lines:])
-        except Exception:
-            pass
-
-        logger.info(f"🔗 [POST-QUANTUM ANCHOR] Merkle Root: {root}")
-        return root
 
 
 # ---------------------------------------------------------------------------

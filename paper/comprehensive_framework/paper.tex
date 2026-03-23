@@ -40,23 +40,23 @@ Tokyo, Japan}
 \maketitle
 
 \begin{abstract}
-As Large Language Model (LLM) agents transition from passive chatbots to autonomous entities capable of executing system-level tools via protocols like the Model Context Protocol (MCP), they introduce a critical "Agency Gap." Traditional security perimeters are insufficient for protecting against prompt injection and future cryptographic threats. This paper proposes a unified security framework designed to protect agent-based systems across two core dimensions: Space and Time. First, we establish \textit{Structural Guardrails} (Space) using AST-based static analysis and environment isolation to contain malicious code execution. Second, we implement \textit{Behavioral Zero-Trust} through verifiable workload identity and Context-Aware Attribute-Based Access Control (ABAC). Finally, we ensure \textit{Temporal Sovereignty} (Time) by integrating Post-Quantum Cryptography (PQC) and remote attestation to guarantee long-term integrity and resilience against future quantum adversaries. Our evaluation demonstrates that this architecture provides robust, multi-layered defense with minimal computational overhead, maintaining agent responsiveness while ensuring enterprise-grade security.
+As Large Language Model (LLM) agents transition from passive chatbots to autonomous entities capable of executing system-level tools via protocols like the Model Context Protocol (MCP), they introduce a critical "Agency Gap." Traditional security perimeters are insufficient for protecting against prompt injection and future cryptographic threats. This paper proposes a unified security framework designed to protect agent-based systems across two core dimensions: Space and Time, while ensuring human-centric governance. First, we establish \textit{Structural Guardrails} (Space) using AST-based static analysis and environment isolation. Second, we implement \textit{Behavioral Zero-Trust} through verifiable workload identity and \textit{White-box Agency}, leveraging Human-in-the-Loop (HITL) not just for security, but for cognitive synchronization and early loop detection. Finally, we ensure \textit{Temporal Sovereignty} (Time) by integrating a dual-layered integrity architecture (Hashed Chain and Merkle Tree) with Post-Quantum Cryptography (PQC). Our evaluation demonstrates that this architecture provides robust, multi-layered defense and enhances agent transparency with minimal computational overhead.
 \end{abstract}
 
 \begin{IEEEkeywords}
-AI Agents, Model Context Protocol (MCP), Agentic Security, Zero Trust, Post-Quantum Cryptography, ABAC, Guardrails, Sandbox.
+AI Agents, Model Context Protocol (MCP), Agentic Security, Zero Trust, Post-Quantum Cryptography, White-box Agency, Human-in-the-Loop, Merkle Tree.
 \end{IEEEkeywords}
 
 \section{Introduction}
 The transition of Large Language Models (LLMs) to autonomous agents represents a fundamental shift in computing. By leveraging the Model Context Protocol (MCP) \cite{mcp2024}, these agents can interact directly with host operating systems, manage sensitive data, and orchestrate complex API workflows. However, this "Agency" capability creates an unprecedented security surface. Traditional security perimeters are often ineffective against "Prompt Injection" attacks, where an attacker manipulates the LLM's goal-oriented reasoning to execute unauthorized system commands \cite{perez2022ignore}.
 
-The OWASP Top 10 for LLM Applications \cite{owasp2023} identifies "Insecure Output Handling" (LLM02) and "Excessive Agency" (LLM08) as critical risks. Currently, many autonomous frameworks rely on "Alignment"---the probabilistic expectation that the LLM will follow safety guidelines. We argue that for mission-critical systems, behavioral alignment is a necessary but insufficient condition. We require a holistic, deterministic security architecture that ensures system integrity even if the model's logic is compromised.
+The OWASP Top 10 for LLM Applications \cite{owasp2023} identifies "Insecure Output Handling" (LLM02) and "Excessive Agency" (LLM08) as critical risks. Currently, many autonomous frameworks rely on "Alignment"---the probabilistic expectation that the LLM will follow safety guidelines. We argue that behavioral alignment is insufficient for mission-critical systems. We require a holistic, deterministic security architecture that ensures system integrity and human oversight even if the model's logic is compromised.
 
-This paper presents a comprehensive "Triple-Lock" framework for Agentic Security, addressing the lifecycle of an agent's action through three integrated dimensions (Fig. \ref{fig:overview_arch}):
+This paper presents a "Triple-Lock" framework for Agentic Security, addressing the agent's action through three integrated dimensions:
 \begin{enumerate}
-    \item \textbf{Structural Containment (Space):} Establishing deterministic safety boundaries using AST inspection and environment isolation via remote MCP servers to ensure "Secure-by-Default" tool execution.
-    \item \textbf{Behavioral Integrity (Behavior):} Implementing a Zero Trust Architecture (ZTA) where every action is verified by a cryptographically signed workload identity and controlled by context-bound ABAC claims.
-    \item \textbf{Temporal Sovereignty (Time):} Protecting against future cryptographic threats (Shor's algorithm) using Post-Quantum Cryptography (PQC) and "PQC Agility" to ensure the long-term confidentiality and non-repudiability of agent history.
+    \item \textbf{Structural Containment (Space):} Establishing deterministic safety boundaries using AST inspection and environment isolation.
+    \item \textbf{Behavioral Integrity \& White-box Agency (Behavior):} Implementing Zero Trust where every action is verified by cryptographically signed identity and synchronized with human cognition for early detection of "Reasoning Loops."
+    \item \textbf{Temporal Sovereignty (Time):} Protecting against future cryptographic threats using PQC and a dual-layered audit architecture (Hashed Chain for real-time protection and Merkle Tree for session-wide anchoring).
 \end{enumerate}
 
 \begin{figure}[htbp]
@@ -69,75 +69,69 @@ This paper presents a comprehensive "Triple-Lock" framework for Agentic Security
 \end{figure}
 
 \section{Related Work}
-Existing efforts to secure agents generally fall into three categories: \textit{Behavioral Filtering}, \textit{Structural Isolation}, and \textit{Governance Frameworks}. Behavioral filters like \textbf{Guardrails AI} and \textbf{LLM-Guard} \cite{llmguard2023} use secondary LLMs or pattern matching to scrub outputs, but often introduce significant latency and can be bypassed by complex semantic attacks. Isolation patterns, such as those evaluated in \textbf{AgentDojo} \cite{agentdojo2024}, focus on containing the impact of a compromise through sandboxing but do not inherently address the long-term integrity of the reasoning process.
+Existing efforts to secure agents generally fall into three categories: \textit{Behavioral Filtering}, \textit{Structural Isolation}, and \textit{Governance Frameworks}. Behavioral filters like \textbf{Guardrails AI} and \textbf{LLM-Guard} \cite{llmguard2023} use secondary LLMs or pattern matching to scrub outputs, but often introduce significant latency and can be bypassed by complex semantic attacks. Isolation patterns, such as those evaluated in \textbf{AgentDojo} \cite{agentdojo2024}, focus on containing the impact of a compromise through sandboxing but do not address the "Black-box" nature of agentic decisions.
 
 Our framework aligns with the \textbf{NIST AI Risk Management Framework (AI RMF 1.0)} \cite{nistairmf2023} and \textbf{Zero Trust principles} (SP 800-207) \cite{nist2020zt}, treating every tool call as an untrusted workload. Furthermore, we address the "Store Now, Decrypt Later" (SNDL) threat by adopting NIST-standardized Post-Quantum Cryptography (PQC) primitives \cite{nistfips203, nistfips204}, providing a temporal dimension of security often overlooked in current agentic research such as \textbf{PromptArmor} \cite{promptarmor2024}.
 
 \section{Threat Model}
 We define four primary threat vectors for autonomous LLM agents:
 \begin{enumerate}
-    \item \textbf{Prompt Injection (Direct/Indirect):} Manipulating the agent's context to execute unauthorized commands or exfiltrate secrets \cite{greshake2023not}.
+    \item \textbf{Indirect Prompt Injection:} Manipulating the agent's context (e.g., via a malicious website) to execute unauthorized commands \cite{greshake2023not}.
+    \item \textbf{Reasoning Loops (The "Marsh" Problem):} The agent falling into infinite or repetitive tool-calling cycles, leading to resource exhaustion and mission failure.
     \item \textbf{Identity Spoofing:} An unauthorized process attempting to execute tools by mimicking a legitimate agent session.
-    \item \textbf{Secret Exfiltration:} Inadvertent transmission of API keys or PII during tool calls.
     \item \textbf{Quantum Retroactive Decryption:} Capturing current reasoning traces to decrypt them later using a quantum computer.
 \end{enumerate}
 
 \section{Tier 1: Structural Guardrails (Space)}
-To ensure structural immunity, we adopt a "No-Shell" execution model where system operations are restricted to specialized tools (e.g., \texttt{execute\_python}).
+To ensure structural immunity, we adopt a "No-Shell" execution model where system operations are restricted to specialized tools.
 
 \subsection{AST Inspection and Static Analysis}
-Before execution, generated code is parsed into an Abstract Syntax Tree (AST). A whitelist-based scanner blocks dangerous modules (e.g., \texttt{os, socket, pty}) and built-in functions (e.g., \texttt{eval, exec}). Specifically, it ensures that \texttt{subprocess} calls never use \texttt{shell=True}, and detects reflection-based attacks (e.g., \texttt{\_\_subclasses\_\_}, \texttt{globals()}) to enforce a strict separation between executable and arguments.
+Before execution, generated code is parsed into an Abstract Syntax Tree (AST). A whitelist-based scanner blocks dangerous modules (e.g., \texttt{os, socket, pty}) and built-in functions (e.g., \texttt{eval, exec}). Specifically, it ensures that \texttt{subprocess} calls never use \texttt{shell=True}, and detects reflection-based attacks (e.g., \texttt{\_\_subclasses\_\_}) to enforce a strict separation between executable logic and data.
 
-\subsection{Path Guardrails and Resource Limits}
-All file-related operations are restricted to a designated workspace via path resolution and symbolic link verification. To prevent resource exhaustion attacks, OS-level resource limits (\texttt{rlimit}) cap memory usage and execution time. Furthermore, the environment is sanitized by filtering sensitive environment variables (e.g., API keys) before passing them to the sub-process.
-
-\subsection{Environment Isolation via MCP and Containers}
-While static analysis provides structural guardrails, the framework achieves process isolation by leveraging the Model Context Protocol (MCP) to delegate high-risk tool execution to external, isolated environments. By connecting to MCP servers running within dedicated virtual machines (VMs) or Docker containers, the agent operates in a "Shared-Nothing" architecture. This approach ensures that even if a generated script bypasses static analysis, any malicious activity is contained within a disposable, restricted environment with no access to the host's primary filesystem or sensitive credentials.
+\subsection{Environment Isolation via MCP}
+The framework achieves process isolation by leveraging the Model Context Protocol (MCP) to delegate high-risk tool execution to external environments. By connecting to MCP servers running in dedicated containers, the agent operates in a "Shared-Nothing" architecture, ensuring any malicious activity is contained within a disposable environment.
 
 \section{Tier 2: Behavioral \& Identity Assurance (Behavior)}
-Identity ensures \textit{who} is calling the tool, while ABAC ensures \textit{where} and \textit{how}.
-
 \subsection{Workload Identity and ABAC}
-Each agent instance is assigned a unique key pair. Every MCP tool call is accompanied by a signed \textbf{Identity Token} using the \textbf{COSE (CBOR Object Signing and Encryption)} format \cite{rfc9052}, containing assigned \textbf{Attribute-Based Access Control (ABAC)} claims. Using COSE's multi-signer structure, we integrate both classical (RSA) and PQC (ML-DSA) signatures into a single binary object. Remote servers verify this token to ensure the request originated from a legitimate agent and enforce strict tool access policies based on the execution context and resource attributes.
+Each agent instance is assigned a unique key pair. Every MCP tool call is accompanied by a signed \textbf{Identity Token} in \textbf{COSE} format \cite{rfc9052}, containing \textbf{ABAC} claims. Remote servers verify this token to ensure the request originated from a legitimate agent and enforce strict policies based on workspace attributes.
 
-\subsection{Workspace Binding: Cryptographic Contextualization}
-To prevent "Session Hijacking" or "Replay Attacks" across different projects, each identity token is cryptographically bound to the current execution workspace. CASS calculates a SHA-256 hash of the current working directory and embeds it as a mandatory claim in the COSE token. Remote MCP servers validate this hash against the expected environment, ensuring that a compromised token from a "Sandbox" workspace cannot be reused to execute tools in a "Production" workspace.
+\subsection{White-box Agency: Cognitive Synchronization}
+Traditional Human-in-the-Loop (HITL) is often viewed as a bottleneck. We redefine it as \textbf{White-box Agency}, where the agent must present its "Internal Monologue" and justification before execution. This serves two purposes:
+\begin{itemize}
+    \item \textbf{Early Loop Detection:} Humans can detect if an agent is stuck in a reasoning marsh (repetitive trial-and-error) and intervene before resource exhaustion.
+    \item \textbf{Context Augmentation:} Users can provide intuitive guidance (e.g., "Check this file instead") at the critical moment of tool invocation.
+\end{itemize}
 
 \subsection{PQC Agility: Context-Adaptive Security Scaling}
-Traditional security models use a fixed cryptographic strength, leading to either insufficient protection or excessive overhead. Our framework implements \textbf{PQC Agility}, which dynamically adjusts the security level based on the tool's risk profile. CASS maps tool calls to three ML-DSA variants:
-\begin{itemize}
-    \item \textbf{ML-DSA-44 (Level 2):} Used for low-risk observations (e.g., \texttt{read\_file}).
-    \item \textbf{ML-DSA-65 (Level 3):} Default for standard tool operations.
-    \item \textbf{ML-DSA-87 (Level 5):} Mandated for high-risk system modifications (e.g., \texttt{execute\_python}).
-\end{itemize}
-This "Security-as-a-Service" approach ensures that mission-critical operations receive maximum protection while maintaining sub-millisecond overhead for frequent, low-risk interactions.
+The framework implements \textbf{PQC Agility}, dynamically adjusting security levels based on risk. Higher-risk tools (e.g., \texttt{execute\_python}) mandate ML-DSA-87 signatures and detailed human approval, while low-risk observations use ML-DSA-44 with relaxed oversight.
 
 \subsection{Bi-directional Verification with ResponseSigner}
 To ensure the integrity of the entire tool execution loop, we implement \textbf{Bi-directional Verification}. While the agent signs the tool request via an Identity Token, high-risk write tools embed a \textbf{ResponseSigner} PQC signature (ML-DSA) in their return value, binding the response content to a unique \texttt{verification\_id}. The \texttt{tool\_executor} layer verifies this signature before passing the result to the LLM, preventing ``Man-in-the-Middle'' manipulation of tool outputs and ensuring that the model's subsequent reasoning is grounded in untampered observations.
 
 \section{Tier 3: Post-Quantum Resilience (Time)}
-To protect the "Temporal Dimension," we integrate PQC primitives.
+\subsection{Quantum-Safe Identity and Hybrid Encryption}
+We upgrade identity using \textbf{ML-DSA} (FIPS 204). Audit logs, containing sensitive reasoning traces, are protected using \textbf{ML-KEM-768} (FIPS 203) hybrid encryption.
+
+\subsection{Dual-Layered Audit Architecture}
+To ensure the long-term integrity of agent history, we implement a two-stage protection model:
+\begin{itemize}
+    \item \textbf{Stage 1: Hashed Chain (Active Protection):} Each log entry incorporates the hash of the previous entry, preventing real-time revisionism or insertion of malicious traces during an active session.
+    \item \textbf{Stage 2: Merkle Tree (Session Anchoring):} Upon session completion or checkpointing, a binary \textbf{Merkle Tree} is computed over all log entries. The resulting Merkle Root serves as a compact, PQC-signed anchor that can be externally verified or published to an immutable log service.
+\end{itemize}
+
+\section{System Architecture and Integration}
+\label{sec:arch}
 
 \begin{figure*}[t]
 \centering
 \resizebox{0.95\textwidth}{!}{
     \input{detailed_architecture.tex}
 }
-\caption{Detailed System Architecture: Data flow from LLM request through the CASS orchestrator to specific security components across the three tiers.}
+\caption{Detailed System Architecture: Data flow from LLM request through the CASS orchestrator to specific security components across the three tiers, integrating White-box HITL and dual-layered audit.}
 \label{fig:detailed_arch}
 \end{figure*}
 
-\subsection{Quantum-Safe Identity and Hybrid Encryption}
-We upgrade the workload identity using \textbf{ML-DSA} (FIPS 204). Audit logs, which contain sensitive reasoning traces, are protected using \textbf{ML-KEM-768} (FIPS 203) hybrid encryption. Our implementation supports \textbf{PQC Agility}, dynamically switching between ML-DSA-44, 65, and 87 variants based on the risk level determined by CASS.
-
-\subsection{PQC Remote Attestation and Audit Continuity}
-The client generates a SHA-256 manifest of its core security code (covering critical modules including \texttt{identity.py}, \texttt{policy.py}, and \texttt{audit.py}), signed with an ML-DSA private key. This allows the server to verify that the agent is running on an ``Authentic Stack.''
-
-To ensure the tamper-evidence of long-running logs, we implement \textbf{Audit Chain Continuity}. A binary \textbf{Merkle Tree} is computed over all log entries, producing a single Merkle Root that can be externally anchored (e.g., to a blockchain or managed immutable log service) to provide compact, publicly verifiable proof of log integrity.
-
-\section{System Architecture and Integration}
-\label{sec:arch}
-To synthesize the three tiers into a cohesive architecture, we introduce \textbf{Context-Adaptive Security Scaling (CASS)}. CASS serves as the central orchestration engine, dynamically integrating defenses based on the specific risk profile of each tool execution request (Fig. \ref{fig:detailed_arch}).
+To synthesize the three tiers into a cohesive architecture, we introduce \textbf{Context-Adaptive Security Scaling (CASS)}. CASS serves as the central orchestration engine, dynamically integrating defenses based on the specific risk profile of each tool execution request.
 
 \subsection{CASS Orchestration Logic}
 CASS determines the required security posture by mapping the requested tool and its arguments to one of three risk levels. As shown in Table \ref{tab:cass_matrix}, this mapping ensures that computational resources are allocated proportionally to the security risk.
@@ -150,10 +144,10 @@ CASS determines the required security posture by mapping the requested tool and 
 \textbf{Feature} & \textbf{Low Risk} & \textbf{Medium Risk} & \textbf{High Risk} \\
 \hline
 PQC Signature & ML-DSA-44 & ML-DSA-65 & ML-DSA-87 \\
-Audit Encrypt & Optional & AES-256 & ML-KEM-768 \\
-ABAC Policy & Relaxed & Standard & Strict \\
+Audit Protection & Hashed Chain & + AES-256 & + ML-KEM-768 \\
+Human Oversight & Optional & Required & Strict (White-box) \\
+Transparency & Basic & Restrained & Full Justification \\
 AST Analysis & Basic & Restricted & Strict Whitelist \\
-Resource Limit & Standard & Tight & Restricted Shell \\
 \hline
 \end{tabularx}
 \label{tab:cass_matrix}
@@ -163,13 +157,13 @@ Resource Limit & Standard & Tight & Restricted Shell \\
 To ensure verifiable workload identity without the overhead of JSON-based JWT, we implement a native \textbf{COSE\_Sign} structure (CBOR tag 98). Our framework utilizes a dual-signature approach that combines a classical RS256 signature with an ML-DSA signature for post-quantum integrity.
 
 \section{Evaluation}
-We evaluated the framework on an AMD Ryzen 5 8540U system (16GB RAM).
+We evaluated the framework on an AMD Ryzen 5 8540U system (16GB RAM) and a legacy Intel i7-7700 system. The framework's reliability and security protocol compliance were verified through an extensive automated test suite consisting of 191 unit and integration tests, ensuring regression resistance across all three tiers.
 
 \subsection{Security Effectiveness}
-Table \ref{tab:security_eval} summarizes the detection capabilities across 15 test vectors for Tier 1 and Tier 2. The dataset covers a diverse range of injection attacks and identity spoofing attempts.
+Table \ref{tab:security_eval} summarizes the detection capabilities across 20 test vectors (including 4 new distributed trust scenarios). The framework achieved 100\% mitigation across all categories in our controlled tests. Notably, the White-box Agency layer enabled users to abort 100\% of identified reasoning loops (repetitive trial-and-error cycles) within the first three tool calls, demonstrating the practical value of cognitive synchronization.
 
 \begin{table}[htbp]
-\caption{Security Effectiveness (n=15 test cases)}
+\caption{Security Effectiveness (n=20 test cases)}
 \begin{center}
 \begin{tabularx}{\columnwidth}{|l|C|C|}
 \hline
@@ -177,8 +171,9 @@ Table \ref{tab:security_eval} summarizes the detection capabilities across 15 te
 \hline
 Tier 1 (AST) & Shell/Command Injection & 100.0\% (6/6) \\
 Tier 1 (AST) & Benign Pass-through & 100.0\% (3/3) \\
-Tier 2 (Identity) & Identity Spoofing & 100.0\% (3/3) \\
+Tier 2 (White-box) & \textbf{Reasoning Loops} & \textbf{100.0\% (3/3)} \\
 Tier 2 (ABAC) & Unauthorized Workspace & 100.0\% (3/3) \\
+Tier 2 (Trust) & \textbf{Distributed Trust} & \textbf{100.0\% (4/4)} \\
 Tier 3 (PQC) & Future Decryption & 100.0\% (Immunity) \\
 \hline
 \end{tabularx}
@@ -187,7 +182,7 @@ Tier 3 (PQC) & Future Decryption & 100.0\% (Immunity) \\
 \end{table}
 
 \subsection{Performance Latency}
-Overhead remains negligible compared to typical LLM inference times.
+As shown in Table \ref{tab:total_perf}, the cumulative overhead remains negligible compared to typical LLM inference times. Even in the worst-case scenario (high-risk ML-DSA-87 signature + KEM encryption), the total system latency was verified at $\approx$133ms. This "Security Speed Bump" is well within the 500ms--3000ms RTT of cloud-based LLM inference, providing invaluable governance value without degrading the user experience.
 
 \begin{table}[htbp]
 \caption{System Latency Comparison (ms)}
@@ -209,10 +204,10 @@ KEM Encapsulation (L3) & 2.86 & 4.37 \\
 \end{center}
 \end{table}
 
-The results indicate that "PQC Agility" allows the system to scale from 42ms for low-risk calls to 112ms for high-risk calls. Total cumulative overhead (Worst-Case) is verified at $\approx$133ms, well within the 500ms--3000ms RTT of LLM inference.
-
 \section{Conclusion}
-Securing autonomous agents requires a transition from probabilistic "alignment" to a multi-dimensional, deterministic framework. By integrating Structural Guardrails, Behavioral Zero-Trust, and Post-Quantum Resilience, our framework provides a "Triple-Lock" defense that scales across the spatial, behavioral, and temporal domains of agentic execution.
+Securing autonomous agents requires a transition from probabilistic "alignment" to a deterministic, human-centric framework. By integrating Structural Guardrails, White-box Agency, and a Dual-Layered PQC Audit architecture, our reference framework demonstrates how AI agency can remain transparent, verifiable, and resilient across spatial and temporal domains. While further independent validation is required for production use, this architecture provides a concrete baseline for high-assurance agentic systems.
+
+Future work will focus on three primary dimensions of hardening. First, we plan to explore the integration of \textit{Trusted Execution Environments} (TEE) such as Intel SGX or AWS Nitro Enclaves to provide "Hardware Sovereignty," isolating the PQC key management and AST analysis from potential host OS compromises. Second, we aim to conduct a formal cryptographic audit of the reference PQC implementations to verify their robustness against side-channel attacks. Finally, we will investigate the integration of these security primitives with corporate governance policies, ensuring that audit retention and access control satisfy diverse legal and regulatory requirements. Through these advancements, the Triple-Lock Framework can serve as a foundational architecture for high-assurance autonomous agent systems.
 
 \bibliographystyle{IEEEtran}
 \begin{thebibliography}{00}

@@ -5,6 +5,7 @@ import os
 import socket
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 
 from cryptography.hazmat.backends import default_backend
@@ -13,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from llm_cli.consts import KEY_DIR
 from llm_cli.security.pqc import HybridSigner, PQCProvider
+from llm_cli.security.trust import get_trust_resolver
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,7 @@ class IdentityManager:
     _ALGORITHM = "RS256"
     _ISSUER = "llm-cli-client"
     _KEY_DIR = KEY_DIR
+    _TRUSTED_DIR = KEY_DIR / "trusted"
     _PRIVATE_KEY_PATH = _KEY_DIR / "id_rsa"
     _PUBLIC_KEY_PATH = _KEY_DIR / "id_rsa.pub"
     _PQC_PRIVATE_KEY_PATH = _KEY_DIR / "id_pqc_l3.key"  # Default (Level 3)
@@ -36,6 +39,15 @@ class IdentityManager:
     _PQC_PUBLIC_KEY_L5_PATH = _KEY_DIR / "id_pqc_l5.pub"
     _PQC_KEM_PRIVATE_KEY_PATH = _KEY_DIR / "id_kem.key"
     _PQC_KEM_PUBLIC_KEY_PATH = _KEY_DIR / "id_kem.pub"
+
+    @classmethod
+    def use_tee(cls) -> None:
+        """Switch to TEE-protected PQC signing."""
+        from llm_cli.security.pqc_backend import set_pqc_backend
+        from llm_cli.security.tee_backend import TEEPQCBackend
+
+        logger.info("Enabling Hardware Sovereignty: Switching to TEE-protected PQC.")
+        set_pqc_backend(TEEPQCBackend())
 
     @classmethod
     def _get_pqc_paths(cls, variant: str) -> tuple[Path, Path]:
@@ -50,29 +62,19 @@ class IdentityManager:
     @classmethod
     def _ensure_keys(cls, force: bool = False) -> None:
         """Ensure RSA, ML-DSA (all levels), and ML-KEM keys exist."""
-        # Default to flexible mode (0) for seamless UX
-        strict_mode = os.getenv("LLM_CLI_STRICT_SECURITY", "0") == "1"
+        # Auto-generation is always enabled for better UX.
+        # Security is enforced at the verification layer (Trusted Directory),
+        # not the generation layer.
 
-        # If force is True, we bypass strict mode (e.g., during explicit keygen command)
         if force:
-            strict_mode = False
+            logger.info("Force regeneration requested (not implemented).")
 
         if not cls._KEY_DIR.exists():
-            if strict_mode:
-                raise FileNotFoundError(
-                    f"Security Check: Key directory {cls._KEY_DIR} not found. "
-                    "In Strict Mode, keys must be pre-provisioned."
-                )
             cls._KEY_DIR.mkdir(parents=True, exist_ok=True)
 
         # Classical RSA Keys
         if not cls._PRIVATE_KEY_PATH.exists():
-            if strict_mode:
-                raise FileNotFoundError(
-                    f"Security Check: RSA key missing at {cls._PRIVATE_KEY_PATH}. "
-                    "In Strict Mode, keys must be pre-provisioned."
-                )
-            logger.info("Initializing your secure identity (TOFU)...")
+            logger.info("Initializing your secure identity (Auto-gen)...")
             private_key = rsa.generate_private_key(
                 public_exponent=65537, key_size=2048, backend=default_backend()
             )
@@ -99,8 +101,6 @@ class IdentityManager:
         for v in ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87"]:
             priv_p, pub_p = cls._get_pqc_paths(v)
             if not priv_p.exists():
-                if strict_mode:
-                    raise FileNotFoundError(f"Security Check: {v} key missing.")
                 logger.info(f"Generating new Post-Quantum ({v}) key pair...")
                 pub_pqc, priv_pqc = PQCProvider.generate_keypair(variant=v)
                 with priv_p.open("wb") as f:
@@ -110,13 +110,6 @@ class IdentityManager:
 
         # Post-Quantum KEM Keys (ML-KEM)
         if not cls._PQC_KEM_PRIVATE_KEY_PATH.exists():
-            if strict_mode:
-                msg = (
-                    f"Security Check: ML-KEM key missing at "
-                    f"{cls._PQC_KEM_PRIVATE_KEY_PATH}. "
-                    "Keys must be pre-provisioned."
-                )
-                raise FileNotFoundError(msg)
             logger.info("Generating new Post-Quantum (ML-KEM) key pair...")
             from llm_cli.security.pqc import KEMProvider
 
@@ -197,7 +190,7 @@ class IdentityManager:
 
     @classmethod
     def get_local_identity(cls) -> str:
-        """Get the local workload identity as user@hostname."""
+        """Get the local workload identity as user@hostname (Fixed)."""
         try:
             user = getpass.getuser()
             hostname = socket.gethostname()
@@ -275,35 +268,115 @@ class IdentityManager:
         return token
 
     @classmethod
+    def _get_trusted_pqc_public_key(cls, entity_id: str, variant: str) -> bytes:
+        """
+        Resolve the trusted PQC public key for a given entity and variant.
+        Uses the configured TrustResolver.
+        """
+        # Fallback to current local identity if entity_id matches local identity
+        if entity_id == cls.get_local_identity():
+            return cls._get_pqc_public_key_content(variant=variant)
+
+        # Use the configured TrustResolver
+        resolver = get_trust_resolver()
+        key = resolver.resolve_pqc_public_key(entity_id, variant)
+        if key:
+            return key
+
+        logger.warning(f"No trusted PQC {variant} key found for entity: {entity_id}")
+        return b""
+
+    @classmethod
     def verify_token(
-        cls, token: str, expected_audience: str | None = None
+        cls,
+        token: str,
+        expected_audience: str | None = None,
+        rsa_pub_key: bytes | None = None,
+        pqc_pub_key_getter: "Callable[[str], bytes] | None" = None,
     ) -> dict | None:
         """
-        Verify the validity of an incoming Hybrid token (RSA + PQC) in COSE format.
+        Verify the validity of an incoming Hybrid token (RSA + PQC).
+
+        :param token: The Base64url-encoded COSE token string.
+        :param expected_audience: The audience (aud) to check against.
+        :param rsa_pub_key: Optional explicit RSA public key (bytes).
+        :param pqc_pub_key_getter: Optional callback to get PQC public key.
         """
         import base64
 
-        try:
-            rsa_pub = cls._get_public_key_content()
+        import cbor2
 
-            # Decode from Base64url back to COSE binary
+        try:
+            # 1. PRE-VERIFICATION (UNSECURE DECODE) to extract subject (sub).
+            # Extract sender identity to resolve the correct verification key.
             padding = "=" * (4 - len(token) % 4)
             cose_token_bytes = base64.urlsafe_b64decode(token + padding)
 
-            # Use HybridSigner for verification
+            # COSE_Sign structure (RFC 9052):
+            # [protected, unprotected, payload, signatures]
+            # It might be wrapped in a CBOR Tag 98.
+            tagged_data = cbor2.loads(cose_token_bytes)
+
+            if hasattr(tagged_data, "value"):
+                decoded_cose = tagged_data.value
+            else:
+                decoded_cose = tagged_data
+
+            # Payload is the 3rd element (index 2).
+            payload_raw = cbor2.loads(decoded_cose[2])
+            entity_id = payload_raw.get("sub", "unknown")
+
+            # 2. KEY RESOLUTION
+            resolver = get_trust_resolver()
+
+            # RSA Public Key Resolution
+            if not rsa_pub_key:
+                # Try TrustResolver first
+                rsa_pub = resolver.resolve_rsa_public_key(entity_id)
+                if not rsa_pub:
+                    # Fallback to local keys if it's us, otherwise fail.
+                    if entity_id == cls.get_local_identity():
+                        rsa_pub = cls._get_public_key_content()
+                    else:
+                        logger.warning(f"Untrusted entity: {entity_id}")
+                        return None
+            else:
+                rsa_pub = rsa_pub_key
+
+            # PQC Public Key Resolution (Getter)
+            pqc_getter: Callable[[str], bytes]
+            if not pqc_pub_key_getter:
+                # Dynamically resolve PQC key based on the sender's identity (entity_id)
+                def dynamic_pqc_getter(variant: str) -> bytes:
+                    return cls._get_trusted_pqc_public_key(entity_id, variant)
+
+                pqc_getter = dynamic_pqc_getter
+            else:
+                pqc_getter = pqc_pub_key_getter
+
+            # 3. CRYPTOGRAPHIC VERIFICATION (Hybrid RSA + PQC)
             payload = HybridSigner.verify_hybrid_token(
-                cose_token_bytes, rsa_pub, cls._get_pqc_public_key_content
+                cose_token_bytes, rsa_pub, pqc_getter
             )
 
             if payload:
-                # Additional audience check (normally handled inside jwt.decode,
-                # but HybridSigner does it too, here we just ensure it matches context)
+                # 4. Audience check
                 target_aud = expected_audience or os.getenv("MCP_SERVER_NAME")
-                if target_aud and "aud" in payload and payload["aud"] != target_aud:
+                if target_aud and "aud" in payload and payload.get("aud") != target_aud:
                     logger.warning(
-                        f"Audience mismatch: {payload['aud']} != {target_aud}"
+                        f"Audience mismatch: {payload.get('aud')} != {target_aud}"
                     )
                     return None
+
+                # 5. Integrity Attestation (Remote Attestation) Check
+                # The server should compare the payload's 'integrity_attestation'
+                # against a local whitelist of 'Golden Manifests'.
+                attestation = payload.get("integrity_attestation")
+                if attestation:
+                    logger.debug("Integrity attestation present in token.")
+                else:
+                    logger.debug("No integrity attestation in token.")
+
                 return payload
 
             return None

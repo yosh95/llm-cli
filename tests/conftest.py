@@ -13,14 +13,16 @@ import llm_cli.clients.config
 from llm_cli import consts
 from llm_cli.clients.config import config_manager
 
-# Disable strict mode during tests to allow dynamic key/manifest generation
-os.environ["LLM_CLI_STRICT_SECURITY"] = "0"
-
 # Redirect CONFIG_FILE_PATH to a non-existent path in a temporary directory
 # to prevent leakage of real configuration during tests.
-consts.LLM_CLI_BASE_DIR = pathlib.Path(tempfile.gettempdir()) / "llm-cli-test"
+consts.LLM_CLI_BASE_DIR = (
+    pathlib.Path(tempfile.gettempdir()) / f"llm-cli-test-{os.getpid()}"
+)
 consts.CONFIG_DIR = consts.LLM_CLI_BASE_DIR
+consts.LOG_DIR = consts.LLM_CLI_BASE_DIR / "logs"
+consts.KEY_DIR = consts.LLM_CLI_BASE_DIR / "keys"
 consts.CONFIG_FILE_PATH = consts.CONFIG_DIR / "config.toml"
+consts.AUDIT_LOG_PATH = consts.LOG_DIR / "audit.jsonl"
 llm_cli.clients.config.CONFIG_FILE_PATH = consts.CONFIG_FILE_PATH
 
 # Also patch apps.configure which imports it as CONFIG_FILE

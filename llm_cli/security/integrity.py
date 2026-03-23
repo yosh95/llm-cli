@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -67,9 +66,7 @@ class IntegrityVerifier:
             self.MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
 
             # Create a canonical representation of the manifest for signing
-            manifest_data = json.dumps(
-                manifest, indent=None, sort_keys=True, separators=(",", ":")
-            )
+            manifest_data = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
 
             # Sign the manifest with PQC key
             pqc_priv = IdentityManager._get_pqc_private_key_content()
@@ -87,13 +84,20 @@ class IntegrityVerifier:
         except Exception as e:
             logger.error(f"Failed to save integrity manifest: {e}")
 
+    def _get_current_hashes(self) -> dict[str, str]:
+        """Calculate hashes for all critical files."""
+        current_manifest = {}
+        for rel_path in self.CRITICAL_FILES:
+            full_path = self.base_path / rel_path
+            if full_path.exists():
+                current_manifest[rel_path] = self._calculate_hash(full_path)
+        return current_manifest
+
     def verify_audit_log(self) -> bool:
         """Verify the chained hashes in the audit log to detect modifications."""
         from llm_cli.consts import AUDIT_LOG_PATH
 
-        # Note: In a real app, this would use a proper config loader
         audit_log_path = AUDIT_LOG_PATH
-
         if not audit_log_path.exists():
             return True
 
@@ -124,220 +128,129 @@ class IntegrityVerifier:
                         logger.error(f"Audit log mismatch detected at line {i + 1}")
                         return False
 
-                    # If it's a snapshot, it resets the chain 'last_hash'
-                    # for subsequent entries
                     if is_snapshot:
-                        logger.debug(
-                            f"Audit log snapshot at line {i + 1}. Re-anchoring chain."
-                        )
-                        # The first entry after snapshot expects prev_hash to match
-                        # the one stored in snapshot's args
                         last_hash = entry.get("args", {}).get("snapshot_prev_hash")
                     else:
                         last_hash = provided_hash
 
-                    # Verify PQC Signature of the hash
+                    # Verify PQC Signature
                     if pqc_sig_b64:
                         import base64
 
                         pqc_sig = base64.b64decode(pqc_sig_b64)
-                        # Get the public key for the specific variant used in this entry
-                        pqc_pub_variant = IdentityManager._get_pqc_public_key_content(
+                        pqc_pub = IdentityManager._get_pqc_public_key_content(
                             variant=variant
                         )
                         if not PQCProvider.verify(
-                            actual_hash.encode(),
-                            pqc_sig,
-                            pqc_pub_variant,
-                            variant=variant,
+                            actual_hash.encode(), pqc_sig, pqc_pub, variant=variant
                         ):
                             logger.error(
-                                f"Audit log signature mismatch at line {i + 1} "
-                                f"(Variant: {variant}). This often happens if "
-                                "security keys were recently rotated."
+                                f"Audit log signature mismatch at line {i + 1}"
                             )
                             return False
-            logger.info("Audit log integrity verified.")
             return True
         except Exception as e:
             logger.error(f"Failed to verify audit log: {e}")
             return False
 
-    def verify(self, allow_tofu: bool = False) -> bool:
-        """Verify integrity of critical files and audit log."""
+    def verify(self) -> bool:
+        """
+        Verify integrity.
+        Returns True if verified or missing (flexible for light users).
+        Returns False on tampering.
+        """
         logger.info("System Integrity: Verifying application files...")
 
         raw_manifest = self._load_manifest()
+        if not raw_manifest:
+            logger.warning(
+                "🛡️  Integrity Lock is currently DISABLED (No manifest found)."
+            )
+            logger.warning(
+                "Run 'llm-cli-security manifest' to enable system protection."
+            )
+            return self.verify_audit_log()
+
         trusted_manifest: dict[str, str] | None = None
+        if "hashes" in raw_manifest:
+            trusted_manifest = raw_manifest["hashes"]
+            pqc_sig_b64 = raw_manifest.get("pqc_signature")
 
-        if raw_manifest:
-            # Check if it's the new format with PQC signature
-            if "hashes" in raw_manifest:
-                trusted_manifest = raw_manifest["hashes"]
-                pqc_sig_b64 = raw_manifest.get("pqc_signature")
+            if pqc_sig_b64:
+                try:
+                    import base64
 
-                # Verify PQC Signature of the manifest itself
-                if pqc_sig_b64:
-                    try:
-                        import base64
+                    from llm_cli.security.identity import IdentityManager
+                    from llm_cli.security.pqc import PQCProvider
 
-                        from llm_cli.security.identity import IdentityManager
-                        from llm_cli.security.pqc import PQCProvider
+                    manifest_data = json.dumps(
+                        trusted_manifest, sort_keys=True, separators=(",", ":")
+                    )
+                    pqc_pub = IdentityManager._get_pqc_public_key_content()
+                    signature = base64.b64decode(pqc_sig_b64)
 
-                        # Recreate canonical data for verification
-                        manifest_data = json.dumps(
-                            trusted_manifest,
-                            indent=None,
-                            sort_keys=True,
-                            separators=(",", ":"),
-                        )
-                        pqc_pub = IdentityManager._get_pqc_public_key_content()
-                        signature = base64.b64decode(pqc_sig_b64)
-
-                        if not PQCProvider.verify(
-                            manifest_data.encode(), signature, pqc_pub
-                        ):
-                            logger.error(
-                                "Integrity check failed: Manifest signature mismatch. "
-                                "If you recently updated keys, rebuild the manifest."
-                            )
-                            return False
-                        logger.debug("Manifest signature verified.")
-                    except Exception as e:
-                        logger.error(f"PQC verification error: {e}")
+                    if not PQCProvider.verify(
+                        manifest_data.encode(), signature, pqc_pub
+                    ):
+                        logger.error("Integrity Failure: Manifest signature mismatch.")
                         return False
-            else:
-                # Legacy format (migration)
-                trusted_manifest = raw_manifest
+                except Exception as e:
+                    logger.error(f"PQC verification error: {e}")
+                    return False
+        else:
+            trusted_manifest = raw_manifest
 
-        current_manifest = {}
+        current_manifest = self._get_current_hashes()
         all_ok = True
 
-        # Calculate current hashes
-        for rel_path in self.CRITICAL_FILES:
-            full_path = self.base_path / rel_path
-            # Check existence
-            if not full_path.exists():
-                if trusted_manifest and rel_path in trusted_manifest:
-                    logger.error(
-                        f"Integrity check failed: Critical file missing: {rel_path}"
-                    )
-                    all_ok = False
-                continue
-
-            file_hash = self._calculate_hash(full_path)
-            current_manifest[rel_path] = file_hash
-
-        # If no manifest exists, establish trust (TOFU)
-        if trusted_manifest is None:
-            # Default to strict mode (1) unless explicitly disabled (0)
-            if not allow_tofu and os.getenv("LLM_CLI_STRICT_SECURITY", "1") == "1":
-                logger.critical(
-                    "Integrity manifest missing. "
-                    "Please generate it using 'llm-cli-security manifest'."
-                )
-                return False
-
-            logger.warning(
-                "No integrity manifest found. Establishing trust baseline..."
-            )
-            self._save_manifest(current_manifest)
-            trusted_manifest = current_manifest
-
-        # Compare against trusted manifest
         for rel_path, trusted_hash in trusted_manifest.items():
             current_hash = current_manifest.get(rel_path)
-
             if current_hash is None:
-                logger.error(
-                    f"Integrity check failed: Critical file missing: {rel_path}"
-                )
+                logger.error(f"Integrity Failure: Missing file {rel_path}")
                 all_ok = False
-                continue
-
-            if current_hash != trusted_hash:
-                logger.error(f"Integrity check failed: Hash mismatch for {rel_path}")
+            elif current_hash != trusted_hash:
+                logger.error(f"Integrity Failure: Hash mismatch for {rel_path}")
                 all_ok = False
-            else:
-                logger.debug(f"Verified: {rel_path}")
 
-        # Also verify the audit log chain
         if not self.verify_audit_log():
-            from llm_cli.consts import AUDIT_LOG_PATH
-
-            logger.error("--- Audit Log Integrity Failure ---")
-            logger.error(
-                "The audit log's cryptographic chain is broken or signature is "
-                "invalid. This security measure ensures the history of tool "
-                "execution remains tamper-proof."
-            )
-            logger.error(
-                "Common causes: manual editing of the log file, or security key "
-                "rotation (keygen). Since the current keys cannot verify the old "
-                "history, you must start a new log."
-            )
-            logger.error(
-                f"Action required: Delete or move the audit log file: {AUDIT_LOG_PATH}"
-            )
-            logger.error("----------------------------------")
             all_ok = False
-
-        if all_ok:
-            logger.info("System integrity verified.")
 
         return all_ok
 
     def rebuild_manifest(self) -> bool:
-        """
-        Force rebuild of the integrity manifest.
-        This establishes a new trust baseline based on the current system state.
-        Use with caution.
-        """
-        logger.warning("Rebuilding integrity manifest...")
-
-        # Ensure we have keys for signing, even in strict mode
+        """Force rebuild of the integrity manifest (Admin Action)."""
+        logger.info("🛡️  Establishing new integrity baseline...")
         try:
             from llm_cli.security.identity import IdentityManager
 
             IdentityManager._ensure_keys(force=True)
-        except Exception as e:
-            logger.error(f"Failed to ensure identity keys: {e}")
+        except Exception:
             return False
 
-        if self.MANIFEST_PATH.exists():
-            try:
-                self.MANIFEST_PATH.unlink()
-                logger.info("Deleted existing manifest.")
-            except Exception as e:
-                logger.error(f"Failed to delete manifest: {e}")
-                return False
-
-        # Calling verify() with allow_tofu=True will trigger TOFU logic
-        # since manifest is gone
-        return self.verify(allow_tofu=True)
+        current_hashes = self._get_current_hashes()
+        self._save_manifest(current_hashes)
+        return True
 
     def generate_attestation_token(self) -> dict:
-        """
-        Generates a PQC-signed attestation object of the current system integrity.
-        """
+        """Generates a PQC-signed attestation of system integrity."""
         import base64
         import time
 
         from llm_cli.security.identity import IdentityManager
         from llm_cli.security.pqc import PQCProvider
 
-        # Collect current state
+        has_manifest = self.MANIFEST_PATH.exists()
+        # strictly check if manifest exists
+        is_ok = self.verify() if has_manifest else False
+
         state = {
             "ts": time.time(),
-            "integrity_ok": True,
+            "integrity_ok": is_ok,
+            "locked": has_manifest,
             "workload": IdentityManager.get_local_identity(),
         }
-
-        # Create message to sign
         message = json.dumps(state, sort_keys=True)
         pqc_priv = IdentityManager._get_pqc_private_key_content()
-
-        # Sign with PQC
         signature = PQCProvider.sign(message.encode(), pqc_priv)
 
         return {
@@ -350,7 +263,6 @@ class IntegrityVerifier:
 def verify_installation() -> None:
     """Helper function to run verification from current working directory."""
     root_path = Path(__file__).resolve().parent.parent.parent
-
     verifier = IntegrityVerifier(root_path)
     if not verifier.verify():
         logger.critical("Integrity check failed. Aborting startup.")

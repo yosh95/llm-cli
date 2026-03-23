@@ -22,6 +22,15 @@ def main() -> None:
     # manifest command
     subparsers.add_parser("manifest", help="Generate/Update integrity manifest")
 
+    # verify-session command
+    verify_parser = subparsers.add_parser(
+        "verify-session", help="Verify session integrity using Merkle Anchor"
+    )
+    verify_parser.add_argument("trace_id", help="Session Trace ID to verify")
+
+    # list-anchors command
+    subparsers.add_parser("list-anchors", help="List available session anchors")
+
     # decrypt-log command
     decrypt_parser = subparsers.add_parser(
         "decrypt-log", help="Decrypt PQC-encrypted (ML-KEM) audit logs"
@@ -57,6 +66,40 @@ def main() -> None:
         else:
             print("❌ Failed to generate manifest.")
             sys.exit(1)
+
+    elif args.command == "verify-session":
+        from llm_cli.security.merkle_anchor import SessionAnchorManager
+
+        print(f"🛡️  Verifying session: {args.trace_id}...")
+        if SessionAnchorManager.verify_session(args.trace_id):
+            print(
+                f"✅ Session {args.trace_id} integrity verified "
+                "via PQC-signed Merkle Anchor."
+            )
+        else:
+            print(f"❌ Session {args.trace_id} integrity check failed.")
+            sys.exit(1)
+
+    elif args.command == "list-anchors":
+        import json
+
+        from llm_cli.security.merkle_anchor import ANCHOR_DIR
+
+        if not ANCHOR_DIR.exists():
+            print("No session anchors found.")
+            return
+
+        print("🛡️  Available Session Anchors:")
+        for anchor_file in ANCHOR_DIR.glob("*.anchor.json"):
+            try:
+                with anchor_file.open("r", encoding="utf-8") as f:
+                    anchor = json.load(f)
+                    tid = anchor.get("trace_id", "Unknown")
+                    ts = anchor.get("timestamp", "Unknown")
+                    count = anchor.get("entry_count", 0)
+                    print(f"  - Trace ID: {tid} | Time: {ts} | Logs: {count}")
+            except Exception:
+                continue
 
     elif args.command == "decrypt-log":
         from llm_cli.apps.pqc_decrypt import decrypt_log_file

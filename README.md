@@ -100,14 +100,15 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 - **Path Guardrails**: Tools are restricted by path attributes (defaulting to the current directory).
 - **Explanation Enforcement**: Every tool mandates an `explanation` parameter, forcing the LLM to justify its intent.
 
-### 2. Identity & Non-Repudiation (Post-Quantum Ready)
-- **Hybrid Identity Tokens**: Uses **COSE (RFC 9052)** binary structures combining **RS256** with **Post-Quantum Cryptography (ML-DSA)** to sign tool execution requests, ensuring long-term non-repudiation.
-- **Client Integrity Attestation**: The client generates a signed manifest of its own source code state to prove the integrity of the execution environment.
-- **Bi-directional Verification**: Tool results are signed by the client, allowing the LLM to verify that the observations it receives are authentic and untampered.
+### 2. Identity & Non-Repudiation (Experimental Reference)
+- **Distributed Trust Model**: Implements a decentralized identity model where clients and servers only exchange public keys. This is designed to explore how to prevent lateral movement if a single component is compromised; however, it requires thorough evaluation before use in production environments.
+- **Hybrid Identity Tokens**: Uses **COSE (RFC 9052)** binary structures combining **RS256** with **Post-Quantum Cryptography (ML-DSA)**. This serves as a reference for how long-term non-repudiation might be handled in autonomous agent systems.
+- **Client Integrity Attestation**: The client generates a signed manifest of its own source code state to demonstrate the integrity of the execution environment.
+- **Bi-directional Verification**: Tool results can be signed by the responder, allowing the requester to verify that the observations are authentic and untampered within the protocol's scope.
 
-### 3. Observability & Audit Compliance
+### 3. Observability & Audit Compliance (Tier 3 Reference Implementation)
 - **Tamper-Evident Audit Logs**: Audit trails are protected using **Chained Hashing** and optionally encrypted with **ML-KEM (Kyber)** for confidentiality.
-- **Merkle Tree Anchoring**: Log batches are anchored via Merkle Roots to prevent historical revisionism.
+- **Merkle Tree Anchoring**: The Tier 3 implementation uses Merkle Trees to anchor log batches, demonstrating an architecture to prevent historical revisionism and provide compact proofs of session integrity.
 
 ---
 
@@ -224,13 +225,15 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 - **アイデンティティ証明**: 高リスクな操作（Python実行など）には、**耐量子暗号 (PQC)** による署名付き証明が必要です。
 - **パス・ガードレール**: 操作可能な範囲を属性（ディレクトリ・パスなど）で制限します。
 
-### 2. アイデンティティと非否認性 (耐量子暗号)
-- **ハイブリッド署名**: **COSE (RFC 9052)** を採用し、**RS256** と **耐量子暗号 (ML-DSA)** を組み合わせ、ツール実行リクエストの正当性をバイナリレベルで長期的に保証（非否認性）。
-- **完全性検証**: クライアント自身のソースコードの状態を署名付きマニフェストで証明し、実行環境の健全性を担保。
+### 2. アイデンティティと非否認性 (実験的参照実装)
+- **分散型トラストモデル**: クライアントとサーバーが公開鍵のみを交換する分散型アイデンティティモデルを実装。特定のコンポーネントが侵害された際の横展開を防止する手法を探求していますが、エンタープライズ領域での利用には十分な評価が必要です。
+- **ハイブリッド署名**: **COSE (RFC 9052)** を採用し、**RS256** と **耐量子暗号 (ML-DSA)** を組み合わせた署名を実装。将来的な非否認性の確保に向けた参照実装としての位置づけです。
+- **完全性検証**: クライアント自身のソースコードの状態を署名付きマニフェストで証明し、実行環境の健全性を担保します。
+- **双方向検証**: ツールの実行結果に署名を付与し、受信側がデータの正当性をプロトコルの範囲内で検証可能です。
 
-### 3. 観測可能性と監査ログ
-- **改ざん防止監査ログ**: ハッシュ連鎖（Chained Hashing）によるログ保護と、**ML-KEM (Kyber)** による機密性保護。
-- **Merkle Tree アンカリング**: ログのバッチを Merkle Root で固定し、履歴の改ざんを防止。
+### 3. 観測可能性と監査ログ (Tier 3 参照実装)
+- **改ざん防止監査ログ**: ハッシュ連鎖（Chained Hashing）によるログ保護と、**ML-KEM (Kyber)** による機密性保護を実装しています。
+- **Merkle Tree アンカリング**: Tier 3 実装として Merkle Tree によるログバッチの固定を導入。履歴の改ざんを防止し、セッションの整合性を証明するアーキテクチャのプロトタイプです。
 
 ### 💡 パワーユーザー向け機能
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。

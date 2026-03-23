@@ -168,10 +168,29 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
         kept = lines[-max_lines:]
 
         # Write overflow to a rotated archive (append-only)
-        ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
         archive_path = path.with_name(f"{path.name}.archive.{ts}.jsonl")
         with archive_path.open("a", encoding="utf-8", errors="replace") as af:
             af.writelines(overflow)
+
+        # Enforce max_audit_archives limit
+        max_archives = int(config_manager.get("general", "max_audit_archives") or 10)
+        archive_pattern = f"{path.name}.archive.*.jsonl"
+        archives = sorted(path.parent.glob(archive_pattern))
+        if len(archives) > max_archives:
+            to_delete = archives[: len(archives) - max_archives]
+            for ap in to_delete:
+                try:
+                    ap.unlink()
+                except Exception:
+                    pass
+            # Trigger anchor cleanup if any archives were deleted
+            try:
+                from llm_cli.security.merkle_anchor import SessionAnchorManager
+
+                SessionAnchorManager.cleanup_orphaned_anchors(log_path=path)
+            except ImportError:
+                pass
 
         # Prepare a snapshot anchor for the kept segment
         try:
@@ -201,7 +220,23 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
             "prev_hash": _get_last_log_hash(archive_path),
         }
         entry_str = json.dumps(snapshot, sort_keys=True)
-        snapshot["hash"] = hashlib.sha256(entry_str.encode()).hexdigest()
+        current_hash = hashlib.sha256(entry_str.encode()).hexdigest()
+        snapshot["hash"] = current_hash
+
+        # --- PQC-Audit-Chain: Sign the snapshot with ML-DSA ---
+        try:
+            import base64
+
+            from llm_cli.security.identity import IdentityManager
+            from llm_cli.security.pqc import PQCProvider
+
+            pqc_priv = IdentityManager._get_pqc_private_key_content()
+            pqc_sig = PQCProvider.sign(current_hash.encode(), pqc_priv)
+
+            snapshot["pqc_signature"] = base64.b64encode(pqc_sig).decode()
+            snapshot["pqc_algorithm"] = PQCProvider.ALGORITHM_NAME
+        except Exception:
+            pass
 
         with path.open("w", encoding="utf-8", errors="replace") as wf:
             wf.write(json.dumps(snapshot) + "\n")

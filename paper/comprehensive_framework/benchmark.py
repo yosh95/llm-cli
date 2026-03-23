@@ -15,7 +15,6 @@ operations compared to mobile ARM, but remain significantly slower
 than native C/Rust bindings.
 """
 
-import os
 import platform
 import subprocess
 import time
@@ -120,8 +119,6 @@ def benchmark_phase_2_identity_abac() -> dict:
     """Return a results dict for Phase 2."""
     _hdr("Phase 2: Behavioral & Identity Assurance (Behavior)")
     results: dict = {}
-
-    os.environ["LLM_CLI_STRICT_SECURITY"] = "0"
 
     # 2a. Hybrid COSE token (RSA-2048 + ML-DSA-65) ---------------------------
     _section("2a. Hybrid COSE Identity Token (RFC 9052)")

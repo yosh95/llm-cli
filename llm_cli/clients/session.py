@@ -184,12 +184,16 @@ class ChatSession:
                 console.print(f"[bold red]Error: {e}[/bold red]")
                 data = []
 
-        # At the end of the session, perform External Anchoring of the Audit Chain
+        # At the end of the session, perform Session-wide Merkle Anchoring
+        # of the Audit Chain
         try:
-            from llm_cli.security.pqc import AuditAnchoring
+            from llm_cli.mcp_lib import get_current_trace_id
+            from llm_cli.security.merkle_anchor import SessionAnchorManager
 
-            AuditAnchoring.create_external_anchor()
+            trace_id = get_current_trace_id()
+            SessionAnchorManager.create_anchor(trace_id)
         except Exception:
+            # Anchoring should not crash the session exit
             pass
 
     def _should_checkpoint(self) -> bool:

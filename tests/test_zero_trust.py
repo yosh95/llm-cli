@@ -18,12 +18,24 @@ def identity_manager(tmp_path):
     with (
         patch("llm_cli.security.identity.IdentityManager._KEY_DIR", keys_dir),
         patch(
+            "llm_cli.security.identity.IdentityManager._TRUSTED_DIR",
+            keys_dir / "trusted",
+        ),
+        patch(
             "llm_cli.security.identity.IdentityManager._PRIVATE_KEY_PATH",
             keys_dir / "id_rsa",
         ),
         patch(
             "llm_cli.security.identity.IdentityManager._PUBLIC_KEY_PATH",
             keys_dir / "id_rsa.pub",
+        ),
+        patch(
+            "llm_cli.security.identity.IdentityManager._PQC_PRIVATE_KEY_PATH",
+            keys_dir / "id_pqc_l3.key",
+        ),
+        patch(
+            "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_PATH",
+            keys_dir / "id_pqc_l3.pub",
         ),
     ):
         yield IdentityManager
@@ -34,7 +46,7 @@ def test_identity_key_generation(identity_manager):
     assert not identity_manager._PRIVATE_KEY_PATH.exists()
 
     # Trigger key generation
-    token = identity_manager.generate_token("test_user")
+    token = identity_manager.generate_token()
 
     assert identity_manager._PRIVATE_KEY_PATH.exists()
     assert identity_manager._PUBLIC_KEY_PATH.exists()
@@ -43,12 +55,13 @@ def test_identity_key_generation(identity_manager):
 
 def test_token_verification(identity_manager):
     """Test token signing and verification flow."""
-    token = identity_manager.generate_token(user_id="alice", audience="server1")
+    local_id = IdentityManager.get_local_identity()
+    token = identity_manager.generate_token(user_id=local_id, audience="server1")
 
     # Verify with correct audience
     payload = identity_manager.verify_token(token, expected_audience="server1")
     assert payload is not None
-    assert payload["sub"] == "alice"
+    assert payload["sub"] == local_id
     assert payload["aud"] == "server1"
 
     # Verify with wrong audience

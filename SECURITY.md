@@ -190,12 +190,63 @@ Implementation: `PQCProvider.sign()` / `ResponseSigner.sign_response()` in
 ### Out-of-Band Key Distribution
 
 Public keys and remote attestation manifests are distributed via an OOB
-trusted channel (e.g., MDM, Secure Enclave, or enterprise PKI).  This design
+trusted channel (e.g., MDM, Secure Enclave, or enterprise PKI). This design
 eliminates Trust-On-First-Use (TOFU) in production deployments.
 
-A bootstrap mode is available for standalone development environments
-(`LLM_CLI_STRICT_SECURITY=0`).  Set `LLM_CLI_STRICT_SECURITY=1` to enforce
-pre-provisioned keys at startup.
+A bootstrap mode is available for standalone development environments. 
+Simply run `llm-cli-security manifest` to generate the initial manifest.
+Once the manifest is generated, all subsequent runs will strictly enforce
+integrity against it.
+
+---
+
+## Distributed Zero-Trust (High-Assurance Mode)
+
+In a distributed environment (e.g., Client Agent and Remote MCP Server),
+the system shifts to a **Distributed Trust** model designed to eliminate
+shared secrets:
+
+1.  **Trusted Directory Model:** Servers store Agent public keys in
+    `~/.llm_cli/trusted/<entity_id>/id_pqc_<level>.pub`. There is no sharing
+    of private keys between entities.
+2.  **Impersonation Resistance:** The Agent ID is fixed to `user@hostname`.
+    Removing the ability to override this ID prevents attackers with stolen
+    keys from easily spoofing authorized identities on different hosts.
+3.  **Automatic Key Generation:** For better UX, keys are automatically
+    generated on first run. However, security is enforced at the **Verification
+    Layer** — servers will reject any key not explicitly provisioned in their
+    `trusted/` directory.
+4.  **Blast Radius Containment:** Because keys are not shared, the compromise
+    of a remote MCP server does not expose the Agent's private identity key,
+    preventing an attacker from impersonating the user in other contexts.
+5.  **Mutual Authentication:** Every request/response loop is protected by
+    mutual ML-DSA signatures. The Agent verifies the tool output's
+    `ResponseSigner` signature using the Server's public key (if trusted),
+    while the Server verifies the `IdentityToken` using the Agent's public key.
+
+### Trust Resolution & KMS Integration (Enterprise)
+
+To support large-scale deployments, `llm-secure-cli` abstracts key resolution
+through the `TrustResolver` interface (`llm_cli/security/trust.py`). This
+allows for seamless transition between local and enterprise trust models:
+
+| Resolver | Storage Mechanism | Use Case |
+|---|---|---|
+| `LocalTrustResolver` | `~/.llm_cli/trusted/` | Standard / Decentralized |
+| `KMSTrustResolver` | Remote KMS API / HSM | Enterprise / Centralized |
+
+### Hardware Sovereignty (TEE-protected PQC)
+
+For environments requiring high-assurance protection of private keys,
+the **TEEPQCBackend** (`llm_cli/security/tee_backend.py`) provides a
+simulated reference implementation of a Trusted Execution Environment.
+
+When enabled via `IdentityManager.use_tee()`, the system:
+1.  Generates PQC keys inside the secure enclave boundary.
+2.  **Seals** private keys using hardware-backed master keys before
+    storing them on the host filesystem.
+3.  Performs all **signing operations** (ML-DSA) inside the enclave,
+    ensuring that raw private keys never enter the host's memory space.
 
 ---
 
@@ -336,4 +387,33 @@ static_analysis_is_error = true
    isolation is already achieved at the post-quantum layer through physically
    separate ML-DSA-44/65/87 keys. Classical RSA separation is considered
    a low-priority backlog item given the robust PQC agility implementation.
+
+---
+
+## Production Hardening Roadmap
+
+While the current implementation provides a robust software-defined security
+stack, the following steps are recommended for production environments
+requiring high-assurance guarantees:
+
+1. **Hardware Sovereignty (TEE):**
+   The software logic (especially PQC key management) is now abstracted via 
+   `TEEPQCBackend`. This reference implementation demonstrates how to 
+   protect private keys using enclave-based sealing and isolated signing 
+   memory (e.g., Intel SGX, AWS Nitro).
+
+2. **Formal Cryptographic Audit:**
+   The reference implementations of ML-DSA and ML-KEM used in this project
+   (`dilithium-py` and `kyber-py`) should undergo a professional third-party
+   cryptographic audit before being used to protect high-value assets.
+
+3. **Policy & Retention Configuration:**
+   Adjust `max_audit_archives` and `max_audit_log_lines` in the deployment
+   `config.toml` to satisfy specific legal (GDPR/CCPA) or regulatory data
+   retention requirements.
+
+4. **Hardware Security Modules (HSM) & KMS:**
+   Enterprise identity management is now supported via the `TrustResolver` 
+   interface. This allows integrating with a centralized KMS (Key Management 
+   Service) or HSM for a unified root of trust.
 

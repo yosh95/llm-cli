@@ -69,10 +69,14 @@ def run_client_cli(config: ClientConfig) -> None:
     from llm_cli.apps.configure import init_config
     from llm_cli.clients.config import config_manager
     from llm_cli.consts import CONFIG_FILE_PATH
+    from llm_cli.security.integrity import verify_installation
 
     # Automatically initialize configuration if it doesn't exist
     if not CONFIG_FILE_PATH.exists():
         init_config()
+
+    # Verify system integrity (Checks manifest, audit logs, etc.)
+    verify_installation()
 
     # Check for at least one active provider
     active_providers = config_manager.get_active_providers()

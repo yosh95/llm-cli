@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import PathCompleter
-from rich.panel import Panel
 from rich.prompt import Confirm
+from rich.rule import Rule
 from rich.syntax import Syntax
+from rich.table import Table
 
 from llm_cli.clients.config import config_manager
 from llm_cli.clients.exceptions import (
@@ -19,6 +20,7 @@ from llm_cli.clients.exceptions import (
     ExitRequest,
     TemplateRequest,
 )
+from llm_cli.modules.models import ContentPart, Role
 from llm_cli.ui import console
 
 if TYPE_CHECKING:
@@ -59,7 +61,7 @@ def handle_template(ctx: CommandContext) -> bool:
     if args in templates:
         if ctx.pending_data is not None:
             raise TemplateRequest(templates[args])
-        console.print(Panel(templates[args]))
+        console.print(templates[args])
     else:
         console.print(f"[red]Template not found: {args}[/red]")
     return True
@@ -84,7 +86,6 @@ def handle_reload(ctx: CommandContext) -> bool:
 
 
 def handle_provider(ctx: CommandContext) -> bool:
-    from rich.table import Table
 
     from llm_cli.clients.registry import client_registry
 
@@ -168,15 +169,16 @@ def handle_attach(ctx: CommandContext) -> bool:
 
 
 def handle_dump(ctx: CommandContext) -> bool:
+
     json_str = json.dumps(
         [asdict(m) for m in ctx.client.conversation], indent=2, ensure_ascii=False
     )
-    console.print(Panel(Syntax(json_str, "json"), title="Conversation History"))
+    console.print(Rule(title="Conversation History"))
+    console.print(Syntax(json_str, "json"))
     return True
 
 
 def handle_raw(ctx: CommandContext) -> bool:
-    from llm_cli.modules.models import ContentPart, Role
 
     for msg in ctx.client.conversation:
         for p in msg.parts:
@@ -234,7 +236,6 @@ def handle_debug(ctx: CommandContext) -> bool:
 
 def handle_info(ctx: CommandContext) -> bool:
     """Displays detailed session and client information."""
-    from rich.table import Table
 
     client = ctx.client
 
@@ -273,7 +274,8 @@ def handle_info(ctx: CommandContext) -> bool:
     debug_status = "[magenta]On[/magenta]" if client.live_debug else "[dim]Off[/dim]"
     table.add_row("[bold cyan]Debug Mode[/bold cyan]", debug_status)
 
-    console.print(Panel(table, title="[bold]Session Info[/bold]", border_style="cyan"))
+    console.print(Rule(title="[bold]Session Info[/bold]"))
+    console.print(table)
     return True
 
 

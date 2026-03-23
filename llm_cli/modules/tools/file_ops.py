@@ -1,6 +1,5 @@
 # llm_cli/modules/tools/file_ops.py
 
-import difflib
 import fnmatch
 import functools
 import os
@@ -18,7 +17,6 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 from llm_cli.security.pqc import sign_tool_result
 
 # --- Constants ---
-# Common directories to skip for search and listing
 DEFAULT_EXCLUDE_DIRS = {
     ".git",
     "node_modules",
@@ -43,8 +41,6 @@ MAX_FILE_READ_SIZE = 5 * 1024 * 1024  # 5MB
 SEARCH_TIMEOUT = 55
 MAX_SEARCH_RESULTS = 300
 
-# --- Decorator & Helpers ---
-
 
 def format_size(size_bytes: int) -> str:
     """Helper to format file size in human-readable form."""
@@ -61,30 +57,27 @@ def format_size(size_bytes: int) -> str:
 def file_tool_handler(
     func: Callable[..., Any],
 ) -> Callable[..., Any]:
-    """
-    Decorator to handle common file tool logic:
-    1. Validation Error Handling
-    2. General Exception Handling
-    3. PQC Signature Signing for consistent security
-    """
+    """Decorator to handle common file tool logic."""
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        reqs = kwargs.pop("__security_requirements__", None)
+        variant_raw = reqs.get("pqc_variant") if isinstance(reqs, dict) else None
+        variant = str(variant_raw) if variant_raw else "ML-DSA-65"
+
         try:
             result = func(*args, **kwargs)
-            # Apply PQC signing to the result (if it's a string)
-            # This ensures even read-only tools have cryptographically verifiable
-            # outputs
-            return sign_tool_result(result) if isinstance(result, str) else result
+            return (
+                sign_tool_result(result, variant=variant)
+                if isinstance(result, str)
+                else result
+            )
         except PathValidationError as e:
-            return sign_tool_result(f"Security Error: {e}")
+            return sign_tool_result(f"Security Error: {e}", variant=variant)
         except Exception as e:
-            return sign_tool_result(f"Error: {e}")
+            return sign_tool_result(f"Error: {e}", variant=variant)
 
     return wrapper
-
-
-# --- Tools ---
 
 
 @tool(
@@ -135,7 +128,6 @@ def search_files(
             results.append("Error: Search timed out after 60 seconds.")
             break
 
-        # Filter directories in-place
         dirs[:] = [
             d for d in dirs if d not in DEFAULT_EXCLUDE_DIRS and not d.startswith(".")
         ]
@@ -151,22 +143,20 @@ def search_files(
                 if file_path.stat().st_size > MAX_FILE_READ_SIZE:
                     continue
 
-                # Check for binary content by reading first 1KB
                 with file_path.open("rb") as bf:
                     if b"\0" in bf.read(1024):
                         continue
 
-                # Read and search
                 with file_path.open("r", encoding="utf-8", errors="ignore") as f:
                     for line_no, line in enumerate(f, 1):
                         if regex.search(line):
                             rel_path = file_path.relative_to(base_path)
                             results.append(f"{rel_path}:{line_no}:{line.strip()}")
                             if len(results) >= MAX_SEARCH_RESULTS:
-                                summary = (
+                                msg = (
                                     f"\n\n... (Total {len(results)} matches, truncated)"
                                 )
-                                return "\n".join(results) + summary
+                                return "\n".join(results) + msg
             except (PermissionError, OSError):
                 continue
 
@@ -226,10 +216,9 @@ def list_files_in_directory(
         ignore_patterns = list(DEFAULT_EXCLUDE_DIRS)
 
     results, file_count = [], 0
-    header = (
+    results.append(
         f"{'[Type]':<7} {'[Last Modified (UTC)]':<20} {'[Size]':>10}  {'[Full Path]'}"
     )
-    results.append(header)
 
     def should_ignore(name: str) -> bool:
         if not include_hidden and name.startswith("."):
@@ -242,14 +231,15 @@ def list_files_in_directory(
             return
 
         try:
-            # Sort: Directories first, then files, both alphabetically
             all_entries = sorted(
                 [e for e in current_path.iterdir() if not should_ignore(e.name)],
                 key=lambda x: (not x.is_dir(), x.name.lower()),
             )
         except PermissionError:
-            err_msg = f"Permission Denied: {current_path.name}"
-            results.append(f"{'[ERR]':<7} {' ' * 20} {' ' * 10}  {err_msg}")
+            results.append(
+                f"{'[ERR]':<7} {' ' * 20} {' ' * 10}  "
+                f"Permission Denied: {current_path.name}"
+            )
             return
 
         for entry in all_entries:
@@ -279,6 +269,20 @@ def list_files_in_directory(
 
     walk(base_path, 1)
     return "\n".join(results) if len(results) > 1 else "No files found."
+
+
+def validate_read_file(path: str, **_kwargs: Any) -> bool | str:
+    """Validates that the file exists and is readable before approval."""
+    try:
+        validate_path(path)
+        p = Path(path)
+        if not p.is_file():
+            return f"Error: '{path}' is not a file."
+        return True
+    except PathValidationError as e:
+        return f"Security Error: {e}"
+    except Exception as e:
+        return f"Error during validation: {e}"
 
 
 @tool(
@@ -315,6 +319,7 @@ def list_files_in_directory(
         },
         "required": ["path"],
     },
+    validate=validate_read_file,
 )
 @file_tool_handler
 def read_file_content(
@@ -329,17 +334,12 @@ def read_file_content(
     if not p.is_file():
         return f"Error: '{path}' is not a file."
 
-    # Extract text from file (supports PDF text extraction when pdf_as_base64=False)
     res = process_file(p, pdf_as_base64=False)
-
     if not res or "content" not in res:
         return f"Error: Could not read content from '{path}'."
 
     if res.get("content_type") != "text/plain":
-        return (
-            f"Error: '{path}' is a binary file ({res.get('content_type')}) "
-            "and cannot be read as text."
-        )
+        return f"Error: '{path}' is a binary file and cannot be read as text."
 
     lines = res["content"].splitlines()
     start = max(1, start_line) - 1
@@ -347,138 +347,8 @@ def read_file_content(
     selected_lines = lines[start:end]
 
     if with_line_numbers:
-        content_lines = [
-            f"{start + i + 1:4d} | {line}" for i, line in enumerate(selected_lines)
-        ]
-        return "\n".join(content_lines)
+        return "\n".join(
+            [f"{start + i + 1:4d} | {line}" for i, line in enumerate(selected_lines)]
+        )
 
     return "\n".join(selected_lines)
-
-
-@tool(
-    name="edit_file",
-    desc=(
-        "Edit a file by replacing a specific block of text. "
-        "The tool first tries an exact match, and if that fails, it performs a "
-        "fuzzy match (ignoring minor whitespace and indentation differences)."
-    ),
-    params={
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Path to the file to edit."},
-            "search": {
-                "type": "string",
-                "description": "The block of text to find in the file.",
-            },
-            "replace": {
-                "type": "string",
-                "description": "The new text to replace the found block with.",
-            },
-            "dry_run": {
-                "type": "boolean",
-                "description": "If true, show diff without applying changes.",
-                "default": False,
-            },
-        },
-        "required": ["path", "search", "replace"],
-    },
-)
-@file_tool_handler
-def edit_file(
-    path: str,
-    search: str,
-    replace: str,
-    dry_run: bool = False,
-) -> str:
-    """Edit a file by replacing a block of text with fuzzy matching."""
-    validate_path(path)
-    p = Path(path)
-    if not p.is_file():
-        return f"Error: '{path}' is not a file."
-
-    content = p.read_text(encoding="utf-8")
-
-    # Search mode: Try exact match first
-    if search in content:
-        count = content.count(search)
-        if count > 1:
-            return f"Error: {count} matches found. Use a more unique search block."
-        match_start = content.find(search)
-        match_end = match_start + len(search)
-    else:
-        # Fuzzy match: Ignore whitespace/indentation differences
-        stripped_search = search.strip()
-        if not stripped_search:
-            return "Error: 'search' block is empty or contains only whitespace."
-
-        # Token-based approach: split by any non-alphanumeric/non-whitespace character
-        # and allow \s* between them. This allows robust matching even with
-        # differing indentation or minor formatting changes.
-        tokens = re.split(r"(\s+|[^\w])", stripped_search)
-        pattern_parts = []
-        for t in tokens:
-            if not t or t.isspace():
-                continue
-            pattern_parts.append(re.escape(t))
-
-        if not pattern_parts:
-            return "Error: 'search' block contains no usable tokens for matching."
-
-        pattern = r"\s*".join(pattern_parts)
-        matches = list(re.finditer(pattern, content, re.DOTALL))
-
-        if not matches:
-            return "Error: The 'search' block was not found exactly or fuzzily."
-        if len(matches) > 1:
-            return f"Error: {len(matches)} fuzzy matches. Use a more unique block."
-        match_start, match_end = matches[0].span()
-
-    # Generate new content
-    new_content = content[:match_start] + replace + content[match_end:]
-
-    # Generate Diff Preview
-    diff = "".join(
-        difflib.unified_diff(
-            content.splitlines(keepends=True),
-            new_content.splitlines(keepends=True),
-            fromfile=f"a/{path}",
-            tofile=f"b/{path}",
-            n=3,
-        )
-    )
-
-    if dry_run:
-        return f"Dry run enabled. No changes made.\n\n{diff}"
-
-    p.write_text(new_content, encoding="utf-8")
-    return f"Successfully updated {path}.\n\n{diff}"
-
-
-@tool(
-    name="create_or_overwrite_file",
-    desc="Write full content to a file. Overwrites existing files.",
-    params={
-        "type": "object",
-        "properties": {
-            "path": {"type": "string", "description": "Path to save the file."},
-            "content": {
-                "type": "string",
-                "description": (
-                    "The complete file content to write. "
-                    "This field is REQUIRED and must contain the full "
-                    "text of the file. "
-                    "Do not omit this field."
-                ),
-            },
-        },
-        "required": ["path", "content"],
-    },
-)
-@file_tool_handler
-def create_or_overwrite_file(path: str, content: str) -> str:
-    """Create a new file or overwrite an existing one with the provided content."""
-    validate_path(path)
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
-    return f"Successfully wrote to {path}"

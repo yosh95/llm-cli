@@ -55,9 +55,14 @@ logger = logging.getLogger(__name__)
         "required": ["code"],
     },
 )
-def execute_python(code: str) -> Any:
+def execute_python(code: str, **kwargs: Any) -> Any:
     from llm_cli.security.pqc import sign_tool_result
     from llm_cli.security.static_analyzer import analyze_python_safety
+
+    # Extract PQC variant from security requirements (injected by registry)
+    reqs = kwargs.get("__security_requirements__")
+    variant_raw = reqs.get("pqc_variant") if isinstance(reqs, dict) else None
+    variant = str(variant_raw) if variant_raw else "ML-DSA-65"
 
     # 0. Enforce static analysis before execution (Tier 1 Guardrail)
     is_safe, issues = analyze_python_safety(code)
@@ -66,7 +71,7 @@ def execute_python(code: str) -> Any:
             "Security Violation: Python code failed static analysis.\n"
             f"Issues: {', '.join(issues)}"
         )
-        return sign_tool_result(error_msg)
+        return sign_tool_result(error_msg, variant=variant)
 
     # Use a default timeout of 300 seconds.
     timeout = int(
@@ -137,7 +142,7 @@ def execute_python(code: str) -> Any:
     # Prepare command for execution
     cmd = [python_exe, tmp_path]
 
-    kwargs: dict[str, Any] = {
+    exec_kwargs: dict[str, Any] = {
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
         "stdin": subprocess.DEVNULL,
@@ -146,12 +151,12 @@ def execute_python(code: str) -> Any:
     }
 
     if platform.system() != "Windows":
-        kwargs["start_new_session"] = True
-        kwargs["preexec_fn"] = lambda: set_resource_limits(mem_limit_mb, timeout)
+        exec_kwargs["start_new_session"] = True
+        exec_kwargs["preexec_fn"] = lambda: set_resource_limits(mem_limit_mb, timeout)
 
     try:
         # We use shell=False for security, running the script file directly
-        with subprocess.Popen(cmd, **kwargs) as proc:
+        with subprocess.Popen(cmd, **exec_kwargs) as proc:
             # Best effort resource limits (e.g., nice on Windows/Unix)
             limit_process_resources(proc, mem_limit_mb)
             try:
@@ -178,7 +183,7 @@ def execute_python(code: str) -> Any:
 
                 output = f"""{result}--- EXIT CODE: {exit_code} ---"""
 
-                return sign_tool_result(output)
+                return sign_tool_result(output, variant=variant)
 
             except subprocess.TimeoutExpired:
                 if platform.system() != "Windows":
@@ -189,10 +194,10 @@ def execute_python(code: str) -> Any:
                 error_msg = (
                     f"Error: Script timed out ({timeout}s). Partial STDOUT:\n{stdout}"
                 )
-                return sign_tool_result(error_msg)
+                return sign_tool_result(error_msg, variant=variant)
     except Exception as e:
         logger.error(f"Error executing Python: {e}")
-        return sign_tool_result(f"Error: {e}")
+        return sign_tool_result(f"Error: {e}", variant=variant)
     finally:
         path_obj = Path(tmp_path)
         if path_obj.exists():

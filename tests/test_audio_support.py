@@ -18,7 +18,7 @@ def test_gemini_audio_upload_called(mock_config_audio, tmp_path):
 
     with (
         patch("llm_cli.modules.media_utils.filetype.guess") as mock_guess,
-        patch("llm_cli.clients.gemini.GeminiClient._upload_file") as mock_upload,
+        patch("llm_cli.clients.gemini_handlers.upload_file") as mock_upload,
     ):
         mock_kind = MagicMock()
         mock_kind.mime = "audio/wav"
@@ -34,7 +34,7 @@ def test_gemini_audio_upload_called(mock_config_audio, tmp_path):
         assert result.metadata["file_uri"] == "https://gemini.api/files/abc"
         assert result.content_type == "audio/wav"
         assert result.is_file_or_url is True
-        mock_upload.assert_called_once_with(audio_file, mime_type="audio/wav")
+        mock_upload.assert_called_once_with(client, audio_file, mime_type="audio/wav")
 
 
 def test_gemini_send_with_audio_file_uri(mock_config_audio):

@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.shortcuts import CompleteStyle
-from rich.panel import Panel
-from rich.text import Text
 
 from llm_cli.ui import console, print_block, report_error
 
@@ -86,52 +84,6 @@ class SessionUI:
     ) -> None:
         """Print content with background color (no border) for easier copying."""
         print_block(renderable, title, style)
-
-    def print_secret_warning(self, anomalies: list[str]) -> None:
-        """Displays a warning when potential reasoning anomalies are detected."""
-        unique_anomalies = sorted(set(anomalies))
-        msg = (
-            "The following sequences were flagged as statistical anomalies in the "
-            "model's reasoning process. They may represent unexpected data patterns "
-            "or potential sensitive information:\n\n"
-        )
-
-        anomaly_markup = "\n".join(
-            [f"• [bold yellow]{s}[/bold yellow]" for s in unique_anomalies]
-        )
-
-        console.print(
-            Panel(
-                Text.from_markup(msg + anomaly_markup),
-                title="[bold yellow]⚠️  Reasoning Anomaly Detected[/bold yellow]",
-                border_style="yellow",
-            )
-        )
-
-    def confirm_secret_transmission(self, anomalies: list[str]) -> bool:
-        """Confirms whether the user wants to send detected anomalies to external AI."""
-        unique_anomalies = sorted(set(anomalies))
-        msg = (
-            "[bold red]CAUTION:[/bold red] The following anomalous sequences were "
-            "detected in your message. Sending these to an external AI provider "
-            "might deviate from intended usage or compromise data integrity:\n\n"
-        )
-        anomaly_markup = "\n".join(
-            [f"• [bold red]{s}[/bold red]" for s in unique_anomalies]
-        )
-
-        console.print(
-            Panel(
-                Text.from_markup(msg + anomaly_markup),
-                title="[bold red]🚨 Reasoning Integrity Guardrail[/bold red]",
-                border_style="red",
-            )
-        )
-
-        confirm = self.get_input(
-            "Do you still want to send this message? (y/N): ", exit_on_escape=True
-        )
-        return confirm.lower() in ("y", "ｙ")
 
     def confirm(self, message: str, exit_on_escape: bool = False) -> bool:
         """Helper to ask for a y/n confirmation."""

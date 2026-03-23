@@ -1,13 +1,10 @@
 # llm_cli/clients/tool_executor.py
 
-import difflib
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from rich.markup import escape
-from rich.syntax import Syntax
 
 from llm_cli.clients.config import config_manager
 from llm_cli.clients.exceptions import ConfigurationError
@@ -20,6 +17,14 @@ from llm_cli.ui import (
     print_block,
     report_error,
     report_success,
+)
+
+from .tool_executor_ui import (
+    display_reasoning,
+    display_tool_request,
+    preview_diff,
+    preview_edit_diff,
+    preview_python_code,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,6 +48,7 @@ class ToolExecutionContext:
     duration: float | None = None
     # Derived fields
     tool_id: str = "unknown"
+    call_id: str | None = None
     name: str = "unknown"
     args: dict[str, Any] = field(default_factory=dict)
     thought_signature: str | None = None
@@ -60,11 +66,11 @@ class ToolExecutionContext:
         call = self.part.function_call
         if call:
             self.tool_id = call.get("id", "unknown")
+            self.call_id = call.get("call_id")
             self.name = call["name"]
             self.args = call.get("args", {})
             self.thought_signature = self.part.thought_signature
 
-        # Evaluate risk and security requirements once
         from llm_cli.security.cass import cass_orchestrator as cass
 
         self.risk_level = cass.evaluate_risk(self.name)
@@ -74,35 +80,31 @@ class ToolExecutionContext:
 def execute_tool_call(
     session: "AgentContext", part: ContentPart, duration: float | None = None
 ) -> tuple[ContentPart, DataSource | None] | None:
-    """
-    Main orchestration for tool execution.
-    Refactored from a complex class-based pipeline to a linear, readable flow.
-    """
+    """Main orchestration for tool execution."""
     ctx = ToolExecutionContext(session, part, duration)
     if not part.function_call:
         return None
 
     try:
-        # 1. Security Guardrails (PQC, Policy, ABAC)
         if not _run_security_checks(ctx):
             return _create_error_response(ctx), None
 
-        # 2. Reasoning Display
-        _display_reasoning(ctx)
+        display_reasoning(ctx)
 
-        # 3. Static Analysis (Code Safety)
         if not _run_code_safety_check(ctx):
             return _create_error_response(ctx), None
 
-        # 4. User Approval & Previews
-        if not _get_user_approval(ctx):
+        if not _run_pre_approval_validation(ctx):
             return _create_error_response(ctx), None
 
-        # 5. Actual Execution
+        if not _get_user_approval(ctx):
+            if ctx.aborted:
+                return None
+            return _create_error_response(ctx), None
+
         if not _execute_function(ctx):
             return _create_error_response(ctx), None
 
-        # 6. Post-Processing (Verification, Truncation, Display)
         if not _post_process_result(ctx):
             return _create_error_response(ctx), None
 
@@ -111,10 +113,10 @@ def execute_tool_call(
         ctx.error_message = f"Internal Error: {e}"
         return _create_error_response(ctx), None
 
-    # Final success response
     response = ContentPart(
         function_response={
             "id": ctx.tool_id,
+            "call_id": ctx.call_id,
             "name": ctx.name,
             "response": {"result": ctx.result_data},
         },
@@ -123,12 +125,8 @@ def execute_tool_call(
     return response, ctx.injected_data
 
 
-# --- Pipeline Steps (Flat & Linear) ---
-
-
 def _run_security_checks(ctx: ToolExecutionContext) -> bool:
     """Checks Security Policy Engine and PQC Identity."""
-    # PQC Identity Check: Mandatory for ALL executions.
     from llm_cli.security.identity import IdentityManager
 
     has_pqc = False
@@ -136,16 +134,11 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
         IdentityManager._ensure_keys()
         has_pqc = True
     except Exception:
-        # All tools now strictly require PQC identity.
-        err = (
-            f"Security Violation: Tool '{ctx.name}' blocked. "
-            f"Secure identity (PQC) missing."
-        )
+        err = f"Security Violation: Tool '{ctx.name}' blocked. Secure identity missing."
         report_error(err)
         ctx.error_message = err
         return False
 
-    # Policy Engine Check
     from llm_cli.security.policy import EvaluationContext, policy_engine
 
     user_prompt = ctx.session.client.get_last_user_prompt() or "No user prompt found"
@@ -159,24 +152,7 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
     if not policy_engine.evaluate(ctx.name, ctx.args, eval_ctx):
         ctx.error_message = f"Policy Violation: Execution of '{ctx.name}' denied."
         return False
-
     return True
-
-
-def _display_reasoning(ctx: ToolExecutionContext) -> None:
-    explanation = (
-        ctx.args.get("explanation")
-        or ctx.args.get("thought")
-        or ctx.args.get("reasoning")
-    )
-    if explanation:
-        display_name = ctx.session.client.get_display_name()
-        dur = f" ({ctx.duration:.1f}s)" if ctx.duration else ""
-        print_block(
-            explanation,
-            title=f"[bold cyan]{display_name} (Reasoning){dur}[/bold cyan]",
-            style="cyan",
-        )
 
 
 def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
@@ -205,6 +181,29 @@ def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
     return True
 
 
+def _run_pre_approval_validation(ctx: ToolExecutionContext) -> bool:
+    """Runs tool-specific validation before asking for user approval."""
+    tool_entry = registry.tools.get(ctx.name)
+    if not tool_entry:
+        return True
+
+    validate_func = tool_entry.get("validate")
+    if not validate_func:
+        return True
+
+    try:
+        res = validate_func(**ctx.args)
+        if res is True:
+            return True
+        ctx.error_message = (
+            res if isinstance(res, str) else f"Validation failed for tool '{ctx.name}'."
+        )
+        return False
+    except Exception as e:
+        ctx.error_message = f"Validation error: {e}"
+        return False
+
+
 def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     tool_entry = registry.tools.get(ctx.name, {})
     skip_approval = tool_entry.get("skip_approval", False)
@@ -212,8 +211,7 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     if skip_approval:
         return True
 
-    # Show Previews
-    _display_tool_request(ctx)
+    display_tool_request(ctx)
     if any(k in ctx.name for k in ("write_file", "create_or_overwrite_file")):
         preview_diff(ctx.args)
     elif "edit_file" in ctx.name:
@@ -229,6 +227,7 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
         )
     except (KeyboardInterrupt, EOFError):
         ctx.error_message = "Operation cancelled by user."
+        ctx.aborted = True
         return False
 
     if user_input.lower() not in ("y", "ｙ"):
@@ -256,7 +255,7 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
         return True
     except ConfigurationError as e:
         report_error(str(e))
-        ctx.error_message = "Search function unavailable. Check API keys."
+        ctx.error_message = "Function unavailable. Check API configuration."
         return False
     except Exception as e:
         report_error(f"Tool execution failed: {e}")
@@ -265,7 +264,6 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
 
 
 def _post_process_result(ctx: ToolExecutionContext) -> bool:
-    # Extract injected data
     if isinstance(ctx.result_data, dict) and "__llm_cli_data__" in ctx.result_data:
         data_payload = ctx.result_data.pop("__llm_cli_data__")
         ctx.injected_data = (
@@ -274,14 +272,12 @@ def _post_process_result(ctx: ToolExecutionContext) -> bool:
             else DataSource(**data_payload)
         )
 
-    # PQC Verification
     try:
         ctx.result_data = _verify_pqc_signature(ctx.result_data, ctx.risk_level)
     except ValueError as e:
         ctx.error_message = str(e)
         return False
 
-    # Truncation & Final Display
     res_str = _truncate_output(str(ctx.result_data))
     ctx.result_data = res_str
     print_block(
@@ -290,70 +286,39 @@ def _post_process_result(ctx: ToolExecutionContext) -> bool:
     return True
 
 
-# --- Helpers ---
-
-
-def _display_tool_request(ctx: ToolExecutionContext) -> None:
-    # Build concise arguments list, skipping redundant system fields
-    arg_parts = []
-    for k, v in ctx.args.items():
-        if k in ("explanation", "thought", "reasoning"):
-            continue
-
-        val_str = repr(v)
-        if len(val_str) > 120:
-            val_str = val_str[:120] + "..."
-
-        arg_parts.append(f"{k}={val_str}")
-
-    if arg_parts:
-        arg_str = ", ".join(arg_parts)
-        content = f"[cyan]{escape(ctx.name)}[/cyan]({escape(arg_str)})"
-    else:
-        content = f"[cyan]{escape(ctx.name)}[/cyan]"
-
-    print_block(
-        content, title="[bold yellow]🤖 Agent Request[/bold yellow]", style="yellow"
-    )
-
-
 def _truncate_output(res_str: str) -> str:
     from llm_cli.consts import MAX_OUTPUT_CHARS, MAX_OUTPUT_LINES
 
-    max_len = MAX_OUTPUT_CHARS
-    max_lines = MAX_OUTPUT_LINES
     lines = res_str.splitlines()
-    original_lines, original_chars = len(lines), len(res_str)
-
-    if len(lines) > max_lines or len(res_str) > max_len:
-        res_str = "\n".join(lines[:max_lines])[:max_len]
+    if len(lines) > MAX_OUTPUT_LINES or len(res_str) > MAX_OUTPUT_CHARS:
+        res_str = "\n".join(lines[:MAX_OUTPUT_LINES])[:MAX_OUTPUT_CHARS]
+        shown_lines = len(res_str.splitlines())
         res_str += (
-            f"\n\n... (Output truncated. Shown {len(res_str.splitlines())} "
-            f"of {original_lines} lines, {len(res_str)} of {original_chars} chars.)"
+            f"\n\n... (Output truncated. Shown {shown_lines} of {len(lines)} lines, "
+            f"{len(res_str)} of {len(res_str)} chars.)"
         )
     return res_str
 
 
 def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
+    err = ctx.error_message or "Unknown error"
+    if not err.startswith("Error:") and not err.startswith("Security Error:"):
+        err = f"Error: {err}"
     return ContentPart(
         function_response={
             "id": ctx.tool_id,
+            "call_id": ctx.call_id,
             "name": ctx.name,
-            "response": {"result": f"Error: {ctx.error_message}"},
+            "response": {"result": err},
         },
         thought_signature=ctx.thought_signature,
     )
 
 
 def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
-
-    is_signed = isinstance(result_data, dict) and "pqc_signature" in result_data
-
-    if not is_signed:
-        # Mandatory Security Policy: ALL tool responses must be signed.
-        # This ensures the audit trail is post-quantum verifiable.
+    if not (isinstance(result_data, dict) and "pqc_signature" in result_data):
         msg = (
-            f"Security Violation: Missing PQC signature for tool response "
+            "Security Violation: Missing PQC signature for tool response "
             f"(Risk: {risk_level.value})."
         )
         report_error(f"PQC Enforcement: {msg}")
@@ -377,84 +342,9 @@ def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
         ):
             report_success(f"PQC Verified ({variant}) (ID: {v_id})")
         else:
-            msg = f"PQC Signature Verification Failed (ID: {v_id})"
-            report_error(msg)
-            raise ValueError(msg)
+            raise ValueError(f"PQC Signature Verification Failed (ID: {v_id})")
     except Exception as e:
         if isinstance(e, ValueError):
             raise e
         logger.warning(f"Signature verification error: {e}")
     return content
-
-
-def preview_diff(args: dict[str, Any]) -> None:
-    path_str = args.get("path", "")
-    new_content = args.get("content", "")
-    if not path_str or not new_content:
-        return
-    path = Path(path_str)
-    if path.exists():
-        old_content = path.read_text(encoding="utf-8")
-        diff = list(
-            difflib.unified_diff(
-                old_content.splitlines(keepends=True),
-                new_content.splitlines(keepends=True),
-                fromfile=f"a/{path}",
-                tofile=f"b/{path}",
-            )
-        )
-        if diff:
-            print_block(
-                Syntax("".join(diff), "diff", theme="monokai", word_wrap=True),
-                title=f"[bold]Diff: {path}[/bold]",
-                style="yellow",
-            )
-    else:
-        print_block(
-            Syntax(
-                new_content,
-                Syntax.guess_lexer(str(path), code=new_content),
-                theme="monokai",
-                line_numbers=True,
-                word_wrap=True,
-            ),
-            title=f"[bold green]New File: {path}[/bold green]",
-            style="green",
-        )
-
-
-def preview_edit_diff(args: dict[str, Any]) -> None:
-    path_str = args.get("path", "")
-    search = args.get("search", "")
-    replace = args.get("replace", "")
-    if not path_str or not search:
-        return
-    path = Path(path_str)
-    if not path.exists():
-        return
-    old_content = path.read_text(encoding="utf-8")
-    new_content = old_content.replace(search, replace)
-    diff = list(
-        difflib.unified_diff(
-            old_content.splitlines(keepends=True),
-            new_content.splitlines(keepends=True),
-            fromfile=f"a/{path}",
-            tofile=f"b/{path}",
-        )
-    )
-    if diff:
-        print_block(
-            Syntax("".join(diff), "diff", theme="monokai", word_wrap=True),
-            title=f"[bold]Edit Diff: {path}[/bold]",
-            style="yellow",
-        )
-
-
-def preview_python_code(args: dict[str, Any]) -> None:
-    code = args.get("code", "")
-    if code:
-        print_block(
-            Syntax(code, "python", theme="monokai", line_numbers=True, word_wrap=True),
-            title="[bold]Python Code Preview[/bold]",
-            style="yellow",
-        )

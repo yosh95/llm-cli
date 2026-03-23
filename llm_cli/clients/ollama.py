@@ -3,16 +3,16 @@
 import json
 from typing import Any
 
-from llm_cli.clients.base import BaseLlmClient, ProviderSpec
+from llm_cli.clients.base import ProviderSpec
 from llm_cli.clients.config import config_manager
-from llm_cli.clients.mixins import OpenAICompatibleMixin
+from llm_cli.clients.openai_base import OpenAICompatibleClient
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 DEFAULT_API_URL = "http://localhost:11434/v1/chat/completions"
 
 
-class OllamaClient(BaseLlmClient, OpenAICompatibleMixin):
+class OllamaClient(OpenAICompatibleClient):
     """
     Client for interacting with Ollama via its OpenAI-compatible API.
     """

@@ -227,18 +227,24 @@ class BaseLlmClient(ABC):
 
         import json
 
-        from rich.panel import Panel
+        from rich.rule import Rule
         from rich.syntax import Syntax
 
         if request_payload:
             payload_str = json.dumps(request_payload, indent=2, ensure_ascii=False)
             console.print(
-                Panel(
-                    Syntax(
-                        payload_str, "json", theme="monokai", background_color="default"
-                    ),
-                    title="[bold magenta]DEBUG: Request Payload[/bold magenta]",
-                    border_style="magenta",
+                Rule(
+                    "[bold magenta]DEBUG: Request Payload[/bold magenta]",
+                    style="magenta",
+                )
+            )
+            console.print(
+                Syntax(
+                    payload_str,
+                    "json",
+                    theme="monokai",
+                    background_color="default",
+                    word_wrap=True,
                 )
             )
 
@@ -249,37 +255,35 @@ class BaseLlmClient(ABC):
                     res_json = response_obj.json()
                     res_str = json.dumps(res_json, indent=2, ensure_ascii=False)
                     console.print(
-                        Panel(
-                            Syntax(
-                                res_str,
-                                "json",
-                                theme="monokai",
-                                background_color="default",
-                            ),
-                            title="[bold cyan]DEBUG: Response JSON[/bold cyan]",
-                            border_style="cyan",
+                        Rule(
+                            "[bold cyan]DEBUG: Response JSON[/bold cyan]", style="cyan"
+                        )
+                    )
+                    console.print(
+                        Syntax(
+                            res_str,
+                            "json",
+                            theme="monokai",
+                            background_color="default",
+                            word_wrap=True,
                         )
                     )
                 else:
                     # Fallback for other object types
                     res_str = str(response_obj)
                     console.print(
-                        Panel(
-                            res_str,
-                            title="[bold cyan]DEBUG: Response Data[/bold cyan]",
-                            border_style="cyan",
+                        Rule(
+                            "[bold cyan]DEBUG: Response Data[/bold cyan]", style="cyan"
                         )
                     )
+                    console.print(res_str)
             except Exception as e:
                 console.print(f"[dim red]Debug logging failed: {e}[/dim red]")
                 if hasattr(response_obj, "text"):
                     console.print(
-                        Panel(
-                            response_obj.text,
-                            title="[bold cyan]DEBUG: Raw Response[/bold cyan]",
-                            border_style="cyan",
-                        )
+                        Rule("[bold cyan]DEBUG: Raw Response[/bold cyan]", style="cyan")
                     )
+                    console.print(response_obj.text)
 
     def _set_initial_model(self, initial_model_alias: str) -> None:
         if not self.set_model(initial_model_alias):

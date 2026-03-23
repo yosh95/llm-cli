@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from llm_cli.modules.tools.file_ops import edit_file
+from llm_cli.modules.tools.file_modification import edit_file
 
 
 @pytest.fixture(autouse=True)

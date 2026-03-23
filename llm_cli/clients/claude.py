@@ -3,12 +3,11 @@
 from typing import Any
 
 from llm_cli.clients.base import BaseLlmClient, ProviderSpec
-from llm_cli.clients.mixins import ClaudeMessagesMixin
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.modules.tool_registry import registry
 
 
-class ClaudeClient(BaseLlmClient, ClaudeMessagesMixin):
+class ClaudeClient(BaseLlmClient):
     """Client for the Anthropic Claude Messages API.
 
     Supports vision, tool calling, and extended thinking modes.
@@ -16,10 +15,6 @@ class ClaudeClient(BaseLlmClient, ClaudeMessagesMixin):
     Extended thinking allows Claude to reason through complex problems before
     responding.  Claude 4 models return summarised thinking content; Claude
     Sonnet 4.6 returns the full thinking output.
-
-    Message serialisation (history → wire format) is handled by
-    :class:`~llm_cli.clients.mixins.ClaudeMessagesMixin` so this class stays
-    focused on HTTP concerns and response parsing.
     """
 
     API_URL = "https://api.anthropic.com/v1/messages"
@@ -36,6 +31,111 @@ class ClaudeClient(BaseLlmClient, ClaudeMessagesMixin):
             ),
             **kwargs,
         )
+
+    def _build_claude_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
+        msgs: list[dict[str, Any]] = []
+        for m in self.conversation:
+            if m.role == Role.TOOL:
+                tool_content: list[dict[str, Any]] = []
+                for p in m.parts:
+                    if isinstance(p, ContentPart) and p.function_response:
+                        fr = p.function_response
+                        tool_content.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": fr.get("call_id") or fr.get("id"),
+                                "content": str(
+                                    fr.get("response", {}).get("result", "")
+                                ),
+                            }
+                        )
+                if tool_content:
+                    msgs.append({"role": "user", "content": tool_content})
+                continue
+
+            role = "assistant" if m.role == Role.MODEL else "user"
+            content: list[dict[str, Any]] = []
+            for p in m.parts:
+                if isinstance(p, str):
+                    content.append({"type": "text", "text": p})
+                elif isinstance(p, ContentPart):
+                    if p.text:
+                        content.append({"type": "text", "text": p.text})
+                    if p.thought:
+                        content.append(
+                            {
+                                "type": "thinking",
+                                "thinking": p.thought,
+                                "signature": p.thought_signature,
+                            }
+                        )
+                    if p.inline_data:
+                        mime = p.inline_data.get("mimeType", "")
+                        if mime.startswith("image/"):
+                            content.append(
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": mime,
+                                        "data": p.inline_data["data"],
+                                    },
+                                }
+                            )
+                        elif mime == "application/pdf":
+                            content.append(
+                                {
+                                    "type": "document",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": mime,
+                                        "data": p.inline_data["data"],
+                                    },
+                                }
+                            )
+                    if p.function_call:
+                        content.append(
+                            {
+                                "type": "tool_use",
+                                "id": p.function_call.get("id"),
+                                "name": p.function_call.get("name"),
+                                "input": p.function_call.get("args", {}),
+                            }
+                        )
+            if content:
+                msgs.append({"role": role, "content": content})
+
+        new_content: list[dict[str, Any]] = []
+        for d in data:
+            if d.content_type == "text/plain":
+                new_content.append({"type": "text", "text": str(d.content)})
+            elif d.content_type.startswith("image/"):
+                new_content.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": d.content_type,
+                            "data": d.content,
+                        },
+                    }
+                )
+            elif d.content_type == "application/pdf":
+                new_content.append(
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": d.content_type,
+                            "data": d.content,
+                        },
+                    }
+                )
+
+        if new_content:
+            msgs.append({"role": "user", "content": new_content})
+
+        return msgs
 
     def _send(
         self, data: list[DataSource]

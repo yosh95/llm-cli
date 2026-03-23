@@ -22,12 +22,22 @@ def web_tool_handler(
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        # Extract PQC variant from security requirements (injected by registry)
+        reqs = kwargs.pop("__security_requirements__", None)
+        variant_raw = reqs.get("pqc_variant") if isinstance(reqs, dict) else None
+        variant = str(variant_raw) if variant_raw else "ML-DSA-65"
+
         try:
             result = func(*args, **kwargs)
+
             # Apply PQC signing to the result (if it's a string)
-            return sign_tool_result(result) if isinstance(result, str) else result
+            return (
+                sign_tool_result(result, variant=variant)
+                if isinstance(result, str)
+                else result
+            )
         except Exception as e:
-            return sign_tool_result(f"Error: {e}")
+            return sign_tool_result(f"Error: {e}", variant=variant)
 
     return wrapper
 

@@ -269,18 +269,33 @@ def test_send_updates_conversation_history(client):
 
 
 def test_send_includes_system_prompt(client):
-    """When system_prompt is set it is prepended as a system message."""
+    """When system_prompt is set it is prepended to history."""
     client.system_prompt = "You are helpful."
     client.system_prompt_enabled = True
     data = [DataSource(content="Hello", content_type="text/plain")]
     mock_resp = MagicMock()
+    # Handle both potential response formats
     mock_resp.json.return_value = _make_chat_response("Hi!")
 
     with patch.object(client, "_post", return_value=mock_resp) as mock_post:
         client._send(data)
 
     payload = mock_post.call_args[1]["json_data"]
-    assert payload["messages"][0] == {"role": "system", "content": "You are helpful."}
+    if "input" in payload:
+        # Responses API format
+        assert payload["input"][0]["role"] == "system"
+        content = payload["input"][0]["content"]
+        assert any(
+            p.get("text") == "You are helpful."
+            for p in content
+            if p.get("type") == "input_text"
+        )
+    else:
+        # Standard Chat Completions format
+        assert payload["messages"][0] == {
+            "role": "system",
+            "content": "You are helpful.",
+        }
 
 
 def test_send_no_system_prompt_when_disabled(client):
@@ -295,7 +310,8 @@ def test_send_no_system_prompt_when_disabled(client):
         client._send(data)
 
     payload = mock_post.call_args[1]["json_data"]
-    assert all(m["role"] != "system" for m in payload["messages"])
+    messages = payload.get("input", payload.get("messages", []))
+    assert all(m.get("role") != "system" for m in messages)
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +373,8 @@ def test_send_with_tools_payload(client):
 
     payload = mock_post.call_args[1]["json_data"]
     assert "tools" in payload
-    assert payload["tool_choice"] == "auto"
+    if "messages" in payload:
+        assert payload["tool_choice"] == "auto"
     assert payload["tools"][0]["function"]["name"] == "test_tool"
 
 

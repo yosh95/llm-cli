@@ -5,6 +5,8 @@ import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from rich.rule import Rule
+
 from llm_cli.modules.models import DataSource, Role
 from llm_cli.ui import console
 
@@ -54,8 +56,10 @@ def handle_checkpoint(session: ChatSession) -> None:
                 )
             ]
             console.print("[green]✅ Context refreshed.[/green]")
+            console.print(Rule(style="dim"))
         else:
             session.client.set_conversation_state(original_state)
+            console.print(Rule(style="dim"))
     except Exception as e:
         console.print(f"[bold red]Checkpoint failed: {e}[/bold red]")
         session.client.set_conversation_state(original_state)

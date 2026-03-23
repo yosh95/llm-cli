@@ -215,7 +215,9 @@ class ResponseSigner:
         }
 
 
-def sign_tool_result(result_text: str) -> str | dict[str, str]:
+def sign_tool_result(
+    result_text: str, variant: str = PQCProvider.DEFAULT_VARIANT
+) -> str | dict[str, str]:
     """
     Sign a tool result with PQC (ML-DSA) for Bi-directional Verification.
     """
@@ -224,12 +226,13 @@ def sign_tool_result(result_text: str) -> str | dict[str, str]:
     try:
         from llm_cli.security.identity import IdentityManager
 
-        pqc_priv = IdentityManager._get_pqc_private_key_content()
+        pqc_priv = IdentityManager._get_pqc_private_key_content(variant=variant)
         verification_id = str(uuid.uuid4())
         signed = ResponseSigner.sign_response(
             response_text=result_text,
             source_verification_id=verification_id,
             private_key=pqc_priv,
+            variant=variant,
         )
         return signed
     except Exception as exc:

@@ -48,6 +48,7 @@ class ToolRegistry:
         supported_providers: list[str] | None = None,
         interactive: bool = False,
         skip_approval: bool = False,
+        validate: Callable[..., str | bool] | None = None,
     ) -> None:
         """
         Registers a tool in the registry.
@@ -60,6 +61,8 @@ class ToolRegistry:
             supported_providers: List of providers that support this tool.
             interactive: Whether the tool requires interactive input.
             skip_approval: Whether to skip user approval before execution.
+            validate: Optional function to validate arguments BEFORE approval.
+                     Should return True if valid, or a string error message if invalid.
         """
         # Initialize parameters following JSON Schema standard
         if parameters is None:
@@ -109,6 +112,7 @@ class ToolRegistry:
             # Extract explanation for logging (internal audit)
             _ = kwargs.get("explanation", "No explanation provided.")
             audit_model = kwargs.pop("__audit_model__", "-")
+            security_reqs = kwargs.pop("__security_requirements__", None)
 
             # Filter kwargs to match the wrapped function's signature
             sig = inspect.signature(func)
@@ -121,6 +125,17 @@ class ToolRegistry:
                     for p in sig.parameters.values()
                 )
             }
+
+            # Inject system fields if the function (or decorator) accepts them.
+            # We use follow_wrapped=False because decorators like @file_tool_handler
+            # use functools.wraps, which obscures their ability to accept **kwargs.
+            if security_reqs is not None:
+                actual_sig = inspect.signature(func, follow_wrapped=False)
+                if "__security_requirements__" in actual_sig.parameters or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD
+                    for p in actual_sig.parameters.values()
+                ):
+                    filtered_kwargs["__security_requirements__"] = security_reqs
 
             try:
                 result = func(**filtered_kwargs)
@@ -160,6 +175,7 @@ class ToolRegistry:
             "supported_providers": supported_providers,
             "interactive": interactive,
             "skip_approval": skip_approval,
+            "validate": validate,
         }
 
     def register_remote_tools(self, mcp_manager: Any) -> list[str]:
@@ -232,7 +248,7 @@ class ToolRegistry:
         self, names: list[str], provider: str = "google"
     ) -> list[dict[str, Any]]:
         spec: list[dict[str, Any]] = []
-        # 1. Native Google Search tool
+        # 1. Native Google Search tool (Grounding with Google Search)
         spec.append({"google_search": {}})
 
         # 2. Local function declarations
@@ -336,6 +352,7 @@ def tool(
     params: dict[str, Any] | None = None,
     interactive: bool = False,
     skip_approval: bool = False,
+    validate: Callable[..., str | bool] | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     final_desc = description or desc
     final_params = parameters or params
@@ -352,6 +369,7 @@ def tool(
             supported_providers,
             interactive,
             skip_approval,
+            validate,
         )
         return f
 

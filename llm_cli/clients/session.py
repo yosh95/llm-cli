@@ -102,6 +102,7 @@ class ChatSession:
                         continue
                 except CheckpointRequest:
                     handle_checkpoint(self)
+                    # handle_checkpoint shows its own rule if confirmed
                     continue
                 except TemplateRequest as e:
                     prompt_default = e.text

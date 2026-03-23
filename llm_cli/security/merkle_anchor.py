@@ -117,7 +117,7 @@ class SessionAnchorManager:
             # We still return the root even if signing fails, but it won't be
             # cryptographically verifiable as a 'signed' anchor.
         # Save anchor to disk
-        ANCHOR_DIR.mkdir(parents=True, exist_ok=True)
+        ANCHOR_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
         anchor_path = ANCHOR_DIR / f"{trace_id}.anchor.json"
 
         try:

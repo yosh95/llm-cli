@@ -70,6 +70,10 @@ def run_client_cli(config: ClientConfig) -> None:
     from llm_cli.clients.config import config_manager
     from llm_cli.consts import CONFIG_FILE_PATH
     from llm_cli.security.integrity import verify_installation
+    from llm_cli.security.permissions import setup_permissions
+
+    # Enforce strict user-only permissions and set umask
+    setup_permissions()
 
     # Automatically initialize configuration if it doesn't exist
     if not CONFIG_FILE_PATH.exists():

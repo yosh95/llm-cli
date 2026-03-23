@@ -69,7 +69,7 @@ def log_chat(session: ChatSession, content: Any, role: str) -> None:
     try:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         path = Path(session.client.chat_log_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
         text_content = ""
         if isinstance(content, list):

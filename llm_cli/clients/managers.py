@@ -47,7 +47,7 @@ class SessionManager:
         """Saves the current conversation to a JSON file."""
         try:
             save_path = Path(path_str)
-            save_path.parent.mkdir(parents=True, exist_ok=True)
+            save_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
             serializable = []
             for msg in conversation:
@@ -124,7 +124,7 @@ class MediaManager:
         save_dir = Path(
             config_manager.get("general", "image_save_path") or "."
         ).expanduser()
-        save_dir.mkdir(parents=True, exist_ok=True)
+        save_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         target_path = save_dir / generate_safe_filename(
             hint_text, ext=(mimetypes.guess_extension(mime_type) or ".png").strip(".")
         )

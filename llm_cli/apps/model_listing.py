@@ -16,6 +16,7 @@ import requests
 from rich.table import Table
 
 from llm_cli.clients.config import config_manager
+from llm_cli.security.permissions import setup_permissions
 from llm_cli.ui import console
 
 
@@ -263,6 +264,9 @@ def list_models(config: ModelListingConfig, args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    # Enforce strict user-only permissions and set umask
+    setup_permissions()
+
     parser = argparse.ArgumentParser(description="Unified LLM Model Listing CLI")
     parser.add_argument(
         "provider",

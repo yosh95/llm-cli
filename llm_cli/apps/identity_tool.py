@@ -5,12 +5,16 @@ from pathlib import Path
 
 from llm_cli.security.identity import IdentityManager
 from llm_cli.security.integrity import IntegrityVerifier
+from llm_cli.security.permissions import setup_permissions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    # Enforce strict user-only permissions and set umask
+    setup_permissions()
+
     parser = argparse.ArgumentParser(
         description="LLM-CLI Identity and Integrity Management Tool"
     )

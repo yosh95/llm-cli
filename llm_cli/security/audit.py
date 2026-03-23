@@ -26,7 +26,7 @@ def log_audit(
     max_lines = int(config_manager.get("general", "max_audit_log_lines") or 10000)
 
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         timestamp = datetime.datetime.now().isoformat()
 
         # Prepare context info

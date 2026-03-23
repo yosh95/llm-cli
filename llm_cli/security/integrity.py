@@ -63,7 +63,7 @@ class IntegrityVerifier:
             from llm_cli.security.identity import IdentityManager
             from llm_cli.security.pqc import PQCProvider
 
-            self.MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+            self.MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
             # Create a canonical representation of the manifest for signing
             manifest_data = json.dumps(manifest, sort_keys=True, separators=(",", ":"))

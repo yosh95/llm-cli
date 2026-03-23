@@ -61,6 +61,24 @@ class IdentityManager:
             return cls._PQC_PRIVATE_KEY_PATH, cls._PQC_PUBLIC_KEY_PATH
 
     @classmethod
+    def _check_private_file_permissions(cls, path: Path) -> None:
+        """Check if private file permissions are restricted to owner only (0600)."""
+        if not path.exists():
+            return
+
+        stat = path.stat()
+        mode = stat.st_mode
+        # Check if any permissions for group (0o070) or others (0o007) are set
+        if mode & 0o077:
+            error_msg = (
+                f"Permissions for '{path}' are too open. "
+                "Private keys MUST NOT be accessible by others. "
+                f"Please run: chmod 600 {path}"
+            )
+            logger.critical(error_msg)
+            raise PermissionError(error_msg)
+
+    @classmethod
     def _ensure_keys(cls, force: bool = False) -> None:
         """Ensure RSA, ML-DSA (all levels), and ML-KEM keys exist."""
         # Auto-generation is always enabled for better UX.
@@ -71,7 +89,11 @@ class IdentityManager:
             logger.info("Force regeneration requested (not implemented).")
 
         if not cls._KEY_DIR.exists():
-            cls._KEY_DIR.mkdir(parents=True, exist_ok=True)
+            cls._KEY_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+        else:
+            # Fix existing directory permissions
+            if (cls._KEY_DIR.stat().st_mode & 0o777) != 0o700:
+                cls._KEY_DIR.chmod(0o700)
 
         # Classical RSA Keys
         if not cls._PRIVATE_KEY_PATH.exists():
@@ -79,8 +101,10 @@ class IdentityManager:
             private_key = rsa.generate_private_key(
                 public_exponent=65537, key_size=2048, backend=default_backend()
             )
-            # Save Private Key
-            with cls._PRIVATE_KEY_PATH.open("wb") as f:
+            # Save Private Key (mode 0o600)
+            with os.fdopen(
+                os.open(cls._PRIVATE_KEY_PATH, os.O_WRONLY | os.O_CREAT, 0o600), "wb"
+            ) as f:
                 f.write(
                     private_key.private_bytes(
                         encoding=serialization.Encoding.PEM,
@@ -89,10 +113,11 @@ class IdentityManager:
                     )
                 )
             # Save Public Key
-            public_key = private_key.public_key()
-            with cls._PUBLIC_KEY_PATH.open("wb") as f:
+            with os.fdopen(
+                os.open(cls._PUBLIC_KEY_PATH, os.O_WRONLY | os.O_CREAT, 0o600), "wb"
+            ) as f:
                 f.write(
-                    public_key.public_bytes(
+                    private_key.public_key().public_bytes(
                         encoding=serialization.Encoding.PEM,
                         format=serialization.PublicFormat.SubjectPublicKeyInfo,
                     )
@@ -104,9 +129,13 @@ class IdentityManager:
             if not priv_p.exists():
                 logger.info(f"Generating new Post-Quantum ({v}) key pair...")
                 pub_pqc, priv_pqc = PQCProvider.generate_keypair(variant=v)
-                with priv_p.open("wb") as f:
+                with os.fdopen(
+                    os.open(priv_p, os.O_WRONLY | os.O_CREAT, 0o600), "wb"
+                ) as f:
                     f.write(priv_pqc)
-                with pub_p.open("wb") as f:
+                with os.fdopen(
+                    os.open(pub_p, os.O_WRONLY | os.O_CREAT, 0o600), "wb"
+                ) as f:
                     f.write(pub_pqc)
 
         # Post-Quantum KEM Keys (ML-KEM)
@@ -115,14 +144,21 @@ class IdentityManager:
             from llm_cli.security.pqc import KEMProvider
 
             pub_kem, priv_kem = KEMProvider.generate_keypair()
-            with cls._PQC_KEM_PRIVATE_KEY_PATH.open("wb") as f:
+            with os.fdopen(
+                os.open(cls._PQC_KEM_PRIVATE_KEY_PATH, os.O_WRONLY | os.O_CREAT, 0o600),
+                "wb",
+            ) as f:
                 f.write(priv_kem)
-            with cls._PQC_KEM_PUBLIC_KEY_PATH.open("wb") as f:
+            with os.fdopen(
+                os.open(cls._PQC_KEM_PUBLIC_KEY_PATH, os.O_WRONLY | os.O_CREAT, 0o600),
+                "wb",
+            ) as f:
                 f.write(pub_kem)
 
     @classmethod
     def _get_private_key_content(cls) -> bytes:
         cls._ensure_keys()
+        cls._check_private_file_permissions(cls._PRIVATE_KEY_PATH)
         with cls._PRIVATE_KEY_PATH.open("rb") as f:
             return f.read()
 
@@ -130,12 +166,14 @@ class IdentityManager:
     def _get_pqc_private_key_content(cls, variant: str = "ML-DSA-65") -> bytes:
         cls._ensure_keys()
         priv_p, _ = cls._get_pqc_paths(variant)
+        cls._check_private_file_permissions(priv_p)
         with priv_p.open("rb") as f:
             return f.read()
 
     @classmethod
     def _get_kem_private_key_content(cls) -> bytes:
         cls._ensure_keys()
+        cls._check_private_file_permissions(cls._PQC_KEM_PRIVATE_KEY_PATH)
         with cls._PQC_KEM_PRIVATE_KEY_PATH.open("rb") as f:
             return f.read()
 

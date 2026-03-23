@@ -23,7 +23,7 @@ def init_config() -> None:
         )
         return
 
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     with DEFAULTS_FILE.open("r", encoding="utf-8") as f:
         lines = f.readlines()

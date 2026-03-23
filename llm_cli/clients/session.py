@@ -48,7 +48,9 @@ class ChatSession:
 
         self.prompt_history: Any
         if self.history_path:
-            Path(self.history_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(self.history_path).parent.mkdir(
+                parents=True, exist_ok=True, mode=0o700
+            )
             self.prompt_history = FileHistory(self.history_path)
         else:
             self.prompt_history = InMemoryHistory()

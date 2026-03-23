@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,7 +105,9 @@ class BaseLlmClient(ABC):
     @property
     def slash_commands(self) -> set[str]:
         """Names and aliases of available slash commands."""
-        return set()
+        from llm_cli.clients.command_dispatcher import registry
+
+        return registry.all_names_and_aliases
 
     # --- Core Methods (Inlined from Managers) ---
 
@@ -142,18 +143,9 @@ class BaseLlmClient(ABC):
         self._refresh_system_prompt()
 
     def _refresh_system_prompt(self) -> None:
-        raw_prompt = config_manager.get(self.config_section, "system_prompt") or ""
-        disable_date_prompt = config_manager.get(
-            self.config_section, "disable_date_prompt"
+        self.system_prompt = (
+            config_manager.get(self.config_section, "system_prompt") or ""
         )
-
-        parts = []
-        if not disable_date_prompt:
-            now = datetime.datetime.now().astimezone().strftime("%Y-%m-%d (%A)")
-            parts.append(f"Current date: {now}")
-        if raw_prompt:
-            parts.append(raw_prompt)
-        self.system_prompt = "\n".join(parts)
 
     def _init_mcp(self, update_active_tools: bool) -> None:
         try:
@@ -225,12 +217,69 @@ class BaseLlmClient(ABC):
 
     # --- Utility methods ---
 
-    def _log_debug(self, **_kwargs: Any) -> None:
+    def _log_debug(self, response_obj: Any = None, request_payload: Any = None) -> None:
+        """
+        Logs detailed request and response data when live_debug is enabled.
+        Uses Rich for pretty-printing JSON payloads.
+        """
         if not self.live_debug:
             return
 
-        # Small logging logic could be here, but let's keep it simple
-        pass
+        import json
+
+        from rich.panel import Panel
+        from rich.syntax import Syntax
+
+        if request_payload:
+            payload_str = json.dumps(request_payload, indent=2, ensure_ascii=False)
+            console.print(
+                Panel(
+                    Syntax(
+                        payload_str, "json", theme="monokai", background_color="default"
+                    ),
+                    title="[bold magenta]DEBUG: Request Payload[/bold magenta]",
+                    border_style="magenta",
+                )
+            )
+
+        if response_obj is not None:
+            try:
+                # Handle requests.Response objects
+                if hasattr(response_obj, "json"):
+                    res_json = response_obj.json()
+                    res_str = json.dumps(res_json, indent=2, ensure_ascii=False)
+                    console.print(
+                        Panel(
+                            Syntax(
+                                res_str,
+                                "json",
+                                theme="monokai",
+                                background_color="default",
+                            ),
+                            title="[bold cyan]DEBUG: Response JSON[/bold cyan]",
+                            border_style="cyan",
+                        )
+                    )
+                else:
+                    # Fallback for other object types
+                    res_str = str(response_obj)
+                    console.print(
+                        Panel(
+                            res_str,
+                            title="[bold cyan]DEBUG: Response Data[/bold cyan]",
+                            border_style="cyan",
+                        )
+                    )
+            except Exception as e:
+                console.print(f"[dim red]Debug logging failed: {e}[/dim red]")
+                if hasattr(response_obj, "text"):
+                    console.print(
+                        Panel(
+                            response_obj.text,
+                            title="[bold cyan]DEBUG: Raw Response[/bold cyan]",
+                            border_style="cyan",
+                        )
+                    )
 
     def _set_initial_model(self, initial_model_alias: str) -> None:
         if not self.set_model(initial_model_alias):

@@ -8,7 +8,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from llm_cli.apps.configure import load_config
+from llm_cli.clients.config import config_manager
 from llm_cli.mcp_server_lib import FastMCP
 from llm_cli.modules.tool_registry import registry
 from llm_cli.security.audit import log_audit
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Load User Configuration for Security Policies
 try:
-    user_config = load_config()
+    user_config = config_manager.load_config()
     # Initialize Policy Engine with user config
     # Expects config structure: [security.roles] or similar
     # For now, we pass the whole security section if it exists

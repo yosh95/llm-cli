@@ -66,7 +66,7 @@ def run_client_cli(config: ClientConfig) -> None:
     parser = create_standard_parser(config)
     args = parser.parse_args()
 
-    from llm_cli.apps.configure import init_config
+    from llm_cli.apps.config_init import init_config
     from llm_cli.clients.config import config_manager
     from llm_cli.consts import CONFIG_FILE_PATH
     from llm_cli.security.integrity import verify_installation

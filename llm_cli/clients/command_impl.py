@@ -206,7 +206,7 @@ def handle_quit(_ctx: CommandContext) -> bool:
 
 
 def handle_tools(ctx: CommandContext) -> bool:
-
+    """Toggles tools on/off or lists currently active tools."""
     client, args = ctx.client, ctx.args
     if args in ("on", "off"):
         client.tools_enabled = args == "on"
@@ -218,6 +218,10 @@ def handle_tools(ctx: CommandContext) -> bool:
             "[green]ENABLED[/green]" if client.tools_enabled else "[red]DISABLED[/red]"
         )
         console.print(f"Tools Status: {status}")
+        if client.active_tools:
+            console.print("[bold]Active Tools:[/bold]")
+            for t in sorted(client.active_tools):
+                console.print(f" - [cyan]{t}[/cyan]")
     return True
 
 
@@ -229,14 +233,47 @@ def handle_debug(ctx: CommandContext) -> bool:
 
 
 def handle_info(ctx: CommandContext) -> bool:
+    """Displays detailed session and client information."""
     from rich.table import Table
 
     client = ctx.client
-    table = Table(show_header=False, box=None)
-    table.add_row("Provider", client.config_section)
-    table.add_row("Model", client.model)
-    table.add_row("History", f"{len(client.conversation)} messages")
-    console.print(Panel(table, title="Session Info", border_style="cyan"))
+
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_row("[bold cyan]Provider[/bold cyan]", client.config_section)
+    table.add_row("[bold cyan]Model[/bold cyan]", client.model)
+    table.add_row(
+        "[bold cyan]History[/bold cyan]", f"{len(client.conversation)} messages"
+    )
+
+    # Tool status
+    tools_status = (
+        "[green]Enabled[/green]"
+        if client.tools_enabled
+        else "[yellow]Disabled[/yellow]"
+    )
+    active_tools_count = len(client.active_tools)
+    table.add_row(
+        "[bold cyan]Tools[/bold cyan]", f"{tools_status} ({active_tools_count} active)"
+    )
+
+    # Tool list (compact)
+    if client.active_tools:
+        tools_list = ", ".join(sorted(client.active_tools))
+        if len(tools_list) > 60:
+            tools_list = tools_list[:57] + "..."
+        table.add_row("", f"[dim]{tools_list}[/dim]")
+
+    # System Prompt status
+    sp_status = (
+        "[green]On[/green]" if client.system_prompt_enabled else "[yellow]Off[/yellow]"
+    )
+    table.add_row("[bold cyan]System Prompt[/bold cyan]", sp_status)
+
+    # Debug mode
+    debug_status = "[magenta]On[/magenta]" if client.live_debug else "[dim]Off[/dim]"
+    table.add_row("[bold cyan]Debug Mode[/bold cyan]", debug_status)
+
+    console.print(Panel(table, title="[bold]Session Info[/bold]", border_style="cyan"))
     return True
 
 

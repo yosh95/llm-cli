@@ -115,14 +115,12 @@ class GeminiClient(BaseLlmClient):
             model_msg = self._parse_generate_content_response(res_json)
             self._update_local_state(data, model_msg, res_json)
 
-            display_text = ""
+            display_text = model_msg.get_text()
             thought_text = ""
             last_saved_image_path = None
 
             for part in model_msg.parts:
                 if isinstance(part, ContentPart):
-                    if part.text:
-                        display_text += part.text
                     if part.thought:
                         thought_text += part.thought
 
@@ -304,6 +302,8 @@ class GeminiClient(BaseLlmClient):
             )
             if spec:
                 payload["tools"] = spec
+                # Support context circulation for built-in and custom tool combinations
+                payload["tool_config"] = {"include_server_side_tool_invocations": True}
 
         return payload
 
@@ -369,8 +369,10 @@ class GeminiClient(BaseLlmClient):
                 role=Role.MODEL, parts=[ContentPart(text="[No output from model]")]
             )
 
-        content = candidates[0].get("content", {})
+        candidate = candidates[0]
+        content = candidate.get("content", {})
         raw_parts = content.get("parts", [])
+        grounding_metadata = candidate.get("groundingMetadata")
 
         model_parts: list[str | ContentPart] = []
         for part in raw_parts:
@@ -389,8 +391,12 @@ class GeminiClient(BaseLlmClient):
 
             # Plain text
             elif "text" in part:
+                text = part["text"]
+                # Apply grounding citations if available
+                if grounding_metadata:
+                    text = self._apply_grounding(text, grounding_metadata)
                 model_parts.append(
-                    ContentPart(text=part["text"], thought_signature=thought_sig)
+                    ContentPart(text=text, thought_signature=thought_sig)
                 )
 
             # Function / tool call
@@ -407,6 +413,29 @@ class GeminiClient(BaseLlmClient):
                     )
                 )
 
+            # Built-in Tool Call (e.g. Google Search)
+            elif "toolCall" in part:
+                tc = part["toolCall"]
+                model_parts.append(
+                    ContentPart(
+                        text=f"[Built-in Tool Call: {tc.get('toolType', 'unknown')}]",
+                        thought_signature=thought_sig,
+                        is_diagnostic=True,
+                    )
+                )
+
+            # Built-in Tool Response (e.g. Google Search results)
+            elif "toolResponse" in part:
+                tr = part["toolResponse"]
+                model_parts.append(
+                    ContentPart(
+                        text=f"[Built-in Tool Response: "
+                        f"{tr.get('toolType', 'unknown')}]",
+                        thought_signature=thought_sig,
+                        is_diagnostic=True,
+                    )
+                )
+
             # Inline media (e.g. generated images)
             elif "inlineData" in part:
                 inline = part["inlineData"]
@@ -420,7 +449,64 @@ class GeminiClient(BaseLlmClient):
                     )
                 )
 
+        # Append source links as a legend at the end of the text parts
+        if grounding_metadata and grounding_metadata.get("groundingChunks"):
+            chunks = grounding_metadata.get("groundingChunks", [])
+            sources_text = "\n\n---\n\n**Sources:**\n"
+            from urllib.parse import urlparse
+
+            for i, chunk in enumerate(chunks):
+                web = chunk.get("web", {})
+                uri = web.get("uri")
+                if uri:
+                    title = web.get("title", "")
+                    # If title is empty, or just a generic placeholder, use domain
+                    if not title or title.startswith("Source ") or title.isdigit():
+                        domain = urlparse(uri).netloc
+                        if domain:
+                            title = domain.replace("www.", "")
+                    if not title:
+                        title = f"Source {i + 1}"
+                    sources_text += f"{i + 1}. [{title}]({uri})\n"
+
+            # Find the last text part and append the legend
+            for p in reversed(model_parts):
+                if isinstance(p, ContentPart) and p.text:
+                    p.text += sources_text
+                    break
+
         return Message(role=Role.MODEL, parts=model_parts)
+
+    def _apply_grounding(self, text: str, metadata: dict[str, Any]) -> str:
+        """Applies inline citations from groundingMetadata to the response text."""
+        chunks = metadata.get("groundingChunks", [])
+        supports = metadata.get("groundingSupports", [])
+        if not chunks or not supports:
+            return text
+
+        # Dictionary to store unique indices for each insertion point
+        insertions: dict[int, set[int]] = {}
+
+        for s in supports:
+            end_idx = s.get("segment", {}).get("endIndex")
+            indices = s.get("groundingChunkIndices", [])
+            if end_idx is not None and indices:
+                if end_idx not in insertions:
+                    insertions[end_idx] = set()
+                for i in indices:
+                    if 0 <= i < len(chunks):
+                        insertions[end_idx].add(i + 1)
+
+        # Sort insertion points in descending order
+        sorted_indices = sorted(insertions.keys(), reverse=True)
+
+        for end_idx in sorted_indices:
+            unique_ids = sorted(insertions[end_idx])
+            if unique_ids:
+                # Format: [1, 2, 3]
+                cit_str = " [" + ", ".join(map(str, unique_ids)) + "]"
+                text = text[:end_idx] + cit_str + text[end_idx:]
+        return text
 
     def _upload_file(
         self, path: Path, mime_type: str | None = None

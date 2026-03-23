@@ -22,7 +22,6 @@ max_audit_archives = 10
 #   - Google/Gemini: GEMINI_API_KEY (or GOOGLE_API_KEY)
 #   - xAI/Grok:     XAI_API_KEY
 #   - Ollama:       OLLAMA_API_KEY (required even for local usage)
-#   - Brave Search: BRAVE_SEARCH_API_KEY (for web search tool)
 
 # Path-based access control (Resource Attributes)
 allowed_paths = ["."]
@@ -43,7 +42,6 @@ medium_risk_tools = [
     "read_file_content",
     "list_files_in_directory",
     "search_files",
-    "search_web",
     "read_url_content"
 ]
 
@@ -94,12 +92,6 @@ default = "grok-4.20-0309-reasoning"
 non-reasoning = "grok-4.20-0309-non-reasoning"
 reasoning = "grok-4.20-0309-reasoning"
 image = "grok-imagine-image-pro"
-
-# =============================================================================
-# Brave Search
-# =============================================================================
-[brave]
-# API key is set via BRAVE_SEARCH_API_KEY environment variable.
 
 # =============================================================================
 # Ollama (Local LLMs)

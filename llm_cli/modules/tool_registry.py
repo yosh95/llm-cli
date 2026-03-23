@@ -231,7 +231,12 @@ class ToolRegistry:
     def get_gemini_spec(
         self, names: list[str], provider: str = "google"
     ) -> list[dict[str, Any]]:
-        tools = [
+        spec: list[dict[str, Any]] = []
+        # 1. Native Google Search tool
+        spec.append({"google_search": {}})
+
+        # 2. Local function declarations
+        functions = [
             {
                 "name": t["name"],
                 "description": t["description"],
@@ -239,47 +244,84 @@ class ToolRegistry:
             }
             for t in self._get_active(names, provider=provider)
         ]
-        return [{"function_declarations": tools}] if tools else []
+        if functions:
+            spec.append({"function_declarations": functions})
+        return spec
 
     def get_gemini_interactions_spec(
         self, names: list[str], provider: str = "google"
     ) -> list[dict[str, Any]]:
-        return [
-            {
-                "type": "function",
-                "name": t["name"],
-                "description": t["description"],
-                "parameters": t["parameters"],
-            }
-            for t in self._get_active(names, provider=provider)
-        ]
+        spec: list[dict[str, Any]] = []
+        spec.append({"type": "google_search"})
+        for t in self._get_active(names, provider=provider):
+            spec.append(
+                {
+                    "type": "function",
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t["parameters"],
+                }
+            )
+        return spec
 
     def get_openai_spec(
         self, names: list[str], provider: str = "openai"
     ) -> list[dict[str, Any]]:
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": t["name"],
-                    "description": t["description"],
-                    "parameters": t["parameters"],
-                },
-            }
-            for t in self._get_active(names, provider=provider)
-        ]
+        is_responses_api = provider in ("openai", "xai")
+        spec = []
+
+        for t in self._get_active(names, provider=provider):
+            if is_responses_api:
+                # Responses API (/v1/responses) used by OpenAI and xAI
+                # uses a flat structure for function tools.
+                spec.append(
+                    {
+                        "type": "function",
+                        "name": t["name"],
+                        "description": t["description"],
+                        "parameters": t["parameters"],
+                    }
+                )
+            else:
+                # Standard Chat Completions API (e.g. Ollama)
+                spec.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t["name"],
+                            "description": t["description"],
+                            "parameters": t["parameters"],
+                        },
+                    }
+                )
+
+        # Both OpenAI and xAI use Responses API with native web_search support
+        if is_responses_api:
+            # Note: OpenAI's Responses API fails if 'name' is provided for web_search.
+            spec.append({"type": "web_search"})
+        return spec
 
     def get_anthropic_spec(
         self, names: list[str], provider: str = "anthropic"
     ) -> list[dict[str, Any]]:
-        return [
+        spec: list[dict[str, Any]] = []
+        # Native Anthropic Web Search tool (using latest 20260209 version)
+        spec.append(
             {
-                "name": t["name"],
-                "description": t["description"],
-                "input_schema": t["parameters"],
+                "type": "web_search_20260209",
+                "name": "web_search",
             }
-            for t in self._get_active(names, provider=provider)
-        ]
+        )
+        # Local tools
+        for t in self._get_active(names, provider=provider):
+            spec.append(
+                {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "input_schema": t["parameters"],
+                }
+            )
+        return spec
 
 
 registry = ToolRegistry()

@@ -90,10 +90,19 @@ class ClaudeClient(BaseLlmClient, ClaudeMessagesMixin):
             model_parts: list[str | ContentPart] = []
             full_text = ""
             thought_text = ""
+            sources = []
 
             for block in res.get("content", []):
                 if block["type"] == "text":
                     text_content = block["text"]
+                    # Handle citations if present
+                    if "citations" in block:
+                        for cit in block["citations"]:
+                            cit_type = cit.get("type")
+                            if cit_type == "web_search_result_location":
+                                title = cit.get("title", "source")
+                                url = cit.get("url", "")
+                                sources.append({"title": title, "url": url})
                     full_text += text_content
                     model_parts.append(ContentPart(text=text_content))
                 elif block["type"] == "thinking":
@@ -113,11 +122,66 @@ class ClaudeClient(BaseLlmClient, ClaudeMessagesMixin):
                             }
                         )
                     )
+                elif block["type"] == "server_tool_use":
+                    model_parts.append(
+                        ContentPart(
+                            text=f"[Server Tool Use: {block.get('name')} "
+                            f"(ID: {block.get('id')})]",
+                            is_diagnostic=True,
+                        )
+                    )
+                elif block["type"] == "web_search_tool_result":
+                    content = block.get("content", [])
+                    for item in content:
+                        if item.get("type") == "web_search_result":
+                            sources.append(
+                                {
+                                    "title": item.get("title", "source"),
+                                    "url": item.get("url", ""),
+                                }
+                            )
+                    model_parts.append(
+                        ContentPart(
+                            text=f"[Web Search Tool Result: {len(content)} results]",
+                            is_diagnostic=True,
+                        )
+                    )
+
+            # Add sources legend if any were collected
+            if sources:
+                unique_sources = {}
+                from urllib.parse import urlparse
+
+                for s in sources:
+                    u = s["url"]
+                    if not u:
+                        continue
+                    if u not in unique_sources:
+                        title = s["title"]
+                        # If title is just a digit string, try to get domain
+                        if title.isdigit() or title == "source":
+                            domain = urlparse(u).netloc
+                            if domain:
+                                title = domain.replace("www.", "")
+                        unique_sources[u] = title
+
+                if unique_sources:
+                    legend = "\n\n---\n\n**Sources:**\n"
+                    for i, (url, title) in enumerate(unique_sources.items(), 1):
+                        legend += f"{i}. [{title}]({url})\n"
+                    full_text += legend
+                    # Also append to the last text part for history persistence
+                    for p in reversed(model_parts):
+                        if isinstance(p, ContentPart) and p.text:
+                            p.text += legend
+                            break
 
             model_msg = Message(role=Role.MODEL, parts=model_parts)
             self._update_history(data, model_msg)
 
-            return (full_text.strip(), thought_text.strip()), res.get("usage")
+            return (model_msg.get_text().strip(), thought_text.strip()), res.get(
+                "usage"
+            )
 
         except Exception as e:
             self._report_error("Claude", e)

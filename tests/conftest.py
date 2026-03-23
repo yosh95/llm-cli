@@ -8,7 +8,6 @@ from unittest.mock import Mock
 
 import pytest
 
-import llm_cli.apps.configure
 import llm_cli.clients.config
 from llm_cli import consts
 from llm_cli.clients.config import config_manager
@@ -24,10 +23,6 @@ consts.KEY_DIR = consts.LLM_CLI_BASE_DIR / "keys"
 consts.CONFIG_FILE_PATH = consts.CONFIG_DIR / "config.toml"
 consts.AUDIT_LOG_PATH = consts.LOG_DIR / "audit.jsonl"
 llm_cli.clients.config.CONFIG_FILE_PATH = consts.CONFIG_FILE_PATH
-
-# Also patch apps.configure which imports it as CONFIG_FILE
-llm_cli.apps.configure.CONFIG_FILE = consts.CONFIG_FILE_PATH
-llm_cli.apps.configure.CONFIG_DIR = consts.CONFIG_DIR
 
 # Inject dummy configuration to allow module-level checks in tools/web.py to pass
 # during test collection.

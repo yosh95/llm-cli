@@ -26,6 +26,8 @@ class ContentPart:
     function_response: dict[str, Any] | None = None
     thought: str | None = None
     thought_signature: str | None = None
+    # If true, this text is for diagnostic/internal use and should be hidden from UI
+    is_diagnostic: bool = False
 
 
 @dataclass
@@ -35,14 +37,15 @@ class Message:
     role: Role
     parts: list[str | ContentPart]
 
-    def get_text(self) -> str:
+    def get_text(self, include_diagnostic: bool = False) -> str:
         """Helper to extract all text content from parts."""
         text_parts = []
         for p in self.parts:
             if isinstance(p, str):
                 text_parts.append(p)
             elif isinstance(p, ContentPart) and p.text:
-                text_parts.append(p.text)
+                if not p.is_diagnostic or include_diagnostic:
+                    text_parts.append(p.text)
         return "".join(text_parts)
 
 

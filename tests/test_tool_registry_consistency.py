@@ -31,30 +31,50 @@ def test_provider_specs_generation():
     # We'll use a few existing tools or create test ones
     test_names = ["search_files", "read_file_content"]
 
-    # 1. OpenAI Spec
-    openai_spec = registry.get_openai_spec(test_names)
+    # 1. OpenAI Spec (Responses API format)
+    openai_spec = registry.get_openai_spec(test_names, provider="openai")
+    # Native web_search is added for openai/xai
+    found_web_search = False
     for spec in openai_spec:
+        assert "type" in spec
+        if spec["type"] == "web_search":
+            found_web_search = True
+            continue
+
         assert spec["type"] == "function"
-        assert "function" in spec
-        assert spec["function"]["name"] in test_names
-        assert "parameters" in spec["function"]
-        assert "explanation" in spec["function"]["parameters"]["properties"]
+        assert spec["name"] in test_names
+        assert "parameters" in spec
+        assert "explanation" in spec["parameters"]["properties"]
+    assert found_web_search
 
     # 2. Anthropic Spec
     anthropic_spec = registry.get_anthropic_spec(test_names)
+    # Native web_search_20260209 is added
+    found_web_search = False
     for spec in anthropic_spec:
+        if spec.get("type") == "web_search_20260209":
+            found_web_search = True
+            continue
+
         assert spec["name"] in test_names
         assert "input_schema" in spec
         assert "explanation" in spec["input_schema"]["properties"]
+    assert found_web_search
 
     # 3. Gemini Spec
     gemini_spec = registry.get_gemini_spec(test_names)
     # Gemini spec format is a bit unique: list of dicts with function_declarations
     found_tools = []
+    found_web_search = False
     for s in gemini_spec:
-        for decl in s["function_declarations"]:
-            found_tools.append(decl["name"])
-            assert "explanation" in decl["parameters"]["properties"]
+        if "google_search" in s:
+            found_web_search = True
+            continue
+        if "function_declarations" in s:
+            for decl in s["function_declarations"]:
+                found_tools.append(decl["name"])
+                assert "explanation" in decl["parameters"]["properties"]
+    assert found_web_search
 
     for name in test_names:
         assert name in found_tools

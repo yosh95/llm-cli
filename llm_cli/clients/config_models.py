@@ -25,7 +25,6 @@ class ProviderConfig:
     api_key: str | None = None
     api_url: str | None = None
     system_prompt: str | None = None
-    disable_date_prompt: bool = False
     max_tokens: int | None = None
     models: dict[str, Any] = field(default_factory=dict)
     extra: dict[str, Any] = field(default_factory=dict)

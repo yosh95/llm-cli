@@ -122,7 +122,6 @@ class ConfigManager:
                 "anthropic": ["ANTHROPIC_API_KEY"],
                 "xai": ["XAI_API_KEY"],
                 "ollama": ["OLLAMA_API_KEY"],
-                "brave": ["BRAVE_SEARCH_API_KEY"],
             }
             env_vars = env_map.get(section, [])
             for env_var in env_vars:

@@ -1,11 +1,8 @@
 # tests/test_web_tools.py
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-from llm_cli.modules.tools.web import (
-    read_url_content,
-    search_web,
-)
+from llm_cli.modules.tools.web import read_url_content
 
 
 def _get_result_text(result: str | dict) -> str:
@@ -56,62 +53,3 @@ def test_read_url_content_error(mock_curl_requests):
         result = _get_result_text(read_url_content("https://example.com"))
 
     assert "Error: Failed to fetch content" in result
-
-
-def test_search_web_success(mock_config):
-    """Test search_web success scenario with Brave Search."""
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "web": {
-            "results": [
-                {
-                    "title": "Result 1",
-                    "url": "https://r1.com",
-                    "description": "Snippet 1",
-                },
-                {
-                    "title": "Result 2",
-                    "url": "https://r2.com",
-                    "description": "Snippet 2",
-                },
-            ]
-        }
-    }
-
-    with patch("requests.get", return_value=mock_response) as mock_get:
-        result = _get_result_text(search_web(query="test query"))
-
-        # Check API call
-        args, kwargs = mock_get.call_args
-        assert kwargs["params"]["q"] == "test query"
-        assert "X-Subscription-Token" in kwargs["headers"]
-
-        # Check result formatting
-        assert "### Search Results for: test query" in result
-        assert "Result 1" in result
-        assert "https://r1.com" in result
-        assert "Snippet 1" in result
-
-
-def test_search_web_no_results(mock_config):
-    """Test search_web when no items are returned."""
-    mock_response = MagicMock()
-    mock_response.json.return_value = {"web": {"results": []}}
-
-    with patch("requests.get", return_value=mock_response):
-        result = _get_result_text(search_web(query="empty"))
-        assert "No results found." in result
-
-
-def test_search_web_auth_error(monkeypatch):
-    """Test search_web when credentials are missing."""
-    # Ensure Brave API key environment variable is not set
-    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
-
-    # We mock requests to ensure no network call happens
-    with patch("requests.get") as mock_get:
-        # The tool now returns a signed error message instead of raising an exception directly
-        result = _get_result_text(search_web(query="test"))
-        mock_get.assert_not_called()
-
-    assert "Error: Brave Search API key required" in result

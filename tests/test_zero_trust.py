@@ -29,6 +29,7 @@ def identity_manager(tmp_path):
             "llm_cli.security.identity.IdentityManager._PUBLIC_KEY_PATH",
             keys_dir / "id_rsa.pub",
         ),
+        # Default (L3)
         patch(
             "llm_cli.security.identity.IdentityManager._PQC_PRIVATE_KEY_PATH",
             keys_dir / "id_pqc_l3.key",
@@ -36,6 +37,33 @@ def identity_manager(tmp_path):
         patch(
             "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_PATH",
             keys_dir / "id_pqc_l3.pub",
+        ),
+        # L2 (ML-DSA-44)
+        patch(
+            "llm_cli.security.identity.IdentityManager._PQC_PRIVATE_KEY_L2_PATH",
+            keys_dir / "id_pqc_l2.key",
+        ),
+        patch(
+            "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_L2_PATH",
+            keys_dir / "id_pqc_l2.pub",
+        ),
+        # L5 (ML-DSA-87)
+        patch(
+            "llm_cli.security.identity.IdentityManager._PQC_PRIVATE_KEY_L5_PATH",
+            keys_dir / "id_pqc_l5.key",
+        ),
+        patch(
+            "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_L5_PATH",
+            keys_dir / "id_pqc_l5.pub",
+        ),
+        # KEM (ML-KEM-768)
+        patch(
+            "llm_cli.security.identity.IdentityManager._PQC_KEM_PRIVATE_KEY_PATH",
+            keys_dir / "id_kem.key",
+        ),
+        patch(
+            "llm_cli.security.identity.IdentityManager._PQC_KEM_PUBLIC_KEY_PATH",
+            keys_dir / "id_kem.pub",
         ),
     ):
         yield IdentityManager

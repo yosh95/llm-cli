@@ -93,47 +93,50 @@ class IntegrityVerifier:
                 current_manifest[rel_path] = self._calculate_hash(full_path)
         return current_manifest
 
-    def verify_audit_log(self) -> bool:
-        """Verify the chained hashes in the audit log to detect modifications."""
+    def verify_audit_log(self, path: Path | None = None) -> bool:
+        """
+        Verify the chained hashes in the audit log to detect modifications.
+        This handles __audit_snapshot__ events by anchoring them to their
+        respective archives.
+        """
         from llm_cli.consts import AUDIT_LOG_PATH
 
-        audit_log_path = AUDIT_LOG_PATH
-        if not audit_log_path.exists():
+        log_path = path or AUDIT_LOG_PATH
+        if not log_path.exists():
             return True
 
-        logger.info("Verifying audit log integrity...")
+        logger.info(f"Verifying audit log integrity: {log_path.name}")
         try:
             from llm_cli.security.identity import IdentityManager
             from llm_cli.security.pqc import PQCProvider
 
-            with audit_log_path.open("r", encoding="utf-8") as f:
+            with log_path.open("r", encoding="utf-8") as f:
                 last_hash = "0" * 64
                 for i, line in enumerate(f):
-                    entry = json.loads(line)
-                    provided_hash = entry.pop("hash", None)
-                    pqc_sig_b64 = entry.pop("pqc_signature", None)
-                    variant = entry.pop("pqc_algorithm", "ML-DSA-65")
-
-                    # Check chain
-                    is_snapshot = entry.get("event_type") == "__audit_snapshot__"
-                    if not is_snapshot and entry.get("prev_hash") != last_hash:
-                        logger.error(f"Audit log chain broken at line {i + 1}")
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        logger.error(f"Malformed JSON at {log_path.name}:{i + 1}")
                         return False
 
-                    # Verify current entry's hash
-                    entry_str = json.dumps(entry, sort_keys=True)
+                    provided_hash = entry.get("hash")
+                    pqc_sig_b64 = entry.get("pqc_signature")
+                    variant = entry.get("pqc_algorithm", "ML-DSA-65")
+
+                    # 1. Recalculate hash for the current entry (ignoring hash/sig fields)
+                    entry_copy = entry.copy()
+                    entry_copy.pop("hash", None)
+                    entry_copy.pop("pqc_signature", None)
+                    entry_copy.pop("pqc_algorithm", None)
+
+                    entry_str = json.dumps(entry_copy, sort_keys=True)
                     actual_hash = hashlib.sha256(entry_str.encode()).hexdigest()
 
                     if provided_hash != actual_hash:
-                        logger.error(f"Audit log mismatch detected at line {i + 1}")
+                        logger.error(f"Hash mismatch at {log_path.name}:{i + 1}")
                         return False
 
-                    if is_snapshot:
-                        last_hash = entry.get("args", {}).get("snapshot_prev_hash")
-                    else:
-                        last_hash = provided_hash
-
-                    # Verify PQC Signature
+                    # 2. Verify PQC Signature if present
                     if pqc_sig_b64:
                         import base64
 
@@ -144,13 +147,37 @@ class IntegrityVerifier:
                         if not PQCProvider.verify(
                             actual_hash.encode(), pqc_sig, pqc_pub, variant=variant
                         ):
-                            logger.error(
-                                f"Audit log signature mismatch at line {i + 1}"
-                            )
+                            logger.error(f"Signature mismatch at {log_path.name}:{i + 1}")
                             return False
+
+                    # 3. Check Hash Chain
+                    is_snapshot = entry.get("event_type") == "__audit_snapshot__"
+                    
+                    if is_snapshot:
+                        # Validate the anchor to the archive
+                        archive_path_str = entry.get("args", {}).get("archive")
+                        if archive_path_str:
+                            archive_path = Path(archive_path_str)
+                            # Verify the archive chain recursively
+                            if not self.verify_audit_log(archive_path):
+                                return False
+                            
+                            # Ensure this snapshot's prev_hash matches the archive's last hash
+                            from llm_cli.security.audit import _get_last_log_hash
+                            if entry.get("prev_hash") != _get_last_log_hash(archive_path):
+                                logger.error(f"Snapshot chain gap at {log_path.name}:{i + 1}")
+                                return False
+                        
+                        # Set the expected next prev_hash to what this snapshot anchors to
+                        last_hash = entry.get("args", {}).get("snapshot_prev_hash")
+                    else:
+                        if entry.get("prev_hash") != last_hash:
+                            logger.error(f"Chain broken at {log_path.name}:{i + 1}")
+                            return False
+                        last_hash = actual_hash
             return True
         except Exception as e:
-            logger.error(f"Failed to verify audit log: {e}")
+            logger.error(f"Failed to verify {log_path.name}: {e}")
             return False
 
     def verify(self) -> bool:

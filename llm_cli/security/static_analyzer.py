@@ -99,6 +99,21 @@ class PythonSecurityScanner(ast.NodeVisitor):
     def __init__(self) -> None:
         self.issues: list[str] = []
         self.found_modules: set[str] = set()
+        self.aliases: dict[str, str] = {}  # Track aliases of dangerous functions
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        """
+        Detect assignments like 'f = eval'.
+        """
+        if isinstance(node.value, ast.Name) and node.value.id in self.DANGEROUS_FUNCTIONS:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self.aliases[target.id] = node.value.id
+                    self.issues.append(
+                        f"Security Violation: Aliasing dangerous function "
+                        f"'{node.value.id}' to '{target.id}' is forbidden."
+                    )
+        self.generic_visit(node)
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
@@ -174,10 +189,11 @@ class PythonSecurityScanner(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        # Check for direct calls to dangerous functions
+        # Check for direct calls to dangerous functions or their aliases
         if isinstance(node.func, ast.Name):
             func_id = node.func.id
-            if func_id in self.DANGEROUS_FUNCTIONS:
+            actual_func = self.aliases.get(func_id, func_id)
+            if actual_func in self.DANGEROUS_FUNCTIONS:
                 self.issues.append(f"High-risk function call detected: {func_id}")
 
             # Check for sensitive path access in open()
@@ -191,13 +207,9 @@ class PythonSecurityScanner(ast.NodeVisitor):
                                 f"'{arg.value}' in open() is forbidden."
                             )
 
-        # Check for attribute calls like os.system()
+        # Check for attribute calls like os.system() or getattr(os, "system")
         elif isinstance(node.func, ast.Attribute):
             attr_name = node.func.attr
-            if attr_name in self.DANGEROUS_ATTRIBUTES:
-                # Already handled by visit_Attribute, but call context is extra risk
-                pass
-
             if isinstance(node.func.value, ast.Name):
                 module_id = node.func.value.id
                 if module_id in self.DANGEROUS_MODULES:
@@ -210,6 +222,22 @@ class PythonSecurityScanner(ast.NodeVisitor):
                     if attr_name in self.RESTRICTED_MODULES[module_id]:
                         self.issues.append(
                             f"Security Violation: {module_id}.{attr_name} is forbidden."
+                        )
+
+        # Special handling for getattr/setattr to prevent dynamic bypass
+        if isinstance(node.func, ast.Name) and node.func.id in ("getattr", "setattr"):
+            if len(node.args) >= 2:
+                attr_arg = node.args[1]
+                # If the attribute name is not a literal string, it's a bypass risk
+                if not isinstance(attr_arg, ast.Constant):
+                    self.issues.append(
+                        f"Security Violation: Dynamic attribute access in {node.func.id}() is forbidden."
+                    )
+                else:
+                    attr_val = attr_arg.value
+                    if attr_val in self.DANGEROUS_FUNCTIONS or attr_val in self.DANGEROUS_ATTRIBUTES:
+                        self.issues.append(
+                            f"Security Violation: Accessing '{attr_val}' via {node.func.id}() is forbidden."
                         )
 
         # Context-aware check for subprocess

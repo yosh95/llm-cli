@@ -96,16 +96,31 @@ def search_web(query: str) -> str:
         "For PDFs, text content will be extracted. "
         f"IMPORTANT: This tool can read up to {MAX_OUTPUT_LINES} lines or "
         f"{MAX_OUTPUT_CHARS} characters at once. "
-        "If the content is longer, the tail will be omitted."
+        "If the content is longer, the tail will be omitted. "
+        "Use 'start_line' and 'end_line' to read specific chunks of large pages."
     ),
     params={
         "type": "object",
-        "properties": {"url": {"type": "string", "description": "Target URL."}},
+        "properties": {
+            "url": {"type": "string", "description": "Target URL."},
+            "start_line": {
+                "type": "integer",
+                "description": "First line to read (1-indexed).",
+                "default": 1,
+            },
+            "end_line": {
+                "type": "integer",
+                "description": (
+                    f"Last line to read (Max {MAX_OUTPUT_LINES} lines "
+                    "from start_line recommended)."
+                ),
+            },
+        },
         "required": ["url"],
     },
 )
 @web_tool_handler
-def read_url_content(url: str) -> str:
+def read_url_content(url: str, start_line: int = 1, end_line: int | None = None) -> str:
     from llm_cli.modules.media_utils import fetch_url_content
 
     content, ctype = fetch_url_content(url, pdf_as_base64=False)
@@ -120,4 +135,9 @@ def read_url_content(url: str) -> str:
             "application/pdf."
         )
 
-    return content
+    lines = content.splitlines()
+    start = max(1, start_line) - 1
+    end = min(len(lines), end_line) if end_line else len(lines)
+    selected_lines = lines[start:end]
+
+    return "\n".join(selected_lines)

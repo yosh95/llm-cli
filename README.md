@@ -98,6 +98,7 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 `llm-cli` implements **Attribute-Based Access Control (ABAC)**, providing granular security based on execution context and resource attributes.
 - **Risk-based Scaling**: Security requirements automatically scale based on the tool's risk level (HIGH/MEDIUM/LOW).
 - **Identity Proof**: High-risk actions (e.g., Python execution) require a valid **PQC-signed identity**.
+- **Compatibility Mode**: Use `LLM_CLI_SECURITY_LEVEL=standard` to enable interoperability with non-llm-cli clients or legacy MCP servers, downgrading PQC enforcement to warnings.
 - **Path Guardrails**: Tools are restricted by path attributes (defaulting to the current directory).
 - **Explanation Enforcement**: Every tool mandates an `explanation` parameter, forcing the LLM to justify its intent.
 
@@ -225,6 +226,7 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 `llm-cli` は、実行コンテキストとリソース属性に基づいた **属性ベースアクセス制御 (ABAC)** を採用し、高度に粒度の細かいセキュリティを実現しています。
 - **リスクベース・スケーリング**: ツールのリスクレベル（HIGH/MEDIUM/LOW）に応じて、要求されるセキュリティ強度が自動的に変化します。
 - **アイデンティティ証明**: 高リスクな操作（Python実行など）には、**耐量子暗号 (PQC)** による署名付き証明が必要です。
+- **互換モード**: `LLM_CLI_SECURITY_LEVEL=standard` を設定することで、PQC非対応のクライアントやサーバーとの相互運用を許可（警告表示のみ）します。
 - **パス・ガードレール**: 操作可能な範囲を属性（ディレクトリ・パスなど）で制限します。
 
 ### 2. アイデンティティと非否認性 (実験的参照実装)

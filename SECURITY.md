@@ -177,6 +177,17 @@ medium_risk_tools = ["read_file_content", "list_files_in_directory", "search_fil
 
 Implementation: `llm_cli/security/policy.py`.
 
+### Compatibility & Interoperability (Security Levels)
+
+To allow interoperability with standard MCP clients (e.g., Cursor, Claude Desktop) or third-party MCP servers that do not support PQC protocols, `llm-cli` provides a configurable security level:
+
+| Level | Enforcement | Use Case |
+|---|---|---|
+| **high** (Default) | Strict PQC checks. High-risk actions without signatures are blocked. | Enterprise / High-Assurance environments. |
+| **standard** | Permissive checks. Warnings are logged but actions are permitted. | General use / Interoperability with third-party tools. |
+
+When `security_level` is set to `standard` (via `config.toml` or `LLM_CLI_SECURITY_LEVEL` env var), the system downgrades PQC enforcement from a "hard block" to a "logged warning," ensuring the agent can still function in mixed-trust environments while maintaining an audit trail of the unverified actions.
+
 ### Bi-directional Verification (ResponseSigner)
 
 High-risk write tools embed an ML-DSA signature in their return value,

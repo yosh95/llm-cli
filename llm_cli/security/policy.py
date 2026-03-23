@@ -102,16 +102,30 @@ class PolicyEngine:
         has_pqc = context.get("has_pqc_proof", False)
         risk_level = self.cass.evaluate_risk(tool_name)
 
+        # 0. Security Level Check (Compatibility Mode)
+        security_level = os.getenv("LLM_CLI_SECURITY_LEVEL") or self.config.get(
+            "security_level", "high"
+        )
+
         logger.info(
             f"🛡️  ABAC Evaluation: Tool='{tool_name}', Risk='{risk_level.value}', "
-            f"User='{user_id}', PQC_Proof={has_pqc}"
+            f"User='{user_id}', PQC_Proof={has_pqc}, Level='{security_level}'"
         )
 
         # 1. Identity Requirement (High Risk requires PQC)
         if risk_level == RiskLevel.HIGH and not has_pqc:
-            msg = f"⛔ Access Denied: High-risk tool '{tool_name}' requires PQC proof."
-            logger.warning(msg)
-            return False
+            if security_level == "high":
+                msg = (
+                    f"⛔ Access Denied: High-risk tool '{tool_name}' "
+                    "requires PQC proof."
+                )
+                logger.warning(msg)
+                return False
+            else:
+                logger.info(
+                    f"⚠️  Standard Mode: Permitting high-risk tool '{tool_name}' "
+                    "without PQC proof."
+                )
 
         # 2. Scope Verification (Path restrictions, etc.)
         # We use a global scope defined in the config

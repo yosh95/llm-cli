@@ -156,6 +156,9 @@ AST Analysis & Basic & Restricted & Strict Whitelist \\
 \subsection{Hybrid Identity Tokens (COSE/RFC 9052)}
 To ensure verifiable workload identity without the overhead of JSON-based JWT, we implement a native \textbf{COSE\_Sign} structure (CBOR tag 98). Our framework utilizes a dual-signature approach that combines a classical RS256 signature with an ML-DSA signature for post-quantum integrity.
 
+\subsection{Security Levels and Ecosystem Interoperability}
+A fundamental challenge in high-assurance agentic systems is the "Isolation Paradox": a system that is perfectly secure often becomes unusable within existing heterogeneous ecosystems. To address this, we introduce a tiered security level model. By default, the system operates in \textit{High-Assurance} mode, strictly enforcing PQC-signed identity tokens and tool responses. To ensure interoperability with standard MCP clients (e.g., Cursor) or third-party MCP servers that do not yet support our PQC-hybrid protocol, a \textit{Standard Compatibility} mode is provided. In this mode, PQC enforcement is downgraded to logged warnings, allowing the agent to function in mixed-trust environments while maintaining an audit trail of unverified actions.
+
 \section{Evaluation}
 We evaluated the framework on an AMD Ryzen 5 8540U system (16GB RAM) and a legacy Intel i7-7700 system. The framework's reliability and security protocol compliance were verified through an extensive automated test suite consisting of 191 unit and integration tests, ensuring regression resistance across all three tiers.
 

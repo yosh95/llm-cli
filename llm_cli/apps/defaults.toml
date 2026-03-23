@@ -23,6 +23,11 @@ max_audit_archives = 10
 #   - xAI/Grok:     XAI_API_KEY
 #   - Ollama:       OLLAMA_API_KEY (required even for local usage)
 
+# Security Level (high | standard)
+# - high (default): Strict PQC enforcement for all high-risk tool calls.
+# - standard: Compatibility mode for non-llm-cli clients or legacy MCP servers.
+security_level = "high"
+
 # Path-based access control (Resource Attributes)
 allowed_paths = ["."]
 allowed_env_vars = []

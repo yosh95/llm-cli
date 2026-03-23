@@ -272,11 +272,23 @@ def _post_process_result(ctx: ToolExecutionContext) -> bool:
             else DataSource(**data_payload)
         )
 
+    security_level = config_manager.get("security", "security_level") or "high"
+
     try:
         ctx.result_data = _verify_pqc_signature(ctx.result_data, ctx.risk_level)
     except ValueError as e:
-        ctx.error_message = str(e)
-        return False
+        if security_level == "high":
+            ctx.error_message = str(e)
+            return False
+        else:
+            from llm_cli.ui import report_warning
+
+            report_warning(f"Insecure Tool Response: {e} (Standard Mode)")
+            # Fallback to the original result without validation
+            if isinstance(ctx.result_data, dict):
+                ctx.result_data = ctx.result_data.get(
+                    "result", ctx.result_data.get("response", ctx.result_data)
+                )
 
     res_str = _truncate_output(str(ctx.result_data))
     ctx.result_data = res_str

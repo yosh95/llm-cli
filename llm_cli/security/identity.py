@@ -43,6 +43,7 @@ class IdentityManager:
 
     # In-process cache: avoid re-running _ensure_keys() on every key access
     _keys_ensured: bool = False
+    _key_cache: dict[str, bytes] = {}
 
     @classmethod
     def use_tee(cls) -> None:
@@ -171,74 +172,93 @@ class IdentityManager:
     @classmethod
     def _get_private_key_content(cls) -> bytes:
         cls._ensure_keys()
-        cls._check_private_file_permissions(cls._PRIVATE_KEY_PATH)
-        with cls._PRIVATE_KEY_PATH.open("rb") as f:
-            return f.read()
+        if "rsa_priv" not in cls._key_cache:
+            cls._check_private_file_permissions(cls._PRIVATE_KEY_PATH)
+            with cls._PRIVATE_KEY_PATH.open("rb") as f:
+                cls._key_cache["rsa_priv"] = f.read()
+        return cls._key_cache["rsa_priv"]
 
     @classmethod
     def _get_pqc_private_key_content(cls, variant: str = "ML-DSA-65") -> bytes:
         cls._ensure_keys()
-        priv_p, _ = cls._get_pqc_paths(variant)
-        cls._check_private_file_permissions(priv_p)
-        with priv_p.open("rb") as f:
-            return f.read()
+        cache_key = f"pqc_priv_{variant}"
+        if cache_key not in cls._key_cache:
+            priv_p, _ = cls._get_pqc_paths(variant)
+            cls._check_private_file_permissions(priv_p)
+            with priv_p.open("rb") as f:
+                cls._key_cache[cache_key] = f.read()
+        return cls._key_cache[cache_key]
 
     @classmethod
     def _get_kem_private_key_content(cls) -> bytes:
         cls._ensure_keys()
-        cls._check_private_file_permissions(cls._PQC_KEM_PRIVATE_KEY_PATH)
-        with cls._PQC_KEM_PRIVATE_KEY_PATH.open("rb") as f:
-            return f.read()
+        if "kem_priv" not in cls._key_cache:
+            cls._check_private_file_permissions(cls._PQC_KEM_PRIVATE_KEY_PATH)
+            with cls._PQC_KEM_PRIVATE_KEY_PATH.open("rb") as f:
+                cls._key_cache["kem_priv"] = f.read()
+        return cls._key_cache["kem_priv"]
 
     @classmethod
     def _get_public_key_content(cls) -> bytes:
         cls._ensure_keys()
-        env_pub_key = os.getenv("LLM_CLI_PUBLIC_KEY")
-        if env_pub_key:
-            return env_pub_key.encode("utf-8")
-
-        if cls._PUBLIC_KEY_PATH.exists():
-            with cls._PUBLIC_KEY_PATH.open("rb") as f:
-                return f.read()
-
-        raise FileNotFoundError(f"Public key not found at {cls._PUBLIC_KEY_PATH}.")
+        if "rsa_pub" not in cls._key_cache:
+            env_pub_key = os.getenv("LLM_CLI_PUBLIC_KEY")
+            if env_pub_key:
+                cls._key_cache["rsa_pub"] = env_pub_key.encode("utf-8")
+            elif cls._PUBLIC_KEY_PATH.exists():
+                with cls._PUBLIC_KEY_PATH.open("rb") as f:
+                    cls._key_cache["rsa_pub"] = f.read()
+            else:
+                raise FileNotFoundError(
+                    f"Public key not found at {cls._PUBLIC_KEY_PATH}."
+                )
+        return cls._key_cache["rsa_pub"]
 
     @classmethod
     def _get_pqc_public_key_content(cls, variant: str = "ML-DSA-65") -> bytes:
         cls._ensure_keys()
-        # Allow environment override for specific variant if needed
-        # Format: LLM_CLI_PQC_PUBLIC_KEY_ML_DSA_87
-        env_key = f"LLM_CLI_PQC_PUBLIC_KEY_{variant.replace('-', '_')}"
-        env_pqc_pub = os.getenv(env_key) or os.getenv("LLM_CLI_PQC_PUBLIC_KEY")
-        if env_pqc_pub:
-            import base64
+        cache_key = f"pqc_pub_{variant}"
+        if cache_key not in cls._key_cache:
+            # Allow environment override for specific variant if needed
+            env_key = f"LLM_CLI_PQC_PUBLIC_KEY_{variant.replace('-', '_')}"
+            env_pqc_pub = os.getenv(env_key) or os.getenv("LLM_CLI_PQC_PUBLIC_KEY")
+            if env_pqc_pub:
+                import base64
 
-            try:
-                return base64.b64decode(env_pqc_pub)
-            except Exception:
-                pass
+                try:
+                    cls._key_cache[cache_key] = base64.b64decode(env_pqc_pub)
+                except Exception:
+                    pass
 
-        _, pub_p = cls._get_pqc_paths(variant)
-        if pub_p.exists():
-            with pub_p.open("rb") as f:
-                return f.read()
-
-        return b""  # Fallback
+            if cache_key not in cls._key_cache:
+                _, pub_p = cls._get_pqc_paths(variant)
+                if pub_p.exists():
+                    with pub_p.open("rb") as f:
+                        cls._key_cache[cache_key] = f.read()
+                else:
+                    cls._key_cache[cache_key] = b""
+        return cls._key_cache[cache_key]
 
     @classmethod
     def _get_kem_public_key_content(cls) -> bytes:
         cls._ensure_keys()
-        env_kem_pub = os.getenv("LLM_CLI_KEM_PUBLIC_KEY")
-        if env_kem_pub:
-            import base64
+        if "kem_pub" not in cls._key_cache:
+            env_kem_pub = os.getenv("LLM_CLI_KEM_PUBLIC_KEY")
+            if env_kem_pub:
+                import base64
 
-            return base64.b64decode(env_kem_pub)
+                try:
+                    cls._key_cache["kem_pub"] = base64.b64decode(env_kem_pub)
+                except Exception:
+                    pass
 
-        if cls._PQC_KEM_PUBLIC_KEY_PATH.exists():
-            with cls._PQC_KEM_PUBLIC_KEY_PATH.open("rb") as f:
-                return f.read()
-
-        return b""  # Fallback
+            if "kem_pub" not in cls._key_cache:
+                if cls._PQC_KEM_PUBLIC_KEY_PATH.exists():
+                    with cls._PQC_KEM_PUBLIC_KEY_PATH.open("rb") as f:
+                        cls._key_cache["kem_pub"] = f.read()
+                else:
+                    cls._key_cache["kem_pub"] = b""
+        return cls._key_cache["kem_pub"]
 
     @classmethod
     def get_local_identity(cls) -> str:

@@ -123,7 +123,8 @@ class IntegrityVerifier:
                     pqc_sig_b64 = entry.get("pqc_signature")
                     variant = entry.get("pqc_algorithm", "ML-DSA-65")
 
-                    # 1. Recalculate hash for the current entry (ignoring hash/sig fields)
+                    # 1. Recalculate hash for the current entry
+                    # (ignoring hash/sig fields)
                     entry_copy = entry.copy()
                     entry_copy.pop("hash", None)
                     entry_copy.pop("pqc_signature", None)
@@ -147,12 +148,14 @@ class IntegrityVerifier:
                         if not PQCProvider.verify(
                             actual_hash.encode(), pqc_sig, pqc_pub, variant=variant
                         ):
-                            logger.error(f"Signature mismatch at {log_path.name}:{i + 1}")
+                            logger.error(
+                                f"Signature mismatch at {log_path.name}:{i + 1}"
+                            )
                             return False
 
                     # 3. Check Hash Chain
                     is_snapshot = entry.get("event_type") == "__audit_snapshot__"
-                    
+
                     if is_snapshot:
                         # Validate the anchor to the archive
                         archive_path_str = entry.get("args", {}).get("archive")
@@ -161,14 +164,21 @@ class IntegrityVerifier:
                             # Verify the archive chain recursively
                             if not self.verify_audit_log(archive_path):
                                 return False
-                            
-                            # Ensure this snapshot's prev_hash matches the archive's last hash
+
+                            # Ensure this snapshot's prev_hash matches
+                            # the archive's last hash
                             from llm_cli.security.audit import _get_last_log_hash
-                            if entry.get("prev_hash") != _get_last_log_hash(archive_path):
-                                logger.error(f"Snapshot chain gap at {log_path.name}:{i + 1}")
+
+                            if entry.get("prev_hash") != _get_last_log_hash(
+                                archive_path
+                            ):
+                                logger.error(
+                                    f"Snapshot chain gap at {log_path.name}:{i + 1}"
+                                )
                                 return False
-                        
-                        # Set the expected next prev_hash to what this snapshot anchors to
+
+                        # Set the expected next prev_hash to what this
+                        # snapshot anchors to
                         last_hash = entry.get("args", {}).get("snapshot_prev_hash")
                     else:
                         if entry.get("prev_hash") != last_hash:
@@ -220,9 +230,16 @@ class IntegrityVerifier:
                         manifest_data.encode(), signature, pqc_pub
                     ):
                         logger.error("Integrity Failure: Manifest signature mismatch.")
+                        logger.error(
+                            "Try running 'llm-cli-security manifest' to re-sign."
+                        )
                         return False
                 except Exception as e:
                     logger.error(f"PQC verification error: {e}")
+                    logger.error(
+                        "Run 'llm-cli-security keygen' or "
+                        "'llm-cli-security manifest' to fix."
+                    )
                     return False
         else:
             trusted_manifest = raw_manifest
@@ -238,6 +255,12 @@ class IntegrityVerifier:
             elif current_hash != trusted_hash:
                 logger.error(f"Integrity Failure: Hash mismatch for {rel_path}")
                 all_ok = False
+
+        if not all_ok:
+            logger.error(
+                "Run 'llm-cli-security manifest' to update the integrity baseline "
+                "if these changes are intended."
+            )
 
         if not self.verify_audit_log():
             all_ok = False
@@ -293,4 +316,9 @@ def verify_installation() -> None:
     verifier = IntegrityVerifier(root_path)
     if not verifier.verify():
         logger.critical("Integrity check failed. Aborting startup.")
+        logger.error(
+            "Hint: If you have modified the source code or updated dependencies, "
+            "you must re-generate the integrity manifest by running: "
+            "llm-cli-security manifest"
+        )
         sys.exit(1)

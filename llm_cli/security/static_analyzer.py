@@ -105,7 +105,10 @@ class PythonSecurityScanner(ast.NodeVisitor):
         """
         Detect assignments like 'f = eval'.
         """
-        if isinstance(node.value, ast.Name) and node.value.id in self.DANGEROUS_FUNCTIONS:
+        if (
+            isinstance(node.value, ast.Name)
+            and node.value.id in self.DANGEROUS_FUNCTIONS
+        ):
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     self.aliases[target.id] = node.value.id
@@ -231,13 +234,18 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 # If the attribute name is not a literal string, it's a bypass risk
                 if not isinstance(attr_arg, ast.Constant):
                     self.issues.append(
-                        f"Security Violation: Dynamic attribute access in {node.func.id}() is forbidden."
+                        f"Security Violation: Dynamic attribute access in "
+                        f"{node.func.id}() is forbidden."
                     )
                 else:
                     attr_val = attr_arg.value
-                    if attr_val in self.DANGEROUS_FUNCTIONS or attr_val in self.DANGEROUS_ATTRIBUTES:
+                    if (
+                        attr_val in self.DANGEROUS_FUNCTIONS
+                        or attr_val in self.DANGEROUS_ATTRIBUTES
+                    ):
                         self.issues.append(
-                            f"Security Violation: Accessing '{attr_val}' via {node.func.id}() is forbidden."
+                            f"Security Violation: Accessing {attr_val!r} via "
+                            f"{node.func.id}() is forbidden."
                         )
 
         # Context-aware check for subprocess

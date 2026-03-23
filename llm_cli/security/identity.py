@@ -41,6 +41,9 @@ class IdentityManager:
     _PQC_KEM_PRIVATE_KEY_PATH = _KEY_DIR / "id_kem.key"
     _PQC_KEM_PUBLIC_KEY_PATH = _KEY_DIR / "id_kem.pub"
 
+    # In-process cache: avoid re-running _ensure_keys() on every key access
+    _keys_ensured: bool = False
+
     @classmethod
     def use_tee(cls) -> None:
         """Switch to TEE-protected PQC signing."""
@@ -85,7 +88,14 @@ class IdentityManager:
         # Security is enforced at the verification layer (Trusted Directory),
         # not the generation layer.
 
+        # Skip repeated filesystem checks within the same process unless forced.
+        # We also check if the private key exists to handle cases where the directory
+        # was wiped or changed (e.g. in tests).
+        if cls._keys_ensured and not force and cls._PRIVATE_KEY_PATH.exists():
+            return
+
         if force:
+            cls._keys_ensured = False
             logger.info("Force regeneration requested (not implemented).")
 
         if not cls._KEY_DIR.exists():
@@ -154,6 +164,9 @@ class IdentityManager:
                 "wb",
             ) as f:
                 f.write(pub_kem)
+
+        # Mark as completed so subsequent calls within the same process are no-ops
+        cls._keys_ensured = True
 
     @classmethod
     def _get_private_key_content(cls) -> bytes:

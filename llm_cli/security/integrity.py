@@ -93,11 +93,18 @@ class IntegrityVerifier:
                 current_manifest[rel_path] = self._calculate_hash(full_path)
         return current_manifest
 
-    def verify_audit_log(self, path: Path | None = None) -> bool:
+    def verify_audit_log(
+        self, path: Path | None = None, pqc_verify_tail_lines: int = 50
+    ) -> bool:
         """
         Verify the chained hashes in the audit log to detect modifications.
         This handles __audit_snapshot__ events by anchoring them to their
         respective archives.
+
+        Hash-chain integrity is verified for ALL lines.
+        PQC signature verification is limited to the last ``pqc_verify_tail_lines``
+        entries to avoid O(N) post-quantum crypto overhead on every startup.
+        Full PQC verification can be requested via ``llm-cli-security verify``.
         """
         from llm_cli.consts import AUDIT_LOG_PATH
 
@@ -107,94 +114,113 @@ class IntegrityVerifier:
 
         logger.info(f"Verifying audit log integrity: {log_path.name}")
         try:
-            from llm_cli.security.identity import IdentityManager
             from llm_cli.security.pqc import PQCProvider
 
+            # Pre-load all lines to know total count (files are small, ≤500 lines)
             with log_path.open("r", encoding="utf-8") as f:
-                last_hash = "0" * 64
-                for i, line in enumerate(f):
-                    try:
-                        entry = json.loads(line)
-                    except json.JSONDecodeError:
-                        logger.error(f"Malformed JSON at {log_path.name}:{i + 1}")
-                        return False
+                lines = f.readlines()
 
-                    provided_hash = entry.get("hash")
-                    pqc_sig_b64 = entry.get("pqc_signature")
-                    variant = entry.get("pqc_algorithm", "ML-DSA-65")
+            total_lines = len(lines)
+            pqc_start_idx = max(0, total_lines - pqc_verify_tail_lines)
 
-                    # 1. Recalculate hash for the current entry
-                    # (ignoring hash/sig fields)
-                    entry_copy = entry.copy()
-                    entry_copy.pop("hash", None)
-                    entry_copy.pop("pqc_signature", None)
-                    entry_copy.pop("pqc_algorithm", None)
+            # Cache for PQC public keys keyed by variant to avoid repeated file I/O
+            pqc_pub_cache: dict[str, bytes] = {}
 
-                    entry_str = json.dumps(entry_copy, sort_keys=True)
-                    actual_hash = hashlib.sha256(entry_str.encode()).hexdigest()
+            last_hash = "0" * 64
+            for i, line in enumerate(lines):
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    logger.error(f"Malformed JSON at {log_path.name}:{i + 1}")
+                    return False
 
-                    if provided_hash != actual_hash:
-                        logger.error(f"Hash mismatch at {log_path.name}:{i + 1}")
-                        return False
+                provided_hash = entry.get("hash")
+                pqc_sig_b64 = entry.get("pqc_signature")
+                variant = entry.get("pqc_algorithm", "ML-DSA-65")
 
-                    # 2. Verify PQC Signature if present
-                    if pqc_sig_b64:
-                        import base64
+                # 1. Recalculate hash for the current entry
+                # (ignoring hash/sig fields)
+                entry_copy = entry.copy()
+                entry_copy.pop("hash", None)
+                entry_copy.pop("pqc_signature", None)
+                entry_copy.pop("pqc_algorithm", None)
 
-                        pqc_sig = base64.b64decode(pqc_sig_b64)
-                        pqc_pub = IdentityManager._get_pqc_public_key_content(
-                            variant=variant
+                entry_str = json.dumps(entry_copy, sort_keys=True)
+                actual_hash = hashlib.sha256(entry_str.encode()).hexdigest()
+
+                if provided_hash != actual_hash:
+                    logger.error(f"Hash mismatch at {log_path.name}:{i + 1}")
+                    return False
+
+                # 2. Verify PQC Signature only for the tail window
+                #    Hash-chain continuity (step 3) guarantees integrity for
+                #    all earlier entries; full PQC re-verification of every
+                #    historical entry is O(N×PQC) and dominated startup time.
+                if pqc_sig_b64 and i >= pqc_start_idx:
+                    import base64
+
+                    from llm_cli.security.identity import IdentityManager
+
+                    if variant not in pqc_pub_cache:
+                        pqc_pub_cache[variant] = (
+                            IdentityManager._get_pqc_public_key_content(variant=variant)
                         )
-                        if not PQCProvider.verify(
-                            actual_hash.encode(), pqc_sig, pqc_pub, variant=variant
+                    pqc_pub = pqc_pub_cache[variant]
+                    pqc_sig = base64.b64decode(pqc_sig_b64)
+                    if not PQCProvider.verify(
+                        actual_hash.encode(), pqc_sig, pqc_pub, variant=variant
+                    ):
+                        logger.error(f"Signature mismatch at {log_path.name}:{i + 1}")
+                        return False
+
+                # 3. Check Hash Chain
+                is_snapshot = entry.get("event_type") == "__audit_snapshot__"
+
+                if is_snapshot:
+                    # Validate the anchor to the archive
+                    archive_path_str = entry.get("args", {}).get("archive")
+                    if archive_path_str:
+                        archive_path = Path(archive_path_str)
+                        # Verify the archive chain recursively
+                        if not self.verify_audit_log(
+                            archive_path,
+                            pqc_verify_tail_lines=pqc_verify_tail_lines,
                         ):
+                            return False
+
+                        # Ensure this snapshot's prev_hash matches
+                        # the archive's last hash
+                        from llm_cli.security.audit import _get_last_log_hash
+
+                        if entry.get("prev_hash") != _get_last_log_hash(archive_path):
                             logger.error(
-                                f"Signature mismatch at {log_path.name}:{i + 1}"
+                                f"Snapshot chain gap at {log_path.name}:{i + 1}"
                             )
                             return False
 
-                    # 3. Check Hash Chain
-                    is_snapshot = entry.get("event_type") == "__audit_snapshot__"
-
-                    if is_snapshot:
-                        # Validate the anchor to the archive
-                        archive_path_str = entry.get("args", {}).get("archive")
-                        if archive_path_str:
-                            archive_path = Path(archive_path_str)
-                            # Verify the archive chain recursively
-                            if not self.verify_audit_log(archive_path):
-                                return False
-
-                            # Ensure this snapshot's prev_hash matches
-                            # the archive's last hash
-                            from llm_cli.security.audit import _get_last_log_hash
-
-                            if entry.get("prev_hash") != _get_last_log_hash(
-                                archive_path
-                            ):
-                                logger.error(
-                                    f"Snapshot chain gap at {log_path.name}:{i + 1}"
-                                )
-                                return False
-
-                        # Set the expected next prev_hash to what this
-                        # snapshot anchors to
-                        last_hash = entry.get("args", {}).get("snapshot_prev_hash")
-                    else:
-                        if entry.get("prev_hash") != last_hash:
-                            logger.error(f"Chain broken at {log_path.name}:{i + 1}")
-                            return False
-                        last_hash = actual_hash
+                    # Set the expected next prev_hash to what this
+                    # snapshot anchors to
+                    last_hash = entry.get("args", {}).get("snapshot_prev_hash")
+                else:
+                    if entry.get("prev_hash") != last_hash:
+                        logger.error(f"Chain broken at {log_path.name}:{i + 1}")
+                        return False
+                    last_hash = actual_hash
             return True
         except Exception as e:
             logger.error(f"Failed to verify {log_path.name}: {e}")
             return False
 
-    def verify(self) -> bool:
+    def verify(self, pqc_verify_tail_lines: int = 50) -> bool:
         """
         Verify integrity.
         Returns True if verified or missing (flexible for light users).
         Returns False on tampering.
+
+        Args:
+            pqc_verify_tail_lines: Number of audit-log tail lines to PQC-verify.
+                Defaults to 50 for fast startup. Pass a large value (e.g. 10**9)
+                for exhaustive verification (``llm-cli-security verify``).
         """
         logger.info("System Integrity: Verifying application files...")
 
@@ -206,7 +232,7 @@ class IntegrityVerifier:
             logger.warning(
                 "Run 'llm-cli-security manifest' to enable system protection."
             )
-            return self.verify_audit_log()
+            return self.verify_audit_log(pqc_verify_tail_lines=pqc_verify_tail_lines)
 
         trusted_manifest: dict[str, str] | None = None
         if "hashes" in raw_manifest:
@@ -262,7 +288,7 @@ class IntegrityVerifier:
                 "if these changes are intended."
             )
 
-        if not self.verify_audit_log():
+        if not self.verify_audit_log(pqc_verify_tail_lines=pqc_verify_tail_lines):
             all_ok = False
 
         return all_ok

@@ -44,6 +44,25 @@ def main() -> None:
     )
     decrypt_parser.add_argument("-o", "--output", help="Path to save the decrypted log")
 
+    # verify command (full PQC audit-log verification)
+    verify_full_parser = subparsers.add_parser(
+        "verify",
+        help=(
+            "Full integrity verification (all lines PQC-verified). "
+            "Slower than the startup check but exhaustive."
+        ),
+    )
+    verify_full_parser.add_argument(
+        "--tail",
+        type=int,
+        default=0,
+        metavar="N",
+        help=(
+            "Verify only the last N lines with PQC (0 = all lines, default: 0). "
+            "Hash-chain is always verified for all lines."
+        ),
+    )
+
     args = parser.parse_args()
 
     if args.command == "keygen":
@@ -110,6 +129,22 @@ def main() -> None:
 
         print(f"🛡️  Decrypting log file: {args.input}...")
         decrypt_log_file(Path(args.input), Path(args.output) if args.output else None)
+
+    elif args.command == "verify":
+        root_path = Path(__file__).resolve().parent.parent.parent
+        verifier = IntegrityVerifier(root_path)
+
+        # pqc_verify_tail_lines=0 means verify ALL lines (no tail restriction)
+        tail = args.tail if args.tail > 0 else 10**9
+        label = "all" if args.tail == 0 else f"last {args.tail}"
+        print(f"🛡️  Running full integrity check (PQC verify on {label} audit lines)…")
+
+        ok = verifier.verify(pqc_verify_tail_lines=tail)
+        if ok:
+            print("✅ Integrity check passed.")
+        else:
+            print("❌ Integrity check failed. See log output above for details.")
+            sys.exit(1)
     else:
         parser.print_help()
 

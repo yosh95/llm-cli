@@ -16,14 +16,13 @@ class IntegrityVerifier:
     Uses baseline hashes to detect unexpected modifications.
     """
 
-    # Critical files to monitor for tampering
-    CRITICAL_FILES = [
-        "llm_cli/apps/mcp_server.py",
-        "llm_cli/security/identity.py",
-        "llm_cli/security/policy.py",
-        "llm_cli/security/audit.py",
-        "llm_cli/security/integrity.py",
+    # Patterns for critical files to monitor for tampering
+    CRITICAL_PATTERNS = [
+        "llm_cli/**/*.py",
+        "llm_cli/**/*.toml",
         "pyproject.toml",
+        "Makefile",
+        "pytest.ini",
     ]
 
     MANIFEST_PATH = LLM_CLI_BASE_DIR / "integrity_manifest.json"
@@ -85,12 +84,20 @@ class IntegrityVerifier:
             logger.error(f"Failed to save integrity manifest: {e}")
 
     def _get_current_hashes(self) -> dict[str, str]:
-        """Calculate hashes for all critical files."""
+        """Calculate hashes for all critical files found via patterns."""
         current_manifest = {}
-        for rel_path in self.CRITICAL_FILES:
-            full_path = self.base_path / rel_path
-            if full_path.exists():
-                current_manifest[rel_path] = self._calculate_hash(full_path)
+        found_files = set()
+
+        for pattern in self.CRITICAL_PATTERNS:
+            # Recursively find files matching the pattern
+            for p in self.base_path.glob(pattern):
+                if p.is_file() and "__pycache__" not in p.parts:
+                    rel_path = str(p.relative_to(self.base_path))
+                    found_files.add(rel_path)
+
+        for rel_path in sorted(found_files):
+            current_manifest[rel_path] = self._calculate_hash(self.base_path / rel_path)
+
         return current_manifest
 
     def verify_audit_log(
@@ -273,6 +280,7 @@ class IntegrityVerifier:
         current_manifest = self._get_current_hashes()
         all_ok = True
 
+        # Check for modifications or missing files
         for rel_path, trusted_hash in trusted_manifest.items():
             current_hash = current_manifest.get(rel_path)
             if current_hash is None:
@@ -280,6 +288,14 @@ class IntegrityVerifier:
                 all_ok = False
             elif current_hash != trusted_hash:
                 logger.error(f"Integrity Failure: Hash mismatch for {rel_path}")
+                all_ok = False
+
+        # Check for unauthorized new files
+        for rel_path in current_manifest:
+            if rel_path not in trusted_manifest:
+                logger.error(
+                    f"Integrity Failure: Unauthorized new file detected: {rel_path}"
+                )
                 all_ok = False
 
         if not all_ok:

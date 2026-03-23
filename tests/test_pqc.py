@@ -133,7 +133,7 @@ def test_integrity_verifier_pqc(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("llm_cli.consts.AUDIT_LOG_PATH", audit_log_path)
     monkeypatch.setattr(
-        "llm_cli.security.integrity.IntegrityVerifier.CRITICAL_FILES",
+        "llm_cli.security.integrity.IntegrityVerifier.CRITICAL_PATTERNS",
         ["llm_cli/apps/mcp_server.py"],
     )
 

@@ -283,13 +283,16 @@ Implementation: `PQCAgilityManager.get_required_level()` in
 
 ### Remote Attestation
 
-On startup, the client generates a SHA-256 manifest of six critical security
-source files (`identity.py`, `policy.py`, `audit.py`, `pqc.py`,
-`static_analyzer.py`, `cass.py`), signed with an ML-DSA key.  Remote servers
-verify this manifest to confirm the agent is running an authentic, unmodified
-stack.
+On startup, the client generates a SHA-256 manifest of all critical security
+source files and configuration files (defined by glob patterns in
+`integrity.py`), signed with an ML-DSA key. This manifest covers all
+Python source files, configuration templates (`.toml`), and project
+metadata (e.g., `pyproject.toml`, `Makefile`). Remote servers verify this
+manifest to confirm the agent is running an authentic, unmodified stack.
+The system also detects unauthorized new files that match the critical
+patterns, preventing backdoor installation.
 
-Rebuild the manifest after any code update:
+Rebuild the manifest after any code update or configuration change:
 
 ```bash
 llm-cli-security manifest

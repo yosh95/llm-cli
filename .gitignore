@@ -50,6 +50,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+MagicMock/
 
 # Translations
 *.mo
@@ -224,6 +225,3 @@ __marimo__/
 *.vrb
 *.run.xml
 *.bcf
-
-# Paper benchmark state
-sentinel_state.npz

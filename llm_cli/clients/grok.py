@@ -54,7 +54,6 @@ class GrokClient(OpenAICompatibleClient):
                 json_data=payload,
                 timeout=self.request_timeout,
             )
-            self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
             res = response.json()
             (txt, thought), model_msg = self._parse_openai_response(res)
@@ -80,7 +79,6 @@ class GrokClient(OpenAICompatibleClient):
                 json_data=payload,
                 timeout=self.request_timeout,
             )
-            self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
             return self._handle_image_generation_response(
                 response.json(), full_prompt, data, "Grok"

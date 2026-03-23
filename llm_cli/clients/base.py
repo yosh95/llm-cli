@@ -242,14 +242,18 @@ class BaseLlmClient(ABC):
                 Syntax(
                     payload_str,
                     "json",
-                    theme="monokai",
-                    background_color="default",
                     word_wrap=True,
                 )
             )
 
         if response_obj is not None:
             try:
+                # Show URL if available
+                if hasattr(response_obj, "url"):
+                    console.print(
+                        f"[magenta]URL:[/magenta] [dim]{response_obj.url}[/dim]"
+                    )
+
                 # Handle requests.Response objects
                 if hasattr(response_obj, "json"):
                     res_json = response_obj.json()
@@ -263,8 +267,6 @@ class BaseLlmClient(ABC):
                         Syntax(
                             res_str,
                             "json",
-                            theme="monokai",
-                            background_color="default",
                             word_wrap=True,
                         )
                     )
@@ -436,19 +438,23 @@ class BaseLlmClient(ABC):
     def _post(
         self, url: str, headers: dict, json_data: dict, timeout: int | None = None
     ) -> requests.Response:
-        return requests.post(
+        res = requests.post(
             url,
             headers=headers,
             json=json_data,
             timeout=timeout or self.request_timeout,
         )
+        self._log_debug(response_obj=res, request_payload=json_data)
+        return res
 
     def _get(
         self, url: str, headers: dict | None = None, timeout: int | None = None
     ) -> requests.Response:
-        return requests.get(
+        res = requests.get(
             url, headers=headers or {}, timeout=timeout or self.request_timeout
         )
+        self._log_debug(response_obj=res)
+        return res
 
     # (Internal helpers like _has_pending_tool_calls, _handle_command etc.)
     def _has_pending_tool_calls(self) -> bool:

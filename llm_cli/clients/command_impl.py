@@ -174,7 +174,7 @@ def handle_dump(ctx: CommandContext) -> bool:
         [asdict(m) for m in ctx.client.conversation], indent=2, ensure_ascii=False
     )
     console.print(Rule(title="Conversation History"))
-    console.print(Syntax(json_str, "json"))
+    console.print(Syntax(json_str, "json", word_wrap=True))
     return True
 
 

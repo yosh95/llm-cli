@@ -66,7 +66,6 @@ class OllamaClient(OpenAICompatibleClient):
                 json_data=payload,
                 timeout=self.request_timeout,
             )
-            self._log_debug(response_obj=response, request_payload=payload)
             response.raise_for_status()
             res = response.json()
 

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from llm_cli.clients.config import config_manager
+from llm_cli.consts import MAX_OUTPUT_CHARS, MAX_OUTPUT_LINES
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.resource_manager import (
     limit_process_resources,
@@ -21,12 +22,14 @@ logger = logging.getLogger(__name__)
 
 @tool(
     name="execute_python",
-    description=(
+    desc=(
         "Execute a Python script to interact with the system. "
         "This tool is the replacement for shell commands. "
         "Use this for ANY system interaction, including tasks "
         "traditionally done via shell (e.g., 'ls', 'git', 'grep', 'find', 'ruff'). "
         "You MUST write complete, self-contained Python code. "
+        f"IMPORTANT: Output is truncated to {MAX_OUTPUT_LINES} lines or "
+        f"{MAX_OUTPUT_CHARS} characters. "
         "For security and reliability: "
         "1. For external commands, ALWAYS use subprocess.run() with shell=False. "
         "2. NEVER use os.system(), os.popen(), or any call with shell=True, "
@@ -35,7 +38,7 @@ logger = logging.getLogger(__name__)
         "filesystem operations (e.g., Path.unlink() instead of os.remove()), "
         "unless calling an external CLI tool."
     ),
-    parameters={
+    params={
         "type": "object",
         "properties": {
             "code": {

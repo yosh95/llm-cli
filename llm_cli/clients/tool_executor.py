@@ -318,8 +318,10 @@ def _display_tool_request(ctx: ToolExecutionContext) -> None:
 
 
 def _truncate_output(res_str: str) -> str:
-    max_len = int(config_manager.get("general", "max_output_length") or 10000)
-    max_lines = int(config_manager.get("general", "max_output_lines") or 500)
+    from llm_cli.consts import MAX_OUTPUT_CHARS, MAX_OUTPUT_LINES
+
+    max_len = MAX_OUTPUT_CHARS
+    max_lines = MAX_OUTPUT_LINES
     lines = res_str.splitlines()
     original_lines, original_chars = len(lines), len(res_str)
 

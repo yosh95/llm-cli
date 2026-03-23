@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from llm_cli.consts import MAX_OUTPUT_CHARS, MAX_OUTPUT_LINES
 from llm_cli.modules.media_utils import process_file
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
@@ -199,8 +200,10 @@ def search_files(
             },
             "max_files": {
                 "type": "integer",
-                "description": "Maximum number of files to list.",
-                "default": 500,
+                "description": (
+                    f"Maximum number of files to list. (Default: {MAX_OUTPUT_LINES})"
+                ),
+                "default": MAX_OUTPUT_LINES,
             },
         },
     },
@@ -211,7 +214,7 @@ def list_files_in_directory(
     depth: int = 1,
     ignore_patterns: list[str] | None = None,
     include_hidden: bool = False,
-    max_files: int = 500,
+    max_files: int = MAX_OUTPUT_LINES,
 ) -> str:
     """Lists files in a directory tree with metadata."""
     validate_path(directory or ".")
@@ -283,7 +286,10 @@ def list_files_in_directory(
     desc=(
         "Read content from a text file or PDF. "
         "For PDFs, text content will be extracted. "
-        "Can read specific lines and optionally include line numbers."
+        f"IMPORTANT: This tool can read up to {MAX_OUTPUT_LINES} lines or "
+        f"{MAX_OUTPUT_CHARS} characters at once. "
+        "If a file is longer, the tail will be omitted. "
+        "Use 'start_line' and 'end_line' to read specific chunks of large files."
     ),
     params={
         "type": "object",
@@ -294,7 +300,13 @@ def list_files_in_directory(
                 "description": "First line to read (1-indexed).",
                 "default": 1,
             },
-            "end_line": {"type": "integer", "description": "Last line to read."},
+            "end_line": {
+                "type": "integer",
+                "description": (
+                    f"Last line to read (Max {MAX_OUTPUT_LINES} lines "
+                    "from start_line recommended)."
+                ),
+            },
             "with_line_numbers": {
                 "type": "boolean",
                 "description": "If true, adds line numbers to the output.",

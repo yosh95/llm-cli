@@ -219,18 +219,6 @@ def configure_general(config: dict[str, Any]) -> None:
             ),
         )
     )
-    g_config["max_output_length"] = int(
-        prompt_input(
-            "Default Tool Output Max Length (chars)",
-            g_config.get("max_output_length", def_g.get("max_output_length", 30000)),
-        )
-    )
-    g_config["max_output_lines"] = int(
-        prompt_input(
-            "Default Tool Output Max Lines",
-            g_config.get("max_output_lines", def_g.get("max_output_lines", 500)),
-        )
-    )
 
 
 def configure_security(config: dict[str, Any]) -> None:

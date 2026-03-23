@@ -3,7 +3,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from llm_cli.apps.unified import UnifiedClient
-from llm_cli.clients.command_handler import CommandContext, handle_provider
+from llm_cli.clients.command_dispatcher import CommandContext
+from llm_cli.clients.command_impl import handle_provider
 from llm_cli.clients.registry import client_registry
 from llm_cli.clients.session import ChatSession
 

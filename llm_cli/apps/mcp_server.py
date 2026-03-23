@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any
 
 from llm_cli.apps.configure import load_config
-from llm_cli.mcp_lib import FastMCP
+from llm_cli.mcp_server_lib import FastMCP
 from llm_cli.modules.tool_registry import registry
 from llm_cli.security.audit import log_audit
 from llm_cli.security.integrity import verify_installation

@@ -5,7 +5,8 @@ import pytest
 
 from llm_cli.security.identity import IdentityManager
 from llm_cli.security.integrity import IntegrityVerifier
-from llm_cli.security.pqc import HybridSigner, PQCAgilityManager, PQCProvider
+from llm_cli.security.pqc import PQCAgilityManager, PQCProvider
+from llm_cli.security.pqc_cose import HybridSigner
 
 
 def test_pqc_provider_key_gen():

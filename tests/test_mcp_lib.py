@@ -6,13 +6,13 @@ import pytest
 
 from llm_cli.mcp_lib import (
     ClientSession,
-    FastMCP,
     JSONRPCProtocol,
     ListToolsResult,
     StdioServerParameters,
     ToolResult,
     stdio_client,
 )
+from llm_cli.mcp_server_lib import FastMCP
 
 
 class TestJSONRPCProtocol:

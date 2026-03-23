@@ -64,16 +64,16 @@ def test_kms_trust_resolver_simulation():
 
             # verify_token should use the KMSTrustResolver
             # We need to ensure HybridSigner.verify_hybrid_token handles our mock keys
-            with patch(
-                "llm_cli.security.pqc.HybridSigner.verify_hybrid_token"
-            ) as mock_verify:
-                mock_verify.return_value = {"sub": "alice@remote"}
+        with patch(
+            "llm_cli.security.pqc_cose.HybridSigner.verify_hybrid_token"
+        ) as mock_verify:
+            mock_verify.return_value = {"sub": "alice@remote"}
 
-                payload = IdentityManager.verify_token(token)
-                assert payload["sub"] == "alice@remote"
+            payload = IdentityManager.verify_token(token)
+            assert payload["sub"] == "alice@remote"
 
-                # Check that our mock keys would have been fetched (indirectly verified by flow)
-                # In a more detailed test, we'd check the calls to the resolver.
+            # Check that our mock keys would have been fetched (indirectly verified by flow)
+            # In a more detailed test, we'd check the calls to the resolver.
 
 
 def test_identity_manager_uses_resolver():

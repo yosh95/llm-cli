@@ -10,7 +10,7 @@ from prompt_toolkit.shortcuts import CompleteStyle
 from rich.panel import Panel
 from rich.text import Text
 
-from llm_cli.ui import console, print_block
+from llm_cli.ui import console, print_block, report_error
 
 if TYPE_CHECKING:
     from prompt_toolkit import PromptSession
@@ -19,6 +19,53 @@ try:
     import termios
 except ImportError:
     termios = None  # type: ignore
+
+kb = KeyBindings()
+kb_exit = KeyBindings()
+
+
+@kb.add("c-delete")
+def _(_event: Any) -> None:
+    raise KeyboardInterrupt
+
+
+@kb.add("c-j")
+def _(event: Any) -> None:
+    event.current_buffer.insert_text("\n")
+
+
+@kb.add("c-x", "c-e")
+def _(event: Any) -> None:
+    """Open the current buffer in an external editor safely."""
+    import os
+    import shlex
+    import subprocess
+    import tempfile
+
+    buffer = event.current_buffer
+    original_text = buffer.text
+    editor_raw = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vim"
+
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tf:
+        tf.write(original_text.encode("utf-8"))
+        tf_path = Path(tf.name)
+
+    try:
+        cmd_args = shlex.split(editor_raw) + [str(tf_path)]
+        return_code = subprocess.call(cmd_args)
+        if return_code == 0:
+            with tf_path.open(encoding="utf-8") as f:
+                new_text = f.read()
+                buffer.text = new_text
+            buffer.validate_and_handle()
+        else:
+            buffer.text = original_text
+    except Exception as e:
+        report_error(f"Failed to open editor: {e}")
+        buffer.text = original_text
+    finally:
+        if tf_path.exists():
+            tf_path.unlink()
 
 
 class SessionUI:

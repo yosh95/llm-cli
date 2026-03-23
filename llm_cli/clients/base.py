@@ -413,7 +413,7 @@ class BaseLlmClient(ABC):
         sources: list[str] | None,
         pending_data: list[DataSource] | None = None,
     ) -> bool:
-        from llm_cli.clients.command_handler import handle_command
+        from llm_cli.clients.command_dispatcher import handle_command
 
         return handle_command(self, user_input, sources, pending_data)
 

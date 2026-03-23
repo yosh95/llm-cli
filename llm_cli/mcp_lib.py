@@ -1,12 +1,11 @@
 import asyncio
 import dataclasses
-import inspect
 import json
 import logging
 import os
 import sys
 import uuid
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from typing import Any
@@ -45,16 +44,11 @@ class TraceLogger(logging.Logger):
     ) -> logging.LogRecord:
         if extra is None:
             extra = {}
-        # We need to copy extra because we modify it and it might be immutable
         extra_dict = dict(extra)
         extra_dict["trace_id"] = TRACE_ID.get() or "-"
         return super().makeRecord(
             name, level, fn, lno, msg, args, exc_info, func, extra_dict, sinfo
         )
-
-
-# Replace default logger class for this module context (optional, but good for demo)
-# logging.setLoggerClass(TraceLogger)
 
 
 # --- Data Structures (Mocking mcp types) ---
@@ -136,45 +130,28 @@ class JSONRPCProtocol:
 
 
 class PQCEncryptionHelper:
-    """
-    Assists in secure data exchange via MCP by using ML-KEM.
-    """
+    """Assists in secure data exchange via MCP by using ML-KEM."""
 
     @classmethod
     def encrypt_data(cls, data: Any, recipient_public_key_b64: str) -> dict:
-        """
-        Encrypts a data object using ML-KEM for the specific recipient.
-        """
+        """Encrypts a data object using ML-KEM for the specific recipient."""
         import base64
 
         from llm_cli.security.pqc import SecureStorage
 
         pub_kem = base64.b64decode(recipient_public_key_b64)
         data_bytes = json.dumps(data).encode()
-
         return SecureStorage.encrypt(data_bytes, pub_kem)
 
     @classmethod
     def decrypt_data(cls, encrypted_packet: dict) -> Any:
-        """
-        Decrypts an incoming ML-KEM encrypted packet using local private key.
-        """
+        """Decrypts an incoming ML-KEM encrypted packet using local private key."""
         from llm_cli.security.identity import IdentityManager
         from llm_cli.security.pqc import SecureStorage
 
         priv_kem = IdentityManager._get_kem_private_key_content()
         decrypted_bytes = SecureStorage.decrypt(encrypted_packet, priv_kem)
         return json.loads(decrypted_bytes.decode())
-
-    def create_response(self, request_id: int, result: Any) -> dict[str, Any]:
-        return {"jsonrpc": "2.0", "id": request_id, "result": result}
-
-    def create_error(self, request_id: int, code: int, message: str) -> dict[str, Any]:
-        return {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "error": {"code": code, "message": message},
-        }
 
 
 # --- Client Implementation ---
@@ -199,7 +176,7 @@ class ClientSession:
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: Any | None,
+        exc_tb: Any,
     ) -> None:
         self._connected = False
         if self._listener_task:
@@ -218,7 +195,6 @@ class ClientSession:
                 try:
                     message = json.loads(line)
                     if "id" in message and ("result" in message or "error" in message):
-                        # Response
                         req_id = message["id"]
                         if req_id in self.protocol._pending_requests:
                             future = self.protocol._pending_requests.pop(req_id)
@@ -228,8 +204,6 @@ class ClientSession:
                                 )
                             else:
                                 future.set_result(message["result"])
-                except json.JSONDecodeError:
-                    continue
                 except Exception as e:
                     logger.error(f"Error in client loop: {e}")
         except asyncio.CancelledError:
@@ -238,14 +212,10 @@ class ClientSession:
     async def _send_request(self, method: str, params: dict | None = None) -> Any:
         req = self.protocol.create_request(method, params)
         req_id = req["id"]
-
         future: asyncio.Future[Any] = asyncio.Future()
         self.protocol._pending_requests[req_id] = future
-
-        data = json.dumps(req).encode("utf-8") + b"\n"
-        self.write_stream.write(data)
+        self.write_stream.write(json.dumps(req).encode() + b"\n")
         await self.write_stream.drain()
-
         return await future
 
     async def initialize(self) -> Any:
@@ -260,35 +230,29 @@ class ClientSession:
 
     async def list_tools(self) -> ListToolsResult:
         response = await self._send_request("tools/list")
-        tools_data = response.get("tools", [])
-        tools = []
-        for t in tools_data:
-            tools.append(
-                ToolDescription(
-                    name=t["name"],
-                    description=t.get("description", ""),
-                    inputSchema=t.get("inputSchema", {}),
-                )
+        tools = [
+            ToolDescription(
+                name=t["name"],
+                description=t.get("description", ""),
+                inputSchema=t.get("inputSchema", {}),
             )
+            for t in response.get("tools", [])
+        ]
         return ListToolsResult(tools=tools)
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> ToolResult:
-        # Inject trace id into arguments as _meta
         trace_id = get_current_trace_id()
         args_with_meta = arguments.copy()
         if "_meta" not in args_with_meta:
             args_with_meta["_meta"] = {"trace_id": trace_id}
-
         response = await self._send_request(
             "tools/call", {"name": name, "arguments": args_with_meta}
         )
-
-        content_list = []
-        # Support both new and old MCP response formats roughly
-        if isinstance(response, dict) and "content" in response:
-            for c in response["content"]:
-                content_list.append(Content(**c))
-
+        content_list = (
+            [Content(**c) for c in response.get("content", [])]
+            if isinstance(response, dict)
+            else []
+        )
         return ToolResult(content=content_list)
 
 
@@ -296,25 +260,20 @@ class ClientSession:
 async def stdio_client(
     params: StdioServerParameters,
 ) -> AsyncIterator[tuple[asyncio.StreamReader, asyncio.StreamWriter]]:
-    # Prepare environment
     env = os.environ.copy()
     if params.env:
         env.update(params.env)
-
-    # Start subprocess
     proc = await asyncio.create_subprocess_exec(
         params.command,
         *params.args,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
-        stderr=sys.stderr,  # Pass stderr through to console
+        stderr=sys.stderr,
         env=env,
-        limit=32 * 1024 * 1024,  # 32MB limit for large MCP messages
+        limit=32 * 1024 * 1024,
     )
-
     if proc.stdout is None or proc.stdin is None:
         raise RuntimeError("Failed to open stdin/stdout for MCP server process")
-
     try:
         yield proc.stdout, proc.stdin
     finally:
@@ -330,181 +289,3 @@ async def stdio_client(
             except TimeoutError:
                 proc.kill()
                 await proc.wait()
-
-
-# --- Server Implementation ---
-
-
-class FastMCP:
-    def __init__(self, name: str):
-        self.name = name
-        self.tools: dict[str, Callable] = {}
-        self.protocol = JSONRPCProtocol()
-
-    def tool(self, name: str | None = None) -> Callable[[Callable], Callable]:
-        def decorator(func: Callable) -> Callable:
-            tool_name = name or func.__name__
-            self.tools[tool_name] = func
-            return func
-
-        return decorator
-
-    def _generate_schema(self, func: Callable) -> dict[str, Any]:
-        # Very basic schema generation using inspect
-        sig = inspect.signature(func)
-        properties = {}
-        required = []
-
-        for param_name, param in sig.parameters.items():
-            if param.default == inspect.Parameter.empty:
-                required.append(param_name)
-
-            param_type = "string"
-            if param.annotation is int:
-                param_type = "integer"
-            elif param.annotation is bool:
-                param_type = "boolean"
-            elif param.annotation is dict:
-                param_type = "object"
-            elif param.annotation is list:
-                param_type = "array"
-
-            properties[param_name] = {
-                "type": param_type,
-                "description": f"Parameter {param_name}",
-            }
-
-        return {"type": "object", "properties": properties, "required": required}
-
-    async def _handle_message(
-        self, message: dict[str, Any], write_stream: asyncio.StreamWriter
-    ) -> None:
-        if "method" not in message:
-            return
-
-        method = message["method"]
-        msg_id = message.get("id")
-        params = message.get("params", {})
-
-        response: dict[str, Any] | None = None
-
-        try:
-            if method == "initialize":
-                response = {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": self.name, "version": "0.1.0"},
-                }
-
-            elif method == "notifications/initialized":
-                # No response needed
-                return
-
-            elif method == "tools/list":
-                tools_list = []
-                for name, func in self.tools.items():
-                    tools_list.append(
-                        {
-                            "name": name,
-                            "description": func.__doc__ or "",
-                            "inputSchema": self._generate_schema(func),
-                        }
-                    )
-                response = {"tools": tools_list}
-
-            elif method == "tools/call":
-                tool_name = params.get("name")
-                args = params.get("arguments", {})
-
-                # Extract trace info
-                token = None
-                if "_meta" in args and isinstance(args["_meta"], dict):
-                    # Remove _meta so it doesn't affect tool signature
-                    meta = args.pop("_meta")
-                    trace_id = meta.get("trace_id")
-                    if trace_id:
-                        token = TRACE_ID.set(trace_id)
-
-                try:
-                    if tool_name not in self.tools:
-                        raise Exception(f"Tool not found: {tool_name}")
-
-                    func = self.tools[tool_name]
-
-                    # Check if coroutine
-                    if inspect.iscoroutinefunction(func):
-                        result = await func(**args)
-                    else:
-                        result = func(**args)
-
-                    # Convert result to Content
-                    text_content = str(result)
-                    response = {
-                        "content": [{"type": "text", "text": text_content}],
-                        "isError": False,
-                    }
-                finally:
-                    # Reset trace context
-                    if token:
-                        TRACE_ID.reset(token)
-
-            else:
-                # Unknown method, ignore or error
-                if msg_id:
-                    error_resp = self.protocol.create_error(
-                        msg_id, -32601, "Method not found"
-                    )
-                    data = json.dumps(error_resp).encode("utf-8") + b"\n"
-                    write_stream.write(data)
-                    await write_stream.drain()
-                return
-
-            # Send success response if id present
-            if msg_id is not None:
-                resp_obj = self.protocol.create_response(msg_id, response)
-                data = json.dumps(resp_obj).encode("utf-8") + b"\n"
-                write_stream.write(data)
-                await write_stream.drain()
-
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            if msg_id is not None:
-                error_resp = self.protocol.create_error(msg_id, -32000, str(e))
-                data = json.dumps(error_resp).encode("utf-8") + b"\n"
-                write_stream.write(data)
-                await write_stream.drain()
-
-    async def _run_loop(self) -> None:
-        loop = asyncio.get_running_loop()
-
-        # Setup stdin/stdout for async IO
-        try:
-            reader = asyncio.StreamReader()
-            protocol = asyncio.StreamReaderProtocol(reader)
-            await loop.connect_read_pipe(lambda: protocol, sys.stdin)
-
-            w_transport, w_protocol = await loop.connect_write_pipe(
-                asyncio.streams.FlowControlMixin, sys.stdout
-            )
-            writer = asyncio.StreamWriter(w_transport, w_protocol, reader, loop)
-
-            while True:
-                line = await reader.readline()
-                if not line:
-                    break
-                try:
-                    message = json.loads(line)
-                    await self._handle_message(message, writer)
-                except json.JSONDecodeError:
-                    continue
-                except Exception as e:
-                    logger.error(f"Server loop error: {e}")
-
-        except Exception as e:
-            logger.error(f"Fatal server error: {e}")
-
-    def run(self) -> None:
-        try:
-            asyncio.run(self._run_loop())
-        except KeyboardInterrupt:
-            pass

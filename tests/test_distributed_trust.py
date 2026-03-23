@@ -97,7 +97,7 @@ def test_trusted_directory_resolution(tmp_path, monkeypatch):
     (agent_dir / "id_pqc_l5.pub").write_bytes(pub_l5)
 
     # 3. Agent generates a token signed with ML-DSA-87
-    from llm_cli.security.pqc import HybridSigner
+    from llm_cli.security.pqc_cose import HybridSigner
 
     payload = {
         "iss": "llm-cli-client",

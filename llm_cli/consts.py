@@ -15,3 +15,7 @@ CHAT_LOG_PATH = LOG_DIR / "chat.log"
 TRAINING_METRICS_LOG_PATH = LOG_DIR / "training_metrics.jsonl"
 
 UNKNOWN_TOOL_ID = "unknown"
+
+# Tool output limits
+MAX_OUTPUT_LINES = 500
+MAX_OUTPUT_CHARS = 30000

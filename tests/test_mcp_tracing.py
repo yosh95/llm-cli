@@ -7,9 +7,9 @@ import pytest
 from llm_cli.mcp_lib import (
     TRACE_ID,
     ClientSession,
-    FastMCP,
     get_current_trace_id,
 )
+from llm_cli.mcp_server_lib import FastMCP
 
 
 @pytest.mark.asyncio

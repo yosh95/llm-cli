@@ -13,7 +13,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from llm_cli.consts import KEY_DIR
-from llm_cli.security.pqc import HybridSigner, PQCProvider
+from llm_cli.security.pqc import PQCProvider
+from llm_cli.security.pqc_cose import HybridSigner
 from llm_cli.security.trust import get_trust_resolver
 
 logger = logging.getLogger(__name__)

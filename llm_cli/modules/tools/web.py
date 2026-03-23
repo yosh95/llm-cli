@@ -8,6 +8,7 @@ import requests
 
 from llm_cli.clients.config import config_manager
 from llm_cli.clients.exceptions import ConfigurationError
+from llm_cli.consts import MAX_OUTPUT_CHARS, MAX_OUTPUT_LINES
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.pqc import sign_tool_result
 
@@ -90,11 +91,14 @@ def search_web(query: str) -> str:
 
 @tool(
     name="read_url_content",
-    description=(
+    desc=(
         "Fetch a web page URL or PDF URL and convert the content to Markdown or text. "
-        "For PDFs, text content will be extracted."
+        "For PDFs, text content will be extracted. "
+        f"IMPORTANT: This tool can read up to {MAX_OUTPUT_LINES} lines or "
+        f"{MAX_OUTPUT_CHARS} characters at once. "
+        "If the content is longer, the tail will be omitted."
     ),
-    parameters={
+    params={
         "type": "object",
         "properties": {"url": {"type": "string", "description": "Target URL."}},
         "required": ["url"],

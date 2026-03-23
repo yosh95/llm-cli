@@ -14,8 +14,11 @@ This project prioritizes "AI-Ready Transparency." As AI agents (like yourself) a
     *   **No Logic**: Do not define classes, functions, or variables inside `__init__.py`.
     *   **No Re-exports**: Avoid the "Facade Pattern" in `__init__.py`. Never use `from .module import Class` to shorten import paths.
     *   **Direct Pathing**: Always import directly from the source module (e.g., `from llm_cli.clients.registry import client_registry`).
+5.  **Small, Focused Files (The 500-Line Rule)**: To prevent AI agents from "losing context" or failing to read the tail of important files, maintain a strict **500-line limit** for all source files.
+    *   **Split by Responsibility**: If a file exceeds 500 lines, split it into logical components (e.g., move implementations to a `*_impl.py` or `*_helper.py` file).
+    *   **Clear Naming**: Avoid confusing filenames; choose distinct names for dispatchers versus implementations.
 
-This ensures that any tool (grep, LSP, AI) can find the definition of a class or function in exactly one location, eliminating "hops" through intermediate proxy files.
+This ensures that any tool (grep, LSP, AI) can find the definition of a class or function in exactly one location, eliminating "hops" through intermediate proxy files and ensuring full context fits within standard LLM context windows.
 
 ### Architecture: Provider Switching
 
@@ -27,7 +30,7 @@ When switching providers (e.g., via the `/p` command), the system uses **Explici
 
 ### Slash Commands
 
-All slash commands are defined in `llm_cli/clients/command_handler.py`. They receive a `CommandContext` which includes the current active client instance. Always interact with this instance directly.
+All slash commands are routed through `llm_cli/clients/command_dispatcher.py`, with actual implementations located in `llm_cli/clients/command_impl.py`. They receive a `CommandContext` which includes the current active client instance. Always interact with this instance directly.
 
 ## Testing
 

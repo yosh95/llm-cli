@@ -341,6 +341,10 @@ The primary security configuration is in `llm_cli/apps/defaults.toml`
 
 ```toml
 [security]
+# Security Level: "high" (Default) | "standard"
+# Set to "standard" to downgrade PQC/integrity errors to warnings.
+security_level           = "high"
+
 # Workspace scope
 allowed_paths            = ["."]
 blocked_paths            = ["/etc", "/var", "/root", "~/.ssh"]

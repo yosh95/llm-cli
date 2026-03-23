@@ -354,9 +354,26 @@ class IntegrityVerifier:
 
 def verify_installation() -> None:
     """Helper function to run verification from current working directory."""
+    import os
+
+    from llm_cli.clients.config import config_manager
+
     root_path = Path(__file__).resolve().parent.parent.parent
     verifier = IntegrityVerifier(root_path)
     if not verifier.verify():
+        # Check security level (Compatibility Mode)
+        security_level = os.getenv("LLM_CLI_SECURITY_LEVEL") or config_manager.get(
+            "security", "security_level", "high"
+        )
+
+        if security_level == "standard":
+            logger.warning(
+                "🛡️  Integrity Failure: System files do not match manifest, "
+                "but security_level is 'standard'."
+            )
+            logger.warning("Continuing in Compatibility Mode with limited trust.")
+            return
+
         logger.critical("Integrity check failed. Aborting startup.")
         logger.error(
             "Hint: If you have modified the source code or updated dependencies, "

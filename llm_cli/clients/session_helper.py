@@ -44,6 +44,7 @@ def handle_checkpoint(session: ChatSession) -> None:
         console.print("[bold cyan]Proposed Context Summary[/bold cyan]")
         console.print(CustomMarkdown(summary))
 
+        console.print(Rule(style="dim"))
         if session.ui.confirm("Clear history and use this summary? (y/N): "):
             session.client.clear_history()
             summary_text = (

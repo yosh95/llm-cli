@@ -206,6 +206,18 @@ class ConfigManager:
         config_dict = self.load_config()
         return cast(dict[str, str], config_dict.get("templates", {}))
 
+    def set(self, section: str, key: str, value: Any) -> None:
+        """Sets a configuration value in the cache (runtime override)."""
+        if self._config_cache is None:
+            self.load_config()
+
+        if self._config_cache is not None:
+            if section not in self._config_cache:
+                self._config_cache[section] = {}
+            self._config_cache[section][key] = value
+            # Re-sync AppConfig
+            self._app_config = AppConfig.from_dict(self._config_cache)
+
 
 # Global instance
 config_manager = ConfigManager()

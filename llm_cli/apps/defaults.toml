@@ -57,6 +57,17 @@ low_risk_tools = [
 # All high-risk and medium-risk tools now require PQC identity proof by default
 # for robust non-repudiation and integrity.
 
+# Dual LLM Verification (Dynamic Guardrails)
+# Validates high-risk tool execution against user intent using a lightweight model.
+# To use this feature:
+# 1. Set dual_llm_verification = true.
+# 2. Configure a secondary provider/model. It's recommended to use a fast,
+#    "lite" model (e.g., gemini-3.1-flash-lite, gpt-5.4-mini) to minimize latency.
+# 3. Ensure the secondary provider has its API key set in your environment.
+dual_llm_verification = false
+dual_llm_provider = "google"
+dual_llm_model = "lite"
+
 # =============================================================================
 # Google Gemini
 # =============================================================================

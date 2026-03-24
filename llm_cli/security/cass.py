@@ -22,6 +22,7 @@ class SecurityPosture(TypedDict):
     pqc_variant: str  # ML-DSA-44, 65, or 87
     require_pqc_audit_encryption: bool
     ast_strictness: str  # "basic", "restricted", "strict"
+    require_dual_llm_verification: bool
 
 
 class CASSOrchestrator:
@@ -54,6 +55,7 @@ class CASSOrchestrator:
     def get_security_requirements(self, tool_name: str) -> SecurityPosture:
         """Get the required security posture for a specific tool execution."""
         risk_level = self.evaluate_risk(tool_name)
+        dual_llm_enabled = config_manager.get_bool("security", "dual_llm_verification")
 
         if risk_level == RiskLevel.HIGH:
             logger.debug(
@@ -65,6 +67,7 @@ class CASSOrchestrator:
                 "pqc_variant": "ML-DSA-87",
                 "require_pqc_audit_encryption": True,
                 "ast_strictness": "strict",
+                "require_dual_llm_verification": dual_llm_enabled,
             }
         elif risk_level == RiskLevel.MEDIUM:
             logger.debug(f"CASS: Medium risk detected for tool '{tool_name}'.")
@@ -73,6 +76,7 @@ class CASSOrchestrator:
                 "pqc_variant": "ML-DSA-65",
                 "require_pqc_audit_encryption": False,
                 "ast_strictness": "restricted",
+                "require_dual_llm_verification": False,
             }
         else:
             logger.debug(f"CASS: Low risk detected for tool '{tool_name}'.")
@@ -81,6 +85,7 @@ class CASSOrchestrator:
                 "pqc_variant": "ML-DSA-44",
                 "require_pqc_audit_encryption": False,
                 "ast_strictness": "basic",
+                "require_dual_llm_verification": False,
             }
 
 

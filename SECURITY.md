@@ -177,6 +177,28 @@ medium_risk_tools = ["read_file_content", "list_files_in_directory", "search_fil
 
 Implementation: `llm_cli/security/policy.py`.
 
+### Dual LLM Verification (Dynamic Intent Check)
+
+To prevent sophisticated Prompt Injection (especially indirect injection),
+`llm-cli` implements a **Dual LLM Verification** pattern. When a high-risk tool
+is requested, the system intercepts the execution and consults a separate,
+lightweight "Verifier" model.
+
+The Verifier is provided only with the **User's Original Prompt** and the
+**Proposed Tool Call** (excluding potentially tainted intermediate reasoning
+or large external data). It must confirm that the action aligns with the
+user's intent.
+
+| Feature | Implementation |
+|---|---|
+| Trigger | High-risk tools (e.g., `execute_python`, `edit_file`) |
+| Isolation | Verifier is stateless and has no tool access (function calling OFF) |
+| Models | Lightweight, non-reasoning (e.g., `gemini-3.1-flash-lite`, `gpt-5.4-nano`) |
+| Outcome | Safe (continue) / Unsafe (block with reason) |
+
+Implementation: `llm_cli/security/dual_llm_verifier.py`.
+Enable via `defaults.toml`: `dual_llm_verification = true`.
+
 ### Compatibility & Interoperability (Security Levels)
 
 To allow interoperability with standard MCP clients (e.g., Cursor, Claude Desktop) or third-party MCP servers that do not support PQC protocols, `llm-cli` provides a configurable security level:
@@ -334,6 +356,32 @@ available.
 
 ---
 
+## Security Performance & Latency Benchmarks
+
+To maintain an agile user experience, `llm-cli` optimizes for minimal operational overhead. The following measurements were captured on reference hardware (AMD Ryzen 5, WSL2).
+
+### 1. Cryptographic Latency (PQC)
+Measured using the pure-Python reference implementation on x86\_64 (Ryzen 5 8540U, WSL2). Note that C/Rust bindings can reduce these numbers by ~10x.
+
+| Tier | Component | Algorithm | Avg Latency (ms) |
+|---|---|---|---|
+| Tier 1 | AST Safety Analysis | - | ~0.03 |
+| Tier 2 | Identity Generation | ML-DSA-44 | ~147 |
+| Tier 2 | Identity Generation | ML-DSA-87 | ~126 |
+| Tier 3 | Audit Encryption | ML-KEM-768 | ~3.4 |
+
+### 2. Intent Verification Latency (Dual LLM)
+Latency varies based on the provider and network conditions. We recommend "lite" models to minimize the "Security Speed Bump."
+
+| Provider | Model | Accuracy | Avg Latency (ms) |
+|---|---|---|---|
+| Google | `gemini-3.1-flash-lite-preview` | 100% | ~1940 |
+| OpenAI | `gpt-5.4-nano` | 100% | ~1220 |
+| Anthropic | `claude-haiku-4-5...` | 100% | ~1870 |
+| xAI | `grok-4.20-non-reasoning` | 100% | ~806 |
+
+---
+
 ## Security Configuration Reference
 
 The primary security configuration is in `llm_cli/apps/defaults.toml`
@@ -354,6 +402,11 @@ high_risk_tools          = ["execute_python", "edit_file",
                             "create_or_overwrite_file"]
 medium_risk_tools        = ["read_file_content", "list_files_in_directory",
                             "search_files"]
+
+# Dual LLM Verification
+dual_llm_verification    = true
+dual_llm_provider        = "google"
+dual_llm_model           = "lite"
 
 # PQC enforcement: "warn" | "strict_block"
 pqc_enforcement          = "warn"

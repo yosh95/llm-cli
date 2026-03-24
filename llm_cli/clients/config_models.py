@@ -41,6 +41,9 @@ class SecurityConfig:
     allowed_env_vars: list[str] = field(default_factory=list)
     static_analysis_is_error: bool = True
     scaling_patterns: list[str] = field(default_factory=list)
+    dual_llm_verification: bool = False
+    dual_llm_provider: str = "google"
+    dual_llm_model: str = "lite"
 
 
 @dataclass

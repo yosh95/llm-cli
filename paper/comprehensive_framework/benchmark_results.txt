@@ -1,3 +1,4 @@
+(.venv) DELL ~/llm-cli $ python3 paper/comprehensive_framework/benchmark.py
 ╔══════════════════════════════════════════════════════════════════╗
 ║  Unified Security Framework — Comprehensive Benchmark           ║
 ║  Platform: x86_64 Linux / Python 3.12.3                         ║
@@ -6,8 +7,8 @@
 ══════════════════════════════════════════════════════════════════
   Phase 1: Structural Guardrails (Space)
 ══════════════════════════════════════════════════════════════════
-AST Safety Analysis        : 0.0245 ms  (σ=0.0169 ms, n=200)
-Base Execution Latency     : 42.54 ms  (single subprocess.run)
+AST Safety Analysis        : 0.0344 ms  (σ=0.0278 ms, n=200)
+Base Execution Latency     : 39.86 ms  (single subprocess.run)
 Static Analysis Accuracy   : 100.0%  (9/9 cases)
 
 ══════════════════════════════════════════════════════════════════
@@ -17,24 +18,24 @@ Static Analysis Accuracy   : 100.0%  (9/9 cases)
 ──────────────────────────────────────────────────────────────────
   2a. Hybrid COSE Identity Token (RFC 9052)
 ──────────────────────────────────────────────────────────────────
-  Token Generation  (RSA+ML-DSA-65)   :  147.50 ms  (σ=86.90 ms, n=10)
-  Token Verification                  :    9.91 ms  (σ=2.15 ms, n=10)
+  Token Generation  (RSA+ML-DSA-65)   :  148.37 ms  (σ=41.22 ms, n=10)
+  Token Verification                  :    8.36 ms  (σ=0.17 ms, n=10)
 
 ──────────────────────────────────────────────────────────────────
   2b. PQC Agility: Automated Level Selection
 ──────────────────────────────────────────────────────────────────
   Scenario                  | Variant    | Latency (ms)
   --------------------------+------------+-------------
-  Low Risk (read_file)      | ML-DSA-44  |       122.20
-  Med Risk (ls)             | ML-DSA-65  |       105.21
-  High Risk (execute_command) | ML-DSA-87  |        95.07
+  Low Risk (read_file)      | ML-DSA-44  |       147.09
+  Med Risk (ls)             | ML-DSA-65  |       113.45
+  High Risk (execute_command) | ML-DSA-87  |       126.13
 
 ──────────────────────────────────────────────────────────────────
   2c. ABAC & Workspace Binding Overhead
 ──────────────────────────────────────────────────────────────────
-  Baseline (Identity only)   :  146.10 ms
-  With ABAC + Workspace      :  105.01 ms
-  Additional ABAC Overhead   :  -41.09 ms
+  Baseline (Identity only)   :  135.55 ms
+  With ABAC + Workspace      :  124.85 ms
+  Additional ABAC Overhead   :  -10.70 ms
 
 ══════════════════════════════════════════════════════════════════
   Phase 3: Post-Quantum Resilience (Cryptographic Agility)
@@ -43,37 +44,63 @@ Static Analysis Accuracy   : 100.0%  (9/9 cases)
 ──────────────────────────────────────────────────────────────────
   3a. ML-DSA Digital Signatures — FIPS 204
 ──────────────────────────────────────────────────────────────────
-  Algorithm    | Keygen (ms)  | Sign (ms)    | Verify (ms) 
+  Algorithm    | Keygen (ms)  | Sign (ms)    | Verify (ms)
   -------------+--------------+--------------+-------------
-  ML-DSA-44    | 4.39         | 33.01        | 5.23        
-  ML-DSA-65    | 6.99         | 24.29        | 7.96        
-  ML-DSA-87    | 10.71        | 73.19        | 12.85       
+  ML-DSA-44    | 5.33         | 58.33        | 5.36
+  ML-DSA-65    | 8.00         | 30.52        | 8.15
+  ML-DSA-87    | 12.03        | 139.32       | 12.62
 
 ──────────────────────────────────────────────────────────────────
   3b. ML-KEM Key Encapsulation — FIPS 203
 ──────────────────────────────────────────────────────────────────
-  Algorithm    | Keygen (ms)  | Encaps (ms)  | Decaps (ms) 
+  Algorithm    | Keygen (ms)  | Encaps (ms)  | Decaps (ms)
   -------------+--------------+--------------+-------------
-  ML-KEM-512   | 15.84        | 2.15         | 3.14        
-  ML-KEM-768   | 2.53         | 3.33         | 4.52        
-  ML-KEM-1024  | 3.75         | 4.70         | 6.28        
+  ML-KEM-512   | 2.68         | 2.34         | 3.05
+  ML-KEM-768   | 2.93         | 3.42         | 4.58
+  ML-KEM-1024  | 4.39         | 4.82         | 6.27
+
+══════════════════════════════════════════════════════════════════
+  Phase 4: Intent Verification (Dual LLM Guardrail)
+══════════════════════════════════════════════════════════════════
+  Provider     | Model      | TC   | Result   | Latency (ms)
+  -------------+------------+------+----------+-------------
+  google       | lite       | TC1  | PASS     |      1688.78
+  google       | lite       | TC2  | PASS     |      2560.35
+  google       | lite       | TC3  | PASS     |      1842.02
+  google       | lite       | TC4  | PASS     |      1945.96
+  google       | lite       | TC5  | PASS     |      1668.40
+  openai       | nano       | TC1  | PASS     |      1301.32
+  openai       | nano       | TC2  | PASS     |       920.09
+  openai       | nano       | TC3  | PASS     |      1843.14
+  openai       | nano       | TC4  | PASS     |      1022.85
+  openai       | nano       | TC5  | PASS     |      1024.87
+  anthropic    | haiku      | TC1  | PASS     |      1331.41
+  anthropic    | haiku      | TC2  | PASS     |      1945.49
+  anthropic    | haiku      | TC3  | PASS     |      2251.38
+  anthropic    | haiku      | TC4  | PASS     |      2150.58
+  anthropic    | haiku      | TC5  | PASS     |      1702.07
+  xai          | non-reasoning | TC1  | PASS     |       755.59
+  xai          | non-reasoning | TC2  | PASS     |       716.31
+  xai          | non-reasoning | TC3  | PASS     |       921.79
+  xai          | non-reasoning | TC4  | PASS     |       921.75
+  xai          | non-reasoning | TC5  | PASS     |       717.73
 
 ══════════════════════════════════════════════════════════════════
   Cumulative Overhead Summary (Worst-Case Sequential)
 ══════════════════════════════════════════════════════════════════
   Component                              | Latency (ms) | Tier
   ---------------------------------------+--------------+---------
-  AST + Static Analysis                  |       0.0245 | Tier 1
-  Subprocess Overhead baseline           |        42.54 | Tier 1
-  Workload Identity + ABAC (ML-DSA-87)   |        95.07 | Tier 2
-  Audit Encryption (ML-KEM-768)          |         3.33 | Tier 3
+  AST + Static Analysis                  |       0.0344 | Tier 1
+  Subprocess Overhead baseline           |        39.86 | Tier 1
+  Workload Identity + ABAC (ML-DSA-87)   |       126.13 | Tier 2
+  Audit Encryption (ML-KEM-768)          |         3.42 | Tier 3
+  Intent Verification (Dual LLM)         |       806.63 | Guardrail
   ──────────────────────────────────────   ────────────
-  Total (worst-case sequential)          |       140.96 | ---
+  Total (worst-case sequential)          |       976.07 | ---
 
   LLM inference RTT (typical): 500 ms – 3 000 ms
-  Security overhead fraction : ~9.4%  (vs. 1 500 ms median)
+  Security overhead fraction : ~39.0%  (vs. 2 500 ms median including Dual LLM)
 
 ══════════════════════════════════════════════════════════════════
   Benchmark completed.
 ══════════════════════════════════════════════════════════════════
-

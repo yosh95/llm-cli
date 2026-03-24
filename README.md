@@ -19,7 +19,7 @@ Enterprise adoption of autonomous AI agents faces a fundamental, unsolved challe
 Instead, its recommended uses are:
 
 - 🔍 **As a reference architecture** — for security engineers and architects exploring what a high-assurance agentic system *could* look like.
-- 🧪 **As an evaluation platform** — for studying the practical trade-offs between AI agent autonomy and deterministic security controls.
+- 🧪 **As an evaluation platform** — for studying the practical trade-offs between AI agent autonomy and hybrid high-assurance security controls.
 - 📐 **As a design provocation** — a starting point for organizational discussions on agentic AI governance, not a finished answer.
 
 The accompanying [Technical Report](paper/comprehensive_framework/paper.pdf) details the threat model and architectural decisions behind this framework.
@@ -97,6 +97,7 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 ### 1. Zero Trust & Access Control (ABAC)
 `llm-cli` implements **Attribute-Based Access Control (ABAC)**, providing granular security based on execution context and resource attributes.
 - **Risk-based Scaling**: Security requirements automatically scale based on the tool's risk level (HIGH/MEDIUM/LOW).
+- **Intent Verification (Dual LLM)**: High-risk actions are cross-verified by a separate, lightweight "Verifier" LLM (e.g., Gemini Flash Lite) to ensure the proposed tool call aligns with the user's original intent, mitigating sophisticated prompt injection.
 - **Identity Proof**: High-risk actions (e.g., Python execution) require a valid **PQC-signed identity**.
 - **Compatibility Mode**: Use `LLM_CLI_SECURITY_LEVEL=standard` or set `security_level = "standard"` in `config.toml` to enable interoperability with non-llm-cli clients or legacy MCP servers, downgrading PQC enforcement and integrity checks to warnings.
   ```toml
@@ -128,6 +129,7 @@ Inside the `llm-cli` interactive session:
 - `/i`: Show session integrity and security status.
 - `/save` / `/load`: Manage conversation history.
 - `/cp`: Checkpoint (Summarize and clear history).
+- `/benchmark-dual`: Benchmark the latency of Dual LLM verification.
 - `/mcp`: Toggle or manage MCP server integrations.
 
 ### 💡 Power User Tips
@@ -169,7 +171,7 @@ For detailed architectural insights and the academic background of our security 
 本プロジェクトの推奨される活用方法は以下のとおりです。
 
 - 🔍 **参照アーキテクチャとして** ― 高保証なエージェントシステムが「どのような設計になりえるか」を探求するセキュリティエンジニア・アーキテクト向け。
-- 🧪 **評価プラットフォームとして** ― AI エージェントの自律性と決定論的セキュリティ制御の間にある実践的なトレードオフを検討するための実験基盤として。
+- 🧪 **評価プラットフォームとして** ― AI エージェントの自律性とハイブリッドな高保証セキュリティ制御の間にある実践的なトレードオフを検討するための実験基盤として。
 - 📐 **設計上の問いかけとして** ― 組織内における AI エージェントのガバナンス議論の起点として。完成した答えではなく、問いを深めるための素材として。
 
 設計の背景にある脅威モデルとアーキテクチャ上の意思決定については、[テクニカルレポート](paper/comprehensive_framework/paper.pdf)で詳述しています。
@@ -229,6 +231,7 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 ### 1. 属性ベースアクセス制御 (ABAC)
 `llm-cli` は、実行コンテキストとリソース属性に基づいた **属性ベースアクセス制御 (ABAC)** を採用し、高度に粒度の細かいセキュリティを実現しています。
 - **リスクベース・スケーリング**: ツールのリスクレベル（HIGH/MEDIUM/LOW）に応じて、要求されるセキュリティ強度が自動的に変化します。
+- **意図の検証 (Dual LLM)**: 高リスクな操作は、軽量な「検証用LLM」（例：Gemini Flash Lite）によって元のプロンプトと照合されます。これにより、高度なプロンプトインジェクションによる意図しない操作を動的に防止します。
 - **アイデンティティ証明**: 高リスクな操作（Python実行など）には、**耐量子暗号 (PQC)** による署名付き証明が必要です。
 - **互換モード**: `LLM_CLI_SECURITY_LEVEL=standard` を環境変数で設定するか、`config.toml` 内で `security_level = "standard"` を設定することで、PQC非対応のクライアントやサーバーとの相互運用を許可し、整合性チェックのエラーを警告表示のみにダウングレードします。
   ```toml
@@ -246,6 +249,19 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 ### 3. 観測可能性と監査ログ (Tier 3 参照実装)
 - **改ざん防止監査ログ**: ハッシュ連鎖（Chained Hashing）によるログ保護と、**ML-KEM (Kyber)** による機密性保護を実装しています。
 - **Merkle Tree アンカリング**: Tier 3 実装として Merkle Tree によるログバッチの固定を導入。履歴の改ざんを防止し、セッションの整合性を証明するアーキテクチャのプロトタイプです。
+
+### 📖 高度なコマンドとパワーユーザー向け機能
+
+インタラクティブセッション内で利用可能なコマンド:
+- `/help`: 利用可能なすべてのコマンドを表示。
+- `/p <provider>` / `/m <model>`: プロバイダーやモデルを動的に切り替え。
+- `/attach <path/URL>`: ファイルやウェブサイトのコンテンツをコンテキストに追加。
+- `/tools on|off`: ツールの自律実行を有効化/無効化。
+- `/i`: セッションの整合性とセキュリティステータスを表示。
+- `/save` / `/load`: 会話履歴を保存・読み込み。
+- `/cp`: チェックポイント (会話の要約と履歴のクリア)。
+- `/benchmark-dual`: Dual LLM 検証のレイテンシを測定。
+- `/mcp`: MCP サーバー連携の切り替えと管理。
 
 ### 💡 パワーユーザー向け機能
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。

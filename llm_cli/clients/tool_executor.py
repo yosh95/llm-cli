@@ -126,7 +126,7 @@ def execute_tool_call(
 
 
 def _run_security_checks(ctx: ToolExecutionContext) -> bool:
-    """Checks Security Policy Engine and PQC Identity."""
+    """Checks Security Policy Engine, PQC Identity, and Dual LLM Verification."""
     from llm_cli.security.identity import IdentityManager
 
     has_pqc = False
@@ -138,6 +138,22 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
         report_error(err)
         ctx.error_message = err
         return False
+
+    # 1. Dual LLM Verification (Dynamic Intent Check)
+    if ctx.security_requirements.get("require_dual_llm_verification"):
+        user_prompt = ctx.session.client.get_last_user_prompt()
+        if user_prompt:
+            from llm_cli.security.dual_llm_verifier import verify_tool_call
+
+            console.print(f"[dim blue]🛡️  Dual LLM verifying '{ctx.name}'...[/dim blue]")
+            is_safe, reason = verify_tool_call(user_prompt, ctx.name, ctx.args)
+            if not is_safe:
+                err = f"Dual LLM Violation: Tool '{ctx.name}' blocked. Reason: {reason}"
+                report_error(err)
+                ctx.error_message = err
+                return False
+            else:
+                report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
 
     from llm_cli.security.policy import EvaluationContext, policy_engine
 

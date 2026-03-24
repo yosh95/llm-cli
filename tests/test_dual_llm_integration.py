@@ -114,7 +114,9 @@ def test_tool_executor_passes_on_dual_llm_success(session, tool_call_part):
         ),
         patch(
             "llm_cli.clients.tool_executor._verify_pqc_signature",
-            side_effect=lambda data, _: data,
+            side_effect=lambda data, *_, **__: (
+                data.get("result") if isinstance(data, dict) else data
+            ),
         ),
     ):
         res_part, injected = execute_tool_call(session, tool_call_part)

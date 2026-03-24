@@ -97,6 +97,30 @@ def test_identity_manager_integration(tmp_path, monkeypatch):
         "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_PATH",
         key_dir / "id_pqc_l3.pub",
     )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PQC_PRIVATE_KEY_L2_PATH",
+        key_dir / "id_pqc_l2.key",
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_L2_PATH",
+        key_dir / "id_pqc_l2.pub",
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PQC_PRIVATE_KEY_L5_PATH",
+        key_dir / "id_pqc_l5.key",
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PQC_PUBLIC_KEY_L5_PATH",
+        key_dir / "id_pqc_l5.pub",
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PQC_KEM_PRIVATE_KEY_PATH",
+        key_dir / "id_kem.key",
+    )
+    monkeypatch.setattr(
+        "llm_cli.security.identity.IdentityManager._PQC_KEM_PUBLIC_KEY_PATH",
+        key_dir / "id_kem.pub",
+    )
 
     # Use local identity for the test to ensure fallback works without trusted directory entry
     local_id = IdentityManager.get_local_identity()

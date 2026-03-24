@@ -97,7 +97,7 @@ class IdentityManager:
 
         if force:
             cls._keys_ensured = False
-            logger.info("Force regeneration requested (not implemented).")
+            logger.info("Force regeneration requested. Ensuring identity keys...")
 
         if not cls._KEY_DIR.exists():
             cls._KEY_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)

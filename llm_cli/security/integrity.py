@@ -221,25 +221,19 @@ class IntegrityVerifier:
     def verify(self, pqc_verify_tail_lines: int = 50) -> bool:
         """
         Verify integrity.
-        Returns True if verified or missing (flexible for light users).
-        Returns False on tampering.
+        Returns True if verified. Returns False on tampering or missing manifest.
 
         Args:
             pqc_verify_tail_lines: Number of audit-log tail lines to PQC-verify.
-                Defaults to 50 for fast startup. Pass a large value (e.g. 10**9)
+                Defaults to 50 for fast startup. Pass a value like 10**9
                 for exhaustive verification (``llm-cli-security verify``).
         """
         logger.info("System Integrity: Verifying application files...")
 
         raw_manifest = self._load_manifest()
         if not raw_manifest:
-            logger.warning(
-                "🛡️  Integrity Lock is currently DISABLED (No manifest found)."
-            )
-            logger.warning(
-                "Run 'llm-cli-security manifest' to enable system protection."
-            )
-            return self.verify_audit_log(pqc_verify_tail_lines=pqc_verify_tail_lines)
+            logger.error("Integrity Failure: Manifest not found.")
+            return False
 
         trusted_manifest: dict[str, str] | None = None
         if "hashes" in raw_manifest:

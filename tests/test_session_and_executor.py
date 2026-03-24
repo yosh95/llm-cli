@@ -60,6 +60,11 @@ def test_execute_tool_call_success(session, tool_call_part):
     """Test successful tool execution flow."""
     mock_tool_func = MagicMock(return_value="Success Result")
 
+    def mock_verify(data, risk_level, **kwargs):
+        if isinstance(data, dict) and "pqc_signature" in data:
+            return data["result"]
+        return data
+
     with patch(
         "llm_cli.modules.tool_registry.registry.tools",
         {
@@ -75,7 +80,7 @@ def test_execute_tool_call_success(session, tool_call_part):
                 # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
                 with patch(
                     "llm_cli.clients.tool_executor._verify_pqc_signature",
-                    side_effect=lambda data, _: data,
+                    side_effect=mock_verify,
                 ):
                     res_part, injected = execute_tool_call(session, tool_call_part)
 
@@ -123,6 +128,11 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
         return_value={"result": "OK", "__llm_cli_data__": injected_ds}
     )
 
+    def mock_verify(data, risk_level, **kwargs):
+        if isinstance(data, dict) and "pqc_signature" in data:
+            return data["result"]
+        return data
+
     with patch(
         "llm_cli.modules.tool_registry.registry.tools",
         {"test_tool": {"func": mock_tool_func, "skip_approval": True}},
@@ -132,7 +142,7 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
                 # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
                 with patch(
                     "llm_cli.clients.tool_executor._verify_pqc_signature",
-                    side_effect=lambda data, _: data,
+                    side_effect=mock_verify,
                 ):
                     res_part, injected = execute_tool_call(session, tool_call_part)
 

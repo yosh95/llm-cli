@@ -14,6 +14,10 @@ from llm_cli.security.policy import PolicyEngine
 @pytest.fixture
 def identity_manager(tmp_path):
     """Fixture to set up temporary key directory for IdentityManager."""
+    # Reset IdentityManager cache to avoid interference from other tests
+    IdentityManager._keys_ensured = False
+    IdentityManager._key_cache = {}
+
     keys_dir = tmp_path / "keys"
     with (
         patch("llm_cli.security.identity.IdentityManager._KEY_DIR", keys_dir),

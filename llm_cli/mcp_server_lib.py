@@ -108,7 +108,11 @@ class FastMCP:
                     else:
                         result = func(**args)
 
-                    text_content = str(result)
+                    if isinstance(result, dict):
+                        text_content = json.dumps(result)
+                    else:
+                        text_content = str(result)
+
                     response = {
                         "content": [{"type": "text", "text": text_content}],
                         "isError": False,

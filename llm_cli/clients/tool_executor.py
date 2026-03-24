@@ -61,6 +61,7 @@ class ToolExecutionContext:
     # Security fields
     risk_level: RiskLevel = field(init=False)
     security_requirements: SecurityPosture = field(init=False)
+    server_name: str | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         call = self.part.function_call
@@ -74,7 +75,14 @@ class ToolExecutionContext:
         from llm_cli.security.cass import cass_orchestrator as cass
 
         # Strip MCP server prefix (e.g., 'gpu__') for risk evaluation
-        base_name = self.name.split("__")[-1]
+        parts = self.name.split("__")
+        if len(parts) > 1:
+            self.server_name = parts[0]
+            base_name = "__".join(parts[1:])
+        else:
+            self.server_name = None
+            base_name = self.name
+
         self.risk_level = cass.evaluate_risk(base_name)
         self.security_requirements = cass.get_security_requirements(base_name)
 
@@ -283,6 +291,29 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
             __security_requirements__=ctx.security_requirements,
             **ctx.args,
         )
+
+        # 1. Process injected data BEFORE signing
+        # Some tools return a dict with __llm_cli_data__ for side-channel info.
+        if isinstance(result, dict) and "__llm_cli_data__" in result:
+            data_payload = result.pop("__llm_cli_data__")
+            ctx.injected_data = (
+                data_payload
+                if isinstance(data_payload, DataSource)
+                else DataSource(**data_payload)
+            )
+
+        # 2. Bi-directional Verification: Ensure the result is signed.
+        # Remote tools (MCP) are signed by the server. Local tools are signed here
+        # to satisfy the verification requirement in 'high' security mode.
+        if not (isinstance(result, dict) and "pqc_signature" in result):
+            # Only sign if it's not already an error message
+            res_str = str(result)
+            if not (res_str.startswith("Error:") or "⛔" in res_str):
+                from llm_cli.security.pqc import PQCAgilityManager, sign_tool_result
+
+                variant = PQCAgilityManager.get_required_level(ctx.name, args=ctx.args)
+                result = sign_tool_result(res_str, variant=variant)
+
         ctx.result_data = result
         return True
     except ConfigurationError as e:
@@ -296,18 +327,12 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
 
 
 def _post_process_result(ctx: ToolExecutionContext) -> bool:
-    if isinstance(ctx.result_data, dict) and "__llm_cli_data__" in ctx.result_data:
-        data_payload = ctx.result_data.pop("__llm_cli_data__")
-        ctx.injected_data = (
-            data_payload
-            if isinstance(data_payload, DataSource)
-            else DataSource(**data_payload)
-        )
-
     security_level = config_manager.get("security", "security_level") or "high"
 
     try:
-        ctx.result_data = _verify_pqc_signature(ctx.result_data, ctx.risk_level)
+        ctx.result_data = _verify_pqc_signature(
+            ctx.result_data, ctx.risk_level, server_id=ctx.server_name
+        )
     except ValueError as e:
         if security_level == "high":
             ctx.error_message = str(e)
@@ -359,7 +384,9 @@ def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
     )
 
 
-def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
+def _verify_pqc_signature(
+    result_data: Any, risk_level: Any, server_id: str | None = None
+) -> Any:
     # Handle cases where the result is a JSON string (common in MCP transport)
     original_data = result_data
     if isinstance(result_data, str) and result_data.strip().startswith("{"):
@@ -399,7 +426,13 @@ def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
     content = str(result_data.get("result", result_data.get("response", result_data)))
 
     try:
-        pqc_pub = IdentityManager._get_pqc_public_key_content(variant=variant)
+        # Use server_id if provided (for MCP), otherwise use local identity
+        target_entity = server_id or IdentityManager.get_local_identity()
+        pqc_pub = IdentityManager._get_trusted_pqc_public_key(target_entity, variant)
+
+        if not pqc_pub:
+            raise ValueError(f"No trusted PQC key found for '{target_entity}'.")
+
         sig = base64.urlsafe_b64decode(str(sig_b64) + "==")
         if PQCProvider.verify(
             f"{v_id}:{content}".encode(), sig, pqc_pub, variant=variant

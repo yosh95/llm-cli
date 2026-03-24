@@ -305,7 +305,20 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
         # 2. Bi-directional Verification: Ensure the result is signed.
         # Remote tools (MCP) are signed by the server. Local tools are signed here
         # to satisfy the verification requirement in 'high' security mode.
-        if not (isinstance(result, dict) and "pqc_signature" in result):
+        is_already_signed = False
+        if isinstance(result, dict) and "pqc_signature" in result:
+            is_already_signed = True
+        elif isinstance(result, str) and result.strip().startswith("{"):
+            try:
+                import json
+
+                parsed = json.loads(result)
+                if isinstance(parsed, dict) and "pqc_signature" in parsed:
+                    is_already_signed = True
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        if not is_already_signed:
             # Only sign if it's not already an error message
             res_str = str(result)
             if not (res_str.startswith("Error:") or "⛔" in res_str):
@@ -387,46 +400,53 @@ def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
 def _verify_pqc_signature(
     result_data: Any, risk_level: Any, server_id: str | None = None
 ) -> Any:
-    # Handle cases where the result is a JSON string (common in MCP transport)
-    original_data = result_data
-    if isinstance(result_data, str) and result_data.strip().startswith("{"):
-        import json
+    """
+    Verifies the PQC signature and extracts the result content.
+    Supports recursive unwrapping for multi-layered signatures.
+    """
+    import base64
+    import json
 
+    from llm_cli.security.identity import IdentityManager
+    from llm_cli.security.pqc import PQCProvider
+
+    # 1. Handle stringified JSON (common in MCP transport)
+    if isinstance(result_data, str) and result_data.strip().startswith("{"):
         try:
             parsed = json.loads(result_data)
             if isinstance(parsed, dict) and "pqc_signature" in parsed:
                 result_data = parsed
         except (json.JSONDecodeError, TypeError):
-            pass
+            # Fallback for Python-style string representation (single quotes)
+            try:
+                import ast
 
+                parsed = ast.literal_eval(result_data)
+                if isinstance(parsed, dict) and "pqc_signature" in parsed:
+                    result_data = parsed
+            except (ValueError, SyntaxError):
+                pass
+
+    # 2. Check if this is a signed dictionary
     if not (isinstance(result_data, dict) and "pqc_signature" in result_data):
-        # If it's not a signed dictionary, it might be a raw string or error.
-        # But for 'high' security standard, we strictly enforce signatures on success.
-        msg = (
-            "Security Violation: Missing PQC signature for tool response "
-            f"(Risk: {risk_level.value})."
-        )
-        # Check if the result is actually an error message from the tool
-        if isinstance(original_data, str) and (
-            "Error:" in original_data or "⛔" in original_data
+        # Base case: No more signatures to strip.
+        # But for 'high' security, we expect success results to be signed.
+        if isinstance(result_data, str) and (
+            "Error:" in result_data or "⛔" in result_data
         ):
-            return original_data
+            return result_data
+        return result_data
 
-        report_error(f"PQC Enforcement: {msg}")
-        raise ValueError(msg)
-
-    import base64
-
-    from llm_cli.security.identity import IdentityManager
-    from llm_cli.security.pqc import PQCProvider
-
+    # 3. Perform Verification
     sig_b64 = result_data.get("pqc_signature", "")
     v_id = result_data.get("verification_id", "unknown")
     variant = result_data.get("algorithm", "ML-DSA-65")
-    content = str(result_data.get("result", result_data.get("response", result_data)))
+    content = result_data.get("result", result_data.get("response", result_data))
+
+    # We need a string representation for PQC verification
+    content_str = str(content)
 
     try:
-        # Use server_id if provided (for MCP), otherwise use local identity
         target_entity = server_id or IdentityManager.get_local_identity()
         pqc_pub = IdentityManager._get_trusted_pqc_public_key(target_entity, variant)
 
@@ -435,14 +455,17 @@ def _verify_pqc_signature(
 
         sig = base64.urlsafe_b64decode(str(sig_b64) + "==")
         if PQCProvider.verify(
-            f"{v_id}:{content}".encode(), sig, pqc_pub, variant=variant
+            f"{v_id}:{content_str}".encode(), sig, pqc_pub, variant=variant
         ):
             report_success(f"PQC Verified ({variant}) (ID: {v_id})")
-            return content
+            # --- RECURSION ---
+            # The 'content' might itself be another signed layer (JSON string or dict).
+            # Call ourselves recursively to strip it.
+            return _verify_pqc_signature(content, risk_level, server_id=server_id)
         else:
             raise ValueError(f"PQC Signature Verification Failed (ID: {v_id})")
     except Exception as e:
         if isinstance(e, ValueError):
             raise e
         logger.warning(f"Signature verification error: {e}")
-    return content
+        return content

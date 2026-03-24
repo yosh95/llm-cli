@@ -120,10 +120,16 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
 
             # --- Bi-directional Verification: Sign Output ---
             # Result MUST be signed to pass client-side 'high' security verification.
+            # Ensure we're signing a canonical JSON string representation of the result
+            import json
+
             from llm_cli.security.pqc import PQCAgilityManager, sign_tool_result
 
-            # Ensure we're signing the string representation of the result
-            res_str = str(result)
+            if isinstance(result, (dict, list)):
+                res_str = json.dumps(result)
+            else:
+                res_str = str(result)
+
             variant = PQCAgilityManager.get_required_level(tool_name, args=kwargs)
             signed_result = sign_tool_result(res_str, variant=variant)
 

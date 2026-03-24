@@ -142,6 +142,7 @@ This helps you choose the most efficient "fast model" (like Gemini Flash or GPT-
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
 - **External Editor (`Ctrl+X, Ctrl+E`)**: Open the current prompt in your default editor (`vim`, `nano`, etc.) for complex editing.
 - **Templates**: Define reusable prompts in `~/.llm_cli/config.toml` and call them with `/t <name>`.
+- **Disabling Tools**: If using a model that doesn't support function calling (e.g., some older or smaller local models), use `/tools off` to prevent errors.
 
 ## 🔑 Security Management
 Use the `llm-cli-security` tool to manage your cryptographic identity:
@@ -279,6 +280,7 @@ llm-cli-benchmark-dual
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。
 - **外部エディタ編集 (`Ctrl+X, Ctrl+E`)**: プロンプト入力を `vim` や `nano` で編集。
 - **テンプレート**: 頻繁に使うプロンプトを `~/.llm_cli/config.toml` に定義し、`/t <名前>` で呼び出し。
+- **ツール機能の無効化**: Function calling（ツール利用）に対応していないモデルを使用する場合、`/tools off` コマンドでツール機能を無効化することでエラーを回避できます。
 
 ---
 

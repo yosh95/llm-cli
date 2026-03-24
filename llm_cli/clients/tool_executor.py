@@ -96,14 +96,22 @@ def execute_tool_call(
         return None
 
     try:
+        # 1. Access Control & Identity Proof (ABAC) - Fast, local gatekeeping
         if not _run_security_checks(ctx):
             return _create_error_response(ctx), None
 
         display_reasoning(ctx)
 
+        # 2. Static Analysis (AST) - Local, deterministically detects dangerous code
         if not _run_code_safety_check(ctx):
             return _create_error_response(ctx), None
 
+        # 3. Dynamic Intent Verification (Dual LLM)
+        # Slower, remote, but only for "safe" code
+        if not _run_dual_llm_verification(ctx):
+            return _create_error_response(ctx), None
+
+        # 4. Final Human-in-the-Loop Validation
         if not _run_pre_approval_validation(ctx):
             return _create_error_response(ctx), None
 
@@ -136,7 +144,7 @@ def execute_tool_call(
 
 
 def _run_security_checks(ctx: ToolExecutionContext) -> bool:
-    """Checks Security Policy Engine, PQC Identity, and Dual LLM Verification."""
+    """Checks Security Policy Engine and PQC Identity availability."""
     from llm_cli.security.identity import IdentityManager
 
     has_pqc = False
@@ -148,22 +156,6 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
         report_error(err)
         ctx.error_message = err
         return False
-
-    # 1. Dual LLM Verification (Dynamic Intent Check)
-    if ctx.security_requirements.get("require_dual_llm_verification"):
-        user_prompt = ctx.session.client.get_last_user_prompt()
-        if user_prompt:
-            from llm_cli.security.dual_llm_verifier import verify_tool_call
-
-            console.print(f"[dim blue]🛡️  Dual LLM verifying '{ctx.name}'...[/dim blue]")
-            is_safe, reason = verify_tool_call(user_prompt, ctx.name, ctx.args)
-            if not is_safe:
-                err = f"Dual LLM Violation: Tool '{ctx.name}' blocked. Reason: {reason}"
-                report_error(err)
-                ctx.error_message = err
-                return False
-            else:
-                report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
 
     from llm_cli.security.policy import EvaluationContext, policy_engine
 
@@ -180,6 +172,32 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
         report_error(ctx.error_message)
         return False
     return True
+
+
+def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
+    """Verifies intent using a second LLM if required by CASS."""
+    if not ctx.security_requirements.get("require_dual_llm_verification"):
+        return True
+
+    user_prompt = ctx.session.client.get_last_user_prompt()
+    if not user_prompt:
+        return True
+
+    from llm_cli.security.dual_llm_verifier import verify_tool_call
+
+    prompt_msg = (
+        f"[dim blue]🛡️  Dual LLM verifying intent for '{ctx.name}'...[/dim blue]"
+    )
+    console.print(prompt_msg)
+    is_safe, reason = verify_tool_call(user_prompt, ctx.name, ctx.args)
+    if not is_safe:
+        err = f"Dual LLM Violation: Tool '{ctx.name}' blocked. Reason: {reason}"
+        report_error(err)
+        ctx.error_message = err
+        return False
+    else:
+        report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
+        return True
 
 
 def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
@@ -371,13 +389,19 @@ def _post_process_result(ctx: ToolExecutionContext) -> bool:
 def _truncate_output(res_str: str) -> str:
     from llm_cli.consts import MAX_OUTPUT_CHARS, MAX_OUTPUT_LINES
 
-    lines = res_str.splitlines()
-    if len(lines) > MAX_OUTPUT_LINES or len(res_str) > MAX_OUTPUT_CHARS:
-        res_str = "\n".join(lines[:MAX_OUTPUT_LINES])[:MAX_OUTPUT_CHARS]
-        shown_lines = len(res_str.splitlines())
+    original_len = len(res_str)
+    original_lines = res_str.splitlines()
+    original_lines_count = len(original_lines)
+
+    if original_lines_count > MAX_OUTPUT_LINES or original_len > MAX_OUTPUT_CHARS:
+        # Perform truncation
+        truncated_lines = original_lines[:MAX_OUTPUT_LINES]
+        res_str = "\n".join(truncated_lines)[:MAX_OUTPUT_CHARS]
+
+        shown_lines_count = len(res_str.splitlines())
         res_str += (
-            f"\n\n... (Output truncated. Shown {shown_lines} of {len(lines)} lines, "
-            f"{len(res_str)} of {len(res_str)} chars.)"
+            f"\n\n... (Output truncated. Shown {shown_lines_count} of "
+            f"{original_lines_count} lines, {len(res_str)} of {original_len} chars.)"
         )
     return res_str
 

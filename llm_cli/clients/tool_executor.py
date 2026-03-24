@@ -151,6 +151,7 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
     }
     if not policy_engine.evaluate(ctx.name, ctx.args, eval_ctx):
         ctx.error_message = f"Policy Violation: Execution of '{ctx.name}' denied."
+        report_error(ctx.error_message)
         return False
     return True
 
@@ -187,6 +188,17 @@ def _run_pre_approval_validation(ctx: ToolExecutionContext) -> bool:
     if not tool_entry:
         return True
 
+    # 1. Basic Parameter Validation (Check required fields)
+    params_spec = tool_entry.get("parameters", {})
+    required_fields = params_spec.get("required", [])
+    missing = [f for f in required_fields if f not in ctx.args]
+    if missing:
+        ctx.error_message = (
+            f"Error: Missing required parameter(s): {', '.join(missing)}"
+        )
+        report_error(ctx.error_message)
+        return False
+
     validate_func = tool_entry.get("validate")
     if not validate_func:
         return True
@@ -198,9 +210,11 @@ def _run_pre_approval_validation(ctx: ToolExecutionContext) -> bool:
         ctx.error_message = (
             res if isinstance(res, str) else f"Validation failed for tool '{ctx.name}'."
         )
+        report_error(ctx.error_message)
         return False
     except Exception as e:
         ctx.error_message = f"Validation error: {e}"
+        report_error(ctx.error_message)
         return False
 
 

@@ -95,9 +95,6 @@ def setup_standard_commands(reg: CommandRegistry) -> None:
         Command("template", h.handle_template, "Use a message template", ["t"])
     )
     reg.register(Command("tools", h.handle_tools, "Show or toggle tool status"))
-    reg.register(
-        Command("benchmark-dual", h.handle_benchmark_dual, "Benchmark Dual LLM latency")
-    )
     reg.register(Command("help", h.handle_help, "Show this help message", ["h"]))
 
 

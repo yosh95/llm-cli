@@ -129,8 +129,14 @@ Inside the `llm-cli` interactive session:
 - `/i`: Show session integrity and security status.
 - `/save` / `/load`: Manage conversation history.
 - `/cp`: Checkpoint (Summarize and clear history).
-- `/benchmark-dual`: Benchmark the latency of Dual LLM verification.
 - `/mcp`: Toggle or manage MCP server integrations.
+
+### 📊 Performance & Benchmarking
+To measure the latency of the Dual LLM verification (intent check):
+```bash
+llm-cli-benchmark-dual
+```
+This helps you choose the most efficient "fast model" (like Gemini Flash or GPT-4o-mini) for background security checks.
 
 ### 💡 Power User Tips
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
@@ -260,8 +266,14 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 - `/i`: セッションの整合性とセキュリティステータスを表示。
 - `/save` / `/load`: 会話履歴を保存・読み込み。
 - `/cp`: チェックポイント (会話の要約と履歴のクリア)。
-- `/benchmark-dual`: Dual LLM 検証のレイテンシを測定。
 - `/mcp`: MCP サーバー連携の切り替えと管理。
+
+### 📊 パフォーマンスとベンチマーク
+Dual LLM 検証 (意図確認) のレイテンシを測定するには:
+```bash
+llm-cli-benchmark-dual
+```
+このコマンドにより、バックグラウンドでのセキュリティチェックに最適な高速モデル (Gemini Flash や GPT-4o-mini など) を選択する際の参考にできます。
 
 ### 💡 パワーユーザー向け機能
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。

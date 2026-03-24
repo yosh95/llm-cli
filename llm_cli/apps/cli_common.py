@@ -168,6 +168,9 @@ def run_client_cli(config: ClientConfig) -> None:
                 console.print("[red](from stdin or arguments).[/red]")
                 sys.exit(1)
             client.talk()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user. Exiting...[/yellow]")
+        sys.exit(0)
     except ProviderSwitchRequest as e:
         console.print(
             f"[bold red]Switching to provider '{escape(e.provider)}' "

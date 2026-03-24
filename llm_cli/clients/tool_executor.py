@@ -57,6 +57,7 @@ class ToolExecutionContext:
     injected_data: DataSource | None = None
     error_message: str | None = None
     aborted: bool = False
+    verification_warning: str | None = None
 
     # Security fields
     risk_level: RiskLevel = field(init=False)
@@ -202,9 +203,7 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
 
     from llm_cli.security.dual_llm_verifier import verify_tool_call
 
-    prompt_msg = (
-        f"[dim blue]🛡️  Dual LLM verifying intent for '{ctx.name}'...[/dim blue]"
-    )
+    prompt_msg = f"🛡️ Dual LLM verifying intent for '{ctx.name}'..."
     console.print(prompt_msg)
     is_safe, reason = verify_tool_call(user_prompt, ctx.name, ctx.args)
     if not is_safe:
@@ -227,9 +226,7 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
             ctx.error_message = f"Dual LLM Unavailable: {reason}"
             return False
         else:
-            err = f"Dual LLM Violation: Tool '{ctx.name}' blocked. Reason: {reason}"
-            report_error(err)
-            ctx.error_message = err
+            ctx.error_message = f"Dual LLM Violation: {reason}"
             return False
     else:
         report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
@@ -302,7 +299,7 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     tool_entry = registry.tools.get(ctx.name, {})
     skip_approval = tool_entry.get("skip_approval", False)
 
-    if skip_approval:
+    if skip_approval and not ctx.verification_warning:
         return True
 
     display_tool_request(ctx)
@@ -313,9 +310,24 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     elif "execute_python" in ctx.name:
         preview_python_code(ctx.args)
 
+    if ctx.verification_warning:
+        warning_msg = (
+            "[bold red]🛡️  Intent Analysis Warning:[/bold red]\n"
+            f"{ctx.verification_warning}"
+        )
+        print_block(
+            warning_msg,
+            title="Potential Mismatch",
+            style="red",
+        )
+
     try:
+        prompt_msg = "Allow execution? (y/N or feedback): "
+        if "execute_python" in ctx.name:
+            prompt_msg = "Warning: Arbitrary code execution. Allow? (y/N or feedback): "
+
         user_input = ctx.session._get_input(
-            "Allow execution? (y/N or feedback): ",
+            prompt_msg,
             exit_on_escape=True,
             raise_on_interrupt=True,
         )

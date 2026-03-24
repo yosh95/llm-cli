@@ -472,11 +472,13 @@ class IdentityManager:
         return cls._get_public_key_content().decode("utf-8")
 
     @classmethod
-    def get_pqc_public_key(cls) -> str:
+    def get_pqc_public_key(cls, variant: str = "ML-DSA-65") -> str:
         """Expose the PQC public key for distribution to remote servers."""
         import base64
 
-        return base64.b64encode(cls._get_pqc_public_key_content()).decode("utf-8")
+        return base64.b64encode(
+            cls._get_pqc_public_key_content(variant=variant)
+        ).decode("utf-8")
 
     @classmethod
     def get_kem_public_key(cls) -> str:

@@ -82,22 +82,15 @@ class MCPManager:
                     audience=name,
                 )
                 env["MCP_SERVER_NAME"] = name
-                env["LLM_CLI_PUBLIC_KEY"] = IdentityManager.get_public_key()
-                env["LLM_CLI_PQC_PUBLIC_KEY"] = IdentityManager.get_pqc_public_key()
 
                 # If command is ssh, inject token into the remote command args
                 if command == "ssh" or command.endswith("/ssh"):
                     token = env["MCP_AUTH_TOKEN"]
                     server_name_env = f"MCP_SERVER_NAME={name}"
-                    public_key = env["LLM_CLI_PUBLIC_KEY"]
-                    pqc_public_key = env["LLM_CLI_PQC_PUBLIC_KEY"]
-                    # Inject Token, Public Key, PQC Public Key and Server Name
-                    env_str = (
-                        f"MCP_AUTH_TOKEN={token} "
-                        f"LLM_CLI_PUBLIC_KEY='{public_key}' "
-                        f"LLM_CLI_PQC_PUBLIC_KEY='{pqc_public_key}' "
-                        f"{server_name_env}"
-                    )
+
+                    # Only inject Token and Server Name.
+                    # Keys must be manually registered on the server.
+                    env_str = f"MCP_AUTH_TOKEN={token} {server_name_env}"
 
                     # Strategy 1: Find python command and insert ENV before it
                     inserted = False
@@ -202,12 +195,19 @@ class MCPManager:
 
         try:
             result = self._run_async(session.call_tool(tool_name, arguments))
-            output = []
+            output: list[str] = []
             for content in result.content:
-                if content.type == "text":
-                    output.append(content.text)
+                if content.type == "text" and content.text:
+                    output.append(str(content.text))
                 else:
                     output.append(f"[Binary/Other content: {content.type}]")
+
+            # Bi-directional Verification Support:
+            # If the output is a single text block and looks like a signed JSON,
+            # return it as is so the executor can verify the signature.
+            if len(output) == 1 and output[0].strip().startswith("{"):
+                return str(output[0])
+
             return "\n".join(output) if output else "No output from tool."
         except Exception as e:
             return f"Error calling tool '{tool_name}' on '{server_name}': {e}"

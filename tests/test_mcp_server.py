@@ -57,7 +57,9 @@ class TestSecureToolWrapper:
 
         wrapped = secure_tool_wrapper(test_async_func, "test_tool")
         result = await wrapped(arg=1)
-        assert result == "async result"
+        assert isinstance(result, dict)
+        assert result["result"] == "async result"
+        assert "pqc_signature" in result
         mock_policy_engine.evaluate.assert_called_once()
 
     @pytest.mark.asyncio
@@ -79,7 +81,9 @@ class TestSecureToolWrapper:
 
         wrapped = secure_tool_wrapper(test_sync_func, "test_tool")
         result = await wrapped(arg=1)
-        assert result == "sync result"
+        assert isinstance(result, dict)
+        assert result["result"] == "sync result"
+        assert "pqc_signature" in result
         mock_policy_engine.evaluate.assert_called_once()
 
     @pytest.mark.asyncio

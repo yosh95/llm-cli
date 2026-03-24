@@ -118,10 +118,22 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
             else:
                 result = func(*args, **kwargs)
 
+            # --- Bi-directional Verification: Sign Output ---
+            # Result MUST be signed to pass client-side 'high' security verification.
+            from llm_cli.security.pqc import PQCAgilityManager, sign_tool_result
+
+            # Ensure we're signing the string representation of the result
+            res_str = str(result)
+            variant = PQCAgilityManager.get_required_level(tool_name, args=kwargs)
+            signed_result = sign_tool_result(res_str, variant=variant)
+
             log_audit(
-                tool_name=tool_name, args=kwargs, _output=result, context=audit_context
+                tool_name=tool_name,
+                args=kwargs,
+                _output=res_str,
+                context=audit_context,
             )
-            return result
+            return signed_result
         except Exception as e:
             log_audit(
                 tool_name=tool_name,

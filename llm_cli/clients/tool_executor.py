@@ -73,8 +73,10 @@ class ToolExecutionContext:
 
         from llm_cli.security.cass import cass_orchestrator as cass
 
-        self.risk_level = cass.evaluate_risk(self.name)
-        self.security_requirements = cass.get_security_requirements(self.name)
+        # Strip MCP server prefix (e.g., 'gpu__') for risk evaluation
+        base_name = self.name.split("__")[-1]
+        self.risk_level = cass.evaluate_risk(base_name)
+        self.security_requirements = cass.get_security_requirements(base_name)
 
 
 def execute_tool_call(
@@ -358,11 +360,31 @@ def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
 
 
 def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
+    # Handle cases where the result is a JSON string (common in MCP transport)
+    original_data = result_data
+    if isinstance(result_data, str) and result_data.strip().startswith("{"):
+        import json
+
+        try:
+            parsed = json.loads(result_data)
+            if isinstance(parsed, dict) and "pqc_signature" in parsed:
+                result_data = parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     if not (isinstance(result_data, dict) and "pqc_signature" in result_data):
+        # If it's not a signed dictionary, it might be a raw string or error.
+        # But for 'high' security standard, we strictly enforce signatures on success.
         msg = (
             "Security Violation: Missing PQC signature for tool response "
             f"(Risk: {risk_level.value})."
         )
+        # Check if the result is actually an error message from the tool
+        if isinstance(original_data, str) and (
+            "Error:" in original_data or "⛔" in original_data
+        ):
+            return original_data
+
         report_error(f"PQC Enforcement: {msg}")
         raise ValueError(msg)
 
@@ -383,6 +405,7 @@ def _verify_pqc_signature(result_data: Any, risk_level: Any) -> Any:
             f"{v_id}:{content}".encode(), sig, pqc_pub, variant=variant
         ):
             report_success(f"PQC Verified ({variant}) (ID: {v_id})")
+            return content
         else:
             raise ValueError(f"PQC Signature Verification Failed (ID: {v_id})")
     except Exception as e:

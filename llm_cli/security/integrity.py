@@ -272,17 +272,17 @@ class IntegrityVerifier:
             trusted_manifest = raw_manifest
 
         current_manifest = self._get_current_hashes()
-        all_ok = True
+        files_ok = True
 
         # Check for modifications or missing files
         for rel_path, trusted_hash in trusted_manifest.items():
             current_hash = current_manifest.get(rel_path)
             if current_hash is None:
                 logger.error(f"Integrity Failure: Missing file {rel_path}")
-                all_ok = False
+                files_ok = False
             elif current_hash != trusted_hash:
                 logger.error(f"Integrity Failure: Hash mismatch for {rel_path}")
-                all_ok = False
+                files_ok = False
 
         # Check for unauthorized new files
         for rel_path in current_manifest:
@@ -290,18 +290,25 @@ class IntegrityVerifier:
                 logger.error(
                     f"Integrity Failure: Unauthorized new file detected: {rel_path}"
                 )
-                all_ok = False
+                files_ok = False
 
-        if not all_ok:
+        if not files_ok:
             logger.error(
                 "Run 'llm-cli-security manifest' to update the integrity baseline "
                 "if these changes are intended."
             )
 
-        if not self.verify_audit_log(pqc_verify_tail_lines=pqc_verify_tail_lines):
-            all_ok = False
+        # Audit log check
+        audit_ok = self.verify_audit_log(pqc_verify_tail_lines=pqc_verify_tail_lines)
+        if not audit_ok:
+            logger.error("Integrity Failure: Audit log verification failed.")
+            logger.error(
+                "This may be caused by a key change or manual log tampering. "
+                "If you are developing and changed your identity keys, you may need "
+                "to clear the audit log (audit.jsonl)."
+            )
 
-        return all_ok
+        return files_ok and audit_ok
 
     def rebuild_manifest(self) -> bool:
         """Force rebuild of the integrity manifest (Admin Action)."""
@@ -309,12 +316,22 @@ class IntegrityVerifier:
         try:
             from llm_cli.security.identity import IdentityManager
 
-            IdentityManager._ensure_keys(force=True)
+            # Ensure keys exist, but don't force REGENERATION of existing keys.
+            # Identity keys are separate from the integrity manifest baseline.
+            IdentityManager._ensure_keys(force=False)
         except Exception:
             return False
 
         current_hashes = self._get_current_hashes()
         self._save_manifest(current_hashes)
+
+        # Also check the audit log and warn the user if it's currently broken.
+        if not self.verify_audit_log():
+            logger.warning(
+                "⚠️  Warning: The audit log has a signature mismatch. "
+                "The manifest was updated successfully, but the system will still "
+                "fail the integrity check on startup until the audit log is fixed."
+            )
         return True
 
     def generate_attestation_token(self) -> dict:
@@ -370,8 +387,9 @@ def verify_installation() -> None:
 
         logger.critical("Integrity check failed. Aborting startup.")
         logger.error(
-            "Hint: If you have modified the source code or updated dependencies, "
-            "you must re-generate the integrity manifest by running: "
-            "llm-cli-security manifest"
+            "Hint: If you have modified the source code, you must re-generate "
+            "the integrity manifest by running: llm-cli-security manifest\n"
+            "If the failure is in the audit log (Signature mismatch), you may "
+            "need to clear the logs if you recently changed your identity keys."
         )
         sys.exit(1)

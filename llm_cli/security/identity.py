@@ -90,13 +90,12 @@ class IdentityManager:
         # not the generation layer.
 
         # Skip repeated filesystem checks within the same process unless forced.
-        # We also check if the private key exists to handle cases where the directory
-        # was wiped or changed (e.g. in tests).
         if cls._keys_ensured and not force and cls._PRIVATE_KEY_PATH.exists():
             return
 
         if force:
             cls._keys_ensured = False
+            cls._key_cache.clear()
             logger.info("Force regeneration requested. Ensuring identity keys...")
 
         if not cls._KEY_DIR.exists():
@@ -107,14 +106,25 @@ class IdentityManager:
                 cls._KEY_DIR.chmod(0o700)
 
         # Classical RSA Keys
-        if not cls._PRIVATE_KEY_PATH.exists():
-            logger.info("Initializing your secure identity (Auto-gen)...")
+        if (
+            force
+            or not cls._PRIVATE_KEY_PATH.exists()
+            or not cls._PUBLIC_KEY_PATH.exists()
+        ):
+            if not cls._PRIVATE_KEY_PATH.exists():
+                logger.info("Initializing your secure identity (Auto-gen)...")
+            else:
+                logger.info("Regenerating RSA identity keys...")
+
             private_key = rsa.generate_private_key(
                 public_exponent=65537, key_size=2048, backend=default_backend()
             )
             # Save Private Key (mode 0o600)
             with os.fdopen(
-                os.open(cls._PRIVATE_KEY_PATH, os.O_WRONLY | os.O_CREAT, 0o600), "wb"
+                os.open(
+                    cls._PRIVATE_KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
+                ),
+                "wb",
             ) as f:
                 f.write(
                     private_key.private_bytes(
@@ -125,7 +135,10 @@ class IdentityManager:
                 )
             # Save Public Key
             with os.fdopen(
-                os.open(cls._PUBLIC_KEY_PATH, os.O_WRONLY | os.O_CREAT, 0o600), "wb"
+                os.open(
+                    cls._PUBLIC_KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
+                ),
+                "wb",
             ) as f:
                 f.write(
                     private_key.public_key().public_bytes(
@@ -137,31 +150,51 @@ class IdentityManager:
         # Post-Quantum Keys (ML-DSA) - Agility Levels L2, L3, L5
         for v in ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87"]:
             priv_p, pub_p = cls._get_pqc_paths(v)
-            if not priv_p.exists():
-                logger.info(f"Generating new Post-Quantum ({v}) key pair...")
+            if force or not priv_p.exists() or not pub_p.exists():
+                if not priv_p.exists():
+                    logger.info(f"Generating new Post-Quantum ({v}) key pair...")
+                else:
+                    logger.info(f"Regenerating Post-Quantum ({v}) key pair...")
+
                 pub_pqc, priv_pqc = PQCProvider.generate_keypair(variant=v)
                 with os.fdopen(
-                    os.open(priv_p, os.O_WRONLY | os.O_CREAT, 0o600), "wb"
+                    os.open(priv_p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb"
                 ) as f:
                     f.write(priv_pqc)
                 with os.fdopen(
-                    os.open(pub_p, os.O_WRONLY | os.O_CREAT, 0o600), "wb"
+                    os.open(pub_p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb"
                 ) as f:
                     f.write(pub_pqc)
 
         # Post-Quantum KEM Keys (ML-KEM)
-        if not cls._PQC_KEM_PRIVATE_KEY_PATH.exists():
-            logger.info("Generating new Post-Quantum (ML-KEM) key pair...")
+        if (
+            force
+            or not cls._PQC_KEM_PRIVATE_KEY_PATH.exists()
+            or not cls._PQC_KEM_PUBLIC_KEY_PATH.exists()
+        ):
+            if not cls._PQC_KEM_PRIVATE_KEY_PATH.exists():
+                logger.info("Generating new Post-Quantum (ML-KEM) key pair...")
+            else:
+                logger.info("Regenerating Post-Quantum (ML-KEM) key pair...")
+
             from llm_cli.security.pqc import KEMProvider
 
             pub_kem, priv_kem = KEMProvider.generate_keypair()
             with os.fdopen(
-                os.open(cls._PQC_KEM_PRIVATE_KEY_PATH, os.O_WRONLY | os.O_CREAT, 0o600),
+                os.open(
+                    cls._PQC_KEM_PRIVATE_KEY_PATH,
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    0o600,
+                ),
                 "wb",
             ) as f:
                 f.write(priv_kem)
             with os.fdopen(
-                os.open(cls._PQC_KEM_PUBLIC_KEY_PATH, os.O_WRONLY | os.O_CREAT, 0o600),
+                os.open(
+                    cls._PQC_KEM_PUBLIC_KEY_PATH,
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    0o600,
+                ),
                 "wb",
             ) as f:
                 f.write(pub_kem)

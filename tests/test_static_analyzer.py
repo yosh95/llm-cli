@@ -66,3 +66,20 @@ def test_analyze_python_safety_attribute_access():
     code = "getattr(os, 'system')('ls')"
     is_safe, issues = analyze_python_safety(code)
     assert is_safe is False
+
+
+def test_analyze_python_safety_smart_guardrail():
+    """Verify that rm is allowed generally but blocked for sensitive paths."""
+    # 1. Safe rm (relative path or file)
+    code_safe = "import subprocess; subprocess.run(['rm', 'temp.txt'])"
+    is_safe, issues = analyze_python_safety(code_safe)
+    assert is_safe is True
+    assert len(issues) == 0
+
+    # 2. Blocked rm (targets /etc)
+    code_blocked = "import subprocess; subprocess.run(['rm', '-rf', '/etc/shadow'])"
+    is_safe, issues = analyze_python_safety(code_blocked)
+    assert is_safe is False
+    assert any(
+        "sensitive path" in issue.lower() and "rm" in issue.lower() for issue in issues
+    )

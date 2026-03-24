@@ -139,4 +139,5 @@ def verify_tool_call(
 
     except Exception as e:
         logger.error(f"Dual LLM Verification error: {e}")
-        return True, f"Verification process failed: {e}"
+        # Return False to trigger the human-in-the-loop fallback in tool_executor
+        return False, f"Verification process failed: {e}"

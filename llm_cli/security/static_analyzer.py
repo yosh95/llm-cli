@@ -96,10 +96,84 @@ class PythonSecurityScanner(ast.NodeVisitor):
         "__globals__",
     }
 
+    # High-risk commands that shouldn't touch sensitive system paths
+    SENSITIVE_TARGET_COMMANDS = {"rm", "shred", "dd", "mkfs", "chown", "chmod"}
+
     def __init__(self) -> None:
         self.issues: list[str] = []
         self.found_modules: set[str] = set()
         self.aliases: dict[str, str] = {}  # Track aliases of dangerous functions
+
+        # Load blocked paths from config to check against subprocess targets
+        from llm_cli.clients.config import config_manager
+
+        self.blocked_paths = config_manager.get("security", "blocked_paths") or []
+
+    def _check_subprocess_node(self, node: ast.Call) -> None:
+        """
+        Checks for shell=True and dangerous command combinations in subprocess calls.
+        """
+        is_subprocess_call = False
+        cmd_args: list[str] = []
+
+        # 1. Detect if this is a subprocess call and extract literal arguments
+        if isinstance(node.func, ast.Attribute):
+            if (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "subprocess"
+            ):
+                is_subprocess_call = True
+        elif isinstance(node.func, ast.Name) and node.func.id in [
+            "run",
+            "Popen",
+            "call",
+            "check_call",
+            "check_output",
+        ]:
+            is_subprocess_call = True
+
+        if not is_subprocess_call:
+            return
+
+        # 2. Extract arguments (best effort for literal strings)
+        if node.args:
+            first_arg = node.args[0]
+            if isinstance(first_arg, ast.List):
+                for elt in first_arg.elts:
+                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                        cmd_args.append(elt.value)
+            elif isinstance(first_arg, ast.Constant) and isinstance(
+                first_arg.value, str
+            ):
+                cmd_args.append(first_arg.value)
+
+        # 3. Check for shell=True
+        for kw in node.keywords:
+            if kw.arg == "shell":
+                val = None
+                if isinstance(kw.value, ast.Constant):
+                    val = kw.value.value
+                elif isinstance(kw.value, ast.Name):
+                    val = kw.value.id == "True"
+
+                if val is True:
+                    self.issues.append(
+                        "Security Violation: 'shell=True' is strictly forbidden."
+                    )
+
+        # 4. Smart Guardrail: Command + Path combination
+        if cmd_args:
+            cmd = cmd_args[0].split("/")[-1]  # Handle /bin/rm as rm
+            if cmd in self.SENSITIVE_TARGET_COMMANDS:
+                for arg in cmd_args[1:]:
+                    # Check if any argument targets a blocked path
+                    for blocked in self.blocked_paths:
+                        # Simple prefix match (e.g. /etc/shadow matches /etc)
+                        if arg == blocked or arg.startswith(blocked + "/"):
+                            self.issues.append(
+                                f"Security Violation: Command '{cmd}' targeting "
+                                f"sensitive path '{arg}' is forbidden."
+                            )
 
     def visit_Assign(self, node: ast.Assign) -> None:
         """
@@ -148,43 +222,6 @@ class PythonSecurityScanner(ast.NodeVisitor):
                             f"{node.module}.{alias.name}"
                         )
         self.generic_visit(node)
-
-    def _check_subprocess_node(self, node: ast.Call) -> None:
-        """Helper to check for shell=True in subprocess calls."""
-        # Detect: subprocess.run, subprocess.Popen, subprocess.call, etc.
-        is_subprocess_call = False
-        if isinstance(node.func, ast.Attribute):
-            if (
-                isinstance(node.func.value, ast.Name)
-                and node.func.value.id == "subprocess"
-            ):
-                is_subprocess_call = True
-        elif isinstance(node.func, ast.Name) and node.func.id in [
-            "run",
-            "Popen",
-            "call",
-            "check_call",
-            "check_output",
-        ]:
-            # This handles 'from subprocess import run'
-            is_subprocess_call = True
-
-        if is_subprocess_call:
-            for kw in node.keywords:
-                if kw.arg == "shell":
-                    # Check if value is True (Constant in Python 3.8+)
-                    if isinstance(kw.value, ast.Constant) and kw.value.value is True:
-                        self.issues.append(
-                            "Security Violation: 'shell=True' is strictly forbidden "
-                            "in subprocess calls."
-                        )
-                    # Also check for non-literal True if possible,
-                    # but literals are the main risk
-                    elif isinstance(kw.value, ast.Name) and kw.value.id == "True":
-                        self.issues.append(
-                            "Security Violation: 'shell=True' is strictly forbidden "
-                            "in subprocess calls."
-                        )
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if node.attr in self.DANGEROUS_ATTRIBUTES:

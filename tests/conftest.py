@@ -48,6 +48,7 @@ config_manager._config_cache = {
             "/proc",
             "/sys",
             "/boot",
+            "~/.ssh",
         ],
     },
 }

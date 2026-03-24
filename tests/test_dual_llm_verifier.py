@@ -100,14 +100,14 @@ def test_verify_tool_call_openai_format(mock_client_class):
 
 
 def test_verify_tool_call_api_error(mock_client_class):
-    """Test Dual LLM verifier when API call fails (should fail-safe to True)."""
+    """Test Dual LLM verifier when API call fails (should fail-closed to False)."""
     with patch(
         "requests.post", side_effect=requests.exceptions.RequestException("Timeout")
     ):
         is_safe, reason = verify_tool_call("Hello", "test_tool", {})
 
-        # Fail-safe logic: return True but with error reason
-        assert is_safe is True
+        # Fail-closed logic: return False with error reason
+        assert is_safe is False
         assert "Verification process failed" in reason
 
 
@@ -125,6 +125,6 @@ def test_verify_tool_call_malformed_json(mock_client_class):
     ):
         is_safe, reason = verify_tool_call("Hello", "test_tool", {})
 
-        # Fail-safe: if json.loads fails, it should catch the exception and return True
-        assert is_safe is True
+        # Fail-closed: if json.loads fails, it should catch the exception and return False
+        assert is_safe is False
         assert "Verification process failed" in reason

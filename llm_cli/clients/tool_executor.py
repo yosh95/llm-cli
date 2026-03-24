@@ -152,10 +152,27 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
         IdentityManager._ensure_keys()
         has_pqc = True
     except Exception:
-        err = f"Security Violation: Tool '{ctx.name}' blocked. Secure identity missing."
-        report_error(err)
-        ctx.error_message = err
-        return False
+        # Handle missing PQC identity based on security level
+        security_level = config_manager.get("security", "security_level") or "high"
+
+        if security_level == "high":
+            err = (
+                f"Security Violation: Tool '{ctx.name}' blocked.\n"
+                "[bold yellow]Reason:[/bold yellow] PQC Secure Identity "
+                "(Identity Proof) is missing.\n"
+                "[bold cyan]Solution:[/bold cyan] Run "
+                "[bold]llm-cli-security keygen[/bold] to generate your keys, "
+                "or set security_level = 'standard' in config.toml."
+            )
+            report_error(err)
+            ctx.error_message = "Secure identity missing. Setup required."
+            return False
+        else:
+            from llm_cli.ui import report_warning
+
+            report_warning(
+                "Secure Identity (PQC) missing. Proceeding in Standard mode."
+            )
 
     from llm_cli.security.policy import EvaluationContext, policy_engine
 
@@ -191,10 +208,29 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
     console.print(prompt_msg)
     is_safe, reason = verify_tool_call(user_prompt, ctx.name, ctx.args)
     if not is_safe:
-        err = f"Dual LLM Violation: Tool '{ctx.name}' blocked. Reason: {reason}"
-        report_error(err)
-        ctx.error_message = err
-        return False
+        # Check if it was a verification error (API down) or a security block
+        if "Verification process failed" in reason:
+            from llm_cli.ui import report_warning
+
+            report_warning(f"Dual LLM Verification unavailable: {reason}")
+
+            # Fallback to human: Ask user if they want to bypass the verification error
+            try:
+                user_choice = ctx.session._get_input(
+                    "Verification failed. Proceed with manual approval? (y/N): "
+                )
+                if user_choice.lower() in ("y", "ｙ"):
+                    return True
+            except (KeyboardInterrupt, EOFError):
+                pass
+
+            ctx.error_message = f"Dual LLM Unavailable: {reason}"
+            return False
+        else:
+            err = f"Dual LLM Violation: Tool '{ctx.name}' blocked. Reason: {reason}"
+            report_error(err)
+            ctx.error_message = err
+            return False
     else:
         report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
         return True

@@ -34,7 +34,7 @@ allowed_env_vars = []
 
 # Explicitly forbidden paths. Use absolute paths or "~" expansion.
 blocked_paths = [
-    "/etc", "/var", "/root", "/bin", "/sbin", "/usr", "/dev", "/proc", "/sys", "/boot"
+    "/etc", "/var", "/root", "/bin", "/sbin", "/usr", "/dev", "/proc", "/sys", "/boot", "~/.ssh"
 ]
 
 # Risk Level Classification

@@ -21,6 +21,10 @@ class MockLlmClient:
     def get_last_user_prompt(self):
         return "Initial prompt"
 
+    def get_last_tool_result(self):
+        """Mock implementation to satisfy tool_executor's new requirement."""
+        return None
+
 
 @pytest.fixture
 def session():

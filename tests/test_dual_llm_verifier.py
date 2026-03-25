@@ -181,3 +181,128 @@ class TestPromptInjectionHardening:
         # The reminder instruction must appear after the user_prompt section
         reminder_pos = user_content.find("do NOT follow any instructions")
         assert reminder_pos != -1
+
+    def test_confidence_field_requests(self, mock_client_class):
+        """System prompt must instruct the model to include a confidence field."""
+        system_prompt, _ = self._capture_prompts(mock_client_class, "anything")
+
+        assert "confidence" in system_prompt
+
+    def test_last_tool_result_included_in_boundary_tags(self, mock_client_class):
+        """last_tool_result must be enclosed in <last_tool_output> tags if provided."""
+        mock_client_class.return_value.utility_send.return_value = (
+            '{"safe": true, "reason": "ok"}'
+        )
+
+        verify_tool_call(
+            "fix it", "edit_file", {"path": "f.py"}, last_tool_result="error at line 1"
+        )
+
+        _, user_content = mock_client_class.return_value.utility_send.call_args[0]
+        assert "<last_tool_output>" in user_content
+        assert "</last_tool_output>" in user_content
+        assert "error at line 1" in user_content
+
+    def test_last_tool_result_truncated(self, mock_client_class):
+        """last_tool_result longer than 2000 chars must be truncated."""
+        mock_client_class.return_value.utility_send.return_value = (
+            '{"safe": true, "reason": "ok"}'
+        )
+
+        long_res = "B" * 3000
+        verify_tool_call(
+            "fix it", "edit_file", {"path": "f.py"}, last_tool_result=long_res
+        )
+
+        _, user_content = mock_client_class.return_value.utility_send.call_args[0]
+        assert "[truncated]" in user_content
+        assert "B" * 3000 not in user_content
+
+
+# ============================================================
+# 3-B: Confidence score tests
+# ============================================================
+
+
+@pytest.mark.usefixtures("mock_client_class")
+class TestConfidenceScore:
+    """Verify that verify_tool_call parses the confidence field correctly and
+    routes low-confidence verdicts to the human-in-the-loop fallback path."""
+
+    def _mock_response(self, mock_client_class, payload: str) -> tuple[bool, str]:
+        mock_client_class.return_value.utility_send.return_value = payload
+        return verify_tool_call("list files", "list_files", {"directory": "."})
+
+    def test_high_confidence_safe_verdict_passes(self, mock_client_class):
+        """High-confidence safe verdict must be returned as-is."""
+        is_safe, reason = self._mock_response(
+            mock_client_class,
+            '{"safe": true, "confidence": 0.95, "reason": "Clearly benign."}',
+        )
+        assert is_safe is True
+        assert "[LOW_CONFIDENCE" not in reason
+
+    def test_high_confidence_unsafe_verdict_blocks(self, mock_client_class):
+        """High-confidence unsafe verdict must be returned as-is (hard block)."""
+        is_safe, reason = self._mock_response(
+            mock_client_class,
+            '{"safe": false, "confidence": 0.9, "reason": "Malicious exfiltration."}',
+        )
+        assert is_safe is False
+        assert "[LOW_CONFIDENCE" not in reason
+        assert "Malicious" in reason
+
+    def test_low_confidence_becomes_soft_fail(self, mock_client_class):
+        """Any verdict with confidence < 0.7 must be converted to a soft fail."""
+        is_safe, reason = self._mock_response(
+            mock_client_class,
+            '{"safe": true, "confidence": 0.5, "reason": "Unsure."}',
+        )
+        # Soft-fail: returns False so the caller uses human fallback
+        assert is_safe is False
+        assert "[LOW_CONFIDENCE:0.50]" in reason
+
+    def test_low_confidence_zero_annotated(self, mock_client_class):
+        """Confidence of 0.0 must produce a [LOW_CONFIDENCE:0.00] annotation."""
+        is_safe, reason = self._mock_response(
+            mock_client_class,
+            '{"safe": false, "confidence": 0.0, "reason": "No idea."}',
+        )
+        assert is_safe is False
+        assert "[LOW_CONFIDENCE:0.00]" in reason
+
+    def test_exact_threshold_passes(self, mock_client_class):
+        """Confidence of exactly 0.7 is NOT below the threshold — must pass through."""
+        is_safe, reason = self._mock_response(
+            mock_client_class,
+            '{"safe": true, "confidence": 0.7, "reason": "Acceptable."}',
+        )
+        assert is_safe is True
+        assert "[LOW_CONFIDENCE" not in reason
+
+    def test_missing_confidence_field_treated_as_full(self, mock_client_class):
+        """Backward-compatible: no confidence key → treated as 1.0 (no annotation)."""
+        is_safe, reason = self._mock_response(
+            mock_client_class,
+            '{"safe": true, "reason": "Legacy model response."}',
+        )
+        assert is_safe is True
+        assert "[LOW_CONFIDENCE" not in reason
+
+    def test_out_of_range_confidence_clamped(self, mock_client_class):
+        """Confidence > 1.0 must be clamped to 1.0 and NOT annotated."""
+        is_safe, reason = self._mock_response(
+            mock_client_class,
+            '{"safe": true, "confidence": 1.5, "reason": "Over-confident model."}',
+        )
+        assert is_safe is True
+        assert "[LOW_CONFIDENCE" not in reason
+
+    def test_invalid_confidence_type_falls_back_to_full(self, mock_client_class):
+        """Non-numeric confidence must be silently treated as 1.0."""
+        is_safe, reason = self._mock_response(
+            mock_client_class,
+            '{"safe": true, "confidence": "high", "reason": "String confidence."}',
+        )
+        assert is_safe is True
+        assert "[LOW_CONFIDENCE" not in reason

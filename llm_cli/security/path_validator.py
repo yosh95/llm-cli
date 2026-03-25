@@ -18,6 +18,11 @@ def validate_path(path: str) -> Path:
     2. Checks against whitelist (allowed_paths).
     3. Checks against blacklist (blocked_paths).
     4. Protects the core security directory (Root of Trust).
+
+    TOCTOU mitigation: resolve() is called **exactly once** and the resulting
+    canonical Path object is used for every subsequent comparison.  Callers
+    MUST use the returned object for all further path operations to avoid a
+    second resolve() that could race against a symlink swap.
     """
     # Strip surrounding quotes if the LLM accidentally included them
     path = path.strip()
@@ -34,30 +39,28 @@ def validate_path(path: str) -> Path:
     allowed_paths = security_config.get("allowed_paths", ["."])
     blocked_paths = security_config.get("blocked_paths", [])
 
-    # 1. Check for directory traversal patterns
+    # 1. Check for directory traversal patterns (lexical pre-filter)
     if ".." in path:
-        raise PathValidationError(f"Directory traversal '..' is forbidden: {path}")
+        raise PathValidationError("Access to path is forbidden.")
 
     try:
-        # Resolve path to absolute form
+        # --- Single canonical resolution ---
+        # resolve() follows symlinks and collapses ".." sequences.
+        # This is the ONLY call to resolve() for the target path.
+        # Every comparison below uses this one canonical object.
         path_obj = Path(path).expanduser().resolve()
 
         # 2. Block sensitive paths even if absolute paths are somewhat allowed
         # Explicitly protect the application's own configuration and identity keys
         # (Root of Trust)
         if path_obj == LLM_CLI_BASE_DIR or LLM_CLI_BASE_DIR in path_obj.parents:
-            raise PathValidationError(
-                f"Access to the security configuration directory is forbidden: {path}"
-            )
+            raise PathValidationError("Access to path is forbidden.")
 
         for blocked_path_str in blocked_paths:
             try:
                 blocked_obj = Path(blocked_path_str).expanduser().resolve()
                 if path_obj == blocked_obj or blocked_obj in path_obj.parents:
-                    raise PathValidationError(
-                        f"Access to blocked path is forbidden: {path} "
-                        f"(Matches blocked prefix: {blocked_path_str})"
-                    )
+                    raise PathValidationError("Access to blocked path is forbidden.")
             except (ValueError, OSError):
                 continue
 
@@ -73,11 +76,10 @@ def validate_path(path: str) -> Path:
                 continue
 
         if not is_allowed:
-            raise PathValidationError(
-                f"Access to path is not in the whitelist: {path}. "
-                "To allow this, add it to 'security.allowed_paths' in config."
-            )
+            raise PathValidationError("Access to path is not in the whitelist.")
 
+        # Return the single canonical Path so callers never need to call
+        # resolve() again, preventing TOCTOU races from a second resolution.
         return path_obj
 
     except (ValueError, OSError) as e:

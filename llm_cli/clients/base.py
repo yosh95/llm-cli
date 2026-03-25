@@ -199,6 +199,27 @@ class BaseLlmClient(ABC):
                     return "\n".join(texts)
         return None
 
+    def get_last_tool_result(self) -> str | None:
+        """Retrieves the result of the most recent tool execution from history."""
+        # The current message (at the end of conversation) is typically the
+        # Assistant's message containing the tool call being verified.
+        # The message before it would be the previous tool result.
+        if len(self.conversation) < 2:
+            return None
+
+        # Look back from the end for the most recent TOOL message
+        for msg in reversed(self.conversation[:-1]):
+            if msg.role == Role.TOOL:
+                results = []
+                for part in msg.parts:
+                    if isinstance(part, ContentPart) and part.function_response:
+                        res = part.function_response.get("response", {}).get("result")
+                        if res:
+                            results.append(str(res))
+                if results:
+                    return "\n".join(results)
+        return None
+
     def _update_history(self, data: list[DataSource], model_msg: Message) -> None:
         user_parts = []
         for d in data:

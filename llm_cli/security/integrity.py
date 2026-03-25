@@ -371,6 +371,34 @@ def verify_installation() -> None:
 
     root_path = Path(__file__).resolve().parent.parent.parent
     verifier = IntegrityVerifier(root_path)
+
+    # 1. Handle missing manifest (First Run)
+    if not verifier.MANIFEST_PATH.exists():
+        try:
+            from rich.panel import Panel
+
+            from llm_cli.ui import console
+
+            console.print(
+                Panel(
+                    "[bold cyan]🛡️  System Integrity baseline established.[/bold cyan]\n"
+                    "A cryptographic manifest of all critical application files has "
+                    "been generated.\n\n"
+                    "Any future unauthorized modifications to the source code or "
+                    "audit logs will be detected on startup.",
+                    title="[bold yellow]Security Initialization[/bold yellow]",
+                    border_style="cyan",
+                )
+            )
+        except Exception:
+            logger.info("Establishing initial integrity manifest baseline...")
+
+        if not verifier.rebuild_manifest():
+            logger.error("Failed to establish initial integrity manifest.")
+            # Continue anyway on first run, but it will be missing next time
+        return
+
+    # 2. Run standard verification
     if not verifier.verify():
         # Check security level (Compatibility Mode)
         security_level = os.getenv("LLM_CLI_SECURITY_LEVEL") or config_manager.get(
@@ -378,18 +406,35 @@ def verify_installation() -> None:
         )
 
         if security_level == "standard":
-            logger.warning(
-                "🛡️  Integrity Failure: System files do not match manifest, "
+            from llm_cli.ui import report_warning
+
+            report_warning(
+                "Integrity Failure: System files do not match manifest, "
                 "but security_level is 'standard'."
             )
-            logger.warning("Continuing in Compatibility Mode with limited trust.")
             return
 
-        logger.critical("Integrity check failed. Aborting startup.")
-        logger.error(
-            "Hint: If you have modified the source code, you must re-generate "
-            "the integrity manifest by running: llm-cli-security manifest\n"
-            "If the failure is in the audit log (Signature mismatch), you may "
-            "need to clear the logs if you recently changed your identity keys."
+        from rich.panel import Panel
+
+        from llm_cli.ui import console
+
+        console.print("\n")
+        console.print(
+            Panel(
+                "[bold red]CRITICAL: SYSTEM INTEGRITY FAILURE[/bold red]\n\n"
+                "Unauthorized modifications were detected in the application files "
+                "or audit logs.\n"
+                "For security, the startup process has been aborted.\n\n"
+                "[bold yellow]If you modified the source code intentionally, "
+                "run:[/bold yellow]\n"
+                "[bold cyan]llm-cli-security manifest[/bold cyan]\n\n"
+                "[dim]Note: If the failure is in the audit log (Signature mismatch), "
+                "you may need to clear 'audit.jsonl' if you recently changed your "
+                "identity keys.[/dim]",
+                title="[bold red]🛡️  Security Guard[/bold red]",
+                border_style="red",
+                expand=False,
+            )
         )
+        console.print("\n")
         sys.exit(1)

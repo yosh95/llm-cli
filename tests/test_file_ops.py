@@ -3,6 +3,7 @@
 from llm_cli.modules.tools.file_modification import (
     create_or_overwrite_file,
     edit_file,
+    validate_create_or_overwrite_file,
 )
 
 
@@ -80,3 +81,43 @@ def test_edit_file_search_block_not_found(tmp_path, monkeypatch):
 
     result = _get_result_text(edit_file(test_path, search="Line C", replace="Line D"))
     assert "not found exactly or fuzzily" in result
+
+
+# ============================================================
+# 2-A: validate_create_or_overwrite_file tests
+# ============================================================
+
+
+class TestValidateCreateOrOverwriteFile:
+    """Verify that the pre-validation function for create_or_overwrite_file
+    correctly accepts safe paths and rejects unsafe ones."""
+
+    def test_valid_path_within_cwd_returns_true(self, tmp_path, monkeypatch):
+        """A path inside CWD must return True."""
+        monkeypatch.chdir(tmp_path)
+        result = validate_create_or_overwrite_file("new_file.txt")
+        assert result is True
+
+    def test_traversal_path_returns_error_string(self, tmp_path, monkeypatch):
+        """A directory traversal path must return an error string (not raise)."""
+        monkeypatch.chdir(tmp_path)
+        result = validate_create_or_overwrite_file("../evil.txt")
+        assert isinstance(result, str)
+        assert result.startswith("Error")
+
+    def test_blocked_absolute_path_returns_error_string(self, tmp_path, monkeypatch):
+        """A blocked absolute path must return an error string."""
+        monkeypatch.chdir(tmp_path)
+        result = validate_create_or_overwrite_file("/etc/passwd")
+        assert isinstance(result, str)
+        assert result.startswith("Error")
+
+    def test_parent_is_not_a_directory_returns_error(self, tmp_path, monkeypatch):
+        """If the parent path exists but is a file (not a dir) an error is returned."""
+        monkeypatch.chdir(tmp_path)
+        # Create a file where we expect a directory
+        fake_parent = tmp_path / "not_a_dir"
+        fake_parent.write_text("I am a file", encoding="utf-8")
+        result = validate_create_or_overwrite_file("not_a_dir/child.txt")
+        # validate_path will either fail or the parent check will catch it
+        assert isinstance(result, str) and result.startswith("Error")

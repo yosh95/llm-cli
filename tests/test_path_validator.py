@@ -32,14 +32,13 @@ class TestPathValidator:
         validate_path(str(test_file))
 
     def test_blocks_traversal(self):
-        """Should block any use of .."""
-        with pytest.raises(
-            PathValidationError, match="Directory traversal '..' is forbidden"
-        ):
+        """Should block any use of ..
+        The error message is intentionally vague ('Access to path is forbidden.')
+        to avoid leaking bypass hints to the caller (including LLM feedback loops).
+        """
+        with pytest.raises(PathValidationError, match="Access to path is forbidden\\."):
             validate_path("../outside.txt")
-        with pytest.raises(
-            PathValidationError, match="Directory traversal '..' is forbidden"
-        ):
+        with pytest.raises(PathValidationError, match="Access to path is forbidden\\."):
             validate_path("dir/../../etc/passwd")
 
     def test_blocks_absolute_system_paths(self):

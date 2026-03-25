@@ -111,8 +111,34 @@ class IdentityManager:
             or not cls._PRIVATE_KEY_PATH.exists()
             or not cls._PUBLIC_KEY_PATH.exists()
         ):
-            if not cls._PRIVATE_KEY_PATH.exists():
+            _is_first_gen = not cls._PRIVATE_KEY_PATH.exists()
+            if _is_first_gen:
                 logger.info("Initializing your secure identity (Auto-gen)...")
+                # Notify the user visibly on first-time key generation.
+                # logger.info alone is typically hidden unless logging is
+                # configured to DEBUG/INFO, so use Rich Panel for prominence.
+                try:
+                    from rich.panel import Panel
+
+                    from llm_cli.ui import console
+
+                    console.print(
+                        Panel(
+                            "[bold cyan]🔑 First-time setup:[/bold cyan] "
+                            "Generating your Secure Identity keys "
+                            "(RSA + Post-Quantum ML-DSA / ML-KEM).\n\n"
+                            f"Keys will be stored in [bold]{cls._KEY_DIR}[/bold] "
+                            "with owner-only permissions (chmod 600).\n"
+                            "Run [bold]llm-cli-security keygen[/bold] at any time "
+                            "to regenerate or inspect your keys.",
+                            title="[bold yellow]🛡️  Secure Identity Initialisation"
+                            "[/bold yellow]",
+                            border_style="yellow",
+                        )
+                    )
+                except Exception:
+                    # Rich may not be available in all environments; fall back silently.
+                    pass
             else:
                 logger.info("Regenerating RSA identity keys...")
 

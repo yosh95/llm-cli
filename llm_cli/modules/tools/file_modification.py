@@ -2,10 +2,24 @@
 
 import difflib
 import re
+from typing import Any
 
 from llm_cli.modules.tool_registry import tool
 
 from .common import file_tool_handler, validate_path
+
+
+def validate_create_or_overwrite_file(path: str, **_kwargs: object) -> bool | str:
+    """Pre-validates that the target path is writable before user approval."""
+    try:
+        p = validate_path(path)
+        # Verify the parent directory is accessible (or can be created)
+        parent = p.parent
+        if parent.exists() and not parent.is_dir():
+            return f"Error: Parent path '{parent}' is not a directory."
+        return True
+    except Exception as e:
+        return f"Error during path validation: {e}"
 
 
 def validate_edit_file(path: str, search: str, **_kwargs: str) -> bool | str:
@@ -185,9 +199,10 @@ def edit_file(
         },
         "required": ["path", "content"],
     },
+    validate=validate_create_or_overwrite_file,
 )
 @file_tool_handler
-def create_or_overwrite_file(path: str, content: str) -> str:
+def create_or_overwrite_file(path: str, content: str, **_kwargs: Any) -> str:
     """Create a new file or overwrite an existing one with the provided content."""
     p = validate_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)

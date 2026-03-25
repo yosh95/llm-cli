@@ -161,11 +161,14 @@ class PolicyEngine:
             if raw_path:
                 allowed_patterns = tool_scope["allowed_paths"]
 
-                # Normalize/resolve the target path the same way as tool-level
-                # validation. This reduces bypass via relative paths, symlinks, or
-                # differing path forms.
+                # validate_path() performs a single canonical resolve() and all
+                # security checks (blocklist, whitelist, Root-of-Trust guard).
+                # Reusing its return value avoids a second resolve() call here,
+                # which would otherwise create a TOCTOU window between the two
+                # resolutions (symlink swap attack).
                 try:
-                    normalized_target = str(validate_path(str(raw_path)))
+                    canonical_path_obj = validate_path(str(raw_path))
+                    normalized_target = str(canonical_path_obj)
                 except PathValidationError as e:
                     logger.warning(f"Scope Violation: invalid path '{raw_path}': {e}")
                     return False
@@ -175,16 +178,23 @@ class PolicyEngine:
                 candidates = {str(raw_path), normalized_target}
 
                 def _match_any(candidate: str) -> bool:
+                    # Use the already-resolved canonical object when the candidate
+                    # matches the normalized form to avoid a third resolve() call.
                     cwd = Path.cwd().resolve()
+                    if candidate == normalized_target:
+                        candidate_resolved = canonical_path_obj
+                    else:
+                        candidate_resolved = Path(candidate)
+
                     for pattern in allowed_patterns:
                         pat = str(pattern)
                         # Special case: "." means everything under CWD
                         if pat == ".":
                             try:
-                                candidate_path = Path(candidate).resolve()
                                 if (
-                                    candidate_path == cwd
-                                    or cwd in candidate_path.parents
+                                    candidate_resolved == cwd
+                                    or cwd in candidate_resolved.parts
+                                    or cwd in candidate_resolved.parents
                                 ):
                                     return True
                             except Exception:

@@ -132,12 +132,31 @@ def execute_python(code: str, **kwargs: Any) -> Any:
     # Use 'python' or 'python3' depending on environment
     python_exe = "python3" if platform.system() != "Windows" else "python"
 
-    # Create a temporary file to store the script
-    with tempfile.NamedTemporaryFile(
-        suffix=".py", mode="w", delete=False, encoding="utf-8"
-    ) as tmp_file:
-        tmp_file.write(code)
-        tmp_path = tmp_file.name
+    # Create a private temporary directory (mode=0o700) to hold the script.
+    # This ensures the generated code is never readable by other users on the
+    # same system, even if the cleanup finally-block is somehow delayed.
+    # The directory itself is cleaned up in the outermost finally block.
+    tmp_dir: str | None = None
+    tmp_path: str | None = None
+    try:
+        tmp_dir = tempfile.mkdtemp(prefix="llm_cli_exec_", suffix="_secure")
+        # Restrict to owner-only access immediately after creation
+        tmp_dir_path = Path(tmp_dir)
+        tmp_dir_path.chmod(0o700)
+
+        tmp_file_path = tmp_dir_path / "script.py"
+        tmp_path = str(tmp_file_path)
+        # Write with O_CREAT | O_WRONLY | O_EXCL and mode 0o600 (owner read/write only)
+        fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(code)
+        except Exception:
+            os.close(fd)
+            raise
+    except Exception as e:
+        logger.error(f"Error creating secure temp file: {e}")
+        return sign_tool_result(f"Error: {e}", variant=variant)
 
     # Prepare command for execution
     cmd = [python_exe, tmp_path]
@@ -199,9 +218,17 @@ def execute_python(code: str, **kwargs: Any) -> Any:
         logger.error(f"Error executing Python: {e}")
         return sign_tool_result(f"Error: {e}", variant=variant)
     finally:
-        path_obj = Path(tmp_path)
-        if path_obj.exists():
+        # Inner cleanup: remove the script file first
+        if tmp_path is not None:
             try:
-                path_obj.unlink()
+                Path(tmp_path).unlink(missing_ok=True)
             except OSError:
+                pass
+        # Outer cleanup: remove the private directory
+        if tmp_dir is not None:
+            try:
+                import shutil as _shutil
+
+                _shutil.rmtree(tmp_dir, ignore_errors=True)
+            except Exception:
                 pass

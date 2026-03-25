@@ -205,7 +205,14 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
 
     prompt_msg = f"🛡️ Dual LLM verifying intent for '{ctx.name}'..."
     console.print(prompt_msg)
-    is_safe, reason = verify_tool_call(user_prompt, ctx.name, ctx.args)
+
+    # Include the last tool result to help the verifier understand why this tool
+    # is being called (e.g., to fix an error found in the previous step).
+    last_tool_result = ctx.session.client.get_last_tool_result()
+
+    is_safe, reason = verify_tool_call(
+        user_prompt, ctx.name, ctx.args, last_tool_result=last_tool_result
+    )
     if not is_safe:
         # Distinguish between "verification infrastructure unavailable" (soft failure)
         # and "intent check actively rejected the call" (hard security block).
@@ -221,6 +228,10 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
             "API key missing",
             "Provider not found",
             "Initialization error",
+            # Low-confidence verdicts (confidence < threshold) are annotated by
+            # verify_tool_call() with this prefix and routed to human review
+            # rather than being treated as a hard security block.
+            "[LOW_CONFIDENCE:",
         )
         is_soft_failure = any(reason.startswith(p) for p in _SOFT_FAIL_PREFIXES)
 
@@ -245,7 +256,15 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
             ctx.error_message = f"Dual LLM Unavailable: {reason}"
             return False
         else:
-            ctx.error_message = f"Dual LLM Violation: {reason}"
+            report_error(
+                f"[bold red]🛡️  Security Block (Dual LLM):[/bold red] "
+                f"Intent verification failed.\n"
+                f"[bold yellow]Reason:[/bold yellow] {reason}"
+            )
+            ctx.error_message = (
+                f"Security Policy Violation (Dual LLM Violation): "
+                f"Intent verification rejected this action. Reason: {reason}"
+            )
             return False
     else:
         report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
@@ -489,14 +508,22 @@ def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
 
 
 def _verify_pqc_signature(
-    result_data: Any, risk_level: Any, server_id: str | None = None
+    result_data: Any, risk_level: Any, server_id: str | None = None, _depth: int = 0
 ) -> Any:
     """
     Verifies the PQC signature and extracts the result content.
-    Supports recursive unwrapping for multi-layered signatures.
+    Supports recursive unwrapping for multi-layered signatures with depth limit.
     """
     import base64
     import json
+
+    _MAX_VERIFY_DEPTH = 3  # Prevent DoS via deeply nested signatures
+
+    if _depth >= _MAX_VERIFY_DEPTH:
+        logger.warning(
+            f"PQC signature unwrap depth exceeded limit ({_MAX_VERIFY_DEPTH})."
+        )
+        return result_data
 
     from llm_cli.security.identity import IdentityManager
     from llm_cli.security.pqc import PQCProvider
@@ -549,10 +576,10 @@ def _verify_pqc_signature(
             f"{v_id}:{content_str}".encode(), sig, pqc_pub, variant=variant
         ):
             report_success(f"PQC Verified ({variant}) (ID: {v_id})")
-            # --- RECURSION ---
-            # The 'content' might itself be another signed layer (JSON string or dict).
-            # Call ourselves recursively to strip it.
-            return _verify_pqc_signature(content, risk_level, server_id=server_id)
+            # --- RECURSION with depth tracking ---
+            return _verify_pqc_signature(
+                content, risk_level, server_id=server_id, _depth=_depth + 1
+            )
         else:
             raise ValueError(f"PQC Signature Verification Failed (ID: {v_id})")
     except Exception as e:

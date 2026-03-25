@@ -64,7 +64,7 @@ low_risk_tools = [
 # 2. Configure a secondary provider/model. It's recommended to use a fast,
 #    "lite" model (e.g., gemini-3.1-flash-lite, gpt-5.4-mini) to minimize latency.
 # 3. Ensure the secondary provider has its API key set in your environment.
-dual_llm_verification = false
+dual_llm_verification = true
 dual_llm_provider = "google"
 dual_llm_model = "lite"
 

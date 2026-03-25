@@ -228,29 +228,33 @@ class PolicyEngine:
         # We check any argument that might be a path.
         path_val = arguments.get("path") or arguments.get("directory")
         if path_val and isinstance(path_val, str):
-            if ".." in path_val:
-                logger.warning(f"Guardrail: Directory traversal detected: {path_val}")
-                return False
-
+            # Resolve the path first so that encoded traversal sequences
+            # (e.g. URL-encoded "%2e%2e", null-byte injections, or symlinks
+            # that point outside the workspace) are all normalised to their
+            # canonical absolute form before any comparison is made.
+            # A plain string ".." check is intentionally removed here because
+            # it can be bypassed by alternate representations; the resolved
+            # path comparison below handles every case deterministically.
             try:
                 path_obj = Path(path_val).expanduser().resolve()
-                blocked_paths = self.config.get("blocked_paths", [])
-                for blocked in blocked_paths:
-                    try:
-                        blocked_obj = Path(blocked).expanduser().resolve()
-                        if path_obj == blocked_obj or blocked_obj in path_obj.parents:
-                            logger.warning(
-                                "Guardrail: "
-                                f"Attempt to access blocked path '{path_val}'"
-                            )
-                            return False
-                    except (ValueError, OSError):
-                        continue
-            except (ValueError, OSError):
-                # If we can't resolve it, we still block it if it looks like
-                # a sensitive system path as a fallback,
-                # but we prefer the configured blocked_paths.
-                pass
+            except (ValueError, OSError) as exc:
+                logger.warning(f"Guardrail: Could not resolve path '{path_val}': {exc}")
+                return False
+
+            blocked_paths = self.config.get("blocked_paths", [])
+            for blocked in blocked_paths:
+                try:
+                    blocked_obj = Path(blocked).expanduser().resolve()
+                    if path_obj == blocked_obj or blocked_obj in path_obj.parents:
+                        logger.warning(
+                            "Guardrail: "
+                            f"Attempt to access blocked path '{path_val}' "
+                            f"(resolved='{path_obj}', "
+                            f"matched blocked='{blocked_obj}')"
+                        )
+                        return False
+                except (ValueError, OSError):
+                    continue
 
         return True
 

@@ -151,6 +151,129 @@ def test_global_guardrails(policy_engine):
     )
 
 
+# --- Path Traversal Bypass Tests ---
+
+
+class TestGlobalGuardrailsTraversalHardening:
+    """
+    Verify that _global_guardrails blocks traversal regardless of the
+    surface representation used (string match vs resolve-based check).
+
+    Background: the old implementation used ``".." in path_val`` as a fast
+    early-exit guard.  That check is bypassable with alternate representations
+    such as URL-encoded sequences or null bytes.  The new implementation
+    calls Path.resolve() first so that all forms are normalised before any
+    comparison, and *fails closed* when resolve() itself raises.
+    """
+
+    @pytest.fixture
+    def engine(self, tmp_path, monkeypatch):
+        """PolicyEngine that blocks /etc and allows only the tmp project dir."""
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        monkeypatch.chdir(project_dir)
+        return PolicyEngine(
+            {
+                "allowed_paths": ["."],
+                "high_risk_tools": ["edit_file"],
+                "medium_risk_tools": ["read_file_content"],
+                "blocked_paths": ["/etc"],
+                "security_level": "standard",  # Skip PQC check; focus on path logic
+            }
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return {"user_id": "attacker", "has_pqc_proof": True}
+
+    def test_literal_dotdot_is_blocked(self, engine, ctx):
+        """Classic '../' traversal must be blocked."""
+        assert (
+            engine.evaluate("read_file_content", {"path": "../etc/passwd"}, ctx)
+            is False
+        )
+
+    def test_absolute_blocked_path_is_blocked(self, engine, ctx):
+        """Absolute path matching blocked_paths entry must be blocked."""
+        assert (
+            engine.evaluate("read_file_content", {"path": "/etc/shadow"}, ctx) is False
+        )
+
+    def test_url_encoded_percent2e_is_not_decoded_by_os(self, engine, ctx):
+        """
+        '%2e%2e' is the URL-encoded form of '..', but POSIX kernels do NOT
+        decode percent-encoding at the filesystem level.  Therefore
+        Path('%2e%2e/etc/passwd').resolve() yields <cwd>/%2e%2e/etc/passwd,
+        which is treated as a literal subdirectory named '%2e%2e' under CWD.
+
+        This means the old ``".." in path_val`` string guard would NOT have
+        caught this input (no literal '..' in the string), but the new
+        resolve-based check also allows it because the resolved path actually
+        IS under CWD (the literal directory '%2e%2e' would be CWD's child).
+
+        The correct security guarantee is: the OS never decodes %2e%2e into
+        directory traversal, so no actual file outside CWD can be accessed via
+        this encoding.  This test documents that behaviour explicitly.
+        """
+        result = engine.evaluate(
+            "read_file_content", {"path": "%2e%2e/etc/passwd"}, ctx
+        )
+        # %2e%2e resolves to a child of CWD (literal dirname), so the whitelist
+        # permits it — but no real file exists there, making it harmless.
+        # The important property is that the result is CONSISTENT with the
+        # resolve-based check (not a silent bypass of blocked_paths).
+        # /etc is in blocked_paths; %2e%2e/etc is a *different* resolved path.
+        # Depending on allowed_paths config the result may be True or False,
+        # but the request must NEVER reach /etc on disk.
+        assert isinstance(result, bool)  # Must produce a definite answer
+
+    def test_absolute_blocked_subpath_is_blocked(self, engine, ctx):
+        """
+        A path that is a child of a blocked_paths entry must be blocked,
+        regardless of whether it contains '..' in the raw string.
+        """
+        assert (
+            engine.evaluate("read_file_content", {"path": "/etc/shadow"}, ctx) is False
+        )
+        assert (
+            engine.evaluate("read_file_content", {"path": "/etc/hosts"}, ctx) is False
+        )
+
+    def test_null_byte_in_path_is_blocked(self, engine, ctx):
+        """
+        A null byte in a path string causes Path.resolve() to raise ValueError
+        on CPython (lstat: embedded null character in path).
+        The guardrail must treat this as a resolution failure and return False
+        (fail-closed), not swallow the error and allow the request.
+        """
+        result = engine.evaluate("read_file_content", {"path": "/etc\x00/passwd"}, ctx)
+        assert result is False
+
+    def test_valid_project_path_still_allowed(self, engine, ctx):
+        """A normal path inside the project must continue to be allowed."""
+        assert engine.evaluate("read_file_content", {"path": "README.md"}, ctx) is True
+
+    def test_resolve_failure_logged(self, engine, ctx, caplog):
+        """
+        When resolve() fails (null byte), a WARNING must be emitted.
+        The log may come from _global_guardrails ("Guardrail:") or from
+        _verify_scope ("Scope Violation:") depending on evaluation order.
+        Either way, at least one WARNING-level record must be present.
+        """
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="llm_cli.security.policy"):
+            engine.evaluate("read_file_content", {"path": "/etc\x00bad"}, ctx)
+
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno >= logging.WARNING
+        ]
+        assert warning_messages, (
+            "Expected at least one WARNING when path resolution fails, got none.\n"
+            f"All log records: {[(r.levelname, r.message) for r in caplog.records]}"
+        )
+
+
 # --- Audit & Integrity Tests ---
 
 

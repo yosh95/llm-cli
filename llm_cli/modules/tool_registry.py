@@ -33,7 +33,18 @@ class ToolRegistry:
         for hook in self.shutdown_hooks:
             try:
                 if inspect.iscoroutinefunction(hook):
-                    asyncio.get_event_loop().run_until_complete(hook())
+                    try:
+                        # If there is already a running event loop (e.g. inside an
+                        # async context), schedule the coroutine on it and block
+                        # until it completes.
+                        loop = asyncio.get_running_loop()
+                        future = asyncio.run_coroutine_threadsafe(hook(), loop)
+                        future.result(timeout=10)
+                    except RuntimeError:
+                        # No running loop — start a fresh one with asyncio.run().
+                        # This replaces the deprecated asyncio.get_event_loop()
+                        # pattern that raises DeprecationWarning in Python ≥ 3.10.
+                        asyncio.run(hook())
                 else:
                     hook()
             except Exception:

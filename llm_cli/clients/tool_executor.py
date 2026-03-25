@@ -207,16 +207,35 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
     console.print(prompt_msg)
     is_safe, reason = verify_tool_call(user_prompt, ctx.name, ctx.args)
     if not is_safe:
-        # Check if it was a verification error (API down) or a security block
-        if "Verification process failed" in reason:
+        # Distinguish between "verification infrastructure unavailable" (soft failure)
+        # and "intent check actively rejected the call" (hard security block).
+        #
+        # Soft-failure reasons returned by verify_tool_call when the secondary LLM
+        # cannot be reached or is not configured:
+        #   - "Verification process failed: ..."  (network / API error)
+        #   - "API key missing"                   (provider has no key set)
+        #   - "Provider not found"                (unknown provider alias)
+        #   - "Initialization error: ..."         (client construction failed)
+        _SOFT_FAIL_PREFIXES = (
+            "Verification process failed",
+            "API key missing",
+            "Provider not found",
+            "Initialization error",
+        )
+        is_soft_failure = any(reason.startswith(p) for p in _SOFT_FAIL_PREFIXES)
+
+        if is_soft_failure:
             from llm_cli.ui import report_warning
 
-            report_warning(f"Dual LLM Verification unavailable: {reason}")
+            report_warning(
+                f"Dual LLM Verification unavailable: {reason}\n"
+                "Falling back to manual approval."
+            )
 
             # Fallback to human: Ask user if they want to bypass the verification error
             try:
                 user_choice = ctx.session._get_input(
-                    "Verification failed. Proceed with manual approval? (y/N): "
+                    "Verification unavailable. Proceed with manual approval? (y/N): "
                 )
                 if user_choice.lower() in ("y", "ｙ"):
                     return True

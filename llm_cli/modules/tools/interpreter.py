@@ -65,8 +65,9 @@ def execute_python(code: str, **kwargs: Any) -> Any:
     variant = str(variant_raw) if variant_raw else "ML-DSA-65"
 
     # 0. Enforce static analysis before execution (Tier 1 Guardrail)
-    is_safe, issues = analyze_python_safety(code)
+    is_safe, violations, warnings = analyze_python_safety(code)
     if not is_safe:
+        issues = violations or warnings
         error_msg = (
             "Security Violation: Python code failed static analysis.\n"
             f"Issues: {', '.join(issues)}"

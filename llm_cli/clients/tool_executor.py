@@ -146,6 +146,7 @@ def execute_tool_call(
 
 def _run_security_checks(ctx: ToolExecutionContext) -> bool:
     """Checks Security Policy Engine and PQC Identity availability."""
+    from llm_cli.security.audit import log_audit
     from llm_cli.security.identity import IdentityManager
 
     has_pqc = False
@@ -167,6 +168,16 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
             )
             report_error(err)
             ctx.error_message = "Secure identity missing. Setup required."
+            log_audit(
+                ctx.name,
+                ctx.args,
+                None,
+                error=ctx.error_message,
+                context={
+                    "model": ctx.session.client.model,
+                    "event_type": "security_violation",
+                },
+            )
             return False
         else:
             from llm_cli.ui import report_warning
@@ -188,12 +199,24 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
     if not policy_engine.evaluate(ctx.name, ctx.args, eval_ctx):
         ctx.error_message = f"Policy Violation: Execution of '{ctx.name}' denied."
         report_error(ctx.error_message)
+        log_audit(
+            ctx.name,
+            ctx.args,
+            None,
+            error=ctx.error_message,
+            context={
+                "model": ctx.session.client.model,
+                "event_type": "security_violation",
+            },
+        )
         return False
     return True
 
 
 def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
     """Verifies intent using a second LLM if required by CASS."""
+    from llm_cli.security.audit import log_audit
+
     if not ctx.security_requirements.get("require_dual_llm_verification"):
         return True
 
@@ -235,18 +258,21 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
         )
         is_soft_failure = any(reason.startswith(p) for p in _SOFT_FAIL_PREFIXES)
 
+        # In case of low confidence or transient errors, we offer manual approval.
+        # Hard security blocks (reason NOT starting with soft fail prefixes)
+        # will stay as a hard error.
         if is_soft_failure:
             from llm_cli.ui import report_warning
 
             report_warning(
-                f"Dual LLM Verification unavailable: {reason}\n"
+                f"Dual LLM Verification unavailable or low-confidence: {reason}\n"
                 "Falling back to manual approval."
             )
 
             # Fallback to human: Ask user if they want to bypass the verification error
             try:
                 user_choice = ctx.session._get_input(
-                    "Verification unavailable. Proceed with manual approval? (y/N): "
+                    "Verification uncertain. Proceed with manual approval? (y/N): "
                 )
                 if user_choice.lower() in ("y", "ｙ"):
                     return True
@@ -254,8 +280,20 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
                 pass
 
             ctx.error_message = f"Dual LLM Unavailable: {reason}"
+            log_audit(
+                ctx.name,
+                ctx.args,
+                None,
+                error=ctx.error_message,
+                context={
+                    "model": ctx.session.client.model,
+                    "event_type": "verification_failure",
+                },
+            )
             return False
         else:
+            # This is now reached if dual_llm_verifier returns False with a
+            # non-soft-fail reason (actual intent violation).
             report_error(
                 f"[bold red]🛡️  Security Block (Dual LLM):[/bold red] "
                 f"Intent verification failed.\n"
@@ -265,6 +303,16 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
                 f"Security Policy Violation (Dual LLM Violation): "
                 f"Intent verification rejected this action. Reason: {reason}"
             )
+            log_audit(
+                ctx.name,
+                ctx.args,
+                None,
+                error=ctx.error_message,
+                context={
+                    "model": ctx.session.client.model,
+                    "event_type": "security_violation",
+                },
+            )
             return False
     else:
         report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
@@ -272,6 +320,8 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
 
 
 def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
+    from llm_cli.security.audit import log_audit
+
     high_risk_tools = set(config_manager.get("security", "high_risk_tools") or [])
     if not (
         ctx.name in high_risk_tools
@@ -284,16 +334,52 @@ def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
     if not code:
         return True
 
-    is_safe, issues = analyze_python_safety(code)
+    is_safe, violations, warnings = analyze_python_safety(code)
     if not is_safe:
-        issue_str = "\n".join(f"• {i}" for i in issues)
-        print_block(
-            f"[bold red]⚠️  Security Violation:[/bold red]\n{issue_str}",
-            title="Static Analysis Risk",
-            style="red",
-        )
-        ctx.error_message = "Static analysis failed. Execution blocked by policy."
-        return False
+        # 1. Critical Violations: Strict block, no bypass.
+        if violations:
+            violation_str = "\n".join(f"• {v}" for v in violations)
+            print_block(
+                f"[bold red]⚠️  Security Violation:[/bold red]\n{violation_str}",
+                title="Static Analysis Critical Block",
+                style="red",
+            )
+            ctx.error_message = (
+                "Critical security violation in code. Execution blocked."
+            )
+            log_audit(
+                ctx.name,
+                ctx.args,
+                None,
+                error=ctx.error_message,
+                context={
+                    "model": ctx.session.client.model,
+                    "event_type": "static_analysis_violation",
+                    "violations": violations,
+                },
+            )
+            return False
+
+        # 2. Warnings: Potential risk detected, proceed to human approval with warning.
+        if warnings:
+            warning_str = "\n".join(f"• {w}" for w in warnings)
+            ctx.verification_warning = (
+                f"Static analysis detected potential risks:\n{warning_str}"
+            )
+            # Log it for monitoring, but don't block yet (let user decide)
+            log_audit(
+                ctx.name,
+                ctx.args,
+                None,
+                error="Security Warning (User Reviewed)",
+                context={
+                    "model": ctx.session.client.model,
+                    "event_type": "static_analysis_warning",
+                    "warnings": warnings,
+                },
+            )
+            return True
+
     return True
 
 

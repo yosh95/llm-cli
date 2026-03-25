@@ -98,13 +98,16 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 `llm-cli` implements **Attribute-Based Access Control (ABAC)**, providing granular security based on execution context and resource attributes.
 - **Risk-based Scaling**: Security requirements automatically scale based on the tool's risk level (HIGH/MEDIUM/LOW).
 - **Intent Verification (Dual LLM)**: High-risk actions are cross-verified by a separate, lightweight "Verifier" LLM (e.g., Gemini Flash Lite) to ensure the proposed tool call aligns with the user's original intent, mitigating sophisticated prompt injection.
-- **Identity Proof**: High-risk actions (e.g., Python execution) require a valid **PQC-signed identity**.
+  - In `high` security mode, a functional Dual LLM provider is **required**.
+  - If the secondary LLM is misconfigured or unreachable (Soft Failure), the system will fallback to explicit manual user approval rather than failing open.
+  - If the intent check actively rejects the call (Hard Block), the execution is strictly denied.
+- **Identity Proof**: High-risk actions (e.g., Python execution) require a valid **PQC-signed identity token**. In `high` mode, execution is blocked if keys are missing.
 - **Compatibility Mode**: Use `LLM_CLI_SECURITY_LEVEL=standard` or set `security_level = "standard"` in `config.toml` to enable interoperability with non-llm-cli clients or legacy MCP servers, downgrading PQC enforcement and integrity checks to warnings.
   ```toml
   [security]
   security_level = "standard"
   ```
-- **Path Guardrails**: Tools are restricted by path attributes (defaulting to the current directory).
+- **Path Guardrails**: Tools are restricted by path attributes (defaulting to the current directory). The policy engine now inspects multiple argument names (`path`, `directory`, `file`, `src`, `dest`, etc.) to prevent bypass.
 - **Explanation Enforcement**: Every tool mandates an `explanation` parameter, forcing the LLM to justify its intent.
 
 ### 2. Identity & Non-Repudiation (Experimental Reference)

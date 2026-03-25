@@ -99,7 +99,7 @@ def benchmark_phase_1_guardrails() -> dict:
     ]
     correct = 0
     for code, expected_safe in test_cases:
-        is_safe, _ = analyze_python_safety(code)
+        is_safe, _, _ = analyze_python_safety(code)
         if is_safe == expected_safe:
             correct += 1
     accuracy = correct / len(test_cases) * 100

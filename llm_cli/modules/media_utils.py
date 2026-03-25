@@ -3,6 +3,7 @@
 import base64
 import datetime
 import ipaddress
+import logging
 import re
 import socket
 import urllib.parse
@@ -15,6 +16,8 @@ import filetype
 import markdownify
 import pdfplumber
 from curl_cffi import requests as curl_requests
+
+logger = logging.getLogger(__name__)
 
 
 def validate_url(url: str) -> bool:
@@ -97,7 +100,8 @@ def read_pdf_text(source: Path | BytesIO) -> str:
                         joined_lines.append(current)
                     text_list.append("\n".join(joined_lines))
             return "\n".join(text_list)
-    except Exception:
+    except Exception as e:
+        logger.debug(f"PDF extraction failed for {source}: {e}")
         return ""
 
 
@@ -143,7 +147,8 @@ def fetch_url_content(
             return (base64.b64encode(response.content).decode("utf-8"), content_type)
 
         return None, None
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to fetch URL content from {url}: {e}")
         return None, None
 
 

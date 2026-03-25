@@ -143,7 +143,7 @@ class IdentityManager:
                 logger.info("Regenerating RSA identity keys...")
 
             private_key = rsa.generate_private_key(
-                public_exponent=65537, key_size=2048, backend=default_backend()
+                public_exponent=65537, key_size=3072, backend=default_backend()
             )
             # Save Private Key (mode 0o600)
             with os.fdopen(

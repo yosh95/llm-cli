@@ -46,9 +46,11 @@ parses it into an Abstract Syntax Tree and applies a whitelist-based scanner:
 
 | Blocked pattern | Example |
 |---|---|
-| Dangerous modules | `os`, `socket`, `pty`, `ctypes` |
+| Dangerous modules | `os`, `socket`, `pty`, `ctypes`, `cffi`, `numba` |
 | Unsafe built-ins | `eval`, `exec`, `compile`, `__import__` |
 | Shell invocation | `subprocess.run(…, shell=True)` |
+| Inline execution | `python3 -c "import os; ..."` (VULN-001 fix) |
+| Dynamic commands | `subprocess.run(cmd)` where `cmd` is a variable (VULN-002 fix) |
 | Reflection APIs | `__subclasses__`, `globals()`, `vars()` |
 
 ### Path Guardrails
@@ -56,7 +58,8 @@ parses it into an Abstract Syntax Tree and applies a whitelist-based scanner:
 All file-system operations are resolved against the workspace root (defaults
 to `.`).  Symbolic-link traversal is validated.  Paths are normalised to
 absolute form before comparison against `allowed_paths` / `blocked_paths`
-defined in `defaults.toml`:
+defined in `defaults.toml`. The policy engine inspects multiple argument
+names (`path`, `directory`, `file`, `src`, `dest`, etc.) to prevent bypass:
 
 ```toml
 [security]

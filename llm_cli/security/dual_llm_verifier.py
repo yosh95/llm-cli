@@ -40,19 +40,22 @@ def verify_tool_call(
 
     client_class = client_registry.get_client_class(provider_alias)
     if not client_class:
-        logger.warning(f"Dual LLM: Provider '{provider_alias}' not found.")
-        return True, "Provider not found"
+        msg = f"Dual LLM: Provider '{provider_alias}' not found."
+        logger.error(msg)
+        return False, f"Verification failed: {msg}"
 
     try:
         # Cast to Any because concrete subclasses handle 'spec' internally
         client = cast(Any, client_class)(initial_model_alias=model_alias)
     except Exception as e:
-        logger.warning(f"Dual LLM: Initialization failed: {e}")
-        return True, f"Initialization error: {e}"
+        msg = f"Dual LLM: Initialization failed: {e}"
+        logger.error(msg)
+        return False, f"Verification failed: {msg}"
 
     if not client.api_key:
-        logger.warning(f"Dual LLM: API key missing for {provider_alias}.")
-        return True, "API key missing"
+        msg = f"Dual LLM: API key missing for {provider_alias}."
+        logger.error(msg)
+        return False, f"Verification failed: {msg}"
 
     system_prompt = (
         "You are a security guard for an AI agent.\n"

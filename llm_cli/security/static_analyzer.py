@@ -21,6 +21,11 @@ class PythonSecurityScanner(ast.NodeVisitor):
     # - Introspection: builtins, importlib  — bypass module sandboxing.
     # - Code gen     : code, codeop  — REPL-style dynamic execution.
     # - Concurrency  : multiprocessing  — spawns unrestricted child processes.
+    #
+    # Note on 'asyncio': It is included in DANGEROUS_MODULES to prevent user-supplied
+    # scripts from opening raw network connections via the event loop. However,
+    # llm_cli's internal infrastructure (MCP manager, tool registry) uses asyncio
+    # safely for its own orchestration.
     DANGEROUS_MODULES = {
         # --- Network I/O ---
         "socket",
@@ -59,6 +64,14 @@ class PythonSecurityScanner(ast.NodeVisitor):
         # --- Dynamic code execution ---
         "code",
         "codeop",
+        # --- Low-level C/system access ---
+        "cffi",
+        "cython",
+        "_ctypes",
+        "numba",
+        "pyopencl",
+        "pycuda",
+        "cupy",
         # --- Unrestricted child-process spawning ---
         "multiprocessing",
     }
@@ -174,10 +187,11 @@ class PythonSecurityScanner(ast.NodeVisitor):
     SUBPROCESS_FUNC_NAMES = {"run", "Popen", "call", "check_call", "check_output"}
 
     def __init__(self) -> None:
-        self.issues: list[str] = []
+        self.violations: list[str] = []
+        self.warnings: list[str] = []
         self.found_modules: set[str] = set()
 
-        # Tracks function-level aliases: alias_name -> canonical_function_name
+        # ...
         # e.g. "f = eval"  =>  {"f": "eval"}
         self.aliases: dict[str, str] = {}
 
@@ -244,10 +258,22 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 for elt in first_arg.elts:
                     if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                         cmd_args.append(elt.value)
+                    else:
+                        # VULN-002 Mitigation: Detect non-literal elements in the list
+                        self.warnings.append(
+                            "Security Warning: subprocess call with non-literal "
+                            "elements in the command list."
+                        )
             elif isinstance(first_arg, ast.Constant) and isinstance(
                 first_arg.value, str
             ):
                 cmd_args.append(first_arg.value)
+            else:
+                # VULN-002 Mitigation: Detect non-literal first argument (variable)
+                self.warnings.append(
+                    "Security Warning: subprocess call with non-literal "
+                    "command argument."
+                )
 
         # 2. Check for shell=True
         for kw in node.keywords:
@@ -259,7 +285,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
                     val = kw.value.id == "True"
 
                 if val is True:
-                    self.issues.append(
+                    self.violations.append(
                         "Security Violation: 'shell=True' is strictly forbidden."
                     )
 
@@ -269,19 +295,27 @@ class PythonSecurityScanner(ast.NodeVisitor):
 
             # 3.1 Block network commands
             if cmd in self.BLOCKED_NETWORK_COMMANDS:
-                self.issues.append(
+                self.violations.append(
                     f"Security Violation: Network command '{cmd}' is "
                     "strictly forbidden."
                 )
 
-            # 3.2 Block sensitive targets for specific commands
+            # 3.2 Block inline code execution (VULN-001 Mitigation)
+            # Detect: python3 -c "import os; ..."
+            if cmd in ("python", "python3") and "-c" in cmd_args[1:]:
+                self.violations.append(
+                    f"Security Violation: Inline code execution via '{cmd} -c' "
+                    "is strictly forbidden."
+                )
+
+            # 3.3 Block sensitive targets for specific commands
             if cmd in self.SENSITIVE_TARGET_COMMANDS:
                 for arg in cmd_args[1:]:
                     # Check if any argument targets a blocked path
                     for blocked in self.blocked_paths:
                         # Simple prefix match (e.g. /etc/shadow matches /etc)
                         if arg == blocked or arg.startswith(blocked + "/"):
-                            self.issues.append(
+                            self.violations.append(
                                 f"Security Violation: Command '{cmd}' targeting "
                                 f"sensitive path '{arg}' is forbidden."
                             )
@@ -301,7 +335,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     self.aliases[target.id] = node.value.id
-                    self.issues.append(
+                    self.violations.append(
                         f"Security Violation: Aliasing dangerous function "
                         f"'{node.value.id}' to '{target.id}' is forbidden."
                     )
@@ -322,7 +356,9 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 self.module_aliases[local_name] = module_name
 
             if module_name in self.DANGEROUS_MODULES:
-                self.issues.append(f"High-risk module import detected: {alias.name}")
+                self.violations.append(
+                    f"High-risk module import detected: {alias.name}"
+                )
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -335,19 +371,21 @@ class PythonSecurityScanner(ast.NodeVisitor):
             base_module = node.module.split(".")[0]
             self.found_modules.add(base_module)
             if base_module in self.DANGEROUS_MODULES:
-                self.issues.append(f"High-risk module import detected: {node.module}")
+                self.violations.append(
+                    f"High-risk module import detected: {node.module}"
+                )
 
             # Granular check for restricted modules
             if base_module in self.RESTRICTED_MODULES:
                 restricted_members = self.RESTRICTED_MODULES[base_module]
                 for alias in node.names:
                     if alias.name == "*":
-                        self.issues.append(
+                        self.violations.append(
                             f"Security Violation: Wildcard import from restricted "
                             f"module '{node.module}' is forbidden."
                         )
                     elif alias.name in restricted_members:
-                        self.issues.append(
+                        self.violations.append(
                             f"High-risk member import detected: "
                             f"{node.module}.{alias.name}"
                         )
@@ -366,7 +404,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
     def visit_Attribute(self, node: ast.Attribute) -> None:
         # Dangerous reflection attributes
         if node.attr in self.DANGEROUS_ATTRIBUTES:
-            self.issues.append(f"Reflection attack vector detected: {node.attr}")
+            self.violations.append(f"Reflection attack vector detected: {node.attr}")
 
         # Catch aliased dangerous module attribute access: sp.system(...) where sp=os
         if isinstance(node.func if isinstance(node, ast.Call) else node, ast.Attribute):
@@ -402,7 +440,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
         if isinstance(slice_node, ast.Constant) and isinstance(slice_node.value, str):
             key = slice_node.value
             if key in self.DANGEROUS_FUNCTIONS or key in self.DANGEROUS_ATTRIBUTES:
-                self.issues.append(
+                self.violations.append(
                     f"Security Violation: Subscript access to dangerous key "
                     f"'{key}' is forbidden (potential __builtins__ bypass)."
                 )
@@ -415,7 +453,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
             func_id = node.func.id
             actual_func = self._resolve_func(func_id)
             if actual_func in self.DANGEROUS_FUNCTIONS:
-                self.issues.append(f"High-risk function call detected: {func_id}")
+                self.violations.append(f"High-risk function call detected: {func_id}")
 
             # Sensitive path access in open()
             if func_id == "open":
@@ -423,7 +461,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
                     if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
                         val = arg.value.lower()
                         if "/etc/" in val or "~/.ssh" in val or ".." in val:
-                            self.issues.append(
+                            self.violations.append(
                                 f"Security Violation: Access to sensitive path "
                                 f"'{arg.value}' in open() is forbidden."
                             )
@@ -437,13 +475,15 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 resolved_module = self._resolve_module(raw_id)
 
                 if resolved_module in self.DANGEROUS_MODULES:
-                    self.issues.append(f"High-risk method call: {raw_id}.{attr_name}")
+                    self.violations.append(
+                        f"High-risk method call: {raw_id}.{attr_name}"
+                    )
 
                 # Granular check for restricted modules (os, shutil)
                 # Works for both "os.system()" and "o.system()" where o=os
                 if resolved_module in self.RESTRICTED_MODULES:
                     if attr_name in self.RESTRICTED_MODULES[resolved_module]:
-                        self.issues.append(
+                        self.violations.append(
                             f"Security Violation: {raw_id}.{attr_name} is forbidden."
                         )
 
@@ -453,7 +493,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 attr_arg = node.args[1]
                 # If the attribute name is not a literal string, it's a bypass risk
                 if not isinstance(attr_arg, ast.Constant):
-                    self.issues.append(
+                    self.violations.append(
                         f"Security Violation: Dynamic attribute access in "
                         f"{node.func.id}() is forbidden."
                     )
@@ -463,7 +503,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
                         attr_val in self.DANGEROUS_FUNCTIONS
                         or attr_val in self.DANGEROUS_ATTRIBUTES
                     ):
-                        self.issues.append(
+                        self.violations.append(
                             f"Security Violation: Accessing {attr_val!r} via "
                             f"{node.func.id}() is forbidden."
                         )
@@ -474,17 +514,20 @@ class PythonSecurityScanner(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def analyze_python_safety(code: str) -> tuple[bool, list[str]]:
+def analyze_python_safety(code: str) -> tuple[bool, list[str], list[str]]:
     """
     Analyzes Python code for security issues using AST.
-    Returns (is_safe, issues_list).
+    Returns (is_safe, violations, warnings).
     """
     try:
         tree = ast.parse(code)
         scanner = PythonSecurityScanner()
         scanner.visit(tree)
-        return len(scanner.issues) == 0, scanner.issues
+        # It's only truly 'safe' if there are zero violations and zero warnings.
+        # But callers can choose to allow warnings with user approval.
+        is_safe = len(scanner.violations) == 0 and len(scanner.warnings) == 0
+        return is_safe, scanner.violations, scanner.warnings
     except SyntaxError as e:
-        return False, [f"Syntax Error: {e}"]
+        return False, [f"Syntax Error: {e}"], []
     except Exception as e:
-        return False, [f"Analysis Error: {e}"]
+        return False, [f"Analysis Error: {e}"], []

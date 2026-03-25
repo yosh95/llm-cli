@@ -170,7 +170,7 @@ def test_code_safety_check_blocks_unsafe_code(session):
 
     with patch(
         "llm_cli.clients.tool_executor.analyze_python_safety",
-        return_value=(False, ["Dangerous import"]),
+        return_value=(False, ["Dangerous import"], []),
     ):
         # By default it should fail if analyze_python_safety returns False
         result = _run_code_safety_check(ctx)

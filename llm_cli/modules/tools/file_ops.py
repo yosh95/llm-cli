@@ -1,11 +1,9 @@
 # llm_cli/modules/tools/file_ops.py
 
 import fnmatch
-import functools
 import os
 import re
 import time
-from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -14,29 +12,10 @@ from llm_cli.consts import MAX_OUTPUT_CHARS, MAX_OUTPUT_LINES
 from llm_cli.modules.media_utils import process_file
 from llm_cli.modules.tool_registry import tool
 from llm_cli.security.path_validator import PathValidationError, validate_path
-from llm_cli.security.pqc import sign_tool_result
+
+from .common import DEFAULT_EXCLUDE_DIRS, file_tool_handler
 
 # --- Constants ---
-DEFAULT_EXCLUDE_DIRS = {
-    ".git",
-    "node_modules",
-    "cache",
-    ".cache",
-    "__pycache__",
-    "venv",
-    ".venv",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".ruff_cache",
-    "dist",
-    "build",
-    ".tox",
-    ".idea",
-    ".vscode",
-    ".env",
-    ".DS_Store",
-}
-
 MAX_FILE_READ_SIZE = 5 * 1024 * 1024  # 5MB
 SEARCH_TIMEOUT = 55
 MAX_SEARCH_RESULTS = 300
@@ -52,32 +31,6 @@ def format_size(size_bytes: int) -> str:
         return f"{size_bytes / (1024 * 1024):.1f} MB"
     else:
         return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
-
-
-def file_tool_handler(
-    func: Callable[..., Any],
-) -> Callable[..., Any]:
-    """Decorator to handle common file tool logic."""
-
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        reqs = kwargs.pop("__security_requirements__", None)
-        variant_raw = reqs.get("pqc_variant") if isinstance(reqs, dict) else None
-        variant = str(variant_raw) if variant_raw else "ML-DSA-65"
-
-        try:
-            result = func(*args, **kwargs)
-            return (
-                sign_tool_result(result, variant=variant)
-                if isinstance(result, str)
-                else result
-            )
-        except PathValidationError as e:
-            return sign_tool_result(f"Security Error: {e}", variant=variant)
-        except Exception as e:
-            return sign_tool_result(f"Error: {e}", variant=variant)
-
-    return wrapper
 
 
 @tool(
@@ -110,8 +63,7 @@ def search_files(
     file_pattern: str | None = None,
 ) -> str:
     """Search for a pattern in files, excluding common cache directories."""
-    validate_path(directory or ".")
-    base_path = Path(directory or ".")
+    base_path = validate_path(directory or ".")
     if not base_path.exists():
         return f"Error: Directory '{directory}' does not exist."
 
@@ -207,8 +159,7 @@ def list_files_in_directory(
     max_files: int = MAX_OUTPUT_LINES,
 ) -> str:
     """Lists files in a directory tree with metadata."""
-    validate_path(directory or ".")
-    base_path = Path(directory or ".")
+    base_path = validate_path(directory or ".")
     if not base_path.exists():
         return f"Error: Directory '{directory}' does not exist."
 
@@ -274,8 +225,7 @@ def list_files_in_directory(
 def validate_read_file(path: str, **_kwargs: Any) -> bool | str:
     """Validates that the file exists and is readable before approval."""
     try:
-        validate_path(path)
-        p = Path(path)
+        p = validate_path(path)
         if not p.is_file():
             return f"Error: '{path}' is not a file."
         return True
@@ -329,8 +279,7 @@ def read_file_content(
     with_line_numbers: bool = False,
 ) -> str:
     """Read content from a file, with support for line selection and numbering."""
-    validate_path(path)
-    p = Path(path)
+    p = validate_path(path)
     if not p.is_file():
         return f"Error: '{path}' is not a file."
 

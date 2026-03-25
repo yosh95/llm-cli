@@ -2,18 +2,16 @@
 
 import difflib
 import re
-from pathlib import Path
 
 from llm_cli.modules.tool_registry import tool
 
-from .file_ops import file_tool_handler, validate_path
+from .common import file_tool_handler, validate_path
 
 
 def validate_edit_file(path: str, search: str, **_kwargs: str) -> bool | str:
     """Validates that the search block exists in the file before approval."""
     try:
-        validate_path(path)
-        p = Path(path)
+        p = validate_path(path)
         if not p.is_file():
             return f"Error: '{path}' is not a file."
 
@@ -98,8 +96,7 @@ def edit_file(
     dry_run: bool = False,
 ) -> str:
     """Edit a file by replacing a block of text with fuzzy matching."""
-    validate_path(path)
-    p = Path(path)
+    p = validate_path(path)
     if not p.is_file():
         return f"Error: '{path}' is not a file."
 
@@ -192,8 +189,7 @@ def edit_file(
 @file_tool_handler
 def create_or_overwrite_file(path: str, content: str) -> str:
     """Create a new file or overwrite an existing one with the provided content."""
-    validate_path(path)
-    p = Path(path)
+    p = validate_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding="utf-8")
     return f"Successfully wrote to {path}"

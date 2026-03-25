@@ -232,9 +232,14 @@ class PolicyEngine:
             # (e.g. URL-encoded "%2e%2e", null-byte injections, or symlinks
             # that point outside the workspace) are all normalised to their
             # canonical absolute form before any comparison is made.
-            # A plain string ".." check is intentionally removed here because
-            # it can be bypassed by alternate representations; the resolved
-            # path comparison below handles every case deterministically.
+
+            # Strip surrounding quotes if the LLM accidentally included them
+            path_val = path_val.strip()
+            if (path_val.startswith('"') and path_val.endswith('"')) or (
+                path_val.startswith("'") and path_val.endswith("'")
+            ):
+                path_val = path_val[1:-1]
+
             try:
                 path_obj = Path(path_val).expanduser().resolve()
             except (ValueError, OSError) as exc:

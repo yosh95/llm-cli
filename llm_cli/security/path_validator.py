@@ -19,6 +19,13 @@ def validate_path(path: str) -> Path:
     3. Checks against blacklist (blocked_paths).
     4. Protects the core security directory (Root of Trust).
     """
+    # Strip surrounding quotes if the LLM accidentally included them
+    path = path.strip()
+    if (path.startswith('"') and path.endswith('"')) or (
+        path.startswith("'") and path.endswith("'")
+    ):
+        path = path[1:-1]
+
     from llm_cli.consts import LLM_CLI_BASE_DIR
 
     config = config_manager.load_config()

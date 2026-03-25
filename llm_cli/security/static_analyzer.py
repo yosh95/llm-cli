@@ -98,6 +98,10 @@ class PythonSecurityScanner(ast.NodeVisitor):
             "chroot",
             "putenv",
             "unsetenv",
+            "open",
+            "write",
+            "fdopen",
+            "close",
         },
         "shutil": {
             "rmtree",
@@ -147,6 +151,23 @@ class PythonSecurityScanner(ast.NodeVisitor):
 
     # High-risk commands that shouldn't touch sensitive system paths
     SENSITIVE_TARGET_COMMANDS = {"rm", "shred", "dd", "mkfs", "chown", "chmod"}
+
+    # Network commands often used for exfiltration, strictly forbidden in
+    # subprocess.run()
+    BLOCKED_NETWORK_COMMANDS = {
+        "curl",
+        "wget",
+        "nc",
+        "netcat",
+        "ncat",
+        "socat",
+        "ssh",
+        "scp",
+        "sftp",
+        "rsync",
+        "ftp",
+        "telnet",
+    }
 
     # subprocess function names (used to detect bare calls like run(...) after
     # "from subprocess import run")
@@ -245,6 +266,15 @@ class PythonSecurityScanner(ast.NodeVisitor):
         # 3. Smart Guardrail: Command + Path combination
         if cmd_args:
             cmd = cmd_args[0].split("/")[-1]  # Handle /bin/rm as rm
+
+            # 3.1 Block network commands
+            if cmd in self.BLOCKED_NETWORK_COMMANDS:
+                self.issues.append(
+                    f"Security Violation: Network command '{cmd}' is "
+                    "strictly forbidden."
+                )
+
+            # 3.2 Block sensitive targets for specific commands
             if cmd in self.SENSITIVE_TARGET_COMMANDS:
                 for arg in cmd_args[1:]:
                     # Check if any argument targets a blocked path

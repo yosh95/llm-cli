@@ -4,6 +4,7 @@ import base64
 import datetime
 import ipaddress
 import re
+import socket
 import urllib.parse
 import uuid
 from io import BytesIO
@@ -19,16 +20,34 @@ from curl_cffi import requests as curl_requests
 def validate_url(url: str) -> bool:
     try:
         parsed = urllib.parse.urlparse(url)
-        hostname = parsed.hostname
-        if not hostname or hostname in ("localhost", "127.0.0.1", "::1"):
+        if parsed.scheme not in ("http", "https"):
             return False
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        # Resolve all IPs for the hostname to prevent DNS rebinding and
+        # numeric IP bypass
         try:
-            ip = ipaddress.ip_address(hostname)
-            if ip.is_private or ip.is_loopback or ip.is_reserved:
-                return False
-        except ValueError:
-            pass
-        return parsed.scheme in ("http", "https")
+            for _, _, _, _, sockaddr in socket.getaddrinfo(
+                hostname, None, proto=socket.IPPROTO_TCP
+            ):
+                ip_str = sockaddr[0]
+                ip = ipaddress.ip_address(ip_str)
+                if (
+                    ip.is_private
+                    or ip.is_loopback
+                    or ip.is_link_local
+                    or ip.is_reserved
+                    or ip.is_multicast
+                    or ip_str == "0.0.0.0"
+                ):
+                    return False
+        except (socket.gaierror, ValueError):
+            return False
+
+        return True
     except Exception:
         return False
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.shortcuts import CompleteStyle
 
-from llm_cli.ui import console, print_block, report_error
+from llm_cli.ui import console, print_block
 
 if TYPE_CHECKING:
     from prompt_toolkit import PromptSession
@@ -44,21 +44,26 @@ def _(event: Any) -> None:
     original_text = buffer.text
     editor_raw = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vim"
 
-    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tf:
-        tf.write(original_text.encode("utf-8"))
-        tf_path = Path(tf.name)
+    # Use mkstemp for better control over permissions (0600)
+
+    fd, tf_path_str = tempfile.mkstemp(suffix=".txt")
+    tf_path = Path(tf_path_str)
+    tf_path.chmod(0o600)
 
     try:
+        with os.fdopen(fd, "wb") as tf:
+            tf.write(original_text.encode("utf-8"))
+
         cmd_args = shlex.split(editor_raw) + [str(tf_path)]
         return_code = subprocess.call(cmd_args)
         if return_code == 0:
-            with tf_path.open(encoding="utf-8") as f:
-                new_text = f.read()
-                buffer.text = new_text
+            buffer.text = tf_path.read_text(encoding="utf-8")
             buffer.validate_and_handle()
         else:
             buffer.text = original_text
     except Exception as e:
+        from llm_cli.ui import report_error
+
         report_error(f"Failed to open editor: {e}")
         buffer.text = original_text
     finally:

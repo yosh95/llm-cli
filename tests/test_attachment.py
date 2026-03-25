@@ -10,7 +10,10 @@ class MockClient(BaseLlmClient):
         self.available_models = {"default": "model-v1"}
 
     def _send(self, _data):
-        return "response", {}
+        return ("response", ""), {}
+
+    def utility_send(self, _system_prompt, _user_prompt, _json_mode=False):
+        return "mocked response"
 
 
 def test_handle_attach_command():

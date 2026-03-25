@@ -298,3 +298,20 @@ class GeminiClient(BaseLlmClient):
             self.conversation.append(Message(role=Role.USER, parts=parts))
         self.conversation.append(model_msg)
         self.last_usage = res_json.get("usageMetadata") or res_json.get("usage")
+
+    def utility_send(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        json_mode: bool = False,
+    ) -> str:
+        payload = {
+            "system_instruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        }
+        if json_mode:
+            payload["generationConfig"] = {"responseMimeType": "application/json"}
+
+        res_json = self._call_generate_content_api(payload)
+        model_msg = parse_generate_content_response(res_json)
+        return model_msg.get_text().strip()

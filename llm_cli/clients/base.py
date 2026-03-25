@@ -434,6 +434,19 @@ class BaseLlmClient(ABC):
 
         pass
 
+    @abstractmethod
+    def utility_send(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        json_mode: bool = False,
+    ) -> str:
+        """
+        Sends a single-turn, stateless request to the LLM.
+        Used for background tasks like dual-LLM verification.
+        """
+        pass
+
     # --- Direct API Helpers ---
     def _post(
         self, url: str, headers: dict, json_data: dict, timeout: int | None = None

@@ -151,6 +151,9 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
 
     This preserves verifiability for the remaining segment and provides an anchor
     to the rotated archive.
+
+    Failure policy: rotation errors are logged at ERROR level but never propagate
+    to the caller — tool execution must not be interrupted by logging failures.
     """
     try:
         if not path.exists():
@@ -170,8 +173,16 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
         # Write overflow to a rotated archive (append-only)
         ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
         archive_path = path.with_name(f"{path.name}.archive.{ts}.jsonl")
-        with archive_path.open("a", encoding="utf-8", errors="replace") as af:
-            af.writelines(overflow)
+        try:
+            with archive_path.open("a", encoding="utf-8", errors="replace") as af:
+                af.writelines(overflow)
+        except OSError as e:
+            logger.error(
+                "Audit rotation failed: could not write archive '%s': %s",
+                archive_path,
+                e,
+            )
+            return  # Abort rotation — do not truncate the main log without a backup.
 
         # Enforce max_audit_archives limit
         max_archives = int(config_manager.get("general", "max_audit_archives") or 10)
@@ -182,8 +193,10 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
             for ap in to_delete:
                 try:
                     ap.unlink()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(
+                        "Audit rotation: could not delete old archive '%s': %s", ap, e
+                    )
             # Trigger anchor cleanup if any archives were deleted
             try:
                 from llm_cli.security.merkle_anchor import SessionAnchorManager
@@ -193,11 +206,16 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
                 pass
 
         # Prepare a snapshot anchor for the kept segment
+        snapshot_prev_hash: str
+        snapshot_first_hash: str
         try:
             first_entry = json.loads(kept[0])
             snapshot_prev_hash = first_entry.get("prev_hash", "0" * 64)
             snapshot_first_hash = first_entry.get("hash", "0" * 64)
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                "Audit rotation: could not parse first kept entry for snapshot: %s", e
+            )
             snapshot_prev_hash = "0" * 64
             snapshot_first_hash = "0" * 64
 
@@ -235,13 +253,21 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
 
             snapshot["pqc_signature"] = base64.b64encode(pqc_sig).decode()
             snapshot["pqc_algorithm"] = PQCProvider.ALGORITHM_NAME
-        except Exception:
-            pass
+        except Exception as e:
+            # PQC signing is best-effort; absence of a signature is detectable
+            # by the verifier, so a debug note is sufficient here.
+            logger.debug("PQC signing skipped for audit snapshot: %s", e)
 
-        with path.open("w", encoding="utf-8", errors="replace") as wf:
-            wf.write(json.dumps(snapshot) + "\n")
-            wf.writelines(kept)
+        try:
+            with path.open("w", encoding="utf-8", errors="replace") as wf:
+                wf.write(json.dumps(snapshot) + "\n")
+                wf.writelines(kept)
+        except OSError as e:
+            logger.error(
+                "Audit rotation failed: could not rewrite main log '%s': %s", path, e
+            )
 
-    except Exception:
-        # Never break tool execution due to logging
-        pass
+    except Exception as e:
+        # Catch-all: rotation must never propagate exceptions to the tool caller,
+        # but the failure must be recorded so operators can investigate.
+        logger.error("Unexpected error during audit log rotation: %s", e)

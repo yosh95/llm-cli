@@ -285,3 +285,33 @@ class ClaudeClient(BaseLlmClient):
         except Exception as e:
             self._report_error("Claude", e)
             return (None, None), None
+
+    def utility_send(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        json_mode: bool = False,
+    ) -> str:
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": 1024,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_prompt}],
+        }
+        if json_mode:
+            # Force JSON via prompt as Claude doesn't have a strict json_mode yet
+            payload["system"] += "\nRespond ONLY with a JSON object."
+
+        response = self._post(self.API_URL, headers=headers, json_data=payload)
+        response.raise_for_status()
+        res = response.json()
+        text = ""
+        for block in res.get("content", []):
+            if block["type"] == "text":
+                text += block["text"]
+        return text.strip()

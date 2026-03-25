@@ -2,8 +2,6 @@ import json
 import logging
 from typing import Any, cast
 
-import requests
-
 from llm_cli.clients.config import config_manager
 from llm_cli.clients.registry import client_registry
 
@@ -72,78 +70,7 @@ def verify_tool_call(
     )
 
     try:
-        payload: dict[str, Any]
-        if provider_alias in ("google", "gemini"):
-            base_url = getattr(
-                client,
-                "BASE_API_URL",
-                "https://generativelanguage.googleapis.com/v1beta",
-            )
-            url = (
-                f"{base_url}/models/{client.model}:generateContent?key={client.api_key}"
-            )
-            payload = {
-                "system_instruction": {"parts": [{"text": system_prompt}]},
-                "contents": [{"role": "user", "parts": [{"text": user_content}]}],
-                "generationConfig": {"responseMimeType": "application/json"},
-            }
-            resp = requests.post(url, json=payload, timeout=7)
-
-        elif provider_alias in ("anthropic", "claude"):
-            url = getattr(client, "API_URL", "https://api.anthropic.com/v1/messages")
-            headers = {
-                "x-api-key": client.api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            }
-            payload = {
-                "model": client.model,
-                "max_tokens": 1024,
-                "system": system_prompt,
-                "messages": [{"role": "user", "content": user_content}],
-            }
-            resp = requests.post(url, headers=headers, json=payload, timeout=7)
-
-        else:
-            # OpenAI compatible (OpenAI, Grok, Ollama)
-            url = getattr(client, "api_url", "")
-            if "responses" in url:
-                url = url.replace("/responses", "/chat/completions")
-
-            headers = {"Content-Type": "application/json"}
-            if client.api_key and client.api_key != "local_bypass":
-                headers["Authorization"] = f"Bearer {client.api_key}"
-
-            payload = {
-                "model": client.model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
-                ],
-                "response_format": {"type": "json_object"},
-            }
-            if provider_alias == "ollama":
-                payload.pop("response_format", None)
-                payload["format"] = "json"
-
-            resp = requests.post(url, headers=headers, json=payload, timeout=10)
-
-        if resp.status_code != 200:
-            logger.error(f"Dual LLM API Error ({resp.status_code}): {resp.text}")
-            resp.raise_for_status()
-
-        res_data = resp.json()
-
-        text = ""
-        if "candidates" in res_data:
-            text = res_data["candidates"][0]["content"]["parts"][0]["text"]
-        elif "choices" in res_data:
-            text = res_data["choices"][0]["message"]["content"]
-        elif "content" in res_data and isinstance(res_data["content"], list):
-            text = res_data["content"][0].get("text", "")
-        elif "message" in res_data:
-            text = res_data["message"]["content"]
-
+        text = client.utility_send(system_prompt, user_content, json_mode=True)
         if not text:
             return True, "Empty response from Dual LLM"
 

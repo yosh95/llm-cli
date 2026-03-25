@@ -10,19 +10,49 @@ class PythonSecurityScanner(ast.NodeVisitor):
     This acts as a fast, deterministic layer of defense before execution.
     """
 
-    # Modules that are strictly forbidden to import entirely
+    # Modules that are strictly forbidden to import entirely.
+    #
+    # Classification rationale:
+    # - Network I/O  : socket, http.*, ftplib, telnetlib, smtplib, poplib,
+    #                  imaplib, xmlrpc  — all open raw network channels.
+    # - Serialisation: pickle, marshal, shelve  — allow arbitrary code execution
+    #                  on deserialization.
+    # - Low-level    : ctypes, pty  — direct memory / tty access.
+    # - Introspection: builtins, importlib  — bypass module sandboxing.
+    # - Code gen     : code, codeop  — REPL-style dynamic execution.
+    # - Concurrency  : multiprocessing  — spawns unrestricted child processes.
     DANGEROUS_MODULES = {
+        # --- Network I/O ---
         "socket",
+        "http",
+        "ftplib",
+        "telnetlib",
+        "smtplib",
+        "poplib",
+        "imaplib",
+        "xmlrpc",
+        # --- HTTP client libraries commonly used for exfiltration ---
         "requests",
         "urllib",
-        "builtins",
-        "importlib",
+        "urllib2",
+        "urllib3",
+        "httplib",
+        "httplib2",
+        # --- Dangerous serialisation ---
         "pickle",
         "marshal",
         "shelve",
+        # --- Low-level system access ---
         "ctypes",
         "pty",
-        "platform",
+        # --- Introspection / import bypass ---
+        "builtins",
+        "importlib",
+        # --- Dynamic code execution ---
+        "code",
+        "codeop",
+        # --- Unrestricted child-process spawning ---
+        "multiprocessing",
     }
 
     # Modules that are allowed but have restricted members (granular check)
@@ -66,6 +96,17 @@ class PythonSecurityScanner(ast.NodeVisitor):
             "move",
             "make_archive",
             "unpack_archive",
+        },
+        "platform": {
+            "uname",
+            "system",
+            "release",
+            "version",
+            "machine",
+            "processor",
+            "node",
+            "platform",
+            "architecture",
         },
     }
 
@@ -301,6 +342,32 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 # (visit_Call handles the call case to avoid double-reporting).
                 # We cannot easily distinguish here, so we rely on visit_Call.
                 pass
+
+        self.generic_visit(node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        """
+        Detect subscript-based bypass patterns such as:
+            vars()["__builtins__"]["__import__"]("os")
+            globals()["exec"]("...")
+            __builtins__["eval"]("...")
+
+        We flag any subscript access whose key is a dangerous function name or
+        a dangerous attribute name (e.g. "__import__", "eval", "__builtins__").
+        """
+        # Extract the literal string key, if present.
+        slice_node = node.slice
+        # Python 3.9+: slice is a plain node; 3.8: wrapped in Index.
+        if isinstance(slice_node, ast.Index):  # type: ignore[attr-defined]
+            slice_node = slice_node.value  # type: ignore[attr-defined]
+
+        if isinstance(slice_node, ast.Constant) and isinstance(slice_node.value, str):
+            key = slice_node.value
+            if key in self.DANGEROUS_FUNCTIONS or key in self.DANGEROUS_ATTRIBUTES:
+                self.issues.append(
+                    f"Security Violation: Subscript access to dangerous key "
+                    f"'{key}' is forbidden (potential __builtins__ bypass)."
+                )
 
         self.generic_visit(node)
 

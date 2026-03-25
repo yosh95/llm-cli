@@ -11,7 +11,10 @@ class MockClient(BaseLlmClient):
         pass
 
     def _send(self, _data):
-        return "", {}
+        return ("", ""), {}
+
+    def utility_send(self, _system_prompt, _user_prompt, _json_mode=False):
+        return "mocked response"
 
 
 @pytest.fixture

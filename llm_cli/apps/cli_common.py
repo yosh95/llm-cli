@@ -62,6 +62,38 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
     return parser
 
 
+def _check_pqc_disclaimer() -> None:
+    """Displays a security disclaimer regarding PQC implementation on first run."""
+    from llm_cli.consts import LLM_CLI_BASE_DIR
+
+    disclaimer_file = LLM_CLI_BASE_DIR / ".pqc_disclaimer_accepted"
+    if disclaimer_file.exists():
+        return
+
+    from rich.panel import Panel
+
+    disclaimer_text = (
+        "[bold yellow]⚠️  Security & Cryptography Disclaimer[/bold yellow]\n\n"
+        "This tool implements [bold]Post-Quantum Cryptography (PQC)[/bold] "
+        "primitives (ML-DSA, ML-KEM) using pure-Python reference implementations.\n\n"
+        "• These implementations [bold]have not undergone independent cryptographic "
+        "review or formal security audit[/bold].\n"
+        "• They are intended for [bold]reference, evaluation, and design provocation"
+        "[/bold] only.\n"
+        "• They are [bold red]NOT certified for production use[/bold red] in "
+        "regulated or mission-critical environments.\n\n"
+        "By continuing, you acknowledge that you understand the experimental "
+        "nature of these security controls."
+    )
+    console.print(Panel(disclaimer_text, border_style="yellow"))
+
+    try:
+        LLM_CLI_BASE_DIR.mkdir(parents=True, exist_ok=True)
+        disclaimer_file.touch()
+    except Exception:
+        pass
+
+
 def run_client_cli(config: ClientConfig) -> None:
     parser = create_standard_parser(config)
     args = parser.parse_args()
@@ -81,6 +113,9 @@ def run_client_cli(config: ClientConfig) -> None:
 
     # Verify system integrity (Checks manifest, audit logs, etc.)
     verify_installation()
+
+    # Check for PQC security disclaimer on first run
+    _check_pqc_disclaimer()
 
     # Check for at least one active provider
     active_providers = config_manager.get_active_providers()

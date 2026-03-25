@@ -37,6 +37,9 @@ class MockClient(BaseLlmClient):
     def _send(self, data: list[DataSource]):
         return self._send_mock(data)
 
+    def utility_send(self, _system_prompt, _user_prompt, _json_mode=False):
+        return '{"safe": true, "reason": "mocked"}'
+
 
 @pytest.fixture
 def mock_session(tmp_path):

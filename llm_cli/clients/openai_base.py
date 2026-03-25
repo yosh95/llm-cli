@@ -317,3 +317,41 @@ class OpenAICompatibleClient(BaseLlmClient):
             items[-1]["content"].extend(content)
         else:
             items.append({"role": role, "content": content})
+
+    def utility_send(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        json_mode: bool = False,
+    ) -> str:
+        # Check if the provider uses Responses API (OpenAI, xAI)
+        # We assume subclasses set api_url or similar if needed.
+        # Here we use a generic POST if we can find the URL.
+        url = getattr(self, "api_url", "")
+        # Adjust URL for utility completion if it's Responses API
+        if "responses" in url:
+            url = url.replace("/responses", "/chat/completions")
+
+        headers = {"Content-Type": "application/json"}
+        if self.api_key and self.api_key != "local_bypass":
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        }
+        if json_mode:
+            # Special case for Ollama
+            if "ollama" in self.config_section.lower():
+                payload["format"] = "json"
+            else:
+                payload["response_format"] = {"type": "json_object"}
+
+        response = self._post(url, headers=headers, json_data=payload)
+        response.raise_for_status()
+        res_json = response.json()
+        (text, _), _ = self._parse_openai_response(res_json)
+        return text

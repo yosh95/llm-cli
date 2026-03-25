@@ -99,7 +99,10 @@ def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
             self.model = "test-model"
 
         def _send(self, _data):
-            return "res", {}
+            return ("res", ""), {}
+
+        def utility_send(self, _system_prompt, _user_prompt, _json_mode=False):
+            return "mocked response"
 
     with patch("llm_cli.modules.media_utils.filetype.guess") as mock_guess:
         mock_kind = MagicMock()

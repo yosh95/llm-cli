@@ -420,12 +420,35 @@ def _run_pre_approval_validation(ctx: ToolExecutionContext) -> bool:
 
 
 def _get_user_approval(ctx: ToolExecutionContext) -> bool:
-    tool_entry = registry.tools.get(ctx.name, {})
-    skip_approval = tool_entry.get("skip_approval", False)
+    """
+    Handles user approval based on the tool's risk level and security policy.
+    Dual LLM warnings or high-risk tools always require manual approval.
+    """
+    # 1. Resolve Auto-Approval Policy
+    # Policy order: none (strictest) < low < medium
+    auto_approval_policy = (
+        config_manager.get("security", "auto_approval_level") or "none"
+    ).lower()
 
-    if skip_approval and not ctx.verification_warning:
-        return True
+    # 2. Check for bypass conditions
+    # If Dual LLM flagged a mismatch, we MUST ask for approval regardless of policy.
+    if not ctx.verification_warning:
+        is_auto_approved = False
 
+        if auto_approval_policy == "medium":
+            # Allow low and medium risk tools
+            if ctx.risk_level in (RiskLevel.LOW, RiskLevel.MEDIUM):
+                is_auto_approved = True
+        elif auto_approval_policy == "low":
+            # Only allow low risk tools
+            if ctx.risk_level == RiskLevel.LOW:
+                is_auto_approved = True
+
+        if is_auto_approved:
+            logger.debug(f"Auto-approving '{ctx.name}' (Risk: {ctx.risk_level.value})")
+            return True
+
+    # 3. Manual Approval Flow
     display_tool_request(ctx)
     if any(k in ctx.name for k in ("write_file", "create_or_overwrite_file")):
         preview_diff(ctx.args)

@@ -73,26 +73,38 @@ def test_execute_tool_call_success(session, tool_call_part):
         {
             "test_tool": {
                 "func": mock_tool_func,
-                "skip_approval": True,
                 "interactive": False,
             }
         },
     ):
         with patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True):
-            with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
-                # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
-                with patch(
-                    "llm_cli.clients.tool_executor._verify_pqc_signature",
-                    side_effect=mock_verify,
-                ):
-                    res_part, injected = execute_tool_call(session, tool_call_part)
-
-                    assert (
-                        res_part.function_response["response"]["result"]
-                        == "Success Result"
+            # Treat 'test_tool' as low risk for auto-approval test
+            with patch(
+                "llm_cli.clients.config.config_manager.get",
+                side_effect=lambda section, key: (
+                    ["test_tool"]
+                    if section == "security" and key == "low_risk_tools"
+                    else (
+                        "low"
+                        if section == "security" and key == "auto_approval_level"
+                        else None
                     )
-                    assert injected is None
-                    mock_tool_func.assert_called_once()
+                ),
+            ):
+                with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
+                    # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
+                    with patch(
+                        "llm_cli.clients.tool_executor._verify_pqc_signature",
+                        side_effect=mock_verify,
+                    ):
+                        res_part, injected = execute_tool_call(session, tool_call_part)
+
+                        assert (
+                            res_part.function_response["response"]["result"]
+                            == "Success Result"
+                        )
+                        assert injected is None
+                        mock_tool_func.assert_called_once()
 
 
 def test_execute_tool_call_user_rejection(session, tool_call_part):
@@ -101,18 +113,31 @@ def test_execute_tool_call_user_rejection(session, tool_call_part):
 
     with patch(
         "llm_cli.modules.tool_registry.registry.tools",
-        {"test_tool": {"func": mock_tool_func, "skip_approval": False}},
+        {"test_tool": {"func": mock_tool_func}},
     ):
         with patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True):
-            with patch.object(session, "_get_input", return_value="n"):
-                res_part, injected = execute_tool_call(session, tool_call_part)
+            # Ensure 'test_tool' is NOT auto-approved
+            with patch(
+                "llm_cli.clients.config.config_manager.get",
+                side_effect=lambda section, key: (
+                    []
+                    if section == "security" and key == "low_risk_tools"
+                    else (
+                        "none"
+                        if section == "security" and key == "auto_approval_level"
+                        else None
+                    )
+                ),
+            ):
+                with patch.object(session, "_get_input", return_value="n"):
+                    res_part, injected = execute_tool_call(session, tool_call_part)
 
-                assert (
-                    "Error: Operation denied."
-                    in res_part.function_response["response"]["result"]
-                )
-                assert injected is None
-                mock_tool_func.assert_not_called()
+                    assert (
+                        "Error: Operation denied."
+                        in res_part.function_response["response"]["result"]
+                    )
+                    assert injected is None
+                    mock_tool_func.assert_not_called()
 
 
 def test_execute_tool_call_policy_violation(session, tool_call_part):
@@ -138,22 +163,31 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
 
     with patch(
         "llm_cli.modules.tool_registry.registry.tools",
-        {"test_tool": {"func": mock_tool_func, "skip_approval": True}},
+        {"test_tool": {"func": mock_tool_func}},
     ):
         with patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True):
-            with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
-                # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
-                with patch(
-                    "llm_cli.clients.tool_executor._verify_pqc_signature",
-                    side_effect=mock_verify,
-                ):
-                    res_part, injected = execute_tool_call(session, tool_call_part)
+            # Auto-approve for simplicity in this test
+            with patch(
+                "llm_cli.clients.config.config_manager.get",
+                side_effect=lambda section, key: (
+                    ["test_tool"]
+                    if section == "security" and key == "low_risk_tools"
+                    else "low"
+                ),
+            ):
+                with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
+                    # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
+                    with patch(
+                        "llm_cli.clients.tool_executor._verify_pqc_signature",
+                        side_effect=mock_verify,
+                    ):
+                        res_part, injected = execute_tool_call(session, tool_call_part)
 
-                    assert (
-                        res_part.function_response["response"]["result"]
-                        == "{'result': 'OK'}"
-                    )
-                    assert injected == injected_ds
+                        assert (
+                            res_part.function_response["response"]["result"]
+                            == "{'result': 'OK'}"
+                        )
+                        assert injected == injected_ds
 
 
 def test_code_safety_check_blocks_unsafe_code(session):

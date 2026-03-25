@@ -58,7 +58,6 @@ class ToolRegistry:
         parameters: dict[str, Any] | None = None,
         supported_providers: list[str] | None = None,
         interactive: bool = False,
-        skip_approval: bool = False,
         validate: Callable[..., str | bool] | None = None,
         is_local: bool = True,
     ) -> None:
@@ -72,7 +71,6 @@ class ToolRegistry:
             parameters: JSON Schema of the function parameters.
             supported_providers: List of providers that support this tool.
             interactive: Whether the tool requires interactive input.
-            skip_approval: Whether to skip user approval before execution.
             validate: Optional function to validate arguments BEFORE approval.
                      Should return True if valid, or a string error message if invalid.
             is_local: Whether this is a local system tool (protected).
@@ -199,7 +197,6 @@ class ToolRegistry:
             "parameters": parameters,
             "supported_providers": supported_providers,
             "interactive": interactive,
-            "skip_approval": skip_approval,
             "validate": validate,
             "is_local": is_local,
         }
@@ -378,7 +375,6 @@ def tool(
     desc: str | None = None,
     params: dict[str, Any] | None = None,
     interactive: bool = False,
-    skip_approval: bool = False,
     validate: Callable[..., str | bool] | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     final_desc = description or desc
@@ -395,7 +391,6 @@ def tool(
             final_params,
             supported_providers,
             interactive,
-            skip_approval,
             validate,
         )
         return f

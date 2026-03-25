@@ -256,6 +256,8 @@ def test_tool_executor_passes_on_dual_llm_success(session, tool_call_part):
         "require_pqc_audit_encryption": True,
         "ast_strictness": "strict",
     }
+    # Ensure tool execution is approved if manual prompt appears
+    session._get_input.return_value = "y"
 
     with (
         patch(
@@ -274,7 +276,19 @@ def test_tool_executor_passes_on_dual_llm_success(session, tool_call_part):
         patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True),
         patch(
             "llm_cli.modules.tool_registry.registry.tools",
-            {"test_tool": {"func": mock_tool_func, "skip_approval": True}},
+            {"test_tool": {"func": mock_tool_func}},
+        ),
+        patch(
+            "llm_cli.clients.config.config_manager.get",
+            side_effect=lambda section, key: (
+                ["test_tool"]
+                if section == "security" and key == "low_risk_tools"
+                else (
+                    "low"
+                    if section == "security" and key == "auto_approval_level"
+                    else None
+                )
+            ),
         ),
         patch(
             "llm_cli.clients.tool_executor._verify_pqc_signature",

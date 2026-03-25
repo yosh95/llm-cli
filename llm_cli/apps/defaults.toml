@@ -28,6 +28,14 @@ max_audit_archives = 10
 # - standard: Compatibility mode for non-llm-cli clients or legacy MCP servers.
 security_level = "high"
 
+# Auto-Approval Policy
+# Controls which tools can run without human intervention.
+# - "none":   All tools require manual approval (Default / Safest).
+# - "low":    Only low_risk_tools (e.g., list_files) are auto-approved.
+# - "medium": Low and medium risk tools are auto-approved.
+# Note: Any 'verification_warning' from Dual LLM will always force manual approval.
+auto_approval_level = "low"
+
 # Path-based access control (Resource Attributes)
 allowed_paths = ["."]
 allowed_env_vars = []

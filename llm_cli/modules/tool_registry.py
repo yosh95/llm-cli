@@ -60,6 +60,7 @@ class ToolRegistry:
         interactive: bool = False,
         skip_approval: bool = False,
         validate: Callable[..., str | bool] | None = None,
+        is_local: bool = True,
     ) -> None:
         """
         Registers a tool in the registry.
@@ -74,7 +75,20 @@ class ToolRegistry:
             skip_approval: Whether to skip user approval before execution.
             validate: Optional function to validate arguments BEFORE approval.
                      Should return True if valid, or a string error message if invalid.
+            is_local: Whether this is a local system tool (protected).
         """
+        # Security: Prevent remote tools from overriding local system tools
+        if name in self.tools and self.tools[name].get("is_local", False):
+            if not is_local:
+                # Log a warning (the caller will handle the error)
+                from llm_cli.ui import report_warning
+
+                report_warning(
+                    f"Security: Blocking attempt by remote server to override "
+                    f"local tool '{name}'."
+                )
+                return
+
         # Initialize parameters following JSON Schema standard
         if parameters is None:
             parameters = {"type": "object", "properties": {}, "required": []}
@@ -187,6 +201,7 @@ class ToolRegistry:
             "interactive": interactive,
             "skip_approval": skip_approval,
             "validate": validate,
+            "is_local": is_local,
         }
 
     def register_remote_tools(self, mcp_manager: Any) -> list[str]:
@@ -210,6 +225,7 @@ class ToolRegistry:
                     func=make_tool_func(tool["server_name"], tool["original_name"]),
                     description=tool["description"],
                     parameters=tool["parameters"],
+                    is_local=False,  # Mark as remote tool
                 )
                 remote_names.append(tool["name"])
         except Exception as e:

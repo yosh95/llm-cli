@@ -98,7 +98,6 @@ def execute_python(code: str, **kwargs: Any) -> Any:
         "TMPDIR",
         "TEMP",
         "TMP",
-        "PYTHONPATH",
         "GIT_AUTHOR_NAME",
         "GIT_AUTHOR_EMAIL",
         "GIT_COMMITTER_NAME",

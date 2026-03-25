@@ -66,7 +66,7 @@ class MCPManager:
         for config in self.servers_config:
             name = config.get("name")
             command = config.get("command")
-            args = config.get("args", [])
+            args = list(config.get("args", []))  # Create a copy to prevent mutation
             env = config.get("env") or {}
 
             if not name or not command or name in self.sessions:

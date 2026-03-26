@@ -46,19 +46,27 @@ blocked_paths = [
 ]
 
 # Risk Level Classification
+#
+# HIGH   - Irreversible writes / external network access / arbitrary code execution.
+#          Always requires explicit human approval; never auto-approved.
+# MEDIUM - Local data read-only access.
+#          Exposes file or directory contents to the LLM; no writes.
+# LOW    - Metadata only (file names, sizes, timestamps).
+#          Never reads file contents.
+
 high_risk_tools = [
-    "execute_python",
-    "edit_file",
-    "create_or_overwrite_file",
+    "execute_python",           # Arbitrary code execution: highest risk
+    "edit_file",                # Partial file overwrite: irreversible change
+    "create_or_overwrite_file", # Full file overwrite: irreversible change
+    "read_url_content",         # External network call: SSRF / data-exfiltration risk
 ]
 medium_risk_tools = [
-    "read_file_content",
-    "search_files",
-    "read_url_content"
+    "read_file_content", # Reads file contents and exposes them to the LLM (no writes)
+    "search_files",      # Full-text scans and exposes file contents to the LLM (no writes)
 ]
-# Low-risk tools that only provide metadata or limited information
+# Low-risk tools that only expose metadata, never file contents
 low_risk_tools = [
-    "list_files_in_directory"
+    "list_files_in_directory", # File names, sizes, timestamps only (no content exposure)
 ]
 
 # Security Posture (CASS)

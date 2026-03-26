@@ -5,10 +5,46 @@ import re
 from pathlib import Path
 from typing import Any
 
-from rich.markup import escape
+from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.text import Text
 
-from llm_cli.ui import print_block
+from llm_cli.ui import console, print_block
+
+# ---------------------------------------------------------------------------
+# Risk-level visual vocabulary
+# ---------------------------------------------------------------------------
+# Each entry defines everything needed to render a consistent risk badge:
+#   icon    – single emoji shown in the panel title and approval prompt
+#   label   – short ALL-CAPS text (e.g. "HIGH RISK") shown in the badge
+#   color   – Rich color name used for the panel border and label text
+#   prompt  – the exact string shown as the human-approval prompt
+# ---------------------------------------------------------------------------
+_RISK_STYLE: dict[str, dict[str, str]] = {
+    "high": {
+        "icon": "🔴",
+        "label": "HIGH RISK",
+        "color": "bold red",
+        "border": "red",
+        "prompt": (
+            "⚠️  HIGH RISK operation – type y to allow, N to deny, or enter feedback: "
+        ),
+    },
+    "medium": {
+        "icon": "🟡",
+        "label": "MEDIUM RISK",
+        "color": "bold yellow",
+        "border": "yellow",
+        "prompt": "Allow execution? (y/N or feedback): ",
+    },
+    "low": {
+        "icon": "🟢",
+        "label": "LOW RISK",
+        "color": "bold green",
+        "border": "green",
+        "prompt": "Allow execution? (y/N or feedback): ",
+    },
+}
 
 
 def display_reasoning(ctx: Any) -> None:
@@ -28,27 +64,56 @@ def display_reasoning(ctx: Any) -> None:
         )
 
 
+def get_approval_prompt(ctx: Any) -> str:
+    """Returns the risk-appropriate approval prompt string for a tool context."""
+    risk_key = ctx.risk_level.value.lower() if hasattr(ctx, "risk_level") else "medium"
+    style = _RISK_STYLE.get(risk_key, _RISK_STYLE["medium"])
+    return style["prompt"]
+
+
 def display_tool_request(ctx: Any) -> None:
-    """Displays a concise block showing the tool being called and its arguments."""
+    """Displays a risk-aware panel showing the tool being called and its arguments."""
+    # Resolve risk style (fall back to medium if ctx lacks risk_level)
+    risk_key = ctx.risk_level.value.lower() if hasattr(ctx, "risk_level") else "medium"
+    style = _RISK_STYLE.get(risk_key, _RISK_STYLE["medium"])
+
+    icon = style["icon"]
+    label = style["label"]
+    color = style["color"]
+    border = style["border"]
+
+    # ── Build argument summary ──────────────────────────────────────────────
     arg_parts = []
     for k, v in ctx.args.items():
         if k in ("explanation", "thought", "reasoning"):
             continue
-
         val_str = repr(v)
         if len(val_str) > 120:
             val_str = val_str[:120] + "..."
+        arg_parts.append(f"  {k} = {val_str}")
 
-        arg_parts.append(f"{k}={val_str}")
+    args_block = "\n".join(arg_parts) if arg_parts else "  (no arguments)"
 
-    if arg_parts:
-        arg_str = ", ".join(arg_parts)
-        content = f"[cyan]{escape(ctx.name)}[/cyan]({escape(arg_str)})"
-    else:
-        content = f"[cyan]{escape(ctx.name)}[/cyan]"
+    # ── Compose panel body ──────────────────────────────────────────────────
+    # Line 1: risk badge + tool name
+    # Line 2+: indented argument list
+    body = Text()
+    body.append(f"{icon} {label} ", style=color)
+    body.append("  ")
+    body.append(ctx.name, style="bold cyan")
+    body.append("\n")
+    body.append(args_block, style="white")
 
-    print_block(
-        content, title="[bold yellow]🤖 Agent Request[/bold yellow]", style="yellow"
+    panel_title = Text()
+    panel_title.append("🤖 Agent Request", style="bold yellow")
+
+    console.print(
+        Panel(
+            body,
+            title=panel_title,
+            border_style=border,
+            padding=(0, 1),
+        )
     )
 
 

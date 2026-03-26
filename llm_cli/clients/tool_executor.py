@@ -22,6 +22,7 @@ from llm_cli.ui import (
 from .tool_executor_ui import (
     display_reasoning,
     display_tool_request,
+    get_approval_prompt,
     preview_diff,
     preview_edit_diff,
     preview_python_code,
@@ -469,9 +470,10 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
         )
 
     try:
-        prompt_msg = "Allow execution? (y/N or feedback): "
-        if "execute_python" in ctx.name:
-            prompt_msg = "Warning: Arbitrary code execution. Allow? (y/N or feedback): "
+        # Use a risk-level-aware prompt (defined alongside the visual badge in
+        # tool_executor_ui._RISK_STYLE).  HIGH already shows "⚠️  HIGH RISK operation",
+        # so we no longer need a separate execute_python special-case here.
+        prompt_msg = get_approval_prompt(ctx)
 
         user_input = ctx.session._get_input(
             prompt_msg,

@@ -44,6 +44,31 @@ def _(event: Any) -> None:
     original_text = buffer.text
     editor_raw = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vim"
 
+    # Validate the editor executable before use.
+    # shlex.split() allows $EDITOR to carry extra flags (e.g. "vim -u NONE"),
+    # which is legitimate.  What we guard against is a compromised environment
+    # where EDITOR contains a path to a non-existent or non-executable binary —
+    # fail fast rather than silently invoking an unexpected program.
+    try:
+        import shutil as _shutil
+
+        editor_parts = shlex.split(editor_raw)
+        if not editor_parts:
+            raise ValueError("EDITOR is empty after parsing.")
+
+        editor_exe = editor_parts[0]
+        resolved_exe = _shutil.which(editor_exe)
+        if not resolved_exe:
+            raise ValueError(f"Editor executable '{editor_exe}' not found in PATH.")
+        # Replace the (possibly relative) executable with its resolved absolute
+        # path so that the command cannot be hijacked by a later PATH change.
+        editor_parts[0] = resolved_exe
+    except Exception as e:
+        from llm_cli.ui import report_error
+
+        report_error(f"Invalid EDITOR setting: {e}")
+        return
+
     # Use mkstemp for better control over permissions (0600)
 
     fd, tf_path_str = tempfile.mkstemp(suffix=".txt")
@@ -54,7 +79,7 @@ def _(event: Any) -> None:
         with os.fdopen(fd, "wb") as tf:
             tf.write(original_text.encode("utf-8"))
 
-        cmd_args = shlex.split(editor_raw) + [str(tf_path)]
+        cmd_args = editor_parts + [str(tf_path)]
         return_code = subprocess.call(cmd_args)
         if return_code == 0:
             buffer.text = tf_path.read_text(encoding="utf-8")

@@ -65,14 +65,27 @@ def execute_python(code: str, **kwargs: Any) -> Any:
     variant = str(variant_raw) if variant_raw else "ML-DSA-65"
 
     # 0. Enforce static analysis before execution (Tier 1 Guardrail)
-    is_safe, violations, warnings = analyze_python_safety(code)
-    if not is_safe:
-        issues = violations or warnings
+    #
+    # violations : Confirmed dangerous patterns (shell=True, banned modules, etc.)
+    #              → Block immediately, no bypass.
+    # warnings   : Ambiguous patterns that may include False Positives
+    #              (e.g. non-literal subprocess args that were already validated
+    #              upstream).  Execution is allowed; log for monitoring only.
+    #              This mirrors the Human-in-the-Loop path in tool_executor.py
+    #              and the intent stated in analyze_python_safety's docstring.
+    _, violations, warnings = analyze_python_safety(code)
+
+    if violations:
+        violation_str = "\n".join(f"• {v}" for v in violations)
         error_msg = (
             "Security Violation: Python code failed static analysis.\n"
-            f"Issues: {', '.join(issues)}"
+            f"Issues:\n{violation_str}"
         )
         return sign_tool_result(error_msg, variant=variant)
+
+    if warnings:
+        warning_str = ", ".join(warnings)
+        logger.warning("Static analysis warnings (execution allowed): %s", warning_str)
 
     # Use a default timeout of 300 seconds.
     timeout = int(

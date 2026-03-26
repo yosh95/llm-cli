@@ -46,11 +46,18 @@ def log_audit(
             from llm_cli.security.identity import IdentityManager
             from llm_cli.security.pqc import SecureStorage
 
-            # Encrypt high-risk tool arguments
+            # Encrypt arguments for high-risk and medium-risk tools.
+            # High-risk tools (e.g. execute_python, edit_file) carry code or
+            # file contents.  Medium-risk tools (e.g. read_file_content,
+            # search_files) carry file paths that may themselves be sensitive —
+            # encrypting them prevents leaking workspace layout in plain-text logs.
             high_risk_tools = set(
                 config_manager.get("security", "high_risk_tools") or []
             )
-            if tool_name in high_risk_tools:
+            medium_risk_tools = set(
+                config_manager.get("security", "medium_risk_tools") or []
+            )
+            if tool_name in high_risk_tools or tool_name in medium_risk_tools:
                 pub_kem = IdentityManager._get_kem_public_key_content()
                 args_bytes = json.dumps(args).encode()
                 final_args = SecureStorage.encrypt(args_bytes, pub_kem)

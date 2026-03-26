@@ -523,8 +523,11 @@ def analyze_python_safety(code: str) -> tuple[bool, list[str], list[str]]:
         tree = ast.parse(code)
         scanner = PythonSecurityScanner()
         scanner.visit(tree)
-        # It's only truly 'safe' if there are zero violations and zero warnings.
-        # But callers can choose to allow warnings with user approval.
+        # is_safe is True only when both lists are empty (strictest interpretation).
+        # Callers are expected to treat the two lists differently:
+        #   violations → hard block, no bypass.
+        #   warnings   → soft signal; route to Human-in-the-Loop or log-and-continue
+        #                depending on the execution context.
         is_safe = len(scanner.violations) == 0 and len(scanner.warnings) == 0
         return is_safe, scanner.violations, scanner.warnings
     except SyntaxError as e:

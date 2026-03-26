@@ -35,7 +35,11 @@ try:
 
 except Exception as e:
     logger.warning(f"Failed to load user config: {e}. Using default strict policies.")
-    MISSING_TOKEN_POLICY = "guest"
+    # Fail-safe: if the config cannot be loaded we cannot know the operator's
+    # intent, so deny unauthenticated access rather than open the gate.
+    # Note: the *normal* default (config key absent) remains "guest" above to
+    # preserve out-of-the-box usability for 3rd-party MCP clients.
+    MISSING_TOKEN_POLICY = "deny"
     policy_engine = PolicyEngine()
 
 

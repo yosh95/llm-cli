@@ -204,9 +204,15 @@ class PolicyEngine:
                             # Special case: "." means everything under CWD
                             if pat == ".":
                                 try:
+                                    # candidate_resolved.parts returns a tuple of
+                                    # strings, so comparing a Path object against it
+                                    # with `in` is always False (was a silent bug).
+                                    # The correct check is:
+                                    #   - exact match with CWD, OR
+                                    #   - CWD is an ancestor of the candidate
+                                    #     (i.e. candidate lives *inside* CWD)
                                     if (
                                         candidate_resolved == cwd
-                                        or cwd in candidate_resolved.parts
                                         or cwd in candidate_resolved.parents
                                     ):
                                         found_match = True

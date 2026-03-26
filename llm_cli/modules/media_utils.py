@@ -115,12 +115,42 @@ def fetch_url_content(
     if not validate_url(url):
         return None, None
     try:
+        # Disable automatic redirect following so we can validate every hop.
+        # Without this, a redirect from a public URL to an internal address
+        # (e.g. http://169.254.169.254/) would bypass the validate_url() check
+        # performed above — a classic SSRF via open redirect.
         response = curl_requests.get(
             url,
             impersonate="chrome",
             headers={"Connection": "close"},
             timeout=30,
+            allow_redirects=False,
         )
+
+        # If the server issues a redirect, re-validate the destination before
+        # following it.  We follow at most one level manually; deeper chains
+        # are refused to prevent redirect-loop abuse.
+        if response.status_code in (301, 302, 303, 307, 308):
+            location = response.headers.get("Location", "").strip()
+            if not location or not validate_url(location):
+                logger.warning(
+                    f"SSRF guard: redirect from '{url}' to '{location}' blocked."
+                )
+                return None, None
+            response = curl_requests.get(
+                location,
+                impersonate="chrome",
+                headers={"Connection": "close"},
+                timeout=30,
+                allow_redirects=False,  # no further hops
+            )
+            # A second redirect is refused outright.
+            if response.status_code in (301, 302, 303, 307, 308):
+                logger.warning(
+                    f"SSRF guard: chained redirect from '{location}' refused."
+                )
+                return None, None
+
         response.raise_for_status()
         content_type = response.headers.get("Content-Type", "").split(";")[0]
 

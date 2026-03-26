@@ -2,11 +2,55 @@
 
 import difflib
 import re
+import threading
 from typing import Any
 
 from llm_cli.modules.tool_registry import tool
 
 from .common import file_tool_handler, validate_path
+
+# Upper bound on the number of regex tokens produced from the search block.
+# A legitimate diff hunk rarely exceeds a few hundred tokens; a much larger
+# value is a strong signal of a crafted / degenerate input.
+_FUZZY_MAX_TOKENS = 300
+
+# Wall-clock seconds allowed for a single fuzzy re.finditer() call.
+# Regex backtracking is CPU-bound, so this guards against ReDoS.
+_FUZZY_TIMEOUT_SEC = 5.0
+
+
+def _fuzzy_finditer(pattern: str, content: str) -> list[re.Match[str]] | None:
+    """
+    Run re.finditer(pattern, content, re.DOTALL) with a hard wall-clock
+    timeout to prevent ReDoS.
+
+    Returns the list of matches on success, or None if the timeout fires.
+    The timeout is implemented via a background thread: the main thread
+    joins for at most _FUZZY_TIMEOUT_SEC seconds and treats a still-running
+    worker as a ReDoS indicator.
+
+    Note: the worker thread itself cannot be forcibly killed in CPython, so
+    it will keep running in the background until the GIL allows it to be
+    interrupted.  This is an accepted trade-off for pure-Python regex; the
+    important outcome is that *the caller* is unblocked promptly.
+    """
+    result: list[re.Match[str]] = []
+    timed_out = threading.Event()
+
+    def _run() -> None:
+        try:
+            result.extend(re.finditer(pattern, content, re.DOTALL))
+        except Exception:
+            pass
+
+    worker = threading.Thread(target=_run, daemon=True)
+    worker.start()
+    worker.join(timeout=_FUZZY_TIMEOUT_SEC)
+
+    if worker.is_alive():
+        timed_out.set()
+        return None  # Signal timeout to the caller
+    return result
 
 
 def validate_create_or_overwrite_file(path: str, **_kwargs: object) -> bool | str:
@@ -55,9 +99,23 @@ def validate_edit_file(path: str, search: str, **_kwargs: str) -> bool | str:
                 f"tokens for matching in '{path}'."
             )
 
-        pattern = r"\s*".join(pattern_parts)
-        matches = list(re.finditer(pattern, content, re.DOTALL))
+        # Guard against ReDoS: refuse excessively complex search blocks.
+        if len(pattern_parts) > _FUZZY_MAX_TOKENS:
+            return (
+                f"Error: 'search' block is too large for fuzzy matching "
+                f"({len(pattern_parts)} tokens, max {_FUZZY_MAX_TOKENS}). "
+                "Use a shorter, more precise block."
+            )
 
+        pattern = r"\s*".join(pattern_parts)
+        matches = _fuzzy_finditer(pattern, content)
+
+        if matches is None:
+            return (
+                "Error: Fuzzy match timed out. "
+                "The 'search' block may be too complex or the file too large. "
+                "Use a shorter, more precise block."
+            )
         if not matches:
             return (
                 f"Error: The 'search' block was not found "
@@ -144,9 +202,23 @@ def edit_file(
                 f"tokens for matching in '{path}'."
             )
 
-        pattern = r"\s*".join(pattern_parts)
-        matches = list(re.finditer(pattern, content, re.DOTALL))
+        # Guard against ReDoS: refuse excessively complex search blocks.
+        if len(pattern_parts) > _FUZZY_MAX_TOKENS:
+            return (
+                f"Error: 'search' block is too large for fuzzy matching "
+                f"({len(pattern_parts)} tokens, max {_FUZZY_MAX_TOKENS}). "
+                "Use a shorter, more precise block."
+            )
 
+        pattern = r"\s*".join(pattern_parts)
+        matches = _fuzzy_finditer(pattern, content)
+
+        if matches is None:
+            return (
+                "Error: Fuzzy match timed out. "
+                "The 'search' block may be too complex or the file too large. "
+                "Use a shorter, more precise block."
+            )
         if not matches:
             return (
                 f"Error: The 'search' block was not found "

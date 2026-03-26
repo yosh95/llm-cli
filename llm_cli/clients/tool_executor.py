@@ -410,6 +410,19 @@ def _run_pre_approval_validation(ctx: ToolExecutionContext) -> bool:
         return False
 
 
+def _display_execution_details(
+    ctx: ToolExecutionContext, auto_approved: bool = False
+) -> None:
+    """Displays tool request and relevant previews (diffs, code)."""
+    display_tool_request(ctx, auto_approved=auto_approved)
+    if any(k in ctx.name for k in ("write_file", "create_or_overwrite_file")):
+        preview_diff(ctx.args)
+    elif "edit_file" in ctx.name:
+        preview_edit_diff(ctx.args)
+    elif "execute_python" in ctx.name:
+        preview_python_code(ctx.args)
+
+
 def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     """
     Handles user approval based on the tool's risk level and security policy.
@@ -437,16 +450,11 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
 
         if is_auto_approved:
             logger.debug(f"Auto-approving '{ctx.name}' (Risk: {ctx.risk_level.value})")
+            _display_execution_details(ctx, auto_approved=True)
             return True
 
     # 3. Manual Approval Flow
-    display_tool_request(ctx)
-    if any(k in ctx.name for k in ("write_file", "create_or_overwrite_file")):
-        preview_diff(ctx.args)
-    elif "edit_file" in ctx.name:
-        preview_edit_diff(ctx.args)
-    elif "execute_python" in ctx.name:
-        preview_python_code(ctx.args)
+    _display_execution_details(ctx, auto_approved=False)
 
     if ctx.security_warnings:
         for title, warning in ctx.security_warnings:

@@ -69,7 +69,7 @@ def get_approval_prompt(ctx: Any) -> str:
     return style["prompt"]
 
 
-def display_tool_request(ctx: Any) -> None:
+def display_tool_request(ctx: Any, auto_approved: bool = False) -> None:
     """Displays a risk-aware panel showing the tool being called and its arguments."""
     # Resolve risk style (fall back to medium if ctx lacks risk_level)
     risk_key = ctx.risk_level.value.lower() if hasattr(ctx, "risk_level") else "medium"
@@ -103,7 +103,12 @@ def display_tool_request(ctx: Any) -> None:
     body.append(args_block, style="white")
 
     panel_title = Text()
-    panel_title.append(Text.from_markup("AGENT REQUEST", style="bold yellow"))
+    if auto_approved:
+        panel_title.append(
+            Text.from_markup("AGENT REQUEST (AUTO-APPROVED)", style="bold green")
+        )
+    else:
+        panel_title.append(Text.from_markup("AGENT REQUEST", style="bold yellow"))
 
     console.print(
         Panel(

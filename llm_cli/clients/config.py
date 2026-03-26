@@ -72,8 +72,8 @@ class ConfigManager:
                     user_config = tomllib.load(f)
                 except tomllib.TOMLDecodeError as e:
                     print(
-                        f"Error: Could not parse config file at "
-                        f"{CONFIG_FILE_PATH}. Please check its format.",
+                        f"Error: Could not parse config file at {CONFIG_FILE_PATH}. "
+                        "Please check its format.",
                         file=sys.stderr,
                     )
                     print(f"Details: {e}", file=sys.stderr)

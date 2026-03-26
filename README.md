@@ -8,7 +8,7 @@
 
 ---
 
-### 🎯 Purpose & Positioning
+###  Purpose & Positioning
 
 Enterprise adoption of autonomous AI agents faces a fundamental, unsolved challenge: **how do you grant an AI meaningful agency while maintaining the security and governance standards that organizations require?** This project is one engineer's attempt to answer that question in working code.
 
@@ -18,9 +18,9 @@ Enterprise adoption of autonomous AI agents faces a fundamental, unsolved challe
 
 Instead, its recommended uses are:
 
-- 🔍 **As a reference architecture** — for security engineers and architects exploring what a high-assurance agentic system *could* look like.
-- 🧪 **As an evaluation platform** — for studying the practical trade-offs between AI agent autonomy and hybrid high-assurance security controls.
-- 📐 **As a design provocation** — a starting point for organizational discussions on agentic AI governance, not a finished answer.
+-  **As a reference architecture** — for security engineers and architects exploring what a high-assurance agentic system *could* look like.
+-  **As an evaluation platform** — for studying the practical trade-offs between AI agent autonomy and hybrid high-assurance security controls.
+-  **As a design provocation** — a starting point for organizational discussions on agentic AI governance, not a finished answer.
 
 The accompanying [Technical Report](paper/comprehensive_framework/paper.pdf) details the threat model and architectural decisions behind this framework.
 
@@ -32,7 +32,7 @@ The accompanying [Technical Report](paper/comprehensive_framework/paper.pdf) det
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 1.  **Install**:
     ```bash
@@ -71,7 +71,7 @@ llm-cli "Summarize this PDF" ./document.pdf
 llm-cli "Analyze this website" https://example.com
 ```
 
-## ✨ Core Features (Product Ready)
+## GEMINI Core Features (Product Ready)
 
 - **Unified Provider Access**: Seamlessly switch between Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **Local LLMs (Ollama)**.
 - **Autonomous Agent**: Let the AI manage files, execute Python code (replacing risky shell commands), and search the web using **Provider-Native Search** (Gemini Grounding, Claude Web Search, etc.).
@@ -81,7 +81,7 @@ llm-cli "Analyze this website" https://example.com
 - **Operational Stability**: A clean, flicker-free UI designed for long-term "Deep Work" sessions and SSH-based environments.
 - **Human-in-the-Loop**: All critical actions (file edits, code execution) require explicit human approval by default.
 
-### 🤖 Autonomous Agent & Tool Use
+### AGENT Autonomous Agent & Tool Use
 The AI agent autonomously uses tools to perform complex tasks, such as file management, web search, and Python execution. Web search is powered by the LLM provider's native capabilities where available, ensuring high-quality real-time information with citations.
 
 <p align="center">
@@ -90,7 +90,7 @@ The AI agent autonomously uses tools to perform complex tasks, such as file mana
 
 ---
 
-## 🛡️ Security & Governance (High-Assurance Framework)
+## SEC️ Security & Governance (High-Assurance Framework)
 
 As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** compliance in mind, `llm-cli` implements a multi-layered security architecture to mitigate the risks associated with autonomous AI agents.
 
@@ -122,7 +122,7 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
 
 ---
 
-## 📖 Advanced Commands & Power User Tips
+##  Advanced Commands & Power User Tips
 
 Inside the `llm-cli` interactive session:
 - `/help`: Display all available commands.
@@ -134,20 +134,20 @@ Inside the `llm-cli` interactive session:
 - `/cp`: Checkpoint (Summarize and clear history).
 - `/mcp`: Toggle or manage MCP server integrations.
 
-### 📊 Performance & Benchmarking
+###  Performance & Benchmarking
 To measure the latency of the Dual LLM verification (intent check):
 ```bash
 llm-cli-benchmark-dual
 ```
 This helps you choose the most efficient "fast model" (like Gemini Flash or GPT-4o-mini) for background security checks.
 
-### 💡 Power User Tips
+### LLM Power User Tips
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
 - **External Editor (`Ctrl+X, Ctrl+E`)**: Open the current prompt in your default editor (`vim`, `nano`, etc.) for complex editing.
 - **Templates**: Define reusable prompts in `~/.llm_cli/config.toml` and call them with `/t <name>`.
 - **Disabling Tools**: If using a model that doesn't support function calling (e.g., some older or smaller local models), use `/tools off` to prevent errors.
 
-## 🔑 Security Management
+## KEY Security Management
 Use the `llm-cli-security` tool to manage your cryptographic identity:
 ```bash
 llm-cli-security keygen     # Generate RSA and PQC (ML-DSA/ML-KEM) keys
@@ -155,7 +155,7 @@ llm-cli-security manifest   # Rebuild integrity manifest for remote attestation
 llm-cli-security decrypt-log ~/.llm_cli/audit.jsonl -o decrypted.jsonl
 ```
 
-## 📜 License
+##  License
 Licensed under [Apache License 2.0](LICENSE). 
 
 For detailed architectural insights and the academic background of our security framework, please refer to the **[Technical Report (Pre-print)](paper/comprehensive_framework/paper.pdf)**.
@@ -170,7 +170,7 @@ For detailed architectural insights and the academic background of our security 
 
 ---
 
-### 🎯 位置づけと目的
+###  位置づけと目的
 
 企業における自律型 AI エージェントの活用には、根本的かつ未解決の課題があります。**「AIに十分な自律性を与えながら、組織が求めるセキュリティ標準とガバナンスをどう両立させるか」**――本プロジェクトは、その問いに対してエンジニアが動くコードで答えを試みたものです。
 
@@ -180,9 +180,9 @@ For detailed architectural insights and the academic background of our security 
 
 本プロジェクトの推奨される活用方法は以下のとおりです。
 
-- 🔍 **参照アーキテクチャとして** ― 高保証なエージェントシステムが「どのような設計になりえるか」を探求するセキュリティエンジニア・アーキテクト向け。
-- 🧪 **評価プラットフォームとして** ― AI エージェントの自律性とハイブリッドな高保証セキュリティ制御の間にある実践的なトレードオフを検討するための実験基盤として。
-- 📐 **設計上の問いかけとして** ― 組織内における AI エージェントのガバナンス議論の起点として。完成した答えではなく、問いを深めるための素材として。
+-  **参照アーキテクチャとして** ― 高保証なエージェントシステムが「どのような設計になりえるか」を探求するセキュリティエンジニア・アーキテクト向け。
+-  **評価プラットフォームとして** ― AI エージェントの自律性とハイブリッドな高保証セキュリティ制御の間にある実践的なトレードオフを検討するための実験基盤として。
+-  **設計上の問いかけとして** ― 組織内における AI エージェントのガバナンス議論の起点として。完成した答えではなく、問いを深めるための素材として。
 
 設計の背景にある脅威モデルとアーキテクチャ上の意思決定については、[テクニカルレポート](paper/comprehensive_framework/paper.pdf)で詳述しています。
 
@@ -192,7 +192,7 @@ For detailed architectural insights and the academic background of our security 
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
 </p>
 
-## 🚀 クイックスタート
+##  クイックスタート
 
 1.  **インストール**:
     ```bash
@@ -218,7 +218,7 @@ For detailed architectural insights and the academic background of our security 
     ```
 5.  **ヘルプ**: チャット内で `/help` と入力するとコマンド一覧が表示されます。
 
-## ✨ 主な機能 (実用ツールとして)
+## GEMINI 主な機能 (実用ツールとして)
 
 - **統合インターフェース**: `llm-cli` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
 - **自律型エージェント**: ファイル操作、Python実行、Web検索、URL解析をAIが自律的に実行。Web検索はプロバイダー提供の**ネイティブ検索機能**（Gemini Grounding, Claude Web Search等）を使用します。
@@ -227,14 +227,14 @@ For detailed architectural insights and the academic background of our security 
 - **マルチモーダル対応**: 画像、PDF、音声、動画の入力をサポート。画像生成も可能。
 - **集中力を削がないUI**: 画面のちらつきを抑え、SSH越しでも安定して動作するクリーンなターミナル出力。
 
-### 🤖 自律型エージェントのツール実行
+### AGENT 自律型エージェントのツール実行
 AIがファイル操作、Web検索、Python実行などのツールを自律的に使用し、複雑なタスクを遂行します。Web検索はLLMプロバイダーの機能を直接利用するため、精度の高い情報と出典（引用）の確認が可能です。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/screenshot-tool-calling.png" width="800" alt="自律型エージェントのツール実行" />
 </p>
 
-## 🛡️ セキュリティとガバナンス (プロフェッショナル向け)
+## SEC️ セキュリティとガバナンス (プロフェッショナル向け)
 
 本ツールは **CISSP/CISA/CCSP** の各ドメインにおける管理策、および **EU AI Act（欧州AI法）** の技術的要件を意識して設計されています。
 
@@ -260,7 +260,7 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 - **改ざん防止監査ログ**: ハッシュ連鎖（Chained Hashing）によるログ保護と、**ML-KEM (Kyber)** による機密性保護を実装しています。
 - **Merkle Tree アンカリング**: Tier 3 実装として Merkle Tree によるログバッチの固定を導入。履歴の改ざんを防止し、セッションの整合性を証明するアーキテクチャのプロトタイプです。
 
-### 📖 高度なコマンドとパワーユーザー向け機能
+###  高度なコマンドとパワーユーザー向け機能
 
 インタラクティブセッション内で利用可能なコマンド:
 - `/help`: 利用可能なすべてのコマンドを表示。
@@ -272,14 +272,14 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 - `/cp`: チェックポイント (会話の要約と履歴のクリア)。
 - `/mcp`: MCP サーバー連携の切り替えと管理。
 
-### 📊 パフォーマンスとベンチマーク
+###  パフォーマンスとベンチマーク
 Dual LLM 検証 (意図確認) のレイテンシを測定するには:
 ```bash
 llm-cli-benchmark-dual
 ```
 このコマンドにより、バックグラウンドでのセキュリティチェックに最適な高速モデル (Gemini Flash や GPT-4o-mini など) を選択する際の参考にできます。
 
-### 💡 パワーユーザー向け機能
+### LLM パワーユーザー向け機能
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。
 - **外部エディタ編集 (`Ctrl+X, Ctrl+E`)**: プロンプト入力を `vim` や `nano` で編集。
 - **テンプレート**: 頻繁に使うプロンプトを `~/.llm_cli/config.toml` に定義し、`/t <名前>` で呼び出し。
@@ -287,5 +287,5 @@ llm-cli-benchmark-dual
 
 ---
 
-## 📜 ライセンス
+##  ライセンス
 [Apache License 2.0](LICENSE) に基づき公開されています。技術的な詳細については [テクニカルレポート](paper/comprehensive_framework/paper.pdf) を参照してください。

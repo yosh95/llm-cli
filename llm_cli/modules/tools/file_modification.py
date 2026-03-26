@@ -87,16 +87,16 @@ def validate_edit_file(path: str, search: str, **_kwargs: str) -> bool | str:
         stripped_search = search.strip()
         if not stripped_search:
             return (
-                f"Error: 'search' block is empty or contains "
-                f"only whitespace (path: '{path}')."
+                "Error: 'search' block is empty or contains only whitespace "
+                f"(path: '{path}')."
             )
 
         tokens = re.split(r"(\s+|[^\w])", stripped_search)
         pattern_parts = [re.escape(t) for t in tokens if t and not t.isspace()]
         if not pattern_parts:
             return (
-                f"Error: 'search' block contains no usable "
-                f"tokens for matching in '{path}'."
+                f"Error: 'search' block contains no usable tokens for matching "
+                f"in '{path}'."
             )
 
         # Guard against ReDoS: refuse excessively complex search blocks.
@@ -118,8 +118,8 @@ def validate_edit_file(path: str, search: str, **_kwargs: str) -> bool | str:
             )
         if not matches:
             return (
-                f"Error: The 'search' block was not found "
-                f"exactly or fuzzily in '{path}'."
+                f"Error: The 'search' block was not found exactly or fuzzily "
+                f"in '{path}'."
             )
         if len(matches) > 1:
             return (
@@ -189,8 +189,8 @@ def edit_file(
         stripped_search = search.strip()
         if not stripped_search:
             return (
-                f"Error: 'search' block is empty or contains "
-                f"only whitespace (path: '{path}')."
+                "Error: 'search' block is empty or contains only whitespace "
+                f"(path: '{path}')."
             )
 
         tokens = re.split(r"(\s+|[^\w])", stripped_search)
@@ -198,8 +198,8 @@ def edit_file(
 
         if not pattern_parts:
             return (
-                f"Error: 'search' block contains no usable "
-                f"tokens for matching in '{path}'."
+                f"Error: 'search' block contains no usable tokens for matching "
+                f"in '{path}'."
             )
 
         # Guard against ReDoS: refuse excessively complex search blocks.
@@ -221,8 +221,8 @@ def edit_file(
             )
         if not matches:
             return (
-                f"Error: The 'search' block was not found "
-                f"exactly or fuzzily in '{path}'."
+                f"Error: The 'search' block was not found exactly or fuzzily "
+                f"in '{path}'."
             )
         if len(matches) > 1:
             return (

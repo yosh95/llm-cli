@@ -227,7 +227,7 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
 
     from llm_cli.security.dual_llm_verifier import verify_tool_call
 
-    prompt_msg = f"🛡️ Dual LLM verifying intent for '{ctx.name}'..."
+    prompt_msg = f"Dual LLM verifying intent for '{ctx.name}'..."
     console.print(prompt_msg)
 
     # Include the last tool result to help the verifier understand why this tool
@@ -296,7 +296,7 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
             # This is now reached if dual_llm_verifier returns False with a
             # non-soft-fail reason (actual intent violation).
             report_error(
-                f"[bold red]🛡️  Security Block (Dual LLM):[/bold red] "
+                f"[bold red]Security Block (Dual LLM):[/bold red] "
                 f"Intent verification failed.\n"
                 f"[bold yellow]Reason:[/bold yellow] {reason}"
             )
@@ -341,7 +341,8 @@ def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
         if violations:
             violation_str = "\n".join(f"• {v}" for v in violations)
             print_block(
-                f"[bold red]⚠️  Security Violation:[/bold red]\n{violation_str}",
+                f"[bold red][bold yellow]WARNING[/bold yellow]  "
+                f"Security Violation:[/bold red]\n{violation_str}",
                 title="Static Analysis Critical Block",
                 style="red",
             )
@@ -460,8 +461,7 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
 
     if ctx.verification_warning:
         warning_msg = (
-            "[bold red]🛡️  Intent Analysis Warning:[/bold red]\n"
-            f"{ctx.verification_warning}"
+            f"[bold red]Intent Analysis Warning:[/bold red]\n{ctx.verification_warning}"
         )
         print_block(
             warning_msg,
@@ -471,7 +471,8 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
 
     try:
         # Use a risk-level-aware prompt (defined alongside the visual badge in
-        # tool_executor_ui._RISK_STYLE).  HIGH already shows "⚠️  HIGH RISK operation",
+        # tool_executor_ui._RISK_STYLE). HIGH already shows
+        # "[bold yellow]WARNING[/bold yellow] HIGH RISK operation",
         # so we no longer need a separate execute_python special-case here.
         prompt_msg = get_approval_prompt(ctx)
 
@@ -498,7 +499,7 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
 def _execute_function(ctx: ToolExecutionContext) -> bool:
     tool_entry = registry.tools[ctx.name]
     if not tool_entry.get("interactive", False):
-        console.print(f"[bold yellow]🏃 Executing {ctx.name}...[/bold yellow]")
+        console.print(f"[bold yellow]Executing {ctx.name}...[/bold yellow]")
 
     try:
         result = tool_entry["func"](
@@ -536,7 +537,9 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
         if not is_already_signed:
             # Only sign if it's not already an error message
             res_str = str(result)
-            if not (res_str.startswith("Error:") or "⛔" in res_str):
+            if not (
+                res_str.startswith("Error:") or "[bold red]DENIED[/bold red]" in res_str
+            ):
                 from llm_cli.security.pqc import PQCAgilityManager, sign_tool_result
 
                 variant = PQCAgilityManager.get_required_level(ctx.name, args=ctx.args)
@@ -578,7 +581,9 @@ def _post_process_result(ctx: ToolExecutionContext) -> bool:
     res_str = _truncate_output(str(ctx.result_data))
     ctx.result_data = res_str
     print_block(
-        escape(res_str), title="[bold green]✅ Tool Output[/bold green]", style="green"
+        escape(res_str),
+        title="[bold green][bold green]OK[/bold green] Tool Output[/bold green]",
+        style="green",
     )
     return True
 
@@ -595,10 +600,14 @@ def _truncate_output(res_str: str) -> str:
         truncated_lines = original_lines[:MAX_OUTPUT_LINES]
         res_str = "\n".join(truncated_lines)[:MAX_OUTPUT_CHARS]
 
-        shown_lines_count = len(res_str.splitlines())
+        # Count lines and chars *before* appending the footer to avoid reporting
+        # a truncated partial line as a full line, and to keep the char count
+        # consistent with what was actually shown.
+        shown_lines_count = len(truncated_lines)
+        shown_chars = len(res_str)
         res_str += (
             f"\n\n... (Output truncated. Shown {shown_lines_count} of "
-            f"{original_lines_count} lines, {len(res_str)} of {original_len} chars.)"
+            f"{original_lines_count} lines, {shown_chars} of {original_len} chars.)"
         )
     return res_str
 
@@ -661,7 +670,7 @@ def _verify_pqc_signature(
         # Base case: No more signatures to strip.
         # But for 'high' security, we expect success results to be signed.
         if isinstance(result_data, str) and (
-            "Error:" in result_data or "⛔" in result_data
+            "Error:" in result_data or "[bold red]DENIED[/bold red]" in result_data
         ):
             return result_data
         return result_data

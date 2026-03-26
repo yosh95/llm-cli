@@ -42,7 +42,7 @@ def verify_tool_call(
     if not client_class:
         msg = f"Dual LLM: Provider '{provider_alias}' not found."
         logger.error(msg)
-        return False, f"Verification failed: {msg}"
+        return False, f"Provider not found: {msg}"
 
     try:
         # Cast to Any because concrete subclasses handle 'spec' internally
@@ -50,12 +50,12 @@ def verify_tool_call(
     except Exception as e:
         msg = f"Dual LLM: Initialization failed: {e}"
         logger.error(msg)
-        return False, f"Verification failed: {msg}"
+        return False, f"Initialization error: {msg}"
 
     if not client.api_key:
         msg = f"Dual LLM: API key missing for {provider_alias}."
         logger.error(msg)
-        return False, f"Verification failed: {msg}"
+        return False, f"API key missing: {msg}"
 
     system_prompt = (
         "You are a security guard for an AI agent.\n"
@@ -145,8 +145,8 @@ def verify_tool_call(
         # the uncertainty and route to human review (soft-fail path).
         if confidence < _LOW_CONFIDENCE_THRESHOLD:
             logger.warning(
-                f"Dual LLM low confidence ({confidence:.2f}) for "
-                f"tool='{tool_name}'. Escalating to human review."
+                f"Dual LLM low confidence ({confidence:.2f}) for tool='{tool_name}'. "
+                "Escalating to human review."
             )
             annotated_reason = (
                 f"[LOW_CONFIDENCE:{confidence:.2f}] {reason}"

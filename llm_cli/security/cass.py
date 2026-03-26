@@ -59,8 +59,8 @@ class CASSOrchestrator:
 
         if risk_level == RiskLevel.HIGH:
             logger.debug(
-                f"CASS: High risk detected for tool '{tool_name}'."
-                " Escalating security posture."
+                f"CASS: High risk detected for tool '{tool_name}'. "
+                "Escalating security posture."
             )
             return {
                 "require_pqc_signature": True,

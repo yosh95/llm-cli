@@ -73,7 +73,8 @@ def _check_pqc_disclaimer() -> None:
     from rich.panel import Panel
 
     disclaimer_text = (
-        "[bold yellow]⚠️  Security & Cryptography Disclaimer[/bold yellow]\n\n"
+        "[bold yellow][bold yellow]WARNING[/bold yellow]  "
+        "Security & Cryptography Disclaimer[/bold yellow]\n\n"
         "This tool implements [bold]Post-Quantum Cryptography (PQC)[/bold] "
         "primitives (ML-DSA, ML-KEM) using pure-Python reference implementations.\n\n"
         "• These implementations [bold]have not undergone independent cryptographic "
@@ -130,8 +131,8 @@ def run_client_cli(config: ClientConfig) -> None:
         console.print("  - [cyan]XAI_API_KEY[/cyan]")
         console.print("  - [cyan]OLLAMA_API_KEY[/cyan] (required for remote Ollama)")
         console.print(
-            "\n[yellow]Note: Ollama is available without a key if hosted on "
-            "localhost.[/yellow]"
+            "\n[yellow]Note: Ollama is available without a key "
+            "if hosted on localhost.[/yellow]"
         )
         sys.exit(1)
 
@@ -151,6 +152,9 @@ def run_client_cli(config: ClientConfig) -> None:
         pass
 
     if args.mcp_server:
+        # Redirect Rich console to stderr to avoid corrupting JSON-RPC on stdout
+        console.file = sys.stderr
+
         try:
             from llm_cli.apps.mcp_server import main as run_mcp_server
 

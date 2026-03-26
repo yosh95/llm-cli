@@ -208,6 +208,13 @@ class ClientSession:
                     logger.error(f"Error in client loop: {e}")
         except asyncio.CancelledError:
             pass
+        finally:
+            # Resolve any pending requests when the loop ends
+            self._connected = False
+            for future in self.protocol._pending_requests.values():
+                if not future.done():
+                    future.set_exception(Exception("Connection closed"))
+            self.protocol._pending_requests.clear()
 
     async def _send_request(self, method: str, params: dict | None = None) -> Any:
         req = self.protocol.create_request(method, params)

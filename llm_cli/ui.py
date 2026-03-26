@@ -30,4 +30,4 @@ def report_warning(message: str) -> None:
 
 
 def report_success(message: str) -> None:
-    console.print(f"[bold green]✓ {message}[/bold green]")
+    console.print(f"[bold green]SUCCESS: {message}[/bold green]")

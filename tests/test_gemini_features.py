@@ -345,6 +345,5 @@ def test_gemini_no_interaction_id_attribute(mock_config):
     """GeminiClient must not carry any interaction-ID state."""
     client = GeminiClient(stdout=True)
     assert not hasattr(client, "last_interaction_id"), (
-        "GeminiClient should not have last_interaction_id after migration "
-        "to generateContent API"
+        "GeminiClient should not have last_interaction_id after migration to generateContent API"
     )

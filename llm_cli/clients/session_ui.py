@@ -128,6 +128,13 @@ class SessionUI:
         **kwargs: Any,
     ) -> str:
         """Helper for console input, supporting both TTY and prompt_toolkit."""
+        # Pre-render message if it contains rich-style emojis (shortcodes)
+        if ":" in message:
+            try:
+                message = console.render_str(message).plain
+            except Exception:
+                pass
+
         if sys.stdin.isatty():
             if termios:
                 try:

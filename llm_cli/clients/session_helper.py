@@ -29,9 +29,7 @@ def handle_checkpoint(session: ChatSession) -> None:
     prompt_source = DataSource(content=summarize_prompt, content_type="text/plain")
 
     try:
-        console.print(
-            f"[bold cyan]🤔 Summarizing ({session.client.model})...[/bold cyan]"
-        )
+        console.print(f"[bold cyan]Summarizing ({session.client.model})...[/bold cyan]")
         res = session.client._send([prompt_source])
         response_tuple, _ = res if res else ((None, None), None)
         summary = response_tuple[0]
@@ -56,7 +54,9 @@ def handle_checkpoint(session: ChatSession) -> None:
                     parts=[ContentPart(text=summary_text)],
                 )
             ]
-            console.print("[green]✅ Context refreshed.[/green]")
+            console.print(
+                "[green][bold green]OK[/bold green] Context refreshed.[/green]"
+            )
             console.print(Rule(style="dim"))
         else:
             session.client.set_conversation_state(original_state)

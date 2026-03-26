@@ -124,15 +124,18 @@ class IdentityManager:
 
                     console.print(
                         Panel(
-                            "[bold cyan]🔑 First-time setup:[/bold cyan] "
+                            "[bold cyan][bold cyan]KEY[/bold cyan] "
+                            "First-time setup:[/bold cyan] "
                             "Generating your Secure Identity keys "
                             "(RSA + Post-Quantum ML-DSA / ML-KEM).\n\n"
                             f"Keys will be stored in [bold]{cls._KEY_DIR}[/bold] "
                             "with owner-only permissions (chmod 600).\n"
                             "Run [bold]llm-cli-security keygen[/bold] at any time "
                             "to regenerate or inspect your keys.",
-                            title="[bold yellow]🛡️  Secure Identity Initialisation"
-                            "[/bold yellow]",
+                            title=(
+                                "[bold yellow]Secure Identity Initialisation"
+                                "[/bold yellow]"
+                            ),
                             border_style="yellow",
                         )
                     )

@@ -148,20 +148,30 @@ class FastMCP:
         protocol = asyncio.StreamReaderProtocol(reader)
         await loop.connect_read_pipe(lambda: protocol, sys.stdin)
 
+        # Connect writer to the ACTUAL stdout before we redirect sys.stdout
+        original_stdout = sys.stdout
         w_transport, w_protocol = await loop.connect_write_pipe(
-            asyncio.streams.FlowControlMixin, sys.stdout
+            asyncio.streams.FlowControlMixin, original_stdout
         )
         writer = asyncio.StreamWriter(w_transport, w_protocol, reader, loop)
 
-        while True:
-            line = await reader.readline()
-            if not line:
-                break
-            try:
-                message = json.loads(line)
-                await self._handle_message(message, writer)
-            except Exception:
-                continue
+        # Redirect sys.stdout to sys.stderr so tool-internal print() calls
+        # don't corrupt the JSON-RPC stream.
+        sys.stdout = sys.stderr
+
+        try:
+            while True:
+                line = await reader.readline()
+                if not line:
+                    break
+                try:
+                    message = json.loads(line)
+                    await self._handle_message(message, writer)
+                except Exception:
+                    continue
+        finally:
+            # Restore stdout
+            sys.stdout = original_stdout
 
     def run(self) -> None:
         """Run the server using stdio (blocking)."""

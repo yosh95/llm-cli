@@ -67,8 +67,8 @@ def web_tool_handler(
             "end_line": {
                 "type": "integer",
                 "description": (
-                    f"Last line to read (Max {MAX_OUTPUT_LINES} lines "
-                    "from start_line recommended)."
+                    f"Last line to read (Max {MAX_OUTPUT_LINES} lines from "
+                    "start_line recommended)."
                 ),
             },
         },
@@ -87,8 +87,8 @@ def read_url_content(url: str, start_line: int = 1, end_line: int | None = None)
     # fetch_url_content returns 'text/plain' for both raw text and extracted PDF text
     if "text/html" not in ctype and "text/plain" not in ctype:
         return (
-            f"Error: URL returned {ctype}, expected text/html, text/plain or "
-            "application/pdf."
+            f"Error: URL returned {ctype}, expected text/html, text/plain "
+            "or application/pdf."
         )
 
     lines = content.splitlines()

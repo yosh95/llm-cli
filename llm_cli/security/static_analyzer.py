@@ -271,8 +271,8 @@ class PythonSecurityScanner(ast.NodeVisitor):
             else:
                 # VULN-002 Mitigation: Detect non-literal first argument (variable)
                 self.warnings.append(
-                    "Security Warning: subprocess call with non-literal "
-                    "command argument."
+                    "Security Warning: subprocess call with non-literal command "
+                    "argument."
                 )
 
         # 2. Check for shell=True
@@ -381,8 +381,8 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 for alias in node.names:
                     if alias.name == "*":
                         self.violations.append(
-                            f"Security Violation: Wildcard import from restricted "
-                            f"module '{node.module}' is forbidden."
+                            "Security Violation: Wildcard import from "
+                            f"restricted module '{node.module}' is forbidden."
                         )
                     elif alias.name in restricted_members:
                         self.violations.append(
@@ -462,7 +462,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
                         val = arg.value.lower()
                         if "/etc/" in val or "~/.ssh" in val or ".." in val:
                             self.violations.append(
-                                f"Security Violation: Access to sensitive path "
+                                "Security Violation: Access to sensitive path "
                                 f"'{arg.value}' in open() is forbidden."
                             )
 

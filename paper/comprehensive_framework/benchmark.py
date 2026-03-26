@@ -449,7 +449,7 @@ def print_summary(r1: dict, r2: dict, r3: dict, r4: dict) -> None:
     print("  LLM inference RTT (typical): 500 ms – 3 000 ms")
     print(
         f"  Security overhead fraction : ~{total / 2500 * 100:.1f}%  "
-        f"(vs. 2 500 ms median including Dual LLM)"
+        "(vs. 2 500 ms median including Dual LLM)"
     )
 
 

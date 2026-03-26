@@ -133,10 +133,7 @@ def sample_pdf_base64(sample_pdf_content):
 def sample_image_base64():
     """Provide a minimal base64-encoded image (1x1 PNG)."""
     # 1x1 transparent PNG
-    png_b64 = (
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlE"
-        "QVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-    )
+    png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
     png_bytes = base64.b64decode(png_b64)
     return base64.b64encode(png_bytes).decode("utf-8")
 

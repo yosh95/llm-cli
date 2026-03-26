@@ -312,7 +312,7 @@ class IntegrityVerifier:
 
     def rebuild_manifest(self) -> bool:
         """Force rebuild of the integrity manifest (Admin Action)."""
-        logger.info("🛡️  Establishing new integrity baseline...")
+        logger.info("Establishing new integrity baseline...")
         try:
             from llm_cli.security.identity import IdentityManager
 
@@ -328,9 +328,10 @@ class IntegrityVerifier:
         # Also check the audit log and warn the user if it's currently broken.
         if not self.verify_audit_log():
             logger.warning(
-                "⚠️  Warning: The audit log has a signature mismatch. "
-                "The manifest was updated successfully, but the system will still "
-                "fail the integrity check on startup until the audit log is fixed."
+                "[bold yellow]WARNING[/bold yellow] Warning: The audit log has a "
+                "signature mismatch. The manifest was updated successfully, but "
+                "the system will still fail the integrity check on startup until "
+                "the audit log is fixed."
             )
         return True
 
@@ -381,7 +382,7 @@ def verify_installation() -> None:
 
             console.print(
                 Panel(
-                    "[bold cyan]🛡️  System Integrity baseline established.[/bold cyan]\n"
+                    "[bold cyan]System Integrity baseline established.[/bold cyan]\n"
                     "A cryptographic manifest of all critical application files has "
                     "been generated.\n\n"
                     "Any future unauthorized modifications to the source code or "
@@ -409,8 +410,8 @@ def verify_installation() -> None:
             from llm_cli.ui import report_warning
 
             report_warning(
-                "Integrity Failure: System files do not match manifest, "
-                "but security_level is 'standard'."
+                "Integrity Failure: System files do not match manifest, but "
+                "security_level is 'standard'."
             )
             return
 
@@ -431,7 +432,7 @@ def verify_installation() -> None:
                 "[dim]Note: If the failure is in the audit log (Signature mismatch), "
                 "you may need to clear 'audit.jsonl' if you recently changed your "
                 "identity keys.[/dim]",
-                title="[bold red]🛡️  Security Guard[/bold red]",
+                title="[bold red]Security Guard[/bold red]",
                 border_style="red",
                 expand=False,
             )

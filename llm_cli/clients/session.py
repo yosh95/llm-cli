@@ -202,7 +202,7 @@ class ChatSession:
 
         start_time = datetime.datetime.now()
         thinking_msg = (
-            f"[bold cyan]🤔 Thinking ({self.client.model})...[/bold cyan] "
+            f"[bold cyan]Thinking ({self.client.model})...[/bold cyan] "
             "[dim](Ctrl+C to interrupt)[/dim]"
         )
         console.print(thinking_msg)
@@ -255,7 +255,11 @@ class ChatSession:
             if isinstance(part, ContentPart) and part.function_call:
                 res_tool = execute_tool_call(self, part, duration=duration)
                 if not res_tool:
-                    return None
+                    # User cancelled (or aborted) this tool call.
+                    # If we already have results from earlier calls in this batch,
+                    # stop processing further tools but still commit what we have
+                    # so the conversation history stays consistent.
+                    break
                 tool_result, injected = res_tool
                 tool_results_parts.append(tool_result)
                 if injected:

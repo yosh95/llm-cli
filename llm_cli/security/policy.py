@@ -108,7 +108,7 @@ class PolicyEngine:
         )
 
         logger.info(
-            f"🛡️  ABAC Evaluation: Tool='{tool_name}', Risk='{risk_level.value}', "
+            f"ABAC Evaluation: Tool='{tool_name}', Risk='{risk_level.value}', "
             f"User='{user_id}', PQC_Proof={has_pqc}, Level='{security_level}'"
         )
 
@@ -116,15 +116,15 @@ class PolicyEngine:
         if risk_level == RiskLevel.HIGH and not has_pqc:
             if security_level == "high":
                 msg = (
-                    f"⛔ Access Denied: High-risk tool '{tool_name}' "
-                    "requires PQC proof."
+                    f"[bold red]DENIED[/bold red] Access Denied: High-risk tool "
+                    f"'{tool_name}' requires PQC proof."
                 )
                 logger.warning(msg)
                 return False
             else:
                 logger.info(
-                    f"⚠️  Standard Mode: Permitting high-risk tool '{tool_name}' "
-                    "without PQC proof."
+                    f"[bold yellow]WARNING[/bold yellow] Standard Mode: Permitting "
+                    f"high-risk tool '{tool_name}' without PQC proof."
                 )
 
         # 2. Scope Verification (Path restrictions, etc.)
@@ -134,7 +134,8 @@ class PolicyEngine:
             tool_name, arguments, {"scopes": {tool_name: global_scope}}
         ):
             logger.warning(
-                f"⛔ Access Denied: Arguments out of scope for tool '{tool_name}'"
+                f"[bold red]DENIED[/bold red] Access Denied: Arguments out of "
+                f"scope for tool '{tool_name}'"
             )
             return False
 
@@ -142,7 +143,7 @@ class PolicyEngine:
         if not self._global_guardrails(tool_name, arguments):
             return False
 
-        logger.info("✅ Access Granted")
+        logger.info("[bold green]OK[/bold green] Access Granted")
         return True
 
     def _verify_scope(
@@ -179,8 +180,8 @@ class PolicyEngine:
                         normalized_target = str(canonical_path_obj)
                     except PathValidationError as e:
                         logger.warning(
-                            f"Scope Violation: invalid path in "
-                            f"'{arg_name}'='{raw_path}': {e}"
+                            f"Scope Violation: invalid path in '{arg_name}'="
+                            f"'{raw_path}': {e}"
                         )
                         return False
 
@@ -290,8 +291,8 @@ class PolicyEngine:
                     path_obj = Path(path_val).expanduser().resolve()
                 except (ValueError, OSError) as exc:
                     logger.warning(
-                        f"Guardrail: Could not resolve path '{path_val}' "
-                        f"in '{arg_name}': {exc}"
+                        f"Guardrail: Could not resolve path '{path_val}' in "
+                        f"'{arg_name}': {exc}"
                     )
                     # If it's a path argument that can't be resolved, it might
                     # be an attempt to bypass via invalid characters. Block it.

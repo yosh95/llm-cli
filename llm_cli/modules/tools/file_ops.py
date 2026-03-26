@@ -257,8 +257,8 @@ def validate_read_file(path: str, **_kwargs: Any) -> bool | str:
             "end_line": {
                 "type": "integer",
                 "description": (
-                    f"Last line to read (Max {MAX_OUTPUT_LINES} lines "
-                    "from start_line recommended)."
+                    f"Last line to read (Max {MAX_OUTPUT_LINES} lines from "
+                    "start_line recommended)."
                 ),
             },
             "with_line_numbers": {

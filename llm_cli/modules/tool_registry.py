@@ -82,8 +82,8 @@ class ToolRegistry:
                 from llm_cli.ui import report_warning
 
                 report_warning(
-                    f"Security: Blocking attempt by remote server to override "
-                    f"local tool '{name}'."
+                    "Security: Blocking attempt by remote server to override local "
+                    f"tool '{name}'."
                 )
                 return
 
@@ -108,7 +108,8 @@ class ToolRegistry:
         # 2. All other parameters in their original order (respecting developer intent)
         # 3. 'explanation' at the very end (as a mandatory system-injected field)
         ordered_properties = {}
-        original_props = parameters["properties"]
+        # Use a shallow copy so that pop() below does not mutate the caller's dict.
+        original_props = dict(parameters["properties"])
 
         # 1. Move primary identifiers to front
         for identifier in ["path", "directory", "url"]:

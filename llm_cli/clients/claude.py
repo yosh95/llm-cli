@@ -224,8 +224,10 @@ class ClaudeClient(BaseLlmClient):
                 elif block["type"] == "server_tool_use":
                     model_parts.append(
                         ContentPart(
-                            text=f"[Server Tool Use: {block.get('name')} "
-                            f"(ID: {block.get('id')})]",
+                            text=(
+                                f"[Server Tool Use: {block.get('name')} "
+                                f"(ID: {block.get('id')})]"
+                            ),
                             is_diagnostic=True,
                         )
                     )

@@ -136,7 +136,8 @@ class MediaManager:
                 data += "=" * (4 - missing_padding)
             target_path.write_bytes(base64.b64decode(data))
             return (
-                f"\n\n🎨 Image generated and saved to: **{target_path}**\n",
+                f"\n\n[bold blue]IMAGE[/bold blue] Image generated and "
+                f"saved to: **{target_path}**\n",
                 target_path,
             )
         except Exception as e:

@@ -317,19 +317,19 @@ class BaseLlmClient(ABC):
 
     def get_model_icon(self) -> str:
         icons = {
-            "google": "✨",
-            "gemini": "✨",
-            "openai": "🤖",
-            "anthropic": "🌿",
-            "claude": "🌿",
-            "xai": "🌌",
-            "grok": "🌌",
-            "ollama": "🦙",
+            "google": "[bold blue]GEMINI[/bold blue]",
+            "gemini": "[bold blue]GEMINI[/bold blue]",
+            "openai": "[bold green]OPENAI[/bold green]",
+            "anthropic": "[bold yellow]ANTHROPIC[/bold yellow]",
+            "claude": "[bold yellow]ANTHROPIC[/bold yellow]",
+            "xai": "[bold white]XAI[/bold white]",
+            "grok": "[bold white]XAI[/bold white]",
+            "ollama": "[bold cyan]OLLAMA[/bold cyan]",
         }
         for k, v in icons.items():
             if k in self.config_section.lower():
                 return v
-        return "💡"
+        return "[bold magenta]LLM[/bold magenta]"
 
     def get_display_name(self) -> str:
         return f"{self.get_model_icon()} ({self.model})"

@@ -22,23 +22,24 @@ from llm_cli.ui import console, print_block
 # ---------------------------------------------------------------------------
 _RISK_STYLE: dict[str, dict[str, str]] = {
     "high": {
-        "icon": "🔴",
+        "icon": "[bold red]![/bold red]",
         "label": "HIGH RISK",
         "color": "bold red",
         "border": "red",
         "prompt": (
-            "⚠️  HIGH RISK operation – type y to allow, N to deny, or enter feedback: "
+            "[bold red]WARNING:[/bold red] HIGH RISK operation – "
+            "type y to allow, N to deny, or enter feedback: "
         ),
     },
     "medium": {
-        "icon": "🟡",
+        "icon": "[bold yellow]![/bold yellow]",
         "label": "MEDIUM RISK",
         "color": "bold yellow",
         "border": "yellow",
         "prompt": "Allow execution? (y/N or feedback): ",
     },
     "low": {
-        "icon": "🟢",
+        "icon": "[bold green]•[/bold green]",
         "label": "LOW RISK",
         "color": "bold green",
         "border": "green",
@@ -98,14 +99,14 @@ def display_tool_request(ctx: Any) -> None:
     # Line 1: risk badge + tool name
     # Line 2+: indented argument list
     body = Text()
-    body.append(f"{icon} {label} ", style=color)
+    body.append(Text.from_markup(f"{icon}  {label} ", style=color))
     body.append("  ")
     body.append(ctx.name, style="bold cyan")
     body.append("\n")
     body.append(args_block, style="white")
 
     panel_title = Text()
-    panel_title.append("🤖 Agent Request", style="bold yellow")
+    panel_title.append(Text.from_markup("AGENT REQUEST", style="bold yellow"))
 
     console.print(
         Panel(

@@ -83,10 +83,6 @@ def execute_python(code: str, **kwargs: Any) -> Any:
         )
         return sign_tool_result(error_msg, variant=variant)
 
-    if warnings:
-        warning_str = ", ".join(warnings)
-        logger.warning("Static analysis warnings (execution allowed): %s", warning_str)
-
     # Use a default timeout of 300 seconds.
     timeout = int(
         str(

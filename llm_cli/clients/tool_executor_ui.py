@@ -26,10 +26,7 @@ _RISK_STYLE: dict[str, dict[str, str]] = {
         "label": "HIGH RISK",
         "color": "bold red",
         "border": "red",
-        "prompt": (
-            "[bold red]WARNING:[/bold red] HIGH RISK operation – "
-            "type y to allow, N to deny, or enter feedback: "
-        ),
+        "prompt": "HIGH RISK operation – Allow execution? (y/N or feedback): ",
     },
     "medium": {
         "icon": "[bold yellow]![/bold yellow]",
@@ -99,7 +96,7 @@ def display_tool_request(ctx: Any) -> None:
     # Line 1: risk badge + tool name
     # Line 2+: indented argument list
     body = Text()
-    body.append(Text.from_markup(f"{icon}  {label} ", style=color))
+    body.append(Text.from_markup(f"{icon} {label} ", style=color))
     body.append("  ")
     body.append(ctx.name, style="bold cyan")
     body.append("\n")

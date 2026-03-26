@@ -58,7 +58,7 @@ class ToolExecutionContext:
     injected_data: DataSource | None = None
     error_message: str | None = None
     aborted: bool = False
-    verification_warning: str | None = None
+    security_warnings: list[tuple[str, str]] = field(default_factory=list)
 
     # Security fields
     risk_level: RiskLevel = field(init=False)
@@ -227,7 +227,7 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
 
     from llm_cli.security.dual_llm_verifier import verify_tool_call
 
-    prompt_msg = f"Dual LLM verifying intent for '{ctx.name}'..."
+    prompt_msg = f"[bold cyan]Dual LLM verifying intent for '{ctx.name}'...[/bold cyan]"
     console.print(prompt_msg)
 
     # Include the last tool result to help the verifier understand why this tool
@@ -270,28 +270,14 @@ def _run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
                 "Falling back to manual approval."
             )
 
-            # Fallback to human: Ask user if they want to bypass the verification error
-            try:
-                user_choice = ctx.session._get_input(
-                    "Verification uncertain. Proceed with manual approval? (y/N): "
+            # Fallback to human: Let the main approval logic handle it
+            ctx.security_warnings.append(
+                (
+                    "Intent Analysis Warning",
+                    f"Dual LLM intent verification uncertain or unavailable: {reason}",
                 )
-                if user_choice.lower() in ("y", "ｙ"):
-                    return True
-            except (KeyboardInterrupt, EOFError):
-                pass
-
-            ctx.error_message = f"Dual LLM Unavailable: {reason}"
-            log_audit(
-                ctx.name,
-                ctx.args,
-                None,
-                error=ctx.error_message,
-                context={
-                    "model": ctx.session.client.model,
-                    "event_type": "verification_failure",
-                },
             )
-            return False
+            return True
         else:
             # This is now reached if dual_llm_verifier returns False with a
             # non-soft-fail reason (actual intent violation).
@@ -365,8 +351,11 @@ def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
         # 2. Warnings: Potential risk detected, proceed to human approval with warning.
         if warnings:
             warning_str = "\n".join(f"• {w}" for w in warnings)
-            ctx.verification_warning = (
-                f"Static analysis detected potential risks:\n{warning_str}"
+            ctx.security_warnings.append(
+                (
+                    "Static Analysis Warning",
+                    f"Static analysis detected potential risks:\n{warning_str}",
+                )
             )
             # Log it for monitoring, but don't block yet (let user decide)
             log_audit(
@@ -433,8 +422,8 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     ).lower()
 
     # 2. Check for bypass conditions
-    # If Dual LLM flagged a mismatch, we MUST ask for approval regardless of policy.
-    if not ctx.verification_warning:
+    # If any warnings were flagged, we MUST ask for approval regardless of policy.
+    if not ctx.security_warnings:
         is_auto_approved = False
 
         if auto_approval_policy == "medium":
@@ -459,15 +448,13 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     elif "execute_python" in ctx.name:
         preview_python_code(ctx.args)
 
-    if ctx.verification_warning:
-        warning_msg = (
-            f"[bold red]Intent Analysis Warning:[/bold red]\n{ctx.verification_warning}"
-        )
-        print_block(
-            warning_msg,
-            title="Potential Mismatch",
-            style="red",
-        )
+    if ctx.security_warnings:
+        for title, warning in ctx.security_warnings:
+            print_block(
+                warning,
+                title=title,
+                style="red",
+            )
 
     try:
         # Use a risk-level-aware prompt (defined alongside the visual badge in

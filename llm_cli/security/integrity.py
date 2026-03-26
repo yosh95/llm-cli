@@ -419,7 +419,6 @@ def verify_installation() -> None:
 
         from llm_cli.ui import console
 
-        console.print("\n")
         console.print(
             Panel(
                 "[bold red]CRITICAL: SYSTEM INTEGRITY FAILURE[/bold red]\n\n"
@@ -437,5 +436,4 @@ def verify_installation() -> None:
                 expand=False,
             )
         )
-        console.print("\n")
         sys.exit(1)

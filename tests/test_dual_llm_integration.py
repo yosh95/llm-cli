@@ -178,6 +178,7 @@ def test_tool_executor_soft_fail_on_api_key_missing_user_rejects(
     ):
         from llm_cli.clients.tool_executor import (
             ToolExecutionContext,
+            _get_user_approval,
             _run_dual_llm_verification,
         )
         from llm_cli.modules.models import ContentPart
@@ -186,11 +187,19 @@ def test_tool_executor_soft_fail_on_api_key_missing_user_rejects(
         ctx = ToolExecutionContext(session=session, part=part)
         ctx.security_requirements = security_reqs  # type: ignore[assignment]
 
+        # 1. Verification returns True (soft failure, delegates to human)
         result = _run_dual_llm_verification(ctx)
+        assert result is True
+        assert len(ctx.security_warnings) > 0
 
-        assert result is False, "User rejection must block the tool call"
+        # 2. User rejection must block the tool call
+        approval_result = _get_user_approval(ctx)
+        assert approval_result is False
         assert ctx.error_message is not None
-        assert "Dual LLM Unavailable" in ctx.error_message
+        assert (
+            "denied" in ctx.error_message.lower()
+            or "rejected" in ctx.error_message.lower()
+        )
 
 
 @pytest.mark.parametrize(
@@ -231,9 +240,7 @@ def test_soft_fail_reasons_all_trigger_human_fallback(session, tool_call_part, r
         from llm_cli.modules.models import ContentPart
 
         part = ContentPart(function_call={"id": "c1", "name": "test_tool", "args": {}})
-        ctx = ToolExecutionContext.__new__(ToolExecutionContext)
-        ctx.session = session
-        ctx.part = part
+        ctx = ToolExecutionContext(session=session, part=part)
         ctx.name = "test_tool"
         ctx.args = {}
         ctx.error_message = None

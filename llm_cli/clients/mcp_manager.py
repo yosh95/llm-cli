@@ -35,11 +35,15 @@ class MCPManager:
 
     def _run_async(self, coro: Any) -> Any:
         """Helper to run async coroutines in the manager's event loop."""
-        if self.loop.is_running():
-            # This shouldn't happen in our sync CLI, but for safety:
-            future = asyncio.run_coroutine_threadsafe(coro, self.loop)
-            return future.result()
-        return self.loop.run_until_complete(coro)
+        try:
+            if self.loop.is_running():
+                # This shouldn't happen in our sync CLI, but for safety:
+                future = asyncio.run_coroutine_threadsafe(coro, self.loop)
+                return future.result()
+            return self.loop.run_until_complete(coro)
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            # Let the caller handle it (e.g. ChatSession.run)
+            raise KeyboardInterrupt() from None
 
     def list_tools(self) -> list[dict[str, Any]]:
         """
@@ -193,8 +197,46 @@ class MCPManager:
         if not session:
             return f"Error: MCP server '{server_name}' not connected."
 
+        # Separate tool arguments from internal metadata
+        tool_args = {}
+        metadata = {}
+
+        # 1. Look up the tool's schema from our cache
+        # We need to find the definition that matches both server and tool name
+        tool_def = None
+        for t in self._cached_tools:
+            if t.get("server_name") == server_name and (
+                t.get("original_name") == tool_name or t.get("name") == tool_name
+            ):
+                tool_def = t
+                break
+
+        schema_props = {}
+        if tool_def and isinstance(tool_def.get("parameters"), dict):
+            schema_props = tool_def["parameters"].get("properties", {})
+
+        # 2. Distribute arguments based on schema
+        for key, value in arguments.items():
+            # Special internal keys for our CLI infrastructure (regardless of schema)
+            # These are for auditing, tracing, and security policy propagation
+            is_internal = key == "explanation" or key.startswith("__")
+
+            if key in schema_props:
+                # If the tool explicitly defines this (even if it starts with __),
+                # it's a real tool argument.
+                tool_args[key] = value
+            elif is_internal:
+                # If it's an internal key NOT in the schema, move it to metadata
+                metadata[key] = value
+            else:
+                # Unknown key NOT in schema - pass it as is to let the
+                # server handle (and likely error) to maintain protocol transparency.
+                tool_args[key] = value
+
         try:
-            result = self._run_async(session.call_tool(tool_name, arguments))
+            result = self._run_async(
+                session.call_tool(tool_name, tool_args, metadata=metadata)
+            )
             output: list[str] = []
             for content in result.content:
                 if content.type == "text" and content.text:

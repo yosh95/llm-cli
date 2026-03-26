@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 # --- Context Propagation ---
 
 TRACE_ID: ContextVar[str | None] = ContextVar("trace_id", default=None)
+EXPLANATION: ContextVar[str | None] = ContextVar("explanation", default=None)
 
 
 def get_current_trace_id() -> str:
@@ -263,13 +264,32 @@ class ClientSession:
         ]
         return ListToolsResult(tools=tools)
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> ToolResult:
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> ToolResult:
+        """
+        Call a tool with arguments and optional metadata.
+        Metadata will be placed in the '_meta' field of the request.
+        """
         trace_id = get_current_trace_id()
-        args_with_meta = arguments.copy()
-        if "_meta" not in args_with_meta:
-            args_with_meta["_meta"] = {"trace_id": trace_id}
+        args_payload = arguments.copy()
+
+        # Initialize _meta with trace_id and provided metadata
+        _meta = {"trace_id": trace_id}
+        if metadata:
+            _meta.update(metadata)
+
+        # Place _meta into the final request payload
+        # Note: In MCP, _meta is typically part of the 'call_tool' request itself,
+        # but many servers (including ours) look for it inside 'arguments'
+        # to simplify signature handling.
+        args_payload["_meta"] = _meta
+
         response = await self._send_request(
-            "tools/call", {"name": name, "arguments": args_with_meta}
+            "tools/call", {"name": name, "arguments": args_payload}
         )
         content_list = (
             [Content(**c) for c in response.get("content", [])]

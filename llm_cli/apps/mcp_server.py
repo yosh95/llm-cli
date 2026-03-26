@@ -107,11 +107,13 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
             return error_msg
 
         # 3. Audit Logging (Non-repudiation)
-        from llm_cli.mcp_lib import get_current_trace_id
+        from llm_cli.mcp_lib import EXPLANATION, get_current_trace_id
+
+        # Get explanation from ContextVar (set by mcp_server_lib)
+        # or from kwargs (fallback)
+        explanation = EXPLANATION.get() or kwargs.pop("explanation", "-")
 
         # Extract model name if provided by the client (internal/propagation)
-        # We don't pop it here so it can be popped and logged by the tool's
-        # registry wrapper if it exists.
         audit_model = kwargs.get("__audit_model__", "-")
 
         audit_context = {
@@ -119,10 +121,13 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
             "audience": os.environ.get("MCP_SERVER_NAME"),
             "trace_id": get_current_trace_id(),
             "model": audit_model,
+            "explanation": explanation,
         }
 
         # 4. Actual Execution
         try:
+            # Ensure explanation is not passed to the tool if it doesn't want it
+            # (kwargs was already popped above if it was present)
             if inspect.iscoroutinefunction(func):
                 result = await func(*args, **kwargs)
             else:

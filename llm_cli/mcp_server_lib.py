@@ -6,7 +6,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from llm_cli.mcp_lib import TRACE_ID, JSONRPCProtocol
+from llm_cli.mcp_lib import EXPLANATION, TRACE_ID, JSONRPCProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -92,21 +92,42 @@ class FastMCP:
                 args = params.get("arguments", {})
 
                 token = None
+                exp_token = None
                 if "_meta" in args and isinstance(args["_meta"], dict):
                     meta = args.pop("_meta")
                     trace_id = meta.get("trace_id")
                     if trace_id:
                         token = TRACE_ID.set(trace_id)
 
+                    explanation = meta.get("explanation")
+                    if explanation:
+                        exp_token = EXPLANATION.set(explanation)
+
                 try:
                     if tool_name not in self.tools:
                         raise Exception(f"Tool not found: {tool_name}")
 
                     func = self.tools[tool_name]
-                    if inspect.iscoroutinefunction(func):
-                        result = await func(**args)
+
+                    # Filter arguments based on function signature
+                    sig = inspect.signature(func)
+                    has_kwargs = any(
+                        p.kind == inspect.Parameter.VAR_KEYWORD
+                        for p in sig.parameters.values()
+                    )
+
+                    if not has_kwargs:
+                        # Only keep arguments that the function actually accepts
+                        filtered_args = {
+                            k: v for k, v in args.items() if k in sig.parameters
+                        }
                     else:
-                        result = func(**args)
+                        filtered_args = args
+
+                    if inspect.iscoroutinefunction(func):
+                        result = await func(**filtered_args)
+                    else:
+                        result = func(**filtered_args)
 
                     if isinstance(result, dict):
                         text_content = json.dumps(result)
@@ -120,6 +141,8 @@ class FastMCP:
                 finally:
                     if token:
                         TRACE_ID.reset(token)
+                    if exp_token:
+                        EXPLANATION.reset(exp_token)
             else:
                 if msg_id:
                     error_resp = self.protocol.create_error(
@@ -175,4 +198,8 @@ class FastMCP:
 
     def run(self) -> None:
         """Run the server using stdio (blocking)."""
-        asyncio.run(self._run_loop())
+        try:
+            asyncio.run(self._run_loop())
+        except (KeyboardInterrupt, EOFError, asyncio.CancelledError):
+            # Suppress stack trace on exit
+            pass

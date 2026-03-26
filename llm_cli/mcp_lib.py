@@ -192,8 +192,22 @@ class ClientSession:
                 line = await self.read_stream.readline()
                 if not line:
                     break
+
+                # Skip empty lines or whitespace
+                clean_line = line.strip()
+                if not clean_line:
+                    continue
+
                 try:
-                    message = json.loads(line)
+                    # Basic check if it looks like a JSON object
+                    if not clean_line.startswith(b"{"):
+                        # If it doesn't start with '{', it's likely noise or
+                        # a log message. We log it as a debug message instead
+                        # of an error.
+                        logger.debug(f"Skipping non-JSON line: {clean_line!r}")
+                        continue
+
+                    message = json.loads(clean_line)
                     if "id" in message and ("result" in message or "error" in message):
                         req_id = message["id"]
                         if req_id in self.protocol._pending_requests:
@@ -205,7 +219,9 @@ class ClientSession:
                             else:
                                 future.set_result(message["result"])
                 except Exception as e:
-                    logger.error(f"Error in client loop: {e}")
+                    logger.error(
+                        f"Error in client loop parsing line {clean_line!r}: {e}"
+                    )
         except asyncio.CancelledError:
             pass
         finally:

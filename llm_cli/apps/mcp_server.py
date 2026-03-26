@@ -14,6 +14,11 @@ from llm_cli.modules.tool_registry import registry
 from llm_cli.security.audit import log_audit
 from llm_cli.security.integrity import verify_installation
 from llm_cli.security.policy import PolicyEngine, policy_engine
+from llm_cli.ui import console
+
+# Reconfigure UI console to use stderr for all output in MCP server mode.
+# This prevents initialization messages from corrupting the JSON-RPC stream on stdout.
+console.file = sys.stderr
 
 # Configure logging to stderr because stdout is used for MCP JSON-RPC
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)

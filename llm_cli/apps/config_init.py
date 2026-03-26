@@ -58,4 +58,4 @@ def init_config() -> None:
 
     # Note: We use basic print here as rich might not be fully initialized or
     # preferred during early startup.
-    print(f"Initialized config at {CONFIG_FILE_PATH}")
+    print(f"Initialized config at {CONFIG_FILE_PATH}", file=sys.stderr)

@@ -521,12 +521,11 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        if not is_already_signed:
-            # Only sign if it's not already an error message
+        if not is_already_signed and not ctx.server_name:
+            # Only sign if it's not already an error message and it's a local tool.
+            # Remote tools (MCP) are signed by the server if Zero Trust is enabled.
             res_str = str(result)
-            if not (
-                res_str.startswith("Error:") or "[bold red]DENIED[/bold red]" in res_str
-            ):
+            if not (res_str.startswith("Error:") or "DENIED Access Denied:" in res_str):
                 from llm_cli.security.pqc import PQCAgilityManager, sign_tool_result
 
                 variant = PQCAgilityManager.get_required_level(ctx.name, args=ctx.args)
@@ -547,29 +546,65 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
 def _post_process_result(ctx: ToolExecutionContext) -> bool:
     security_level = config_manager.get("security", "security_level") or "high"
 
+    # Check if this is an MCP server with Zero Trust disabled.
+    is_mcp_zero_trust = True
+    if ctx.server_name:
+        mcp_servers = config_manager.get_mcp_servers()
+        for s in mcp_servers:
+            if s.get("name") == ctx.server_name:
+                is_mcp_zero_trust = s.get("zero_trust", False)
+                break
+
     try:
         ctx.result_data = _verify_pqc_signature(
             ctx.result_data, ctx.risk_level, server_id=ctx.server_name
         )
     except ValueError as e:
-        if security_level == "high":
+        # If Zero Trust is disabled for this MCP server, we don't treat
+        # missing/invalid signatures as a fatal error even in 'high' mode.
+        if security_level == "high" and is_mcp_zero_trust:
             ctx.error_message = str(e)
             return False
         else:
             from llm_cli.ui import report_warning
 
-            report_warning(f"Insecure Tool Response: {e} (Standard Mode)")
-            # Fallback to the original result without validation
-            if isinstance(ctx.result_data, dict):
-                ctx.result_data = ctx.result_data.get(
-                    "result", ctx.result_data.get("response", ctx.result_data)
-                )
+            report_warning(f"Insecure Tool Response: {e} (Verification Skipped)")
+
+            # Fallback: Recursively strip the PQC envelope to show only the result
+            # even if we couldn't verify the signature.
+            import json
+
+            def unwrap(data: Any, depth: int = 0) -> Any:
+                if depth > 5:
+                    return data
+
+                # Handle stringified JSON
+                if isinstance(data, str) and data.strip().startswith("{"):
+                    try:
+                        parsed = json.loads(data)
+                        if isinstance(parsed, dict) and (
+                            "pqc_signature" in parsed or "result" in parsed
+                        ):
+                            return unwrap(parsed, depth + 1)
+                    except Exception:
+                        pass
+
+                # Handle dict with signature/result
+                if isinstance(data, dict):
+                    if "result" in data:
+                        return unwrap(data["result"], depth + 1)
+                    if "response" in data:
+                        return unwrap(data["response"], depth + 1)
+
+                return data
+
+            ctx.result_data = unwrap(ctx.result_data)
 
     res_str = _truncate_output(str(ctx.result_data))
     ctx.result_data = res_str
     print_block(
         escape(res_str),
-        title="[bold green][bold green]OK[/bold green] Tool Output[/bold green]",
+        title="OK Tool Output",
         style="green",
     )
     return True

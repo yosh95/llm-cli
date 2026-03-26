@@ -66,6 +66,11 @@ def run_client_cli(config: ClientConfig) -> None:
     parser = create_standard_parser(config)
     args = parser.parse_args()
 
+    if args.mcp_server:
+        # Redirect Rich console to stderr early to avoid corrupting JSON-RPC on stdout
+        # during initialization (e.g., verify_installation or key generation).
+        console.file = sys.stderr
+
     from llm_cli.apps.config_init import init_config
     from llm_cli.clients.config import config_manager
     from llm_cli.consts import CONFIG_FILE_PATH
@@ -116,9 +121,6 @@ def run_client_cli(config: ClientConfig) -> None:
         pass
 
     if args.mcp_server:
-        # Redirect Rich console to stderr to avoid corrupting JSON-RPC on stdout
-        console.file = sys.stderr
-
         try:
             from llm_cli.apps.mcp_server import main as run_mcp_server
 

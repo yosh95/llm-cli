@@ -175,7 +175,7 @@ def fetch_url_content(url: str, pdf_as_base64: bool = True) -> tuple[str | None,
 
 
 def process_file(path: Path, pdf_as_base64: bool = True) -> dict[str, Any] | None:
-    if not path.exists() or path.stat().st_size == 0:
+    if not path.exists():
         return None
 
     kind = filetype.guess(str(path))

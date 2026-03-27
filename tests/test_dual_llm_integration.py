@@ -78,10 +78,7 @@ def test_tool_executor_blocks_on_dual_llm_violation(session, tool_call_part):
 
         # It should return an error part and NOT execute the tool
         assert "Dual LLM Violation" in res_part.function_response["response"]["result"]
-        assert (
-            "Malicious activity detected."
-            in res_part.function_response["response"]["result"]
-        )
+        assert "Malicious activity detected." in res_part.function_response["response"]["result"]
         mock_tool_func.assert_not_called()
 
 
@@ -142,9 +139,7 @@ def test_tool_executor_soft_fail_on_api_key_missing(session, tool_call_part):
         assert "Falling back to manual approval" in warn_msg
 
 
-def test_tool_executor_soft_fail_on_api_key_missing_user_rejects(
-    session, tool_call_part
-):
+def test_tool_executor_soft_fail_on_api_key_missing_user_rejects(session, tool_call_part):
     """
     Same scenario as above but user answers 'n'.  The executor must block and
     set an error message, NOT silently allow execution.
@@ -196,10 +191,7 @@ def test_tool_executor_soft_fail_on_api_key_missing_user_rejects(
         approval_result = _get_user_approval(ctx)
         assert approval_result is False
         assert ctx.error_message is not None
-        assert (
-            "denied" in ctx.error_message.lower()
-            or "rejected" in ctx.error_message.lower()
-        )
+        assert "denied" in ctx.error_message.lower() or "rejected" in ctx.error_message.lower()
 
 
 @pytest.mark.parametrize(
@@ -290,11 +282,7 @@ def test_tool_executor_passes_on_dual_llm_success(session, tool_call_part):
             side_effect=lambda section, key: (
                 ["test_tool"]
                 if section == "security" and key == "low_risk_tools"
-                else (
-                    "low"
-                    if section == "security" and key == "auto_approval_level"
-                    else None
-                )
+                else ("low" if section == "security" and key == "auto_approval_level" else None)
             ),
         ),
         patch(

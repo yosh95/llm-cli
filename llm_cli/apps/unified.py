@@ -38,9 +38,7 @@ class UnifiedClient:
         # 2. Create the real client immediately
         client_class = client_registry.get_client_class(provider_name)
         if not client_class:
-            console.print(
-                f"[bold red][ERROR] Provider {provider_name} not found.[/bold red]"
-            )
+            console.print(f"[bold red][ERROR] Provider {provider_name} not found.[/bold red]")
             import sys
 
             sys.exit(1)

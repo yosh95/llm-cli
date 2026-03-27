@@ -10,9 +10,7 @@ def parse_generate_content_response(response_json: dict[str, Any]) -> Message:
     """Parses generateContent API response into internal Message format."""
     candidates = response_json.get("candidates", [])
     if not candidates:
-        return Message(
-            role=Role.MODEL, parts=[ContentPart(text="[No output from model]")]
-        )
+        return Message(role=Role.MODEL, parts=[ContentPart(text="[No output from model]")])
 
     candidate = candidates[0]
     content = candidate.get("content", {})
@@ -27,9 +25,7 @@ def parse_generate_content_response(response_json: dict[str, Any]) -> Message:
 
     model_parts: list[str | ContentPart] = []
     for part in raw_parts:
-        thought_sig: str | None = part.get("thoughtSignature") or part.get(
-            "thought_signature"
-        )
+        thought_sig: str | None = part.get("thoughtSignature") or part.get("thought_signature")
 
         if part.get("thought"):
             model_parts.append(
@@ -40,9 +36,7 @@ def parse_generate_content_response(response_json: dict[str, Any]) -> Message:
             )
 
         elif "text" in part:
-            model_parts.append(
-                ContentPart(text=part["text"], thought_signature=thought_sig)
-            )
+            model_parts.append(ContentPart(text=part["text"], thought_signature=thought_sig))
 
         elif "functionCall" in part or "function_call" in part:
             fc = part.get("functionCall") or part.get("function_call")
@@ -124,9 +118,7 @@ def _format_grounding_metadata(metadata: dict[str, Any]) -> str:
             title = web.get("title", "")
             if not title or title.startswith("Source ") or title.isdigit():
                 domain = urlparse(uri).netloc
-                title = (
-                    domain.replace("www.", "") if domain else f"Source {num_sources}"
-                )
+                title = domain.replace("www.", "") if domain else f"Source {num_sources}"
             sources_text += f"{num_sources}. [{title}]({uri})\n"
 
     return sources_text if num_sources > 0 else ""

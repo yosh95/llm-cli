@@ -27,9 +27,7 @@ class MockClient(BaseLlmClient):
     """Minimal client for E2E testing."""
 
     def __init__(self):
-        spec = ProviderSpec(
-            api_key_name="MOCK_KEY", config_section="google", pdf_as_base64=True
-        )
+        spec = ProviderSpec(api_key_name="MOCK_KEY", config_section="google", pdf_as_base64=True)
         super().__init__("default", spec)
         self.api_key = "dummy"
         self._send_mock = MagicMock()
@@ -72,9 +70,7 @@ def test_react_tool_loop(mock_session):
         msg = Message(
             role=Role.MODEL,
             parts=[
-                ContentPart(
-                    text="I will call the test tool.", thought_signature="thought_1"
-                ),
+                ContentPart(text="I will call the test tool.", thought_signature="thought_1"),
                 ContentPart(function_call=tool_call, thought_signature="thought_1"),
             ],
         )
@@ -108,9 +104,7 @@ def test_react_tool_loop(mock_session):
     client._send_mock.side_effect = orchestrator
 
     # Run the loop
-    user_data = [
-        DataSource(content="Please run the test tool.", content_type="text/plain")
-    ]
+    user_data = [DataSource(content="Please run the test tool.", content_type="text/plain")]
 
     # Manually add USER message to simulate ChatSession.run() behavior before process_and_print
     client.conversation.append(

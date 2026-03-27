@@ -69,31 +69,19 @@ def setup_standard_commands(reg: CommandRegistry) -> None:
     from llm_cli.clients import command_impl as h
 
     reg.register(Command("attach", h.handle_attach, "Attach media/file to context"))
-    reg.register(
-        Command("save", h.handle_save, "Save conversation history to JSON file")
-    )
-    reg.register(
-        Command("load", h.handle_load, "Load conversation history from JSON file")
-    )
+    reg.register(Command("save", h.handle_save, "Save conversation history to JSON file"))
+    reg.register(Command("load", h.handle_load, "Load conversation history from JSON file"))
     reg.register(Command("clear", h.handle_clear, "Clear conversation history", ["c"]))
-    reg.register(
-        Command(
-            "checkpoint", h.handle_checkpoint, "Summarize and clear history", ["cp"]
-        )
-    )
+    reg.register(Command("checkpoint", h.handle_checkpoint, "Summarize and clear history", ["cp"]))
     reg.register(Command("reload", h.handle_reload, "Reload config.toml from disk"))
-    reg.register(
-        Command("provider", h.handle_provider, "List or switch provider", ["p"])
-    )
+    reg.register(Command("provider", h.handle_provider, "List or switch provider", ["p"]))
     reg.register(Command("dump", h.handle_dump, "Dump conversation history as JSON"))
     reg.register(Command("raw", h.handle_raw, "Show conversation as raw text"))
     reg.register(Command("quit", h.handle_quit, "Exit the application", ["q"]))
     reg.register(Command("info", h.handle_info, "Show session info", ["i"]))
     reg.register(Command("debug", h.handle_debug, "Toggle live debug mode", ["d"]))
     reg.register(Command("model", h.handle_model, "List or switch models", ["m"]))
-    reg.register(
-        Command("template", h.handle_template, "Use a message template", ["t"])
-    )
+    reg.register(Command("template", h.handle_template, "Use a message template", ["t"]))
     reg.register(Command("tools", h.handle_tools, "Show or toggle tool status"))
     reg.register(Command("help", h.handle_help, "Show this help message", ["h"]))
 

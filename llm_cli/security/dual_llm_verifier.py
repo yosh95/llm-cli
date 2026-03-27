@@ -96,9 +96,7 @@ def verify_tool_call(
     user_content = f"<user_prompt>\n{sanitised_prompt}\n</user_prompt>\n\n"
 
     if sanitised_tool_res:
-        user_content += (
-            f"<last_tool_output>\n{sanitised_tool_res}\n</last_tool_output>\n\n"
-        )
+        user_content += f"<last_tool_output>\n{sanitised_tool_res}\n</last_tool_output>\n\n"
 
     user_content += (
         "<proposed_tool_call>\n"
@@ -137,8 +135,7 @@ def verify_tool_call(
             confidence = 1.0
 
         logger.debug(
-            f"Dual LLM verdict: safe={is_safe}, confidence={confidence:.2f}, "
-            f"reason={reason!r}"
+            f"Dual LLM verdict: safe={is_safe}, confidence={confidence:.2f}, reason={reason!r}"
         )
 
         # Low-confidence handling: annotate the reason so the caller can detect

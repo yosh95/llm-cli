@@ -78,8 +78,7 @@ def execute_python(code: str, **kwargs: Any) -> Any:
     if violations:
         violation_str = "\n".join(f"• {v}" for v in violations)
         error_msg = (
-            "Security Violation: Python code failed static analysis.\n"
-            f"Issues:\n{violation_str}"
+            f"Security Violation: Python code failed static analysis.\nIssues:\n{violation_str}"
         )
         return sign_tool_result(error_msg, variant=variant)
 
@@ -92,9 +91,7 @@ def execute_python(code: str, **kwargs: Any) -> Any:
     )
 
     # Read memory limit from config, default to 1024MB (1GB)
-    mem_limit_mb = int(
-        str(config_manager.get("general", "max_command_memory_mb") or "1024")
-    )
+    mem_limit_mb = int(str(config_manager.get("general", "max_command_memory_mb") or "1024"))
 
     # Environment variables filtering
     safe_env_keys = {
@@ -219,9 +216,7 @@ def execute_python(code: str, **kwargs: Any) -> Any:
                 else:
                     proc.kill()
                 stdout, stderr = proc.communicate()
-                error_msg = (
-                    f"Error: Script timed out ({timeout}s). Partial STDOUT:\n{stdout}"
-                )
+                error_msg = f"Error: Script timed out ({timeout}s). Partial STDOUT:\n{stdout}"
                 return sign_tool_result(error_msg, variant=variant)
     except Exception as e:
         logger.error(f"Error executing Python: {e}")

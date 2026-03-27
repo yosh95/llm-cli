@@ -129,10 +129,7 @@ def test_policy_scope_enforcement(policy_engine):
 
     # Disallowed path (Out of scope)
     # Using a path that is clearly outside the project_dir (which is now CWD)
-    assert (
-        policy_engine.evaluate("edit_file", {"path": "/tmp/outside.txt"}, context)
-        is False
-    )
+    assert policy_engine.evaluate("edit_file", {"path": "/tmp/outside.txt"}, context) is False
 
 
 def test_pqc_proof_requirement(policy_engine):
@@ -145,10 +142,7 @@ def test_global_guardrails(policy_engine):
     context = {"user_id": "admin", "has_pqc_proof": True}
 
     # Blocked path should be blocked globally
-    assert (
-        policy_engine.evaluate("read_file_content", {"path": "/etc/passwd"}, context)
-        is False
-    )
+    assert policy_engine.evaluate("read_file_content", {"path": "/etc/passwd"}, context) is False
 
 
 # --- Path Traversal Bypass Tests ---
@@ -188,16 +182,11 @@ class TestGlobalGuardrailsTraversalHardening:
 
     def test_literal_dotdot_is_blocked(self, engine, ctx):
         """Classic '../' traversal must be blocked."""
-        assert (
-            engine.evaluate("read_file_content", {"path": "../etc/passwd"}, ctx)
-            is False
-        )
+        assert engine.evaluate("read_file_content", {"path": "../etc/passwd"}, ctx) is False
 
     def test_absolute_blocked_path_is_blocked(self, engine, ctx):
         """Absolute path matching blocked_paths entry must be blocked."""
-        assert (
-            engine.evaluate("read_file_content", {"path": "/etc/shadow"}, ctx) is False
-        )
+        assert engine.evaluate("read_file_content", {"path": "/etc/shadow"}, ctx) is False
 
     def test_url_encoded_percent2e_is_not_decoded_by_os(self, engine, ctx):
         """
@@ -215,9 +204,7 @@ class TestGlobalGuardrailsTraversalHardening:
         directory traversal, so no actual file outside CWD can be accessed via
         this encoding.  This test documents that behaviour explicitly.
         """
-        result = engine.evaluate(
-            "read_file_content", {"path": "%2e%2e/etc/passwd"}, ctx
-        )
+        result = engine.evaluate("read_file_content", {"path": "%2e%2e/etc/passwd"}, ctx)
         # %2e%2e resolves to a child of CWD (literal dirname), so the whitelist
         # permits it — but no real file exists there, making it harmless.
         # The important property is that the result is CONSISTENT with the
@@ -232,12 +219,8 @@ class TestGlobalGuardrailsTraversalHardening:
         A path that is a child of a blocked_paths entry must be blocked,
         regardless of whether it contains '..' in the raw string.
         """
-        assert (
-            engine.evaluate("read_file_content", {"path": "/etc/shadow"}, ctx) is False
-        )
-        assert (
-            engine.evaluate("read_file_content", {"path": "/etc/hosts"}, ctx) is False
-        )
+        assert engine.evaluate("read_file_content", {"path": "/etc/shadow"}, ctx) is False
+        assert engine.evaluate("read_file_content", {"path": "/etc/hosts"}, ctx) is False
 
     def test_null_byte_in_path_is_blocked(self, engine, ctx):
         """
@@ -265,9 +248,7 @@ class TestGlobalGuardrailsTraversalHardening:
         with caplog.at_level(logging.WARNING, logger="llm_cli.security.policy"):
             engine.evaluate("read_file_content", {"path": "/etc\x00bad"}, ctx)
 
-        warning_messages = [
-            r.message for r in caplog.records if r.levelno >= logging.WARNING
-        ]
+        warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
         assert warning_messages, (
             "Expected at least one WARNING when path resolution fails, got none.\n"
             f"All log records: {[(r.levelname, r.message) for r in caplog.records]}"

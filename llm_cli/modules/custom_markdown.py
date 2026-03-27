@@ -8,9 +8,7 @@ from rich.text import Text
 
 
 class CustomTableElement(TableElement):
-    def __rich_console__(
-        self, console: Console, options: ConsoleOptions
-    ) -> RenderResult:
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         table = Table(box=box.SIMPLE_HEAVY)
 
         if self.header is not None and self.header.row is not None:

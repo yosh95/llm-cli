@@ -54,10 +54,7 @@ async def test_mcp_server(command: str, args: list[str]) -> None:
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python examples/test_client.py <command> [args...]")
-        print(
-            "Example: python examples/test_client.py "
-            "python examples/simple_mcp_server.py"
-        )
+        print("Example: python examples/test_client.py python examples/simple_mcp_server.py")
         sys.exit(1)
 
     cmd = sys.argv[1]

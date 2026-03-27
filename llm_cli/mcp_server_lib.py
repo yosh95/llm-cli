@@ -112,15 +112,12 @@ class FastMCP:
                     # Filter arguments based on function signature
                     sig = inspect.signature(func)
                     has_kwargs = any(
-                        p.kind == inspect.Parameter.VAR_KEYWORD
-                        for p in sig.parameters.values()
+                        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
                     )
 
                     if not has_kwargs:
                         # Only keep arguments that the function actually accepts
-                        filtered_args = {
-                            k: v for k, v in args.items() if k in sig.parameters
-                        }
+                        filtered_args = {k: v for k, v in args.items() if k in sig.parameters}
                     else:
                         filtered_args = args
 
@@ -145,9 +142,7 @@ class FastMCP:
                         EXPLANATION.reset(exp_token)
             else:
                 if msg_id:
-                    error_resp = self.protocol.create_error(
-                        msg_id, -32601, "Method not found"
-                    )
+                    error_resp = self.protocol.create_error(msg_id, -32601, "Method not found")
                     write_stream.write(json.dumps(error_resp).encode() + b"\n")
                     await write_stream.drain()
                 return

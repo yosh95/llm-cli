@@ -49,9 +49,7 @@ def test_edit_file_success(tmp_path, monkeypatch):
     # Replace Line 2 and Line 3
     search_block = "Line 2\nLine 3"
     replacement = "Line 2 Mod\nLine 3 Mod"
-    result = _get_result_text(
-        edit_file(test_path, search=search_block, replace=replacement)
-    )
+    result = _get_result_text(edit_file(test_path, search=search_block, replace=replacement))
 
     assert "Successfully updated" in result
 

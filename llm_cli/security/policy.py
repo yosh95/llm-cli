@@ -115,10 +115,7 @@ class PolicyEngine:
         # 1. Identity Requirement (High Risk requires PQC)
         if risk_level == RiskLevel.HIGH and not has_pqc:
             if security_level == "high":
-                msg = (
-                    f"[DENIED] Access Denied: High-risk tool "
-                    f"'{tool_name}' requires PQC proof."
-                )
+                msg = f"[DENIED] Access Denied: High-risk tool '{tool_name}' requires PQC proof."
                 logger.warning(msg)
                 return False
             else:
@@ -130,12 +127,8 @@ class PolicyEngine:
         # 2. Scope Verification (Path restrictions, etc.)
         # We use a global scope defined in the config
         global_scope = {"allowed_paths": self.config.get("allowed_paths", ["."])}
-        if not self._verify_scope(
-            tool_name, arguments, {"scopes": {tool_name: global_scope}}
-        ):
-            logger.warning(
-                f"[DENIED] Access Denied: Arguments out of scope for tool '{tool_name}'"
-            )
+        if not self._verify_scope(tool_name, arguments, {"scopes": {tool_name: global_scope}}):
+            logger.warning(f"[DENIED] Access Denied: Arguments out of scope for tool '{tool_name}'")
             return False
 
         # 3. Global Safety Guardrails
@@ -179,8 +172,7 @@ class PolicyEngine:
                         normalized_target = str(canonical_path_obj)
                     except PathValidationError as e:
                         logger.warning(
-                            f"Scope Violation: invalid path in '{arg_name}'="
-                            f"'{raw_path}': {e}"
+                            f"Scope Violation: invalid path in '{arg_name}'='{raw_path}': {e}"
                         )
                         return False
 
@@ -290,8 +282,7 @@ class PolicyEngine:
                     path_obj = Path(path_val).expanduser().resolve()
                 except (ValueError, OSError) as exc:
                     logger.warning(
-                        f"Guardrail: Could not resolve path '{path_val}' in "
-                        f"'{arg_name}': {exc}"
+                        f"Guardrail: Could not resolve path '{path_val}' in '{arg_name}': {exc}"
                     )
                     # If it's a path argument that can't be resolved, it might
                     # be an attempt to bypass via invalid characters. Block it.

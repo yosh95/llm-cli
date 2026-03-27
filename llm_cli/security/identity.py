@@ -106,11 +106,7 @@ class IdentityManager:
                 cls._KEY_DIR.chmod(0o700)
 
         # Classical RSA Keys
-        if (
-            force
-            or not cls._PRIVATE_KEY_PATH.exists()
-            or not cls._PUBLIC_KEY_PATH.exists()
-        ):
+        if force or not cls._PRIVATE_KEY_PATH.exists() or not cls._PUBLIC_KEY_PATH.exists():
             _is_first_gen = not cls._PRIVATE_KEY_PATH.exists()
             if _is_first_gen:
                 logger.info("Initializing your secure identity (Auto-gen)...")
@@ -132,10 +128,7 @@ class IdentityManager:
                             "with owner-only permissions (chmod 600).\n"
                             "Run [bold]llm-cli-security keygen[/bold] at any time "
                             "to regenerate or inspect your keys.",
-                            title=(
-                                "[bold yellow]Secure Identity Initialisation"
-                                "[/bold yellow]"
-                            ),
+                            title=("[bold yellow]Secure Identity Initialisation[/bold yellow]"),
                             border_style="yellow",
                         )
                     )
@@ -150,9 +143,7 @@ class IdentityManager:
             )
             # Save Private Key (mode 0o600)
             with os.fdopen(
-                os.open(
-                    cls._PRIVATE_KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
-                ),
+                os.open(cls._PRIVATE_KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600),
                 "wb",
             ) as f:
                 f.write(
@@ -164,9 +155,7 @@ class IdentityManager:
                 )
             # Save Public Key
             with os.fdopen(
-                os.open(
-                    cls._PUBLIC_KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
-                ),
+                os.open(cls._PUBLIC_KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600),
                 "wb",
             ) as f:
                 f.write(
@@ -271,9 +260,7 @@ class IdentityManager:
                 with cls._PUBLIC_KEY_PATH.open("rb") as f:
                     cls._key_cache["rsa_pub"] = f.read()
             else:
-                raise FileNotFoundError(
-                    f"Public key not found at {cls._PUBLIC_KEY_PATH}."
-                )
+                raise FileNotFoundError(f"Public key not found at {cls._PUBLIC_KEY_PATH}.")
         return cls._key_cache["rsa_pub"]
 
     @classmethod
@@ -361,9 +348,7 @@ class IdentityManager:
             payload["risk_level"] = risk_level
 
         # Workspace binding (SHA-256 of the current working directory)
-        payload["workspace"] = hashlib.sha256(
-            Path.cwd().as_posix().encode()
-        ).hexdigest()
+        payload["workspace"] = hashlib.sha256(Path.cwd().as_posix().encode()).hexdigest()
 
         # Embed PQC Integrity Attestation (Remote Attestation)
         try:
@@ -489,17 +474,13 @@ class IdentityManager:
                 pqc_getter = pqc_pub_key_getter
 
             # 3. CRYPTOGRAPHIC VERIFICATION (Hybrid RSA + PQC)
-            payload = HybridSigner.verify_hybrid_token(
-                cose_token_bytes, rsa_pub, pqc_getter
-            )
+            payload = HybridSigner.verify_hybrid_token(cose_token_bytes, rsa_pub, pqc_getter)
 
             if payload:
                 # 4. Audience check
                 target_aud = expected_audience or os.getenv("MCP_SERVER_NAME")
                 if target_aud and "aud" in payload and payload.get("aud") != target_aud:
-                    logger.warning(
-                        f"Audience mismatch: {payload.get('aud')} != {target_aud}"
-                    )
+                    logger.warning(f"Audience mismatch: {payload.get('aud')} != {target_aud}")
                     return None
 
                 # 5. Integrity Attestation (Remote Attestation) Check
@@ -538,9 +519,7 @@ class IdentityManager:
         """Expose the PQC public key for distribution to remote servers."""
         import base64
 
-        return base64.b64encode(
-            cls._get_pqc_public_key_content(variant=variant)
-        ).decode("utf-8")
+        return base64.b64encode(cls._get_pqc_public_key_content(variant=variant)).decode("utf-8")
 
     @classmethod
     def get_kem_public_key(cls) -> str:

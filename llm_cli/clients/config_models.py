@@ -91,15 +91,9 @@ class AppConfig:
         for name in provider_names:
             if name in data:
                 p_data = data[name]
-                p_known = {
-                    k: v
-                    for k, v in p_data.items()
-                    if k in ProviderConfig.__annotations__
-                }
+                p_known = {k: v for k, v in p_data.items() if k in ProviderConfig.__annotations__}
                 p_extra = {
-                    k: v
-                    for k, v in p_data.items()
-                    if k not in ProviderConfig.__annotations__
+                    k: v for k, v in p_data.items() if k not in ProviderConfig.__annotations__
                 }
                 providers[name] = ProviderConfig(**p_known, extra=p_extra)
 

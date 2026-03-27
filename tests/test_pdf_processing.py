@@ -69,9 +69,7 @@ class TestPDFProcessing:
             mock_res.status_code = 200
             # generateContent API response format
             mock_res.json.return_value = {
-                "candidates": [
-                    {"content": {"role": "model", "parts": [{"text": "OK"}]}}
-                ],
+                "candidates": [{"content": {"role": "model", "parts": [{"text": "OK"}]}}],
                 "usageMetadata": {"totalTokenCount": 5},
             }
             mock_post.return_value = mock_res

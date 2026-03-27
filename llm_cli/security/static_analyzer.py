@@ -264,15 +264,12 @@ class PythonSecurityScanner(ast.NodeVisitor):
                             "[WARNING] Security Warning: subprocess call with "
                             "non-literal elements in the command list."
                         )
-            elif isinstance(first_arg, ast.Constant) and isinstance(
-                first_arg.value, str
-            ):
+            elif isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
                 cmd_args.append(first_arg.value)
             else:
                 # VULN-002 Mitigation: Detect non-literal first argument (variable)
                 self.warnings.append(
-                    "[WARNING] Security Warning: subprocess call with "
-                    "non-literal command argument."
+                    "[WARNING] Security Warning: subprocess call with non-literal command argument."
                 )
 
         # 2. Check for shell=True
@@ -296,8 +293,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
             # 3.1 Block network commands
             if cmd in self.BLOCKED_NETWORK_COMMANDS:
                 self.violations.append(
-                    f"Security Violation: Network command '{cmd}' is "
-                    "strictly forbidden."
+                    f"Security Violation: Network command '{cmd}' is strictly forbidden."
                 )
 
             # 3.2 Block inline code execution (VULN-001 Mitigation)
@@ -328,10 +324,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
         """
         Detect assignments like 'f = eval'.
         """
-        if (
-            isinstance(node.value, ast.Name)
-            and node.value.id in self.DANGEROUS_FUNCTIONS
-        ):
+        if isinstance(node.value, ast.Name) and node.value.id in self.DANGEROUS_FUNCTIONS:
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     self.aliases[target.id] = node.value.id
@@ -356,9 +349,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 self.module_aliases[local_name] = module_name
 
             if module_name in self.DANGEROUS_MODULES:
-                self.violations.append(
-                    f"High-risk module import detected: {alias.name}"
-                )
+                self.violations.append(f"High-risk module import detected: {alias.name}")
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -371,9 +362,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
             base_module = node.module.split(".")[0]
             self.found_modules.add(base_module)
             if base_module in self.DANGEROUS_MODULES:
-                self.violations.append(
-                    f"High-risk module import detected: {node.module}"
-                )
+                self.violations.append(f"High-risk module import detected: {node.module}")
 
             # Granular check for restricted modules
             if base_module in self.RESTRICTED_MODULES:
@@ -386,8 +375,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
                         )
                     elif alias.name in restricted_members:
                         self.violations.append(
-                            f"High-risk member import detected: "
-                            f"{node.module}.{alias.name}"
+                            f"High-risk member import detected: {node.module}.{alias.name}"
                         )
 
             # Track subprocess function aliases:
@@ -475,9 +463,7 @@ class PythonSecurityScanner(ast.NodeVisitor):
                 resolved_module = self._resolve_module(raw_id)
 
                 if resolved_module in self.DANGEROUS_MODULES:
-                    self.violations.append(
-                        f"High-risk method call: {raw_id}.{attr_name}"
-                    )
+                    self.violations.append(f"High-risk method call: {raw_id}.{attr_name}")
 
                 # Granular check for restricted modules (os, shutil)
                 # Works for both "os.system()" and "o.system()" where o=os

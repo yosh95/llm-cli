@@ -36,17 +36,13 @@ def decrypt_log_file(input_path: Path, output_path: Path | None = None) -> None:
                 decrypted_entries.append(entry)
             except Exception as e:
                 print(f"[WARNING] Failed to process line {i + 1}: {e}")
-                decrypted_entries.append(
-                    {"error": f"Decryption failed: {str(e)}", "raw": line}
-                )
+                decrypted_entries.append({"error": f"Decryption failed: {str(e)}", "raw": line})
 
     if output_path:
         with output_path.open("w", encoding="utf-8") as f:
             for entry in decrypted_entries:
                 f.write(json.dumps(entry) + "\n")
-        print(
-            f"Successfully decrypted {len(decrypted_entries)} entries to {output_path}"
-        )
+        print(f"Successfully decrypted {len(decrypted_entries)} entries to {output_path}")
     else:
         # Print to stdout
         for entry in decrypted_entries:

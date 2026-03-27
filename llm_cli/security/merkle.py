@@ -11,9 +11,7 @@ class MerkleTree:
         if not leaf_hashes:
             raise ValueError("Cannot create a Merkle Tree with no leaves.")
 
-        self.leaves = [
-            bytes.fromhex(h) if isinstance(h, str) else h for h in leaf_hashes
-        ]
+        self.leaves = [bytes.fromhex(h) if isinstance(h, str) else h for h in leaf_hashes]
         self.tree = self._build_tree(self.leaves)
 
     def _hash_pair(self, left: bytes, right: bytes) -> bytes:
@@ -30,11 +28,7 @@ class MerkleTree:
             for i in range(0, len(current_level), 2):
                 left = current_level[i]
                 # If odd number of nodes, duplicate the last one
-                right = (
-                    current_level[i + 1]
-                    if i + 1 < len(current_level)
-                    else current_level[i]
-                )
+                right = current_level[i + 1] if i + 1 < len(current_level) else current_level[i]
                 next_level.append(self._hash_pair(left, right))
             tree.append(next_level)
             current_level = next_level
@@ -64,20 +58,14 @@ class MerkleTree:
             level_len = len(self.tree[level])
             if index % 2 == 1:
                 # Leaf is a right child, sibling is to the left
-                proof.append(
-                    {"position": "left", "hash": self.tree[level][index - 1].hex()}
-                )
+                proof.append({"position": "left", "hash": self.tree[level][index - 1].hex()})
             else:
                 # Leaf is a left child, sibling is to the right (if exists)
                 if index + 1 < level_len:
-                    proof.append(
-                        {"position": "right", "hash": self.tree[level][index + 1].hex()}
-                    )
+                    proof.append({"position": "right", "hash": self.tree[level][index + 1].hex()})
                 else:
                     # Duplicate sibling for odd number of nodes
-                    proof.append(
-                        {"position": "right", "hash": self.tree[level][index].hex()}
-                    )
+                    proof.append({"position": "right", "hash": self.tree[level][index].hex()})
 
             index //= 2
 

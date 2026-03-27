@@ -171,11 +171,7 @@ class PQCAgilityManager:
             if any(str(p).lower() in args_str for p in sensitive_patterns):
                 is_sensitive_context = True
 
-        if (
-            environment_risk == "high"
-            or tool_name in high_risk_tools
-            or is_sensitive_context
-        ):
+        if environment_risk == "high" or tool_name in high_risk_tools or is_sensitive_context:
             return "ML-DSA-87"
 
         moderate_risk_tools = set(security_config.get("medium_risk_tools", []))

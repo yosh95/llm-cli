@@ -84,11 +84,7 @@ def test_execute_tool_call_success(session, tool_call_part):
                 side_effect=lambda section, key: (
                     ["test_tool"]
                     if section == "security" and key == "low_risk_tools"
-                    else (
-                        "low"
-                        if section == "security" and key == "auto_approval_level"
-                        else None
-                    )
+                    else ("low" if section == "security" and key == "auto_approval_level" else None)
                 ),
             ):
                 with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
@@ -99,10 +95,7 @@ def test_execute_tool_call_success(session, tool_call_part):
                     ):
                         res_part, injected = execute_tool_call(session, tool_call_part)
 
-                        assert (
-                            res_part.function_response["response"]["result"]
-                            == "Success Result"
-                        )
+                        assert res_part.function_response["response"]["result"] == "Success Result"
                         assert injected is None
                         mock_tool_func.assert_called_once()
 
@@ -123,9 +116,7 @@ def test_execute_tool_call_user_rejection(session, tool_call_part):
                     []
                     if section == "security" and key == "low_risk_tools"
                     else (
-                        "none"
-                        if section == "security" and key == "auto_approval_level"
-                        else None
+                        "none" if section == "security" and key == "auto_approval_level" else None
                     )
                 ),
             ):
@@ -152,9 +143,7 @@ def test_execute_tool_call_policy_violation(session, tool_call_part):
 def test_execute_tool_call_with_injected_data(session, tool_call_part):
     """Test tool that returns injected data for the next turn."""
     injected_ds = DataSource(content="Injected", content_type="text/plain")
-    mock_tool_func = MagicMock(
-        return_value={"result": "OK", "__llm_cli_data__": injected_ds}
-    )
+    mock_tool_func = MagicMock(return_value={"result": "OK", "__llm_cli_data__": injected_ds})
 
     def mock_verify(data, risk_level, **kwargs):
         if isinstance(data, dict) and "pqc_signature" in data:
@@ -170,9 +159,7 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
             with patch(
                 "llm_cli.clients.config.config_manager.get",
                 side_effect=lambda section, key: (
-                    ["test_tool"]
-                    if section == "security" and key == "low_risk_tools"
-                    else "low"
+                    ["test_tool"] if section == "security" and key == "low_risk_tools" else "low"
                 ),
             ):
                 with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
@@ -184,8 +171,7 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
                         res_part, injected = execute_tool_call(session, tool_call_part)
 
                         assert (
-                            res_part.function_response["response"]["result"]
-                            == "{'result': 'OK'}"
+                            res_part.function_response["response"]["result"] == "{'result': 'OK'}"
                         )
                         assert injected == injected_ds
 

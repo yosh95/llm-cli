@@ -46,11 +46,7 @@ def file_tool_handler(
 
         try:
             result = func(*args, **kwargs)
-            return (
-                sign_tool_result(result, variant=variant)
-                if isinstance(result, str)
-                else result
-            )
+            return sign_tool_result(result, variant=variant) if isinstance(result, str) else result
         except PathValidationError as e:
             return sign_tool_result(f"[ERROR] Security Error: {e}", variant=variant)
         except Exception as e:

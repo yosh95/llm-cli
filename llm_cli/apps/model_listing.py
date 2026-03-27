@@ -44,9 +44,7 @@ def get_openai_config() -> ModelListingConfig:
     def format_epoch(model: dict) -> str:
         created = model.get("created")
         if created:
-            return datetime.datetime.fromtimestamp(created).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            return datetime.datetime.fromtimestamp(created).strftime("%Y-%m-%d %H:%M:%S")
         return "N/A"
 
     return ModelListingConfig(
@@ -110,9 +108,7 @@ def get_xai_config() -> ModelListingConfig:
     def format_epoch(model: dict) -> str:
         created = model.get("created")
         if created:
-            return datetime.datetime.fromtimestamp(created).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            return datetime.datetime.fromtimestamp(created).strftime("%Y-%m-%d %H:%M:%S")
         return "N/A"
 
     return ModelListingConfig(
@@ -134,8 +130,7 @@ def get_xai_config() -> ModelListingConfig:
 
 def get_ollama_config() -> ModelListingConfig:
     api_url = (
-        config_manager.get("ollama", "api_url")
-        or "http://localhost:11434/v1/chat/completions"
+        config_manager.get("ollama", "api_url") or "http://localhost:11434/v1/chat/completions"
     )
     if "/v1" in api_url:
         base_url = api_url.split("/v1")[0]
@@ -194,9 +189,7 @@ def list_models(config: ModelListingConfig, args: argparse.Namespace) -> None:
         return
 
     api_url = (
-        config.build_url(config.api_url, api_key or "")
-        if config.build_url
-        else config.api_url
+        config.build_url(config.api_url, api_key or "") if config.build_url else config.api_url
     )
     headers = config.build_headers(api_key or "") if config.build_headers else {}
     headers["Connection"] = "close"
@@ -205,10 +198,7 @@ def list_models(config: ModelListingConfig, args: argparse.Namespace) -> None:
         response = requests.get(api_url, headers=headers, timeout=config.timeout)
         response.raise_for_status()
     except Exception as e:
-        msg = (
-            f"[bold red]Error fetching models for "
-            f"{config.provider_name}: {e}[/bold red]"
-        )
+        msg = f"[bold red]Error fetching models for {config.provider_name}: {e}[/bold red]"
         console.print(msg)
         return
 
@@ -271,13 +261,9 @@ def main() -> None:
     parser.add_argument(
         "provider",
         nargs="?",
-        help=(
-            f"Provider to list models for ({', '.join(sorted(MODEL_LISTING_REGISTRY))})"
-        ),
+        help=(f"Provider to list models for ({', '.join(sorted(MODEL_LISTING_REGISTRY))})"),
     )
-    parser.add_argument(
-        "models", nargs="*", help="Specific models to show detail for (JSON)"
-    )
+    parser.add_argument("models", nargs="*", help="Specific models to show detail for (JSON)")
     parser.add_argument("-v", action="store_true", help="Verbose output (table format)")
 
     args = parser.parse_args()

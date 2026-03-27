@@ -27,9 +27,7 @@ class TestPathValidatorAdvanced:
         assert path.name == "test_file.txt"
 
         # Should block /etc
-        with pytest.raises(
-            PathValidationError, match="Access to blocked path is forbidden"
-        ):
+        with pytest.raises(PathValidationError, match="Access to blocked path is forbidden"):
             validate_path("/etc/passwd")
 
     @patch("llm_cli.security.path_validator.config_manager.load_config")
@@ -43,7 +41,5 @@ class TestPathValidatorAdvanced:
         }
 
         # /tmp is not in whitelist
-        with pytest.raises(
-            PathValidationError, match="Access to path is not in the whitelist"
-        ):
+        with pytest.raises(PathValidationError, match="Access to path is not in the whitelist"):
             validate_path("/tmp")

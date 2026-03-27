@@ -80,14 +80,10 @@ def search_files(
             results.append("Error: Search timed out after 60 seconds.")
             break
 
-        dirs[:] = [
-            d for d in dirs if d not in DEFAULT_EXCLUDE_DIRS and not d.startswith(".")
-        ]
+        dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDE_DIRS and not d.startswith(".")]
 
         for file in files:
-            if file.startswith(".") or (
-                file_pattern and not fnmatch.fnmatch(file, file_pattern)
-            ):
+            if file.startswith(".") or (file_pattern and not fnmatch.fnmatch(file, file_pattern)):
                 continue
 
             file_path = Path(root) / file
@@ -105,9 +101,7 @@ def search_files(
                             rel_path = file_path.relative_to(base_path)
                             results.append(f"{rel_path}:{line_no}:{line.strip()}")
                             if len(results) >= MAX_SEARCH_RESULTS:
-                                msg = (
-                                    f"\n\n... (Total {len(results)} matches, truncated)"
-                                )
+                                msg = f"\n\n... (Total {len(results)} matches, truncated)"
                                 return "\n".join(results) + msg
             except (PermissionError, OSError):
                 continue
@@ -142,9 +136,7 @@ def search_files(
             },
             "max_files": {
                 "type": "integer",
-                "description": (
-                    f"Maximum number of files to list. (Default: {MAX_OUTPUT_LINES})"
-                ),
+                "description": (f"Maximum number of files to list. (Default: {MAX_OUTPUT_LINES})"),
                 "default": MAX_OUTPUT_LINES,
             },
         },
@@ -167,9 +159,7 @@ def list_files_in_directory(
         ignore_patterns = list(DEFAULT_EXCLUDE_DIRS)
 
     results, file_count = [], 0
-    results.append(
-        f"{'[Type]':<7} {'[Last Modified (UTC)]':<20} {'[Size]':>10}  {'[Full Path]'}"
-    )
+    results.append(f"{'[Type]':<7} {'[Last Modified (UTC)]':<20} {'[Size]':>10}  {'[Full Path]'}")
 
     def should_ignore(name: str) -> bool:
         if not include_hidden and name.startswith("."):
@@ -202,9 +192,7 @@ def list_files_in_directory(
 
             try:
                 stat = entry.stat()
-                mtime = datetime.fromtimestamp(stat.st_mtime).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
+                mtime = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
                 rel_path = entry.relative_to(base_path)
 
                 if entry.is_dir():
@@ -257,8 +245,7 @@ def validate_read_file(path: str, **_kwargs: Any) -> bool | str:
             "end_line": {
                 "type": "integer",
                 "description": (
-                    f"Last line to read (Max {MAX_OUTPUT_LINES} lines from "
-                    "start_line recommended)."
+                    f"Last line to read (Max {MAX_OUTPUT_LINES} lines from start_line recommended)."
                 ),
             },
             "with_line_numbers": {
@@ -296,8 +283,6 @@ def read_file_content(
     selected_lines = lines[start:end]
 
     if with_line_numbers:
-        return "\n".join(
-            [f"{start + i + 1:4d} | {line}" for i, line in enumerate(selected_lines)]
-        )
+        return "\n".join([f"{start + i + 1:4d} | {line}" for i, line in enumerate(selected_lines)])
 
     return "\n".join(selected_lines)

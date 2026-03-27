@@ -21,9 +21,7 @@ class SessionAnchorManager:
     """
 
     @staticmethod
-    def get_session_entries(
-        trace_id: str, log_path: Path | None = None
-    ) -> list[dict[str, Any]]:
+    def get_session_entries(trace_id: str, log_path: Path | None = None) -> list[dict[str, Any]]:
         """
         Extracts all audit log entries for a given trace_id.
         Searches both current log and any archives in chronological order.
@@ -69,9 +67,7 @@ class SessionAnchorManager:
         """
         entries = SessionAnchorManager.get_session_entries(trace_id)
         if not entries:
-            logger.debug(
-                f"No log entries found for session {trace_id}. Skipping anchor."
-            )
+            logger.debug(f"No log entries found for session {trace_id}. Skipping anchor.")
             return None
 
         # Collect the hashes of each entry to build the Merkle Tree
@@ -93,12 +89,8 @@ class SessionAnchorManager:
             "entry_count": len(entries),
             "first_entry_hash": leaf_hashes[0],
             "last_entry_hash": leaf_hashes[-1],
-            "timestamp": entries[-1].get(
-                "timestamp"
-            ),  # Use the timestamp of the last entry
-            "anchored_at": AUDIT_LOG_PATH.stat().st_mtime
-            if AUDIT_LOG_PATH.exists()
-            else None,
+            "timestamp": entries[-1].get("timestamp"),  # Use the timestamp of the last entry
+            "anchored_at": AUDIT_LOG_PATH.stat().st_mtime if AUDIT_LOG_PATH.exists() else None,
         }
 
         # Sign the Merkle Root with PQC (Identity-based signature)
@@ -177,9 +169,7 @@ class SessionAnchorManager:
                     anchor_file.unlink()
                     deleted_count += 1
                 except Exception as e:
-                    logger.error(
-                        f"[ERROR] Failed to delete orphaned anchor {anchor_file}: {e}"
-                    )
+                    logger.error(f"[ERROR] Failed to delete orphaned anchor {anchor_file}: {e}")
 
         if deleted_count > 0:
             logger.info(f"[OK] Cleaned up {deleted_count} orphaned session anchors.")
@@ -217,12 +207,8 @@ class SessionAnchorManager:
                 signature = base64.b64decode(pqc_sig_b64)
                 pqc_pub = IdentityManager._get_pqc_public_key_content(variant=variant)
 
-                if not PQCProvider.verify(
-                    message.encode(), signature, pqc_pub, variant=variant
-                ):
-                    logger.error(
-                        f"[ERROR] Anchor signature mismatch for session {trace_id}"
-                    )
+                if not PQCProvider.verify(message.encode(), signature, pqc_pub, variant=variant):
+                    logger.error(f"[ERROR] Anchor signature mismatch for session {trace_id}")
                     return False
                 logger.debug(f"Anchor signature for {trace_id} verified.")
 
@@ -272,9 +258,7 @@ class SessionAnchorManager:
                 )
                 return False
 
-            logger.info(
-                f"[SUCCESS] Session {trace_id} integrity verified via Merkle Anchor."
-            )
+            logger.info(f"[SUCCESS] Session {trace_id} integrity verified via Merkle Anchor.")
             return True
 
         except Exception as e:

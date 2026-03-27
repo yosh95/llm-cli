@@ -30,14 +30,11 @@ class SessionManager:
             for msg_data in data:
                 role = Role(msg_data["role"])
                 parts = [
-                    (ContentPart(**p) if isinstance(p, dict) else p)
-                    for p in msg_data["parts"]
+                    (ContentPart(**p) if isinstance(p, dict) else p) for p in msg_data["parts"]
                 ]
                 loaded_conversation.append(Message(role=role, parts=parts))
 
-            msg = (
-                f"Session loaded from {load_path} ({len(loaded_conversation)} messages)"
-            )
+            msg = f"Session loaded from {load_path} ({len(loaded_conversation)} messages)"
             return loaded_conversation, msg
         except Exception as e:
             return None, f"Failed to load session: {e}"
@@ -75,9 +72,7 @@ class MediaManager:
         self.pdf_as_base64 = pdf_as_base64
 
     def process_sources(self, sources: list[str]) -> list[DataSource]:
-        return [
-            processed for s in sources if (processed := self.process_single_source(s))
-        ]
+        return [processed for s in sources if (processed := self.process_single_source(s))]
 
     def process_single_source(self, source: str) -> DataSource | None:
         from llm_cli.modules import media_utils
@@ -85,9 +80,7 @@ class MediaManager:
         if source.startswith("http"):
             content, ctype = media_utils.fetch_url_content(source, self.pdf_as_base64)
             if content:
-                filename = (
-                    Path(urllib.parse.urlparse(source).path).name or "downloaded_file"
-                )
+                filename = Path(urllib.parse.urlparse(source).path).name or "downloaded_file"
                 return DataSource(
                     content=content,
                     content_type=ctype or "application/octet-stream",
@@ -121,9 +114,7 @@ class MediaManager:
         from llm_cli.clients.config import config_manager
         from llm_cli.modules.media_utils import generate_safe_filename
 
-        save_dir = Path(
-            config_manager.get("general", "image_save_path") or "."
-        ).expanduser()
+        save_dir = Path(config_manager.get("general", "image_save_path") or ".").expanduser()
         save_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         target_path = save_dir / generate_safe_filename(
             hint_text, ext=(mimetypes.guess_extension(mime_type) or ".png").strip(".")

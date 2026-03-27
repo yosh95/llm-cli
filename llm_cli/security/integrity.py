@@ -100,9 +100,7 @@ class IntegrityVerifier:
 
         return current_manifest
 
-    def verify_audit_log(
-        self, path: Path | None = None, pqc_verify_tail_lines: int = 50
-    ) -> bool:
+    def verify_audit_log(self, path: Path | None = None, pqc_verify_tail_lines: int = 50) -> bool:
         """
         Verify the chained hashes in the audit log to detect modifications.
         This handles __audit_snapshot__ events by anchoring them to their
@@ -169,17 +167,15 @@ class IntegrityVerifier:
                     from llm_cli.security.identity import IdentityManager
 
                     if variant not in pqc_pub_cache:
-                        pqc_pub_cache[variant] = (
-                            IdentityManager._get_pqc_public_key_content(variant=variant)
+                        pqc_pub_cache[variant] = IdentityManager._get_pqc_public_key_content(
+                            variant=variant
                         )
                     pqc_pub = pqc_pub_cache[variant]
                     pqc_sig = base64.b64decode(pqc_sig_b64)
                     if not PQCProvider.verify(
                         actual_hash.encode(), pqc_sig, pqc_pub, variant=variant
                     ):
-                        logger.error(
-                            f"[ERROR] Signature mismatch at {log_path.name}:{i + 1}"
-                        )
+                        logger.error(f"[ERROR] Signature mismatch at {log_path.name}:{i + 1}")
                         return False
 
                 # 3. Check Hash Chain
@@ -202,9 +198,7 @@ class IntegrityVerifier:
                         from llm_cli.security.audit import _get_last_log_hash
 
                         if entry.get("prev_hash") != _get_last_log_hash(archive_path):
-                            logger.error(
-                                f"[ERROR] Snapshot chain gap at {log_path.name}:{i + 1}"
-                            )
+                            logger.error(f"[ERROR] Snapshot chain gap at {log_path.name}:{i + 1}")
                             return False
 
                     # Set the expected next prev_hash to what this
@@ -255,21 +249,14 @@ class IntegrityVerifier:
                     pqc_pub = IdentityManager._get_pqc_public_key_content()
                     signature = base64.b64decode(pqc_sig_b64)
 
-                    if not PQCProvider.verify(
-                        manifest_data.encode(), signature, pqc_pub
-                    ):
-                        logger.error(
-                            "[ERROR] Integrity Failure: Manifest signature mismatch."
-                        )
-                        logger.error(
-                            "Try running 'llm-cli-security manifest' to re-sign."
-                        )
+                    if not PQCProvider.verify(manifest_data.encode(), signature, pqc_pub):
+                        logger.error("[ERROR] Integrity Failure: Manifest signature mismatch.")
+                        logger.error("Try running 'llm-cli-security manifest' to re-sign.")
                         return False
                 except Exception as e:
                     logger.error(f"[ERROR] PQC verification error: {e}")
                     logger.error(
-                        "Run 'llm-cli-security keygen' or "
-                        "'llm-cli-security manifest' to fix."
+                        "Run 'llm-cli-security keygen' or 'llm-cli-security manifest' to fix."
                     )
                     return False
         else:
@@ -291,9 +278,7 @@ class IntegrityVerifier:
         # Check for unauthorized new files
         for rel_path in current_manifest:
             if rel_path not in trusted_manifest:
-                logger.error(
-                    f"[ERROR] Integrity Failure: Unauthorized file: {rel_path}"
-                )
+                logger.error(f"[ERROR] Integrity Failure: Unauthorized file: {rel_path}")
                 files_ok = False
 
         if not files_ok:

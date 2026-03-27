@@ -100,9 +100,7 @@ class JSONRPCProtocol:
         self._msg_id += 1
         return self._msg_id
 
-    def create_request(
-        self, method: str, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    def create_request(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return {
             "jsonrpc": "2.0",
             "method": method,
@@ -159,9 +157,7 @@ class PQCEncryptionHelper:
 
 
 class ClientSession:
-    def __init__(
-        self, read_stream: asyncio.StreamReader, write_stream: asyncio.StreamWriter
-    ):
+    def __init__(self, read_stream: asyncio.StreamReader, write_stream: asyncio.StreamWriter):
         self.read_stream = read_stream
         self.write_stream = write_stream
         self.protocol = JSONRPCProtocol()
@@ -214,15 +210,11 @@ class ClientSession:
                         if req_id in self.protocol._pending_requests:
                             future = self.protocol._pending_requests.pop(req_id)
                             if "error" in message:
-                                future.set_exception(
-                                    Exception(message["error"]["message"])
-                                )
+                                future.set_exception(Exception(message["error"]["message"]))
                             else:
                                 future.set_result(message["result"])
                 except Exception as e:
-                    logger.error(
-                        f"Error in client loop parsing line {clean_line!r}: {e}"
-                    )
+                    logger.error(f"Error in client loop parsing line {clean_line!r}: {e}")
         except asyncio.CancelledError:
             pass
         finally:
@@ -288,9 +280,7 @@ class ClientSession:
         # to simplify signature handling.
         args_payload["_meta"] = _meta
 
-        response = await self._send_request(
-            "tools/call", {"name": name, "arguments": args_payload}
-        )
+        response = await self._send_request("tools/call", {"name": name, "arguments": args_payload})
         content_list = (
             [Content(**c) for c in response.get("content", [])]
             if isinstance(response, dict)

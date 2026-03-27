@@ -28,9 +28,7 @@ class PQCBackend(ABC):
         ...
 
     @abstractmethod
-    def sign(
-        self, message: bytes, private_key: bytes, variant: str = "ML-DSA-65"
-    ) -> bytes:
+    def sign(self, message: bytes, private_key: bytes, variant: str = "ML-DSA-65") -> bytes:
         """Sign message and return signature."""
         ...
 
@@ -55,9 +53,7 @@ class KEMBackend(ABC):
         ...
 
     @abstractmethod
-    def encapsulate(
-        self, public_key: bytes, variant: str = "ML-KEM-768"
-    ) -> tuple[bytes, bytes]:
+    def encapsulate(self, public_key: bytes, variant: str = "ML-KEM-768") -> tuple[bytes, bytes]:
         """Return (ciphertext, shared_secret)."""
         ...
 
@@ -90,9 +86,7 @@ class PurePythonPQCBackend(PQCBackend):
         algo = algo_map.get(variant, ML_DSA_65)
         return algo.keygen()  # type: ignore[no-any-return]
 
-    def sign(
-        self, message: bytes, private_key: bytes, variant: str = "ML-DSA-65"
-    ) -> bytes:
+    def sign(self, message: bytes, private_key: bytes, variant: str = "ML-DSA-65") -> bytes:
         from dilithium_py.ml_dsa import ML_DSA_44, ML_DSA_65, ML_DSA_87
 
         algo_map = {
@@ -145,9 +139,7 @@ class PurePythonKEMBackend(KEMBackend):
         algo = algo_map.get(variant, ML_KEM_768)
         return algo.keygen()  # type: ignore[no-any-return]
 
-    def encapsulate(
-        self, public_key: bytes, variant: str = "ML-KEM-768"
-    ) -> tuple[bytes, bytes]:
+    def encapsulate(self, public_key: bytes, variant: str = "ML-KEM-768") -> tuple[bytes, bytes]:
         from kyber_py.ml_kem import ML_KEM_512, ML_KEM_768, ML_KEM_1024
 
         algo_map = {

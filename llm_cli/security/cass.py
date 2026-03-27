@@ -34,14 +34,10 @@ class CASSOrchestrator:
 
     def __init__(self) -> None:
         # Define high-risk tools that can modify system state or execute arbitrary code
-        self.high_risk_tools = set(
-            config_manager.get("security", "high_risk_tools") or []
-        )
+        self.high_risk_tools = set(config_manager.get("security", "high_risk_tools") or [])
 
         # Define medium-risk tools that can read potentially sensitive information
-        self.medium_risk_tools = set(
-            config_manager.get("security", "medium_risk_tools") or []
-        )
+        self.medium_risk_tools = set(config_manager.get("security", "medium_risk_tools") or [])
 
     def evaluate_risk(self, tool_name: str) -> RiskLevel:
         """Evaluate the risk level of a given tool."""
@@ -59,8 +55,7 @@ class CASSOrchestrator:
 
         if risk_level == RiskLevel.HIGH:
             logger.debug(
-                f"CASS: High risk detected for tool '{tool_name}'. "
-                "Escalating security posture."
+                f"CASS: High risk detected for tool '{tool_name}'. Escalating security posture."
             )
             return {
                 "require_pqc_signature": True,

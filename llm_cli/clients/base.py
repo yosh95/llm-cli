@@ -45,9 +45,7 @@ class BaseLlmClient(ABC):
         # 1. Identity & Config
         self.config_section: str = spec.config_section
         self._api_key_name: str = spec.api_key_name
-        self.api_key: str | None = config_manager.get(
-            self.config_section, self._api_key_name
-        )
+        self.api_key: str | None = config_manager.get(self.config_section, self._api_key_name)
         self.stdout: bool = stdout
         self.render_markdown: bool = render_markdown
         self.preferred_pdf_as_base64: bool = spec.pdf_as_base64
@@ -122,9 +120,7 @@ class BaseLlmClient(ABC):
     def set_model(self, alias: str) -> bool:
         if alias in self.available_models:
             self.current_alias = alias
-            self.model_config = config_manager.get_model_config(
-                self.config_section, alias
-            )
+            self.model_config = config_manager.get_model_config(self.config_section, alias)
             self.model = self.model_config.get("model", self.available_models[alias])
             return True
         return False
@@ -143,9 +139,7 @@ class BaseLlmClient(ABC):
         self._refresh_system_prompt()
 
     def _refresh_system_prompt(self) -> None:
-        self.system_prompt = (
-            config_manager.get(self.config_section, "system_prompt") or ""
-        )
+        self.system_prompt = config_manager.get(self.config_section, "system_prompt") or ""
 
     def _init_mcp(self, update_active_tools: bool) -> None:
         try:
@@ -191,9 +185,7 @@ class BaseLlmClient(ABC):
     def get_last_user_prompt(self) -> str | None:
         for msg in reversed(self.conversation):
             if msg.role == Role.USER:
-                texts = [
-                    p.text for p in msg.parts if isinstance(p, ContentPart) and p.text
-                ]
+                texts = [p.text for p in msg.parts if isinstance(p, ContentPart) and p.text]
                 texts += [p for p in msg.parts if isinstance(p, str)]
                 if texts:
                     return "\n".join(texts)
@@ -271,19 +263,13 @@ class BaseLlmClient(ABC):
             try:
                 # Show URL if available
                 if hasattr(response_obj, "url"):
-                    console.print(
-                        f"[magenta]URL:[/magenta] [dim]{response_obj.url}[/dim]"
-                    )
+                    console.print(f"[magenta]URL:[/magenta] [dim]{response_obj.url}[/dim]")
 
                 # Handle requests.Response objects
                 if hasattr(response_obj, "json"):
                     res_json = response_obj.json()
                     res_str = json.dumps(res_json, indent=2, ensure_ascii=False)
-                    console.print(
-                        Rule(
-                            "[bold cyan]DEBUG: Response JSON[/bold cyan]", style="cyan"
-                        )
-                    )
+                    console.print(Rule("[bold cyan]DEBUG: Response JSON[/bold cyan]", style="cyan"))
                     console.print(
                         Syntax(
                             res_str,
@@ -294,18 +280,12 @@ class BaseLlmClient(ABC):
                 else:
                     # Fallback for other object types
                     res_str = str(response_obj)
-                    console.print(
-                        Rule(
-                            "[bold cyan]DEBUG: Response Data[/bold cyan]", style="cyan"
-                        )
-                    )
+                    console.print(Rule("[bold cyan]DEBUG: Response Data[/bold cyan]", style="cyan"))
                     console.print(res_str)
             except Exception as e:
                 console.print(f"[dim red]Debug logging failed: {e}[/dim red]")
                 if hasattr(response_obj, "text"):
-                    console.print(
-                        Rule("[bold cyan]DEBUG: Raw Response[/bold cyan]", style="cyan")
-                    )
+                    console.print(Rule("[bold cyan]DEBUG: Raw Response[/bold cyan]", style="cyan"))
                     console.print(response_obj.text)
 
     def _set_initial_model(self, initial_model_alias: str) -> None:
@@ -335,9 +315,7 @@ class BaseLlmClient(ABC):
         return f"{self.get_model_icon()} ({self.model})"
 
     def process_sources(self, sources: list[str]) -> None:
-        data = [
-            processed for s in sources if (processed := self._process_single_source(s))
-        ]
+        data = [processed for s in sources if (processed := self._process_single_source(s))]
         has_prompt = any(not d.is_file_or_url for d in data)
         session = self.create_session()
         if data:
@@ -449,9 +427,7 @@ class BaseLlmClient(ABC):
             console.print(f"[dim red]Log trimming failed: {e}[/dim red]")
 
     @abstractmethod
-    def _send(
-        self, data: list[DataSource]
-    ) -> tuple[tuple[str | None, str | None], dict | None]:
+    def _send(self, data: list[DataSource]) -> tuple[tuple[str | None, str | None], dict | None]:
 
         pass
 
@@ -484,9 +460,7 @@ class BaseLlmClient(ABC):
     def _get(
         self, url: str, headers: dict | None = None, timeout: int | None = None
     ) -> requests.Response:
-        res = requests.get(
-            url, headers=headers or {}, timeout=timeout or self.request_timeout
-        )
+        res = requests.get(url, headers=headers or {}, timeout=timeout or self.request_timeout)
         self._log_debug(response_obj=res)
         return res
 

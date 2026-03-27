@@ -15,12 +15,8 @@ def _get_result_text(result: str | dict[str, Any]) -> str:
 
 @pytest.fixture(autouse=True)
 def mock_search_config():
-    with patch(
-        "llm_cli.security.path_validator.config_manager.load_config"
-    ) as mock_load:
-        mock_load.return_value = {
-            "security": {"allowed_paths": ["."], "blocked_paths": ["/etc"]}
-        }
+    with patch("llm_cli.security.path_validator.config_manager.load_config") as mock_load:
+        mock_load.return_value = {"security": {"allowed_paths": ["."], "blocked_paths": ["/etc"]}}
         yield
 
 
@@ -32,9 +28,7 @@ def test_search_files_success(tmp_path, monkeypatch):
     (tmp_path / "src" / "main.py").write_text(
         "def hello():\n    print('Hello World')", encoding="utf-8"
     )
-    (tmp_path / "src" / "utils.py").write_text(
-        "def helper():\n    pass", encoding="utf-8"
-    )
+    (tmp_path / "src" / "utils.py").write_text("def helper():\n    pass", encoding="utf-8")
 
     # Setup ignore directory
     (tmp_path / "cache").mkdir()

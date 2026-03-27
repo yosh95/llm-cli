@@ -82,8 +82,7 @@ class ToolRegistry:
                 from llm_cli.ui import report_warning
 
                 report_warning(
-                    "Security: Blocking attempt by remote server to override local "
-                    f"tool '{name}'."
+                    f"Security: Blocking attempt by remote server to override local tool '{name}'."
                 )
                 return
 
@@ -144,10 +143,7 @@ class ToolRegistry:
                 k: v
                 for k, v in kwargs.items()
                 if k in sig.parameters
-                or any(
-                    p.kind == inspect.Parameter.VAR_KEYWORD
-                    for p in sig.parameters.values()
-                )
+                or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
             }
 
             # Inject system fields if the function (or decorator) accepts them.
@@ -156,8 +152,7 @@ class ToolRegistry:
             if security_reqs is not None:
                 actual_sig = inspect.signature(func, follow_wrapped=False)
                 if "__security_requirements__" in actual_sig.parameters or any(
-                    p.kind == inspect.Parameter.VAR_KEYWORD
-                    for p in actual_sig.parameters.values()
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in actual_sig.parameters.values()
                 ):
                     filtered_kwargs["__security_requirements__"] = security_reqs
 
@@ -211,9 +206,7 @@ class ToolRegistry:
         try:
             for tool in mcp_manager.list_tools():
 
-                def make_tool_func(
-                    server_name: str, original_name: str
-                ) -> Callable[..., Any]:
+                def make_tool_func(server_name: str, original_name: str) -> Callable[..., Any]:
                     return lambda **kwargs: mcp_manager.call_tool(
                         server_name, original_name, kwargs
                     )
@@ -251,14 +244,10 @@ class ToolRegistry:
             )
         return schemas
 
-    def get_active_names(
-        self, names: list[str], provider: str | None = None
-    ) -> list[str]:
+    def get_active_names(self, names: list[str], provider: str | None = None) -> list[str]:
         return [t["name"] for t in self._get_active(names, provider=provider)]
 
-    def _get_active(
-        self, names: list[str], provider: str | None = None
-    ) -> list[dict[str, Any]]:
+    def _get_active(self, names: list[str], provider: str | None = None) -> list[dict[str, Any]]:
         active = []
         for n in names:
             if n in self.tools:
@@ -269,9 +258,7 @@ class ToolRegistry:
                 active.append(t)
         return active
 
-    def get_gemini_spec(
-        self, names: list[str], provider: str = "google"
-    ) -> list[dict[str, Any]]:
+    def get_gemini_spec(self, names: list[str], provider: str = "google") -> list[dict[str, Any]]:
         spec: list[dict[str, Any]] = []
         # 1. Native Google Search tool (Grounding with Google Search)
         spec.append({"google_search": {}})
@@ -305,9 +292,7 @@ class ToolRegistry:
             )
         return spec
 
-    def get_openai_spec(
-        self, names: list[str], provider: str = "openai"
-    ) -> list[dict[str, Any]]:
+    def get_openai_spec(self, names: list[str], provider: str = "openai") -> list[dict[str, Any]]:
         is_responses_api = provider in ("openai", "xai")
         spec = []
 

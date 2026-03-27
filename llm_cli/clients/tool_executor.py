@@ -183,17 +183,13 @@ def _run_security_checks(ctx: ToolExecutionContext) -> bool:
         else:
             from llm_cli.ui import report_warning
 
-            report_warning(
-                "Secure Identity (PQC) missing. Proceeding in Standard mode."
-            )
+            report_warning("Secure Identity (PQC) missing. Proceeding in Standard mode.")
 
     from llm_cli.security.policy import EvaluationContext, policy_engine
 
     user_prompt = ctx.session.client.get_last_user_prompt() or "No user prompt found"
     eval_ctx: EvaluationContext = {
-        "user_id": str(
-            config_manager.get("security", "default_user_id") or "current_user"
-        ),
+        "user_id": str(config_manager.get("security", "default_user_id") or "current_user"),
         "user_prompt": user_prompt,
         "has_pqc_proof": has_pqc,
     }
@@ -332,9 +328,7 @@ def _run_code_safety_check(ctx: ToolExecutionContext) -> bool:
                 title="Static Analysis Critical Block",
                 style="red",
             )
-            ctx.error_message = (
-                "Critical security violation in code. Execution blocked."
-            )
+            ctx.error_message = "Critical security violation in code. Execution blocked."
             log_audit(
                 ctx.name,
                 ctx.args,
@@ -385,9 +379,7 @@ def _run_pre_approval_validation(ctx: ToolExecutionContext) -> bool:
     required_fields = params_spec.get("required", [])
     missing = [f for f in required_fields if f not in ctx.args]
     if missing:
-        ctx.error_message = (
-            f"Error: Missing required parameter(s): {', '.join(missing)}"
-        )
+        ctx.error_message = f"Error: Missing required parameter(s): {', '.join(missing)}"
         report_error(ctx.error_message)
         return False
 
@@ -410,9 +402,7 @@ def _run_pre_approval_validation(ctx: ToolExecutionContext) -> bool:
         return False
 
 
-def _display_execution_details(
-    ctx: ToolExecutionContext, auto_approved: bool = False
-) -> None:
+def _display_execution_details(ctx: ToolExecutionContext, auto_approved: bool = False) -> None:
     """Displays tool request and relevant previews (diffs, code)."""
     display_tool_request(ctx, auto_approved=auto_approved)
     if any(k in ctx.name for k in ("write_file", "create_or_overwrite_file")):
@@ -430,9 +420,7 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
     """
     # 1. Resolve Auto-Approval Policy
     # Policy order: none (strictest) < low < medium
-    auto_approval_policy = (
-        config_manager.get("security", "auto_approval_level") or "none"
-    ).lower()
+    auto_approval_policy = (config_manager.get("security", "auto_approval_level") or "none").lower()
 
     # 2. Check for bypass conditions
     # If any warnings were flagged, we MUST ask for approval regardless of policy.
@@ -508,9 +496,7 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
         if isinstance(result, dict) and "__llm_cli_data__" in result:
             data_payload = result.pop("__llm_cli_data__")
             ctx.injected_data = (
-                data_payload
-                if isinstance(data_payload, DataSource)
-                else DataSource(**data_payload)
+                data_payload if isinstance(data_payload, DataSource) else DataSource(**data_payload)
             )
 
         # 2. Bi-directional Verification: Ensure the result is signed.
@@ -679,9 +665,7 @@ def _verify_pqc_signature(
     _MAX_VERIFY_DEPTH = 3  # Prevent DoS via deeply nested signatures
 
     if _depth >= _MAX_VERIFY_DEPTH:
-        logger.warning(
-            f"PQC signature unwrap depth exceeded limit ({_MAX_VERIFY_DEPTH})."
-        )
+        logger.warning(f"PQC signature unwrap depth exceeded limit ({_MAX_VERIFY_DEPTH}).")
         return result_data
 
     from llm_cli.security.identity import IdentityManager
@@ -731,9 +715,7 @@ def _verify_pqc_signature(
             raise ValueError(f"No trusted PQC key found for '{target_entity}'.")
 
         sig = base64.urlsafe_b64decode(str(sig_b64) + "==")
-        if PQCProvider.verify(
-            f"{v_id}:{content_str}".encode(), sig, pqc_pub, variant=variant
-        ):
+        if PQCProvider.verify(f"{v_id}:{content_str}".encode(), sig, pqc_pub, variant=variant):
             report_success(f"PQC Verified ({variant}) (ID: {v_id})")
             # --- RECURSION with depth tracking ---
             return _verify_pqc_signature(

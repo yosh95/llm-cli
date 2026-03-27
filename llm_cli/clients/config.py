@@ -140,9 +140,7 @@ class ConfigManager:
 
                     # Only bypass if localhost AND at least one model alias is defined
                     if (
-                        "localhost" in base_url
-                        or "127.0.0.1" in base_url
-                        or not base_url
+                        "localhost" in base_url or "127.0.0.1" in base_url or not base_url
                     ) and models:
                         return "local_bypass"
                 except Exception:

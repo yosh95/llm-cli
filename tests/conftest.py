@@ -14,9 +14,7 @@ from llm_cli.clients.config import config_manager
 
 # Redirect CONFIG_FILE_PATH to a non-existent path in a temporary directory
 # to prevent leakage of real configuration during tests.
-consts.LLM_CLI_BASE_DIR = (
-    pathlib.Path(tempfile.gettempdir()) / f"llm-cli-test-{os.getpid()}"
-)
+consts.LLM_CLI_BASE_DIR = pathlib.Path(tempfile.gettempdir()) / f"llm-cli-test-{os.getpid()}"
 consts.CONFIG_DIR = consts.LLM_CLI_BASE_DIR
 consts.LOG_DIR = consts.LLM_CLI_BASE_DIR / "logs"
 consts.KEY_DIR = consts.LLM_CLI_BASE_DIR / "keys"
@@ -208,9 +206,7 @@ def mock_config(monkeypatch, mock_api_key, tmp_path):
 
     # Patch the config_manager instance methods
     monkeypatch.setattr(config_manager, "get", mock_get)
-    monkeypatch.setattr(
-        config_manager, "get_bool", lambda s, k, d=False: bool(mock_get(s, k) or d)
-    )
+    monkeypatch.setattr(config_manager, "get_bool", lambda s, k, d=False: bool(mock_get(s, k) or d))
     monkeypatch.setattr(config_manager, "get_model_aliases", mock_get_model_aliases)
 
 

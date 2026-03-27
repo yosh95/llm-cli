@@ -36,20 +36,14 @@ def mock_registry():
 
 class TestSecureToolWrapper:
     @pytest.mark.asyncio
-    async def test_secure_wrapper_async_func_authenticated(
-        self, mock_policy_engine, monkeypatch
-    ):
+    async def test_secure_wrapper_async_func_authenticated(self, mock_policy_engine, monkeypatch):
         monkeypatch.setattr("llm_cli.apps.mcp_server.policy_engine", mock_policy_engine)
         monkeypatch.setattr("llm_cli.security.audit.log_audit", Mock())
-        monkeypatch.setattr(
-            "llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123")
-        )
+        monkeypatch.setattr("llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123"))
 
         # Mock IdentityManager
         valid_payload = {"roles": ["user"], "sub": "user123"}
-        monkeypatch.setattr(
-            IdentityManager, "verify_token", Mock(return_value=valid_payload)
-        )
+        monkeypatch.setattr(IdentityManager, "verify_token", Mock(return_value=valid_payload))
         monkeypatch.setattr(os, "environ", {"MCP_AUTH_TOKEN": "valid_token"}.copy())
 
         async def test_async_func(*args, **kwargs):
@@ -69,9 +63,7 @@ class TestSecureToolWrapper:
         monkeypatch.setattr("llm_cli.apps.mcp_server.MISSING_TOKEN_POLICY", "guest")
         monkeypatch.setattr("llm_cli.apps.mcp_server.policy_engine", mock_policy_engine)
         monkeypatch.setattr("llm_cli.security.audit.log_audit", Mock())
-        monkeypatch.setattr(
-            "llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123")
-        )
+        monkeypatch.setattr("llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123"))
 
         def test_sync_func(*args, **kwargs):
             return "sync result"
@@ -87,21 +79,15 @@ class TestSecureToolWrapper:
         mock_policy_engine.evaluate.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_secure_wrapper_policy_violation(
-        self, monkeypatch, mock_policy_engine
-    ):
+    async def test_secure_wrapper_policy_violation(self, monkeypatch, mock_policy_engine):
         monkeypatch.setattr("llm_cli.apps.mcp_server.policy_engine", mock_policy_engine)
         mock_policy_engine.evaluate.return_value = False
 
         # Mock valid token to pass auth, fail on policy
         valid_payload = {"roles": ["user"], "sub": "user123"}
-        monkeypatch.setattr(
-            IdentityManager, "verify_token", Mock(return_value=valid_payload)
-        )
+        monkeypatch.setattr(IdentityManager, "verify_token", Mock(return_value=valid_payload))
         monkeypatch.setattr("llm_cli.security.audit.log_audit", Mock())
-        monkeypatch.setattr(
-            "llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123")
-        )
+        monkeypatch.setattr("llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123"))
         monkeypatch.setattr(os, "environ", {"MCP_AUTH_TOKEN": "valid_token"}.copy())
 
         def test_func(*args, **kwargs):
@@ -129,9 +115,7 @@ class TestSecureToolWrapper:
         monkeypatch.setattr("llm_cli.apps.mcp_server.policy_engine", mock_policy_engine)
         mock_log_audit = Mock()
         monkeypatch.setattr("llm_cli.apps.mcp_server.log_audit", mock_log_audit)
-        monkeypatch.setattr(
-            "llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123")
-        )
+        monkeypatch.setattr("llm_cli.mcp_lib.get_current_trace_id", Mock(return_value="trace123"))
         monkeypatch.setattr(os, "environ", {}.copy())
 
         def test_func(**kwargs):
@@ -167,9 +151,7 @@ class TestMain:
     def test_main(self, monkeypatch):
         monkeypatch.setattr("llm_cli.apps.mcp_server.create_mcp_server", Mock())
         mock_mcp = Mock()
-        monkeypatch.setattr(
-            "llm_cli.apps.mcp_server.create_mcp_server", lambda: mock_mcp
-        )
+        monkeypatch.setattr("llm_cli.apps.mcp_server.create_mcp_server", lambda: mock_mcp)
         monkeypatch.setattr(mock_mcp, "run", Mock())
         monkeypatch.setattr("llm_cli.apps.mcp_server.logger", Mock())
 

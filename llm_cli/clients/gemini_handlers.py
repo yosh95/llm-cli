@@ -34,8 +34,7 @@ def upload_file(
 
     try:
         console.print(
-            f"[dim]Initiating upload for {path.name} "
-            f"({file_size / 1024 / 1024:.2f} MB)...[/dim]"
+            f"[dim]Initiating upload for {path.name} ({file_size / 1024 / 1024:.2f} MB)...[/dim]"
         )
         # Type hint for client methods if needed, but we assume it has these.
         # client is BaseLlmClient, which should have _post and _get.

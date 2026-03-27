@@ -235,8 +235,7 @@ def _make_chat_response(content: str, tool_calls=None, usage=None):
         message["tool_calls"] = tool_calls
     return {
         "choices": [{"message": message, "finish_reason": "stop"}],
-        "usage": usage
-        or {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        "usage": usage or {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
 
 
@@ -286,9 +285,7 @@ def test_send_includes_system_prompt(client):
         assert payload["input"][0]["role"] == "system"
         content = payload["input"][0]["content"]
         assert any(
-            p.get("text") == "You are helpful."
-            for p in content
-            if p.get("type") == "input_text"
+            p.get("text") == "You are helpful." for p in content if p.get("type") == "input_text"
         )
     else:
         # Standard Chat Completions format

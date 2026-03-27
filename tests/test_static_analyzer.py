@@ -29,9 +29,7 @@ def test_analyze_python_safety_blocked_imports():
     is_safe, issues, _ = analyze_python_safety(code)
     assert is_safe is False
     assert any(
-        "os.system" in issue.lower()
-        or "shell=True" in issue
-        or "dangerous" in issue.lower()
+        "os.system" in issue.lower() or "shell=True" in issue or "dangerous" in issue.lower()
         for issue in issues
     )
 
@@ -81,9 +79,7 @@ def test_analyze_python_safety_smart_guardrail():
     code_blocked = "import subprocess; subprocess.run(['rm', '-rf', '/etc/shadow'])"
     is_safe, issues, _ = analyze_python_safety(code_blocked)
     assert is_safe is False
-    assert any(
-        "sensitive path" in issue.lower() and "rm" in issue.lower() for issue in issues
-    )
+    assert any("sensitive path" in issue.lower() and "rm" in issue.lower() for issue in issues)
 
 
 # ============================================================

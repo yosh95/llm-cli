@@ -23,9 +23,7 @@ class GeminiClient(BaseLlmClient):
     def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         super().__init__(
             initial_model_alias=initial_model_alias,
-            spec=ProviderSpec(
-                api_key_name="api_key", config_section="google", pdf_as_base64=True
-            ),
+            spec=ProviderSpec(api_key_name="api_key", config_section="google", pdf_as_base64=True),
             **kwargs,
         )
 
@@ -57,10 +55,7 @@ class GeminiClient(BaseLlmClient):
             use_file_api = (
                 mime.startswith("audio/")
                 or mime.startswith("video/")
-                or (
-                    mime == "application/pdf"
-                    and file_size > self.PDF_FILE_API_THRESHOLD
-                )
+                or (mime == "application/pdf" and file_size > self.PDF_FILE_API_THRESHOLD)
             )
 
             if use_file_api:
@@ -147,9 +142,7 @@ class GeminiClient(BaseLlmClient):
                             "name": p.function_response.get("name"),
                             "response": {
                                 "result": str(
-                                    p.function_response.get("response", {}).get(
-                                        "result", ""
-                                    )
+                                    p.function_response.get("response", {}).get("result", "")
                                 )
                             },
                         }
@@ -188,10 +181,7 @@ class GeminiClient(BaseLlmClient):
                             if thought_sig:
                                 part_dict["thoughtSignature"] = thought_sig
                             msg_parts.append(part_dict)
-                        if (
-                            p.function_call
-                            and p.function_call.get("id") in responded_tool_ids
-                        ):
+                        if p.function_call and p.function_call.get("id") in responded_tool_ids:
                             part_dict = {
                                 "functionCall": {
                                     "id": p.function_call["id"],
@@ -249,9 +239,7 @@ class GeminiClient(BaseLlmClient):
         if is_image_model:
             payload["generation_config"] = {"response_modalities": ["IMAGE", "TEXT"]}
         if self.active_tools and self.tools_enabled:
-            spec = registry.get_gemini_spec(
-                self.active_tools, provider=self.config_section
-            )
+            spec = registry.get_gemini_spec(self.active_tools, provider=self.config_section)
             if spec:
                 payload["tools"] = spec
                 payload["tool_config"] = {"include_server_side_tool_invocations": True}
@@ -278,9 +266,7 @@ class GeminiClient(BaseLlmClient):
             parts: list[str | ContentPart] = []
             for item in data:
                 if item.metadata.get("file_uri"):
-                    parts.append(
-                        ContentPart(text=f"[File: {item.metadata['file_uri']}]")
-                    )
+                    parts.append(ContentPart(text=f"[File: {item.metadata['file_uri']}]"))
                 elif any(
                     item.content_type.startswith(t)
                     for t in ["image/", "audio/", "video/", "application/pdf"]

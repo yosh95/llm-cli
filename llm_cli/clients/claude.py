@@ -44,9 +44,7 @@ class ClaudeClient(BaseLlmClient):
                             {
                                 "type": "tool_result",
                                 "tool_use_id": fr.get("call_id") or fr.get("id"),
-                                "content": str(
-                                    fr.get("response", {}).get("result", "")
-                                ),
+                                "content": str(fr.get("response", {}).get("result", "")),
                             }
                         )
                 if tool_content:
@@ -97,9 +95,7 @@ class ClaudeClient(BaseLlmClient):
                         # Use call_id if present (Grok/OpenAI Responses API),
                         # otherwise fall back to id.  This must match the
                         # tool_use_id used in the corresponding tool_result block.
-                        tool_use_id = p.function_call.get(
-                            "call_id"
-                        ) or p.function_call.get("id")
+                        tool_use_id = p.function_call.get("call_id") or p.function_call.get("id")
                         content.append(
                             {
                                 "type": "tool_use",
@@ -214,9 +210,7 @@ class ClaudeClient(BaseLlmClient):
                     thought = block["thinking"]
                     thought_text += thought
                     signature = block.get("signature")
-                    model_parts.append(
-                        ContentPart(thought=thought, thought_signature=signature)
-                    )
+                    model_parts.append(ContentPart(thought=thought, thought_signature=signature))
                 elif block["type"] == "tool_use":
                     model_parts.append(
                         ContentPart(
@@ -231,8 +225,7 @@ class ClaudeClient(BaseLlmClient):
                     model_parts.append(
                         ContentPart(
                             text=(
-                                f"[Server Tool Use: {block.get('name')} "
-                                f"(ID: {block.get('id')})]"
+                                f"[Server Tool Use: {block.get('name')} (ID: {block.get('id')})]"
                             ),
                             is_diagnostic=True,
                         )
@@ -286,9 +279,7 @@ class ClaudeClient(BaseLlmClient):
             model_msg = Message(role=Role.MODEL, parts=model_parts)
             self._update_history(data, model_msg)
 
-            return (model_msg.get_text().strip(), thought_text.strip()), res.get(
-                "usage"
-            )
+            return (model_msg.get_text().strip(), thought_text.strip()), res.get("usage")
 
         except Exception as e:
             self._report_error("Claude", e)

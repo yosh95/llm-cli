@@ -51,12 +51,8 @@ def log_audit(
             # file contents.  Medium-risk tools (e.g. read_file_content,
             # search_files) carry file paths that may themselves be sensitive —
             # encrypting them prevents leaking workspace layout in plain-text logs.
-            high_risk_tools = set(
-                config_manager.get("security", "high_risk_tools") or []
-            )
-            medium_risk_tools = set(
-                config_manager.get("security", "medium_risk_tools") or []
-            )
+            high_risk_tools = set(config_manager.get("security", "high_risk_tools") or [])
+            medium_risk_tools = set(config_manager.get("security", "medium_risk_tools") or [])
             if tool_name in high_risk_tools or tool_name in medium_risk_tools:
                 pub_kem = IdentityManager._get_kem_public_key_content()
                 args_bytes = json.dumps(args).encode()
@@ -201,9 +197,7 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
                 try:
                     ap.unlink()
                 except Exception as e:
-                    logger.warning(
-                        "Audit rotation: could not delete old archive '%s': %s", ap, e
-                    )
+                    logger.warning("Audit rotation: could not delete old archive '%s': %s", ap, e)
             # Trigger anchor cleanup if any archives were deleted
             try:
                 from llm_cli.security.merkle_anchor import SessionAnchorManager
@@ -220,9 +214,7 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
             snapshot_prev_hash = first_entry.get("prev_hash", "0" * 64)
             snapshot_first_hash = first_entry.get("hash", "0" * 64)
         except Exception as e:
-            logger.warning(
-                "Audit rotation: could not parse first kept entry for snapshot: %s", e
-            )
+            logger.warning("Audit rotation: could not parse first kept entry for snapshot: %s", e)
             snapshot_prev_hash = "0" * 64
             snapshot_first_hash = "0" * 64
 
@@ -270,9 +262,7 @@ def _trim_log_file(path: Path, max_lines: int) -> None:
                 wf.write(json.dumps(snapshot) + "\n")
                 wf.writelines(kept)
         except OSError as e:
-            logger.error(
-                "Audit rotation failed: could not rewrite main log '%s': %s", path, e
-            )
+            logger.error("Audit rotation failed: could not rewrite main log '%s': %s", path, e)
 
     except Exception as e:
         # Catch-all: rotation must never propagate exceptions to the tool caller,

@@ -98,9 +98,7 @@ class TestPromptInjectionHardening:
 
     def _capture_prompts(self, mock_client_class, user_prompt: str) -> tuple[str, str]:
         """Helper: call verify_tool_call and return (system_prompt, user_content)."""
-        mock_client_class.return_value.utility_send.return_value = (
-            '{"safe": true, "reason": "ok"}'
-        )
+        mock_client_class.return_value.utility_send.return_value = '{"safe": true, "reason": "ok"}'
 
         verify_tool_call(user_prompt, "test_tool", {"key": "val"})
 
@@ -110,9 +108,7 @@ class TestPromptInjectionHardening:
 
     def test_user_prompt_wrapped_in_boundary_tags(self, mock_client_class):
         """user_prompt must be enclosed in <user_prompt> tags in the sent payload."""
-        _, user_content = self._capture_prompts(
-            mock_client_class, "summarise this file"
-        )
+        _, user_content = self._capture_prompts(mock_client_class, "summarise this file")
 
         assert "<user_prompt>" in user_content
         assert "</user_prompt>" in user_content
@@ -125,18 +121,14 @@ class TestPromptInjectionHardening:
         assert "<proposed_tool_call>" in user_content
         assert "</proposed_tool_call>" in user_content
 
-    def test_system_prompt_instructs_not_to_follow_user_content(
-        self, mock_client_class
-    ):
+    def test_system_prompt_instructs_not_to_follow_user_content(self, mock_client_class):
         """System prompt must explicitly tell the model to treat user content as data."""
         system_prompt, _ = self._capture_prompts(mock_client_class, "anything")
 
         assert "UNTRUSTED" in system_prompt
         assert "NOT as instructions" in system_prompt
 
-    def test_system_prompt_flags_injection_keywords_as_evidence(
-        self, mock_client_class
-    ):
+    def test_system_prompt_flags_injection_keywords_as_evidence(self, mock_client_class):
         """System prompt must instruct the model to treat injection keywords as evidence."""
         system_prompt, _ = self._capture_prompts(mock_client_class, "anything")
 
@@ -144,9 +136,7 @@ class TestPromptInjectionHardening:
 
     def test_null_bytes_stripped_from_user_prompt(self, mock_client_class):
         """Null bytes in user_prompt must be removed before sending."""
-        _, user_content = self._capture_prompts(
-            mock_client_class, "safe prompt\x00 injected\x00"
-        )
+        _, user_content = self._capture_prompts(mock_client_class, "safe prompt\x00 injected\x00")
 
         assert "\x00" not in user_content
 
@@ -190,9 +180,7 @@ class TestPromptInjectionHardening:
 
     def test_last_tool_result_included_in_boundary_tags(self, mock_client_class):
         """last_tool_result must be enclosed in <last_tool_output> tags if provided."""
-        mock_client_class.return_value.utility_send.return_value = (
-            '{"safe": true, "reason": "ok"}'
-        )
+        mock_client_class.return_value.utility_send.return_value = '{"safe": true, "reason": "ok"}'
 
         verify_tool_call(
             "fix it", "edit_file", {"path": "f.py"}, last_tool_result="error at line 1"
@@ -205,14 +193,10 @@ class TestPromptInjectionHardening:
 
     def test_last_tool_result_truncated(self, mock_client_class):
         """last_tool_result longer than 2000 chars must be truncated."""
-        mock_client_class.return_value.utility_send.return_value = (
-            '{"safe": true, "reason": "ok"}'
-        )
+        mock_client_class.return_value.utility_send.return_value = '{"safe": true, "reason": "ok"}'
 
         long_res = "B" * 3000
-        verify_tool_call(
-            "fix it", "edit_file", {"path": "f.py"}, last_tool_result=long_res
-        )
+        verify_tool_call("fix it", "edit_file", {"path": "f.py"}, last_tool_result=long_res)
 
         _, user_content = mock_client_class.return_value.utility_send.call_args[0]
         assert "[truncated]" in user_content

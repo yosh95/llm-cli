@@ -77,27 +77,18 @@ def validate_edit_file(path: str, search: str, **_kwargs: str) -> bool | str:
         if search in content:
             count = content.count(search)
             if count > 1:
-                return (
-                    f"Error: {count} matches found in '{path}'. "
-                    "Use a more unique search block."
-                )
+                return f"Error: {count} matches found in '{path}'. Use a more unique search block."
             return True
 
         # Fuzzy match check
         stripped_search = search.strip()
         if not stripped_search:
-            return (
-                "Error: 'search' block is empty or contains only whitespace "
-                f"(path: '{path}')."
-            )
+            return f"Error: 'search' block is empty or contains only whitespace (path: '{path}')."
 
         tokens = re.split(r"(\s+|[^\w])", stripped_search)
         pattern_parts = [re.escape(t) for t in tokens if t and not t.isspace()]
         if not pattern_parts:
-            return (
-                f"Error: 'search' block contains no usable tokens for matching "
-                f"in '{path}'."
-            )
+            return f"Error: 'search' block contains no usable tokens for matching in '{path}'."
 
         # Guard against ReDoS: refuse excessively complex search blocks.
         if len(pattern_parts) > _FUZZY_MAX_TOKENS:
@@ -117,14 +108,10 @@ def validate_edit_file(path: str, search: str, **_kwargs: str) -> bool | str:
                 "Use a shorter, more precise block."
             )
         if not matches:
-            return (
-                f"Error: The 'search' block was not found exactly or fuzzily "
-                f"in '{path}'."
-            )
+            return f"Error: The 'search' block was not found exactly or fuzzily in '{path}'."
         if len(matches) > 1:
             return (
-                f"Error: {len(matches)} fuzzy matches found in '{path}'. "
-                "Use a more unique block."
+                f"Error: {len(matches)} fuzzy matches found in '{path}'. Use a more unique block."
             )
         return True
     except Exception as e:
@@ -178,29 +165,20 @@ def edit_file(
     if search in content:
         count = content.count(search)
         if count > 1:
-            return (
-                f"Error: {count} matches found in '{path}'. "
-                "Use a more unique search block."
-            )
+            return f"Error: {count} matches found in '{path}'. Use a more unique search block."
         match_start = content.find(search)
         match_end = match_start + len(search)
     else:
         # Fuzzy match: Ignore whitespace/indentation differences
         stripped_search = search.strip()
         if not stripped_search:
-            return (
-                "Error: 'search' block is empty or contains only whitespace "
-                f"(path: '{path}')."
-            )
+            return f"Error: 'search' block is empty or contains only whitespace (path: '{path}')."
 
         tokens = re.split(r"(\s+|[^\w])", stripped_search)
         pattern_parts = [re.escape(t) for t in tokens if t and not t.isspace()]
 
         if not pattern_parts:
-            return (
-                f"Error: 'search' block contains no usable tokens for matching "
-                f"in '{path}'."
-            )
+            return f"Error: 'search' block contains no usable tokens for matching in '{path}'."
 
         # Guard against ReDoS: refuse excessively complex search blocks.
         if len(pattern_parts) > _FUZZY_MAX_TOKENS:
@@ -220,14 +198,10 @@ def edit_file(
                 "Use a shorter, more precise block."
             )
         if not matches:
-            return (
-                f"Error: The 'search' block was not found exactly or fuzzily "
-                f"in '{path}'."
-            )
+            return f"Error: The 'search' block was not found exactly or fuzzily in '{path}'."
         if len(matches) > 1:
             return (
-                f"Error: {len(matches)} fuzzy matches found in '{path}'. "
-                "Use a more unique block."
+                f"Error: {len(matches)} fuzzy matches found in '{path}'. Use a more unique block."
             )
         match_start, match_end = matches[0].span()
 

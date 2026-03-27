@@ -69,8 +69,7 @@ def run_benchmark(provider: str, model: str, iterations: int = 5) -> None:
 
     if avg_latency > 2.0:
         console.print(
-            "[yellow][WARNING] Latency is high (>2s). "
-            "Consider using a faster model.[/yellow]"
+            "[yellow][WARNING] Latency is high (>2s). Consider using a faster model.[/yellow]"
         )
 
 

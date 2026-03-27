@@ -48,9 +48,7 @@ _RISK_STYLE: dict[str, dict[str, str]] = {
 def display_reasoning(ctx: Any) -> None:
     """Displays the agent's reasoning if available."""
     explanation = (
-        ctx.args.get("explanation")
-        or ctx.args.get("thought")
-        or ctx.args.get("reasoning")
+        ctx.args.get("explanation") or ctx.args.get("thought") or ctx.args.get("reasoning")
     )
     if explanation:
         display_name = ctx.session.client.get_display_name()
@@ -104,9 +102,7 @@ def display_tool_request(ctx: Any, auto_approved: bool = False) -> None:
 
     panel_title = Text()
     if auto_approved:
-        panel_title.append(
-            Text.from_markup("AGENT REQUEST (AUTO-APPROVED)", style="bold green")
-        )
+        panel_title.append(Text.from_markup("AGENT REQUEST (AUTO-APPROVED)", style="bold green"))
     else:
         panel_title.append(Text.from_markup("AGENT REQUEST", style="bold yellow"))
 

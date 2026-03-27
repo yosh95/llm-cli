@@ -63,9 +63,7 @@ def read_pdf_text(source: Path | BytesIO) -> str:
             for page in pdf.pages:
                 # Use x_tolerance=1.5 (default 3 too large for LaTeX/arXiv PDFs)
                 # y_tolerance=3. use_text_flow=True helps multi-column papers.
-                text = page.extract_text(
-                    x_tolerance=1.5, y_tolerance=3, use_text_flow=True
-                )
+                text = page.extract_text(x_tolerance=1.5, y_tolerance=3, use_text_flow=True)
                 if text:
                     # Simple heuristic to join lines for better Japanese continuity.
                     lines = text.splitlines()
@@ -109,9 +107,7 @@ def encode_file_base64(path: Path) -> str:
     return base64.b64encode(path.read_bytes()).decode("utf-8")
 
 
-def fetch_url_content(
-    url: str, pdf_as_base64: bool = True
-) -> tuple[str | None, str | None]:
+def fetch_url_content(url: str, pdf_as_base64: bool = True) -> tuple[str | None, str | None]:
     if not validate_url(url):
         return None, None
     try:
@@ -133,9 +129,7 @@ def fetch_url_content(
         if response.status_code in (301, 302, 303, 307, 308):
             location = response.headers.get("Location", "").strip()
             if not location or not validate_url(location):
-                logger.warning(
-                    f"SSRF guard: redirect from '{url}' to '{location}' blocked."
-                )
+                logger.warning(f"SSRF guard: redirect from '{url}' to '{location}' blocked.")
                 return None, None
             response = curl_requests.get(
                 location,
@@ -146,9 +140,7 @@ def fetch_url_content(
             )
             # A second redirect is refused outright.
             if response.status_code in (301, 302, 303, 307, 308):
-                logger.warning(
-                    f"SSRF guard: chained redirect from '{location}' refused."
-                )
+                logger.warning(f"SSRF guard: chained redirect from '{location}' refused.")
                 return None, None
 
         response.raise_for_status()

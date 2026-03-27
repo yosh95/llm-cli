@@ -34,9 +34,7 @@ def test_send_success(mock_post, ollama_client):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "choices": [
-            {"message": {"role": "assistant", "content": "Hello from Ollama!"}}
-        ],
+        "choices": [{"message": {"role": "assistant", "content": "Hello from Ollama!"}}],
         "usage": {"total_tokens": 10},
     }
     mock_post.return_value = mock_response

@@ -92,9 +92,7 @@ class TestSecureTempFile:
             created_dirs.append(path)
             return path
 
-        with patch(
-            "llm_cli.modules.tools.interpreter.tempfile.mkdtemp", tracking_mkdtemp
-        ):
+        with patch("llm_cli.modules.tools.interpreter.tempfile.mkdtemp", tracking_mkdtemp):
             execute_python("print('hello')")
 
         assert created_dirs, "mkdtemp should have been called"
@@ -113,16 +111,12 @@ class TestSecureTempFile:
             created_dirs.append(path)
             return path
 
-        with patch(
-            "llm_cli.modules.tools.interpreter.tempfile.mkdtemp", tracking_mkdtemp
-        ):
+        with patch("llm_cli.modules.tools.interpreter.tempfile.mkdtemp", tracking_mkdtemp):
             execute_python("raise RuntimeError('deliberate error')")
 
         assert created_dirs
         for d in created_dirs:
-            assert not Path(d).exists(), (
-                f"Temporary directory '{d}' leaked after script error"
-            )
+            assert not Path(d).exists(), f"Temporary directory '{d}' leaked after script error"
 
     def test_temp_dir_has_owner_only_permissions(self) -> None:
         """On POSIX systems the temp directory must be mode 0o700 (owner only)."""
@@ -147,9 +141,7 @@ class TestSecureTempFile:
             original_chmod(path, mode, **kw)
 
         with (
-            patch(
-                "llm_cli.modules.tools.interpreter.tempfile.mkdtemp", tracking_mkdtemp
-            ),
+            patch("llm_cli.modules.tools.interpreter.tempfile.mkdtemp", tracking_mkdtemp),
             patch("llm_cli.modules.tools.interpreter.os.chmod", tracking_chmod),
         ):
             execute_python("print('permissions check')")

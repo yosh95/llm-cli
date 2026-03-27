@@ -51,9 +51,7 @@ class TestIntegrityAutoInit:
             def mock_init(self, base_path):
                 original_init(self, app_dir)
 
-            with patch(
-                "llm_cli.security.integrity.IntegrityVerifier.__init__", mock_init
-            ):
+            with patch("llm_cli.security.integrity.IntegrityVerifier.__init__", mock_init):
                 # Execute verify_installation
                 verify_installation()
 

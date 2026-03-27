@@ -72,9 +72,7 @@ def benchmark_phase_1_guardrails() -> dict:
     ast_mean, ast_std = _timeit(lambda: analyze_python_safety(code_sample), reps=200)
     results["ast_latency_ms"] = ast_mean
     results["ast_stdev_ms"] = ast_std
-    print(
-        f"AST Safety Analysis        : {ast_mean:.4f} ms  (σ={ast_std:.4f} ms, n=200)"
-    )
+    print(f"AST Safety Analysis        : {ast_mean:.4f} ms  (σ={ast_std:.4f} ms, n=200)")
 
     # 1b. Base subprocess latency ---------------------------------------------
     cmd = ["python3", "-c", "print('hello')"]
@@ -104,10 +102,7 @@ def benchmark_phase_1_guardrails() -> dict:
             correct += 1
     accuracy = correct / len(test_cases) * 100
     results["static_accuracy_pct"] = accuracy
-    print(
-        f"Static Analysis Accuracy   : {accuracy:.1f}%  "
-        f"({correct}/{len(test_cases)} cases)"
-    )
+    print(f"Static Analysis Accuracy   : {accuracy:.1f}%  ({correct}/{len(test_cases)} cases)")
 
     return results
 
@@ -137,14 +132,8 @@ def benchmark_phase_2_identity_abac() -> dict:
     results["token_gen_ms"] = gen_mean
     results["token_ver_ms"] = ver_mean
 
-    print(
-        f"  Token Generation  (RSA+ML-DSA-65)   : {gen_mean:7.2f} ms  "
-        f"(σ={gen_std:.2f} ms, n=10)"
-    )
-    print(
-        f"  Token Verification                  : {ver_mean:7.2f} ms  "
-        f"(σ={ver_std:.2f} ms, n=10)"
-    )
+    print(f"  Token Generation  (RSA+ML-DSA-65)   : {gen_mean:7.2f} ms  (σ={gen_std:.2f} ms, n=10)")
+    print(f"  Token Verification                  : {ver_mean:7.2f} ms  (σ={ver_std:.2f} ms, n=10)")
 
     # 2b. PQC Agility Benchmarks ----------------------------------------------
     _section("2b. PQC Agility: Automated Level Selection")
@@ -206,10 +195,7 @@ def benchmark_phase_3_pqc() -> dict:
 
     # 3a. ML-DSA (Signatures) -------------------------------------------------
     _section("3a. ML-DSA Digital Signatures — FIPS 204")
-    print(
-        f"  {'Algorithm':<12} | {'Keygen (ms)':<12} | "
-        f"{'Sign (ms)':<12} | {'Verify (ms)':<12}"
-    )
+    print(f"  {'Algorithm':<12} | {'Keygen (ms)':<12} | {'Sign (ms)':<12} | {'Verify (ms)':<12}")
     print(f"  {'-' * 12}-+-{'-' * 12}-+-{'-' * 12}-+-{'-' * 12}")
 
     msg = b"Verify Tool Execution Claim"
@@ -238,17 +224,11 @@ def benchmark_phase_3_pqc() -> dict:
         results[f"{variant}_keygen_ms"] = kg_mean
         results[f"{variant}_sign_ms"] = sign_mean
         results[f"{variant}_verify_ms"] = ver_mean
-        print(
-            f"  {variant:<12} | {kg_mean:<12.2f} | "
-            f"{sign_mean:<12.2f} | {ver_mean:<12.2f}"
-        )
+        print(f"  {variant:<12} | {kg_mean:<12.2f} | {sign_mean:<12.2f} | {ver_mean:<12.2f}")
 
     # 3b. ML-KEM (Key Encapsulation) ------------------------------------------
     _section("3b. ML-KEM Key Encapsulation — FIPS 203")
-    print(
-        f"  {'Algorithm':<12} | {'Keygen (ms)':<12} | "
-        f"{'Encaps (ms)':<12} | {'Decaps (ms)':<12}"
-    )
+    print(f"  {'Algorithm':<12} | {'Keygen (ms)':<12} | {'Encaps (ms)':<12} | {'Decaps (ms)':<12}")
     print(f"  {'-' * 12}-+-{'-' * 12}-+-{'-' * 12}-+-{'-' * 12}")
 
     for variant in ["ML-KEM-512", "ML-KEM-768", "ML-KEM-1024"]:
@@ -273,10 +253,7 @@ def benchmark_phase_3_pqc() -> dict:
         results[f"{variant}_keygen_ms"] = kg_mean
         results[f"{variant}_encaps_ms"] = enc_mean
         results[f"{variant}_decaps_ms"] = dec_mean
-        print(
-            f"  {variant:<12} | {kg_mean:<12.2f} | "
-            f"{enc_mean:<12.2f} | {dec_mean:<12.2f}"
-        )
+        print(f"  {variant:<12} | {kg_mean:<12.2f} | {enc_mean:<12.2f} | {dec_mean:<12.2f}")
 
     return results
 
@@ -352,10 +329,7 @@ def benchmark_phase_4_dual_llm() -> dict:
         ("xai", "non-reasoning"),
     ]
 
-    print(
-        f"  {'Provider':<12} | {'Model':<10} | {'TC':<4} | "
-        f"{'Result':<8} | {'Latency (ms)':<12}"
-    )
+    print(f"  {'Provider':<12} | {'Model':<10} | {'TC':<4} | {'Result':<8} | {'Latency (ms)':<12}")
     print(f"  {'-' * 12}-+-{'-' * 10}-+-{'-' * 4}-+-{'-' * 8}-+-{'-' * 12}")
 
     for provider, model_alias in providers:
@@ -399,17 +373,12 @@ def benchmark_phase_4_dual_llm() -> dict:
                     )
             except Exception as e:
                 print(
-                    f"  {provider:<12} | {model_alias:<10} | {tc['id']:<4} | "
-                    f"ERROR    | 0.00 ({e})"
+                    f"  {provider:<12} | {model_alias:<10} | {tc['id']:<4} | ERROR    | 0.00 ({e})"
                 )
 
         if provider_results:
             avg_lat = mean([cast(float, r["latency"]) for r in provider_results])
-            acc = (
-                sum(1 for r in provider_results if r["correct"])
-                / len(provider_results)
-                * 100
-            )
+            acc = sum(1 for r in provider_results if r["correct"]) / len(provider_results) * 100
             results[provider] = {"avg_latency": avg_lat, "accuracy": acc}
         else:
             results[provider] = {"avg_latency": 0.0, "accuracy": 0.0}
@@ -458,9 +427,7 @@ def print_summary(r1: dict, r2: dict, r3: dict, r4: dict) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    sys_info = (
-        f"{platform.machine()} {platform.system()} / Python {platform.python_version()}"
-    )
+    sys_info = f"{platform.machine()} {platform.system()} / Python {platform.python_version()}"
     print("╔══════════════════════════════════════════════════════════════════╗")
     print("║  Unified Security Framework — Comprehensive Benchmark           ║")
     print(f"║  Platform: {sys_info:<52} ║")

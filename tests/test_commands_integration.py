@@ -35,9 +35,7 @@ def test_handle_model_list(mock_client):
 
 
 def test_handle_model_switch(mock_client):
-    ctx = CommandContext(
-        client=mock_client, args="gpt-3.5", pending_data=None, sources=None
-    )
+    ctx = CommandContext(client=mock_client, args="gpt-3.5", pending_data=None, sources=None)
     mock_client.set_model.return_value = True
     mock_client.current_alias = "gpt-3.5"
     mock_client.model = "gpt-3.5-turbo"
@@ -48,9 +46,7 @@ def test_handle_model_switch(mock_client):
 
 
 def test_handle_tools_toggle(mock_client):
-    ctx = CommandContext(
-        client=mock_client, args="off", pending_data=None, sources=None
-    )
+    ctx = CommandContext(client=mock_client, args="off", pending_data=None, sources=None)
     assert handle_tools(ctx) is True
     assert mock_client.tools_enabled is False
 

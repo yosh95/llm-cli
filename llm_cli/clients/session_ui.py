@@ -142,11 +142,7 @@ class SessionUI:
                 except Exception:
                     pass
 
-            current_kb = (
-                merge_key_bindings([self.kb, self.kb_exit])
-                if exit_on_escape
-                else self.kb
-            )
+            current_kb = merge_key_bindings([self.kb, self.kb_exit]) if exit_on_escape else self.kb
             kwargs.setdefault("key_bindings", current_kb)
             kwargs.setdefault("complete_style", CompleteStyle.READLINE_LIKE)
             kwargs.setdefault("enable_open_in_editor", True)
@@ -174,7 +170,6 @@ class SessionUI:
             if isinstance(e, EOFError):
                 raise e
             console.print(
-                f"[yellow]Warning: Could not access TTY for input ({e}). "
-                "Returning empty.[/yellow]"
+                f"[yellow]Warning: Could not access TTY for input ({e}). Returning empty.[/yellow]"
             )
             return ""

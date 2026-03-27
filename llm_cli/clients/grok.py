@@ -18,9 +18,7 @@ class GrokClient(OpenAICompatibleClient):
     def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         super().__init__(
             initial_model_alias=initial_model_alias,
-            spec=ProviderSpec(
-                api_key_name="api_key", config_section="xai", pdf_as_base64=False
-            ),
+            spec=ProviderSpec(api_key_name="api_key", config_section="xai", pdf_as_base64=False),
             **kwargs,
         )
         self.api_url = config_manager.get("xai", "api_url") or DEFAULT_API_URL
@@ -28,9 +26,7 @@ class GrokClient(OpenAICompatibleClient):
     def _is_image_model(self) -> bool:
         return "image" in self.model.lower()
 
-    def _send(
-        self, data: list[DataSource]
-    ) -> tuple[tuple[str | None, str | None], dict | None]:
+    def _send(self, data: list[DataSource]) -> tuple[tuple[str | None, str | None], dict | None]:
         if self._is_image_model():
             return self._send_image_generation(data)
 

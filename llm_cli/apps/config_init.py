@@ -39,8 +39,7 @@ def init_config() -> None:
     commented_lines.append("#   export ANTHROPIC_API_KEY='your-key-here'\n")
     commented_lines.append("#\n")
     commented_lines.append(
-        "# For Dual LLM Verification, ensure you have keys for "
-        "TWO different providers.\n"
+        "# For Dual LLM Verification, ensure you have keys for TWO different providers.\n"
     )
     commented_lines.append(sep + "\n")
     commented_lines.append("# Other settings can be customized below.\n\n")

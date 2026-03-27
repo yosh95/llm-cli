@@ -28,9 +28,7 @@ def mock_gemini_response_image():
     }
 
 
-def test_gemini_saves_image_and_displays_thought(
-    mock_config, mock_gemini_response_image, tmp_path
-):
+def test_gemini_saves_image_and_displays_thought(mock_config, mock_gemini_response_image, tmp_path):
     # Mock requests.post
     with patch("requests.post") as mock_post:
         mock_response = MagicMock()
@@ -205,9 +203,7 @@ def test_gemini_tool_call_round_trip(mock_config):
             for p in c.get("parts", [])
             if "functionCall" in p
         )
-        assert has_thought_sig, (
-            "thoughtSignature must be echoed back as a sibling of functionCall"
-        )
+        assert has_thought_sig, "thoughtSignature must be echoed back as a sibling of functionCall"
 
 
 def test_gemini_thought_signature_on_function_call(mock_config):
@@ -251,17 +247,13 @@ def test_gemini_thought_signature_on_function_call(mock_config):
 
         # Turn 1: model responds with a function call carrying a thoughtSignature
         mock_response.json.return_value = tool_call_response
-        client._send(
-            [DataSource(content="Search something", content_type="text/plain")]
-        )
+        client._send([DataSource(content="Search something", content_type="text/plain")])
 
         # Verify parser stored the signature correctly
         last_model_msg = client.conversation[-1]
         assert last_model_msg.role == Role.MODEL
         fc_part = next(
-            p
-            for p in last_model_msg.parts
-            if isinstance(p, ContentPart) and p.function_call
+            p for p in last_model_msg.parts if isinstance(p, ContentPart) and p.function_call
         )
         assert fc_part.thought_signature == "ENCRYPTED_SIG_XYZ", (
             "Parser must store thoughtSignature in ContentPart.thought_signature"

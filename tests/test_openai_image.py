@@ -11,9 +11,7 @@ class TestOpenAIImageGeneration:
     def mock_openai_client(self):
         with (
             patch("llm_cli.clients.config.config_manager.get") as mock_get_setting,
-            patch(
-                "llm_cli.clients.config.config_manager.get_model_aliases"
-            ) as mock_get_aliases,
+            patch("llm_cli.clients.config.config_manager.get_model_aliases") as mock_get_aliases,
         ):
             # Mock configuration
             def get_setting_side_effect(key, section):
@@ -54,16 +52,12 @@ class TestOpenAIImageGeneration:
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "created": 1700000000,
-            "data": [
-                {"b64_json": "base64_image_data_here", "revised_prompt": "A cute cat"}
-            ],
+            "data": [{"b64_json": "base64_image_data_here", "revised_prompt": "A cute cat"}],
         }
         mock_post.return_value = mock_response
 
         # Mock _save_inline_media_and_get_log_entry to avoid file I/O
-        with patch.object(
-            mock_openai_client, "_save_inline_media_and_get_log_entry"
-        ) as mock_save:
+        with patch.object(mock_openai_client, "_save_inline_media_and_get_log_entry") as mock_save:
             mock_save.return_value = ("Image saved at images/img.png", None)
 
             data = [DataSource(content="Draw a cat", content_type="text/plain")]

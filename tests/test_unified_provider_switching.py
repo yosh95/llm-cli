@@ -14,9 +14,7 @@ def test_unified_client_initialization(mock_config):
     mock_gemini_instance = MagicMock()
     mock_gemini_class = MagicMock(return_value=mock_gemini_instance)
 
-    with patch.object(
-        client_registry, "get_client_class", return_value=mock_gemini_class
-    ):
+    with patch.object(client_registry, "get_client_class", return_value=mock_gemini_class):
         client = UnifiedClient(initial_provider="google")
 
         # UnifiedClient should simply hold the real client instance

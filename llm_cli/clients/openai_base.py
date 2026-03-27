@@ -34,9 +34,7 @@ class OpenAICompatibleClient(BaseLlmClient):
                 payload["tool_choice"] = "auto"
         return payload
 
-    def _parse_openai_response(
-        self, res: dict[str, Any]
-    ) -> tuple[tuple[str, str], Message]:
+    def _parse_openai_response(self, res: dict[str, Any]) -> tuple[tuple[str, str], Message]:
         model_parts: list[str | ContentPart] = []
         full_text, thought_text = "", ""
 
@@ -92,9 +90,7 @@ class OpenAICompatibleClient(BaseLlmClient):
                                 "id": block.get("id"),
                                 "call_id": block.get("call_id"),
                                 "name": f.get("name"),
-                                "args": (
-                                    json.loads(args) if isinstance(args, str) else args
-                                ),
+                                "args": (json.loads(args) if isinstance(args, str) else args),
                             }
                         )
                     )
@@ -102,9 +98,7 @@ class OpenAICompatibleClient(BaseLlmClient):
             role=Role.MODEL, parts=model_parts
         )
 
-    def _process_ann(
-        self, ann: list[dict[str, Any]], parts: list[str | ContentPart]
-    ) -> None:
+    def _process_ann(self, ann: list[dict[str, Any]], parts: list[str | ContentPart]) -> None:
         for a in ann:
             if "url" in a:
                 parts.append(
@@ -114,9 +108,7 @@ class OpenAICompatibleClient(BaseLlmClient):
                     )
                 )
 
-    def _build_openai_compatible_messages(
-        self, data: list[DataSource]
-    ) -> list[dict[str, Any]]:
+    def _build_openai_compatible_messages(self, data: list[DataSource]) -> list[dict[str, Any]]:
         """Compatibility alias for standard chat format."""
         return self._build_chat_messages(data)
 
@@ -133,9 +125,7 @@ class OpenAICompatibleClient(BaseLlmClient):
                             {
                                 "role": "tool",
                                 "tool_call_id": fr.get("call_id") or fr.get("id"),
-                                "content": str(
-                                    fr.get("response", {}).get("result", "")
-                                ),
+                                "content": str(fr.get("response", {}).get("result", "")),
                             }
                         )
                 continue
@@ -170,9 +160,7 @@ class OpenAICompatibleClient(BaseLlmClient):
                                 {
                                     "type": "file",
                                     "file": {
-                                        "filename": p.inline_data.get(
-                                            "filename", "doc.pdf"
-                                        ),
+                                        "filename": p.inline_data.get("filename", "doc.pdf"),
                                         "file_data": f"data:{mime};base64,{b64}",
                                     },
                                 }
@@ -184,9 +172,7 @@ class OpenAICompatibleClient(BaseLlmClient):
                                 "type": "function",
                                 "function": {
                                     "name": p.function_call.get("name"),
-                                    "arguments": json.dumps(
-                                        p.function_call.get("args", {})
-                                    ),
+                                    "arguments": json.dumps(p.function_call.get("args", {})),
                                 },
                             }
                         )
@@ -203,9 +189,7 @@ class OpenAICompatibleClient(BaseLlmClient):
                 new_content.append(
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{d.content_type};base64,{d.content}"
-                        },
+                        "image_url": {"url": f"data:{d.content_type};base64,{d.content}"},
                     }
                 )
             elif d.content_type == "application/pdf":
@@ -232,9 +216,7 @@ class OpenAICompatibleClient(BaseLlmClient):
         for idx, m in enumerate(self.conversation):
             if m.role != Role.MODEL:
                 continue
-            next_m = (
-                self.conversation[idx + 1] if idx + 1 < len(self.conversation) else None
-            )
+            next_m = self.conversation[idx + 1] if idx + 1 < len(self.conversation) else None
             if next_m and next_m.role == Role.TOOL:
                 for p in next_m.parts:
                     if not isinstance(p, ContentPart):
@@ -257,9 +239,7 @@ class OpenAICompatibleClient(BaseLlmClient):
         for m in self.conversation:
             if m.role == Role.TOOL:
                 for p in [
-                    pt
-                    for pt in m.parts
-                    if isinstance(pt, ContentPart) and pt.function_response
+                    pt for pt in m.parts if isinstance(pt, ContentPart) and pt.function_response
                 ]:
                     fr = p.function_response
                     if fr:
@@ -285,9 +265,7 @@ class OpenAICompatibleClient(BaseLlmClient):
                     if part.text:
                         parts.append(
                             {
-                                "type": "input_text"
-                                if role == "user"
-                                else "output_text",
+                                "type": "input_text" if role == "user" else "output_text",
                                 "text": part.text,
                             }
                         )
@@ -319,9 +297,7 @@ class OpenAICompatibleClient(BaseLlmClient):
             if d.content_type == "text/plain":
                 new_p.append({"type": "input_text", "text": str(d.content)})
             elif d.content_type.startswith("image/"):
-                new_p.append(
-                    {"type": "input_image", "input_image": {"data": d.content}}
-                )
+                new_p.append({"type": "input_image", "input_image": {"data": d.content}})
             elif d.content_type == "application/pdf":
                 new_p.append(
                     {
@@ -336,9 +312,7 @@ class OpenAICompatibleClient(BaseLlmClient):
             self._merge(items, "user", new_p)
         return items
 
-    def _merge(
-        self, items: list[dict[str, Any]], role: str, content: list[dict[str, Any]]
-    ) -> None:
+    def _merge(self, items: list[dict[str, Any]], role: str, content: list[dict[str, Any]]) -> None:
         if items and items[-1].get("role") == role:
             items[-1]["content"].extend(content)
         else:

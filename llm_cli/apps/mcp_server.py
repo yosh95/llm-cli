@@ -83,8 +83,7 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
         else:
             # Case B: No Token - Apply Missing Token Policy
             logger.info(
-                f"No Auth Token found. Applying missing_token_policy: "
-                f"'{MISSING_TOKEN_POLICY}'"
+                f"No Auth Token found. Applying missing_token_policy: '{MISSING_TOKEN_POLICY}'"
             )
             if MISSING_TOKEN_POLICY == "deny":
                 return "[DENIED] Access Denied: Authentication required."

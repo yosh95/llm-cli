@@ -68,9 +68,7 @@ def test_build_messages_simple_text(client):
 def test_build_messages_with_history(client):
     """Conversation history is serialised before the new user turn."""
     client.conversation.append(Message(role=Role.USER, parts=[ContentPart(text="Hi")]))
-    client.conversation.append(
-        Message(role=Role.MODEL, parts=[ContentPart(text="Hello there")])
-    )
+    client.conversation.append(Message(role=Role.MODEL, parts=[ContentPart(text="Hello there")]))
 
     data = [DataSource(content="How are you?", content_type="text/plain")]
     messages = client._build_claude_messages(data)
@@ -127,9 +125,7 @@ def test_build_messages_pdf_in_history(client):
             ],
         )
     )
-    client.conversation.append(
-        Message(role=Role.MODEL, parts=[ContentPart(text="Got the PDF")])
-    )
+    client.conversation.append(Message(role=Role.MODEL, parts=[ContentPart(text="Got the PDF")]))
 
     data = [DataSource(content="What does it say?", content_type="text/plain")]
     messages = client._build_claude_messages(data)
@@ -153,11 +149,7 @@ def test_build_messages_with_tool_results(client):
     client.conversation.append(
         Message(
             role=Role.MODEL,
-            parts=[
-                ContentPart(
-                    function_call={"id": "call_1", "name": "test_tool", "args": {}}
-                )
-            ],
+            parts=[ContentPart(function_call={"id": "call_1", "name": "test_tool", "args": {}})],
         )
     )
     client.conversation.append(

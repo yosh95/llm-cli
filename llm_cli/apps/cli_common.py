@@ -32,9 +32,7 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
     )
 
     parser.add_argument("sources", nargs="*", help="Sources (text, files, URLs).")
-    parser.add_argument(
-        "-m", "--model", default="default", help="Model alias (default: 'default')"
-    )
+    parser.add_argument("-m", "--model", default="default", help="Model alias (default: 'default')")
 
     if config.supports_provider_selection:
         from llm_cli.clients.registry import client_registry
@@ -46,14 +44,10 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
             help="Provider to use",
         )
 
-    parser.add_argument(
-        "-s", "--stdout", action="store_true", help="Print to stdout and exit"
-    )
+    parser.add_argument("-s", "--stdout", action="store_true", help="Print to stdout and exit")
     parser.add_argument("--raw", action="store_true", help="Disable Markdown rendering")
     parser.add_argument("--mcp", action="store_true", help="Enable MCP integration")
-    parser.add_argument(
-        "--mcp-server", action="store_true", help="Run as an MCP server"
-    )
+    parser.add_argument("--mcp-server", action="store_true", help="Run as an MCP server")
     parser.add_argument("--session", help="Load a saved session JSON file on startup")
 
     for arg_name, arg_config in config.extra_args:
@@ -91,17 +85,14 @@ def run_client_cli(config: ClientConfig) -> None:
     active_providers = config_manager.get_active_providers()
     if not active_providers:
         console.print("[bold red][ERROR] No active LLM providers found.[/bold red]")
-        console.print(
-            "\nPlease set an API key environment variable for at least one provider:"
-        )
+        console.print("\nPlease set an API key environment variable for at least one provider:")
         console.print("  - [cyan]GEMINI_API_KEY[/cyan] (or GOOGLE_API_KEY)")
         console.print("  - [cyan]OPENAI_API_KEY[/cyan]")
         console.print("  - [cyan]ANTHROPIC_API_KEY[/cyan]")
         console.print("  - [cyan]XAI_API_KEY[/cyan]")
         console.print("  - [cyan]OLLAMA_API_KEY[/cyan] (required for remote Ollama)")
         console.print(
-            "\n[yellow]Note: Ollama is available without a key "
-            "if hosted on localhost.[/yellow]"
+            "\n[yellow]Note: Ollama is available without a key if hosted on localhost.[/yellow]"
         )
         sys.exit(1)
 
@@ -110,9 +101,7 @@ def run_client_cli(config: ClientConfig) -> None:
         sys.exit(1)
 
     if args.stdout and args.mcp_server:
-        console.print(
-            "[red][ERROR] --stdout and --mcp-server cannot be used together.[/red]"
-        )
+        console.print("[red][ERROR] --stdout and --mcp-server cannot be used together.[/red]")
         sys.exit(1)
 
     # Check if MCP module is installed when --mcp or --mcp-server is used

@@ -57,9 +57,7 @@ class LlmCliCompleter(Completer):
         # We only complete the word being typed
         arg_text_full = text[space_idx + 1 :]
         arg_prefix = (
-            arg_text_full.split()[-1]
-            if arg_text_full and not arg_text_full.endswith(" ")
-            else ""
+            arg_text_full.split()[-1] if arg_text_full and not arg_text_full.endswith(" ") else ""
         )
         if arg_text_full.endswith(" "):
             arg_prefix = ""

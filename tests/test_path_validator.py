@@ -10,9 +10,7 @@ from llm_cli.security.path_validator import PathValidationError, validate_path
 
 @pytest.fixture(autouse=True)
 def mock_path_config():
-    with patch(
-        "llm_cli.security.path_validator.config_manager.load_config"
-    ) as mock_load:
+    with patch("llm_cli.security.path_validator.config_manager.load_config") as mock_load:
         mock_load.return_value = {
             "security": {
                 "allowed_paths": [".", "/var"],
@@ -44,11 +42,7 @@ class TestPathValidator:
     def test_blocks_absolute_system_paths(self):
         """Should block absolute paths to system directories."""
         # /etc/passwd and /var/... should be blocked by the blacklist first
-        with pytest.raises(
-            PathValidationError, match="Access to blocked path is forbidden"
-        ):
+        with pytest.raises(PathValidationError, match="Access to blocked path is forbidden"):
             validate_path("/etc/passwd")
-        with pytest.raises(
-            PathValidationError, match="Access to blocked path is forbidden"
-        ):
+        with pytest.raises(PathValidationError, match="Access to blocked path is forbidden"):
             validate_path("/var/log/syslog")

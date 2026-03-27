@@ -8,9 +8,7 @@ from llm_cli.modules.tools.file_modification import edit_file
 @pytest.fixture(autouse=True)
 def mock_path_config(tmp_path):
     # Mock the configuration to allow the temporary directory
-    with patch(
-        "llm_cli.security.path_validator.config_manager.load_config"
-    ) as mock_load:
+    with patch("llm_cli.security.path_validator.config_manager.load_config") as mock_load:
         mock_load.return_value = {
             "security": {
                 "allowed_paths": [str(tmp_path)],
@@ -88,9 +86,7 @@ def test_edit_file_multiple_matches_error(temp_test_file):
     with temp_test_file.open("a") as f:
         f.write("\n    return 0\n")
 
-    res = edit_file(
-        path=str(temp_test_file), search="    return 0", replace="    return 99"
-    )
+    res = edit_file(path=str(temp_test_file), search="    return 0", replace="    return 99")
     res_text = get_result_text(res)
     assert "2 matches found" in res_text
     # Should not have changed

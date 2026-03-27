@@ -134,21 +134,16 @@ class MCPManager:
                 pass
 
             # Static status message instead of spinner
-            console.print(
-                f"[bold green]Connecting to MCP server '{name}'...[/bold green]"
-            )
+            console.print(f"[bold green]Connecting to MCP server '{name}'...[/bold green]")
             try:
                 params = StdioServerParameters(command=command, args=args, env=env)
                 tools = self._run_async(self._connect_and_list_tools(name, params))
                 all_remote_tools.extend(tools)
                 console.print(
-                    f"[green][OK] Connected to MCP server '{name}' "
-                    f"({len(tools)} tools).[/green]"
+                    f"[green][OK] Connected to MCP server '{name}' ({len(tools)} tools).[/green]"
                 )
             except Exception as e:
-                console.print(
-                    f"[red][FAIL] Failed to connect to MCP server '{name}': {e}[/red]"
-                )
+                console.print(f"[red][FAIL] Failed to connect to MCP server '{name}': {e}[/red]")
 
         self._cached_tools = all_remote_tools
         self._initialized = True
@@ -189,9 +184,7 @@ class MCPManager:
             # ExitStack will handle partial cleanup if enter_async_context succeeded.
             raise e
 
-    def call_tool(
-        self, server_name: str, tool_name: str, arguments: dict[str, Any]
-    ) -> str:
+    def call_tool(self, server_name: str, tool_name: str, arguments: dict[str, Any]) -> str:
         """Call a tool on a specific MCP server."""
         session = self.sessions.get(server_name)
         if not session:
@@ -234,9 +227,7 @@ class MCPManager:
                 tool_args[key] = value
 
         try:
-            result = self._run_async(
-                session.call_tool(tool_name, tool_args, metadata=metadata)
-            )
+            result = self._run_async(session.call_tool(tool_name, tool_args, metadata=metadata))
             output: list[str] = []
             for content in result.content:
                 if content.type == "text" and content.text:

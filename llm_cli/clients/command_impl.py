@@ -37,14 +37,10 @@ def handle_model(ctx: CommandContext) -> bool:
         return True
 
     if client.set_model(args):
-        console.print(
-            f"[cyan]Model switched to: {client.current_alias} ({client.model})[/cyan]"
-        )
+        console.print(f"[cyan]Model switched to: {client.current_alias} ({client.model})[/cyan]")
     else:
         client.set_custom_model(args)
-        console.print(
-            f"[yellow]Custom model set: {client.model} (not in config)[/yellow]"
-        )
+        console.print(f"[yellow]Custom model set: {client.model} (not in config)[/yellow]")
     return True
 
 
@@ -73,9 +69,7 @@ def handle_checkpoint(_ctx: CommandContext) -> bool:
 
 def handle_reload(ctx: CommandContext) -> bool:
     config_manager.load_config(reload=True)
-    ctx.client.api_key = config_manager.get(
-        ctx.client.config_section, ctx.client._api_key_name
-    )
+    ctx.client.api_key = config_manager.get(ctx.client.config_section, ctx.client._api_key_name)
     ctx.client.refresh_config()
     ctx.client._refresh_system_prompt()
     from llm_cli.security.policy import policy_engine
@@ -93,9 +87,7 @@ def handle_provider(ctx: CommandContext) -> bool:
     active_providers = config_manager.get_active_providers()
 
     if not args:
-        table = Table(
-            title="Active Providers", show_header=True, header_style="bold magenta"
-        )
+        table = Table(title="Active Providers", show_header=True, header_style="bold magenta")
         table.add_column("Status", justify="center", width=4)
         table.add_column("Alias", style="cyan", width=15)
         table.add_column("Config Section", style="dim")
@@ -104,9 +96,7 @@ def handle_provider(ctx: CommandContext) -> bool:
             section = info[alias]
             if section not in active_providers:
                 continue
-            active_mark = (
-                "[bold green]*[/bold green]" if section == client.config_section else ""
-            )
+            active_mark = "[bold green]*[/bold green]" if section == client.config_section else ""
             table.add_row(active_mark, alias, section)
         console.print(table)
         return True
@@ -212,13 +202,9 @@ def handle_tools(ctx: CommandContext) -> bool:
     client, args = ctx.client, ctx.args
     if args in ("on", "off"):
         client.tools_enabled = args == "on"
-        console.print(
-            f"[green]Tools {'enabled' if client.tools_enabled else 'disabled'}.[/green]"
-        )
+        console.print(f"[green]Tools {'enabled' if client.tools_enabled else 'disabled'}.[/green]")
     elif not args:
-        status = (
-            "[green]ENABLED[/green]" if client.tools_enabled else "[red]DISABLED[/red]"
-        )
+        status = "[green]ENABLED[/green]" if client.tools_enabled else "[red]DISABLED[/red]"
         console.print(f"Tools Status: {status}")
         if client.active_tools:
             console.print("[bold]Active Tools:[/bold]")
@@ -242,20 +228,12 @@ def handle_info(ctx: CommandContext) -> bool:
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_row("[bold cyan]Provider[/bold cyan]", client.config_section)
     table.add_row("[bold cyan]Model[/bold cyan]", client.model)
-    table.add_row(
-        "[bold cyan]History[/bold cyan]", f"{len(client.conversation)} messages"
-    )
+    table.add_row("[bold cyan]History[/bold cyan]", f"{len(client.conversation)} messages")
 
     # Tool status
-    tools_status = (
-        "[green]Enabled[/green]"
-        if client.tools_enabled
-        else "[yellow]Disabled[/yellow]"
-    )
+    tools_status = "[green]Enabled[/green]" if client.tools_enabled else "[yellow]Disabled[/yellow]"
     active_tools_count = len(client.active_tools)
-    table.add_row(
-        "[bold cyan]Tools[/bold cyan]", f"{tools_status} ({active_tools_count} active)"
-    )
+    table.add_row("[bold cyan]Tools[/bold cyan]", f"{tools_status} ({active_tools_count} active)")
 
     # Tool list (compact)
     if client.active_tools:
@@ -265,9 +243,7 @@ def handle_info(ctx: CommandContext) -> bool:
         table.add_row("", f"[dim]{tools_list}[/dim]")
 
     # System Prompt status
-    sp_status = (
-        "[green]On[/green]" if client.system_prompt_enabled else "[yellow]Off[/yellow]"
-    )
+    sp_status = "[green]On[/green]" if client.system_prompt_enabled else "[yellow]Off[/yellow]"
     table.add_row("[bold cyan]System Prompt[/bold cyan]", sp_status)
 
     # Debug mode

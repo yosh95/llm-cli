@@ -18,9 +18,7 @@ class OpenAIClient(OpenAICompatibleClient):
     def __init__(self, initial_model_alias: str = "default", **kwargs: Any) -> None:
         super().__init__(
             initial_model_alias=initial_model_alias,
-            spec=ProviderSpec(
-                api_key_name="api_key", config_section="openai", pdf_as_base64=True
-            ),
+            spec=ProviderSpec(api_key_name="api_key", config_section="openai", pdf_as_base64=True),
             **kwargs,
         )
         self.api_url = config_manager.get("openai", "api_url") or DEFAULT_API_URL

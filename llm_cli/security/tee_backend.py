@@ -68,9 +68,7 @@ class SimulatedEnclave(Enclave):
         )
 
     def sign(self, message: bytes, sealed_key: bytes, variant: str) -> bytes:
-        logger.debug(
-            f"[TEE] Performing {variant} signature in isolated enclave memory."
-        )
+        logger.debug(f"[TEE] Performing {variant} signature in isolated enclave memory.")
         # Key never leaves the enclave; unsealing and signing happens in one step.
         raw_key = self.unseal(sealed_key)
         signature = self._backend.sign(message, raw_key, variant)
@@ -97,9 +95,7 @@ class TEEPQCBackend(PQCBackend):
         logger.info(f"[TEE] Generated and sealed {variant} keypair.")
         return pub, sealed_priv
 
-    def sign(
-        self, message: bytes, sealed_private_key: bytes, variant: str = "ML-DSA-65"
-    ) -> bytes:
+    def sign(self, message: bytes, sealed_private_key: bytes, variant: str = "ML-DSA-65") -> bytes:
         # Pass the sealed key to the enclave.
         return self._enclave.sign(message, sealed_private_key, variant)
 

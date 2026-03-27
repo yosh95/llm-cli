@@ -13,9 +13,7 @@ class ProviderRegistry:
         self._providers: dict[str, tuple[str, str, str]] = {}
         self._loaded_clients: dict[str, type[BaseLlmClient]] = {}
 
-    def register(
-        self, alias: str, module_path: str, class_name: str, config_section: str
-    ) -> None:
+    def register(self, alias: str, module_path: str, class_name: str, config_section: str) -> None:
         self._providers[alias] = (module_path, class_name, config_section)
 
     def get_client_class(self, alias: str) -> type["BaseLlmClient"] | None:
@@ -55,12 +53,8 @@ client_registry.register("google", "llm_cli.clients.gemini", "GeminiClient", "go
 client_registry.register("gemini", "llm_cli.clients.gemini", "GeminiClient", "google")
 client_registry.register("openai", "llm_cli.clients.openai", "OpenAIClient", "openai")
 client_registry.register("gpt", "llm_cli.clients.openai", "OpenAIClient", "openai")
-client_registry.register(
-    "anthropic", "llm_cli.clients.claude", "ClaudeClient", "anthropic"
-)
-client_registry.register(
-    "claude", "llm_cli.clients.claude", "ClaudeClient", "anthropic"
-)
+client_registry.register("anthropic", "llm_cli.clients.claude", "ClaudeClient", "anthropic")
+client_registry.register("claude", "llm_cli.clients.claude", "ClaudeClient", "anthropic")
 client_registry.register("xai", "llm_cli.clients.grok", "GrokClient", "xai")
 client_registry.register("grok", "llm_cli.clients.grok", "GrokClient", "xai")
 client_registry.register("ollama", "llm_cli.clients.ollama", "OllamaClient", "ollama")

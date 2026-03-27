@@ -45,18 +45,14 @@ def handle_checkpoint(session: ChatSession) -> None:
         console.print(Rule(style="dim"))
         if session.ui.confirm("Clear history and use this summary? (y/N): "):
             session.client.clear_history()
-            summary_text = (
-                f"SYSTEM: History cleared. Continue from this summary:\n\n{summary}"
-            )
+            summary_text = f"SYSTEM: History cleared. Continue from this summary:\n\n{summary}"
             session.client.conversation = [
                 Message(
                     role=Role.USER,
                     parts=[ContentPart(text=summary_text)],
                 )
             ]
-            console.print(
-                "[green][bold green]OK[/bold green] Context refreshed.[/green]"
-            )
+            console.print("[green][bold green]OK[/bold green] Context refreshed.[/green]")
             console.print(Rule(style="dim"))
         else:
             session.client.set_conversation_state(original_state)

@@ -8,9 +8,7 @@ from rich.rule import Rule
 console = Console()
 
 
-def print_block(
-    renderable: Any, title: str | None = None, style: str | None = None
-) -> None:
+def print_block(renderable: Any, title: str | None = None, style: str | None = None) -> None:
     """Print content with background color and optional rules."""
     if title:
         console.print(Rule(title=title, style=style or "white"))

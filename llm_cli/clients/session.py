@@ -68,9 +68,7 @@ def _sanitize_tool_history(conversation: list[Message]) -> list[Message]:
             continue
 
         if msg.role == Role.MODEL:
-            call_parts = [
-                p for p in msg.parts if isinstance(p, ContentPart) and p.function_call
-            ]
+            call_parts = [p for p in msg.parts if isinstance(p, ContentPart) and p.function_call]
             text_parts = [
                 p
                 for p in msg.parts
@@ -127,9 +125,7 @@ def _sanitize_tool_history(conversation: list[Message]) -> list[Message]:
                                 result_ids.add(uid)
 
                     # If IDs match (or both sets are empty) keep the pair as-is.
-                    if advertised_ids == result_ids or (
-                        not advertised_ids and not result_ids
-                    ):
+                    if advertised_ids == result_ids or (not advertised_ids and not result_ids):
                         sanitized.append(msg)
                         sanitized.append(next_msg)
                         i += 2
@@ -153,8 +149,7 @@ def _sanitize_tool_history(conversation: list[Message]) -> list[Message]:
                             fr = p.function_response
                             result = fr.get("response", {}).get("result", "") or ""
                             summary_lines.append(
-                                f"[Tool result: {fr.get('name', '?')} → "
-                                f"{str(result)[:200]}]"
+                                f"[Tool result: {fr.get('name', '?')} → {str(result)[:200]}]"
                             )
                     combined = "\n".join(summary_lines)
                     # Emit as assistant text + user acknowledgement so the
@@ -194,9 +189,7 @@ class ChatSession:
 
         self.prompt_history: Any
         if self.history_path:
-            Path(self.history_path).parent.mkdir(
-                parents=True, exist_ok=True, mode=0o700
-            )
+            Path(self.history_path).parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             self.prompt_history = FileHistory(self.history_path)
         else:
             self.prompt_history = InMemoryHistory()
@@ -260,9 +253,7 @@ class ChatSession:
                 self.process_and_print(data)
                 data = []
             except (KeyboardInterrupt, EOFError):
-                console.print(
-                    "[yellow]Interrupted. Returning to main prompt...[/yellow]"
-                )
+                console.print("[yellow]Interrupted. Returning to main prompt...[/yellow]")
                 data = []
             except Exception as e:
                 console.print(f"[bold red][ERROR] {e}[/bold red]")
@@ -281,10 +272,7 @@ class ChatSession:
         """Suggest checkpoint if conversation is getting long."""
         model_turns = len([m for m in self.client.conversation if m.role == Role.MODEL])
         if model_turns >= MAX_TURNS:
-            msg = (
-                f"Context is large ({model_turns} turns). "
-                "Summarize and compress? (y/N): "
-            )
+            msg = f"Context is large ({model_turns} turns). Summarize and compress? (y/N): "
             if self.ui.confirm(msg):
                 handle_checkpoint(self)
                 if len(self.client.conversation) <= 1:
@@ -320,10 +308,7 @@ class ChatSession:
             from llm_cli.security.pqc import ResponseSigner
 
             verification_id = "initial"
-            if (
-                self.client.conversation
-                and self.client.conversation[-1].role == Role.TOOL
-            ):
+            if self.client.conversation and self.client.conversation[-1].role == Role.TOOL:
                 last_part = self.client.conversation[-1].parts[0]
                 if isinstance(last_part, ContentPart):
                     fr = last_part.function_response
@@ -331,9 +316,7 @@ class ChatSession:
                         verification_id = fr.get("id", "root")
 
             pqc_priv = IdentityManager._get_pqc_private_key_content()
-            signed_res = ResponseSigner.sign_response(
-                response_text, verification_id, pqc_priv
-            )
+            signed_res = ResponseSigner.sign_response(response_text, verification_id, pqc_priv)
             self.last_response_signature = signed_res["pqc_signature"]
         except Exception:
             pass
@@ -414,9 +397,7 @@ class ChatSession:
         if not tool_results_parts:
             return None
 
-        self.client.conversation.append(
-            Message(role=Role.TOOL, parts=tool_results_parts)
-        )
+        self.client.conversation.append(Message(role=Role.TOOL, parts=tool_results_parts))
         if injected_datas:
             log_chat(self, injected_datas, role="Tool Output")
         return injected_datas if injected_datas else []

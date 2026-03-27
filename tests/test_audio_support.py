@@ -54,9 +54,7 @@ def test_gemini_send_with_audio_file_uri(mock_config_audio):
         mock_response.status_code = 200
         # generateContent API response format
         mock_response.json.return_value = {
-            "candidates": [
-                {"content": {"role": "model", "parts": [{"text": "Heard audio"}]}}
-            ],
+            "candidates": [{"content": {"role": "model", "parts": [{"text": "Heard audio"}]}}],
             "usageMetadata": {"totalTokenCount": 5},
         }
         mock_post.return_value = mock_response
@@ -109,9 +107,7 @@ def test_base_client_audio_as_base64(mock_config_audio, tmp_path):
         mock_kind.mime = "audio/mpeg"
         mock_guess.return_value = mock_kind
 
-        client = ConcreteClient(
-            "default", ProviderSpec("key", "google", True), stdout=True
-        )
+        client = ConcreteClient("default", ProviderSpec("key", "google", True), stdout=True)
         result = client._process_single_source(str(audio_file))
 
         assert isinstance(result, DataSource)

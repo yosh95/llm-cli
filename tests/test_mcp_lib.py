@@ -59,8 +59,7 @@ class TestClientSession:
 
         # Responses: successful result, error result, empty string (EOF)
         responses = [
-            json.dumps({"jsonrpc": "2.0", "id": 1, "result": "success"}).encode()
-            + b"\n",
+            json.dumps({"jsonrpc": "2.0", "id": 1, "result": "success"}).encode() + b"\n",
             b"",
         ]
         read_stream.readline.side_effect = responses
@@ -70,9 +69,7 @@ class TestClientSession:
         assert future.done()
         assert future.result() == "success"
 
-    async def test_listen_loop_error(
-        self, mock_streams: tuple[AsyncMock, AsyncMock]
-    ) -> None:
+    async def test_listen_loop_error(self, mock_streams: tuple[AsyncMock, AsyncMock]) -> None:
         read_stream, write_stream = mock_streams
         session = ClientSession(read_stream, write_stream)
         session._connected = True
@@ -149,9 +146,7 @@ class TestClientSession:
             assert isinstance(result, ToolResult)
             assert result.content[0].text == "tool output"
 
-    async def test_error_response(
-        self, mock_streams: tuple[AsyncMock, AsyncMock]
-    ) -> None:
+    async def test_error_response(self, mock_streams: tuple[AsyncMock, AsyncMock]) -> None:
         read_stream, write_stream = mock_streams
         response = {
             "jsonrpc": "2.0",
@@ -277,8 +272,7 @@ async def test_fastmcp_run_loop() -> None:
 
     # Simulate one message then EOF
     mock_reader.readline.side_effect = [
-        json.dumps({"jsonrpc": "2.0", "method": "initialize", "id": 1}).encode()
-        + b"\n",
+        json.dumps({"jsonrpc": "2.0", "method": "initialize", "id": 1}).encode() + b"\n",
         b"",
     ]
 
@@ -293,9 +287,7 @@ async def test_fastmcp_run_loop() -> None:
         patch("asyncio.StreamReaderProtocol"),
     ):
         mock_loop.connect_read_pipe = AsyncMock()
-        mock_loop.connect_write_pipe = AsyncMock(
-            return_value=(mock_transport, mock_protocol)
-        )
+        mock_loop.connect_write_pipe = AsyncMock(return_value=(mock_transport, mock_protocol))
 
         await server._run_loop()
 

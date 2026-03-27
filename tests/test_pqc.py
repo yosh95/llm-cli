@@ -65,9 +65,7 @@ def test_hybrid_signer_token():
     assert len(hybrid_token) > 0
 
     # Verify hybrid token
-    verified_payload = HybridSigner.verify_hybrid_token(
-        hybrid_token, rsa_pub, lambda _: pqc_pub
-    )
+    verified_payload = HybridSigner.verify_hybrid_token(hybrid_token, rsa_pub, lambda _: pqc_pub)
     assert verified_payload is not None
     assert verified_payload["sub"] == "test_user"
     assert "roles" not in verified_payload
@@ -152,9 +150,7 @@ def test_integrity_verifier_pqc(tmp_path, monkeypatch):
     audit_log_path = tmp_path / "audit.jsonl"
 
     monkeypatch.setattr("llm_cli.security.identity.KEY_DIR", key_dir)
-    monkeypatch.setattr(
-        "llm_cli.security.integrity.IntegrityVerifier.MANIFEST_PATH", manifest_path
-    )
+    monkeypatch.setattr("llm_cli.security.integrity.IntegrityVerifier.MANIFEST_PATH", manifest_path)
     monkeypatch.setattr("llm_cli.consts.AUDIT_LOG_PATH", audit_log_path)
     monkeypatch.setattr(
         "llm_cli.security.integrity.IntegrityVerifier.CRITICAL_PATTERNS",

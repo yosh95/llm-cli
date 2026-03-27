@@ -30,9 +30,7 @@ def test_initial_data_not_duplicated_in_conversation(mock_config):
 
         if new_parts:
             client.conversation.append(Message(role=Role.USER, parts=new_parts))
-        client.conversation.append(
-            Message(role=Role.MODEL, parts=[ContentPart(text="Response")])
-        )
+        client.conversation.append(Message(role=Role.MODEL, parts=[ContentPart(text="Response")]))
         return "Response", None
 
     client._send = mock_send
@@ -56,10 +54,7 @@ def test_initial_data_not_duplicated_in_conversation(mock_config):
 
     # First user message should have file_uri placeholder + text
     assert len(client.conversation[0].parts) == 2
-    assert (
-        "[File: https://gemini.api/files/test123]"
-        in client.conversation[0].parts[0].text
-    )
+    assert "[File: https://gemini.api/files/test123]" in client.conversation[0].parts[0].text
     assert "Question 1" in client.conversation[0].parts[1].text
 
     # Second user message should have only text

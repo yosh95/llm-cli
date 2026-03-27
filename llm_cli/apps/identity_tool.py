@@ -16,9 +16,7 @@ def main() -> None:
     # Enforce strict user-only permissions and set umask
     setup_permissions()
 
-    parser = argparse.ArgumentParser(
-        description="LLM-CLI Identity and Integrity Management Tool"
-    )
+    parser = argparse.ArgumentParser(description="LLM-CLI Identity and Integrity Management Tool")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # keygen command
@@ -40,9 +38,7 @@ def main() -> None:
     decrypt_parser = subparsers.add_parser(
         "decrypt-log", help="Decrypt PQC-encrypted (ML-KEM) audit logs"
     )
-    decrypt_parser.add_argument(
-        "input", help="Path to the encrypted audit log (.jsonl)"
-    )
+    decrypt_parser.add_argument("input", help="Path to the encrypted audit log (.jsonl)")
     decrypt_parser.add_argument("-o", "--output", help="Path to save the decrypted log")
 
     # verify command (full PQC audit-log verification)
@@ -71,15 +67,12 @@ def main() -> None:
             console.print("[bold cyan]Generating Identity Keys...[/bold cyan]")
             IdentityManager._ensure_keys(force=True)
             console.print(
-                f"[bold green]OK[/bold green] Keys generated in "
-                f"{IdentityManager._KEY_DIR}"
+                f"[bold green]OK[/bold green] Keys generated in {IdentityManager._KEY_DIR}"
             )
             pub_key = IdentityManager._PRIVATE_KEY_PATH.with_suffix(".pub")
             console.print(f"RSA Public Key: {pub_key}")
             console.print(f"ML-DSA Public Key: {IdentityManager._PQC_PUBLIC_KEY_PATH}")
-            console.print(
-                f"ML-KEM Public Key: {IdentityManager._PQC_KEM_PUBLIC_KEY_PATH}"
-            )
+            console.print(f"ML-KEM Public Key: {IdentityManager._PQC_KEM_PUBLIC_KEY_PATH}")
             console.print(
                 "\n[bold yellow][Action Required][/bold yellow] Copy the PQC Public "
                 "Key to your remote servers if using Strict Zero Trust."
@@ -96,17 +89,13 @@ def main() -> None:
                     f"{verifier.MANIFEST_PATH}"
                 )
             else:
-                console.print(
-                    "[bold red]FAILED[/bold red] Failed to generate manifest."
-                )
+                console.print("[bold red]FAILED[/bold red] Failed to generate manifest.")
                 sys.exit(1)
 
         elif args.command == "verify-session":
             from llm_cli.security.merkle_anchor import SessionAnchorManager
 
-            console.print(
-                f"[bold cyan]Verifying session: {args.trace_id}...[/bold cyan]"
-            )
+            console.print(f"[bold cyan]Verifying session: {args.trace_id}...[/bold cyan]")
             if SessionAnchorManager.verify_session(args.trace_id):
                 console.print(
                     f"[bold green]OK[/bold green] Session {args.trace_id} integrity "
@@ -114,8 +103,7 @@ def main() -> None:
                 )
             else:
                 console.print(
-                    f"[bold red]FAILED[/bold red] Session {args.trace_id} integrity "
-                    "check failed."
+                    f"[bold red]FAILED[/bold red] Session {args.trace_id} integrity check failed."
                 )
                 sys.exit(1)
 
@@ -136,21 +124,15 @@ def main() -> None:
                         tid = anchor.get("trace_id", "Unknown")
                         ts = anchor.get("timestamp", "Unknown")
                         count = anchor.get("entry_count", 0)
-                        console.print(
-                            f"  - Trace ID: {tid} | Time: {ts} | Logs: {count}"
-                        )
+                        console.print(f"  - Trace ID: {tid} | Time: {ts} | Logs: {count}")
                 except Exception:
                     continue
 
         elif args.command == "decrypt-log":
             from llm_cli.apps.pqc_decrypt import decrypt_log_file
 
-            console.print(
-                f"[bold cyan]Decrypting log file: {args.input}...[/bold cyan]"
-            )
-            decrypt_log_file(
-                Path(args.input), Path(args.output) if args.output else None
-            )
+            console.print(f"[bold cyan]Decrypting log file: {args.input}...[/bold cyan]")
+            decrypt_log_file(Path(args.input), Path(args.output) if args.output else None)
 
         elif args.command == "verify":
             root_path = Path(__file__).resolve().parent.parent.parent

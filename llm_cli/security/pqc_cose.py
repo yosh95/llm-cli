@@ -71,9 +71,7 @@ class HybridSigner:
 
         # --- Signer 0: RSA ---
         rsa_sign_protected = _encode_protected(_COSE_ALG_RS256)
-        rsa_tbs = _build_sig_structure(
-            body_protected, rsa_sign_protected, payload_bytes
-        )
+        rsa_tbs = _build_sig_structure(body_protected, rsa_sign_protected, payload_bytes)
         _rsa_key = load_pem_private_key(rsa_private_key_pem, password=None)
         if not isinstance(_rsa_key, RSAPrivateKey):
             raise TypeError("rsa_private_key_pem must encode an RSA private key")
@@ -83,9 +81,7 @@ class HybridSigner:
         # --- Signer 1: ML-DSA ---
         pqc_sign_protected = _encode_protected(_COSE_ALG_MLDSA)
         pqc_uhdr: dict[int | str, Any] = {4: variant.encode()}
-        pqc_tbs = _build_sig_structure(
-            body_protected, pqc_sign_protected, payload_bytes
-        )
+        pqc_tbs = _build_sig_structure(body_protected, pqc_sign_protected, payload_bytes)
         pqc_sig = get_pqc_backend().sign(pqc_tbs, pqc_private_key, variant)
         pqc_signature_entry = [pqc_sign_protected, pqc_uhdr, pqc_sig]
 
@@ -132,9 +128,7 @@ class HybridSigner:
             if rsa_phdr.get(_COSE_HEADER_ALG) != _COSE_ALG_RS256:
                 return None
 
-            rsa_tbs = _build_sig_structure(
-                body_protected, rsa_sign_protected, payload_bytes
-            )
+            rsa_tbs = _build_sig_structure(body_protected, rsa_sign_protected, payload_bytes)
             _rsa_pub = load_pem_public_key(rsa_public_key_pem)
             if not isinstance(_rsa_pub, RSAPublicKey):
                 return None
@@ -149,9 +143,7 @@ class HybridSigner:
 
             variant_raw = pqc_uhdr.get(4, b"")
             variant = (
-                variant_raw.decode()
-                if isinstance(variant_raw, bytes)
-                else str(variant_raw)
+                variant_raw.decode() if isinstance(variant_raw, bytes) else str(variant_raw)
             ) or "ML-DSA-65"
 
             if pqc_public_key_provider is not None:
@@ -161,9 +153,7 @@ class HybridSigner:
 
                 pqc_pub = IdentityManager._get_pqc_public_key_content(variant)
 
-            pqc_tbs = _build_sig_structure(
-                body_protected, pqc_sign_protected, payload_bytes
-            )
+            pqc_tbs = _build_sig_structure(body_protected, pqc_sign_protected, payload_bytes)
             if not get_pqc_backend().verify(pqc_tbs, pqc_sig, pqc_pub, variant):
                 return None
 

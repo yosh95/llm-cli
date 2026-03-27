@@ -52,8 +52,8 @@ def file_tool_handler(
                 else result
             )
         except PathValidationError as e:
-            return sign_tool_result(f"Security Error: {e}", variant=variant)
+            return sign_tool_result(f"[ERROR] Security Error: {e}", variant=variant)
         except Exception as e:
-            return sign_tool_result(f"Error: {e}", variant=variant)
+            return sign_tool_result(f"[ERROR] {e}", variant=variant)
 
     return wrapper

@@ -51,7 +51,7 @@ class IntegrityVerifier:
 
                 return cast(dict[str, Any], json.load(f))
         except Exception as e:
-            logger.error(f"Failed to load integrity manifest: {e}")
+            logger.error(f"[ERROR] Failed to load integrity manifest: {e}")
             return None
 
     def _save_manifest(self, manifest: dict[str, str]) -> None:
@@ -79,9 +79,9 @@ class IntegrityVerifier:
 
             with self.MANIFEST_PATH.open("w", encoding="utf-8") as f:
                 json.dump(output, f, indent=2, sort_keys=True)
-            logger.info(f"Integrity manifest saved to {self.MANIFEST_PATH}")
+            logger.info(f"[OK] Integrity manifest saved to {self.MANIFEST_PATH}")
         except Exception as e:
-            logger.error(f"Failed to save integrity manifest: {e}")
+            logger.error(f"[ERROR] Failed to save integrity manifest: {e}")
 
     def _get_current_hashes(self) -> dict[str, str]:
         """Calculate hashes for all critical files found via patterns."""
@@ -119,7 +119,7 @@ class IntegrityVerifier:
         if not log_path.exists():
             return True
 
-        logger.info(f"Verifying audit log integrity: {log_path.name}")
+        logger.info(f"[INFO] Verifying audit log integrity: {log_path.name}")
         try:
             from llm_cli.security.pqc import PQCProvider
 
@@ -138,7 +138,7 @@ class IntegrityVerifier:
                 try:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
-                    logger.error(f"Malformed JSON at {log_path.name}:{i + 1}")
+                    logger.error(f"[ERROR] Malformed JSON at {log_path.name}:{i + 1}")
                     return False
 
                 provided_hash = entry.get("hash")
@@ -156,7 +156,7 @@ class IntegrityVerifier:
                 actual_hash = hashlib.sha256(entry_str.encode()).hexdigest()
 
                 if provided_hash != actual_hash:
-                    logger.error(f"Hash mismatch at {log_path.name}:{i + 1}")
+                    logger.error(f"[ERROR] Hash mismatch at {log_path.name}:{i + 1}")
                     return False
 
                 # 2. Verify PQC Signature only for the tail window
@@ -177,7 +177,9 @@ class IntegrityVerifier:
                     if not PQCProvider.verify(
                         actual_hash.encode(), pqc_sig, pqc_pub, variant=variant
                     ):
-                        logger.error(f"Signature mismatch at {log_path.name}:{i + 1}")
+                        logger.error(
+                            f"[ERROR] Signature mismatch at {log_path.name}:{i + 1}"
+                        )
                         return False
 
                 # 3. Check Hash Chain
@@ -201,7 +203,7 @@ class IntegrityVerifier:
 
                         if entry.get("prev_hash") != _get_last_log_hash(archive_path):
                             logger.error(
-                                f"Snapshot chain gap at {log_path.name}:{i + 1}"
+                                f"[ERROR] Snapshot chain gap at {log_path.name}:{i + 1}"
                             )
                             return False
 
@@ -210,12 +212,12 @@ class IntegrityVerifier:
                     last_hash = entry.get("args", {}).get("snapshot_prev_hash")
                 else:
                     if entry.get("prev_hash") != last_hash:
-                        logger.error(f"Chain broken at {log_path.name}:{i + 1}")
+                        logger.error(f"[ERROR] Chain broken at {log_path.name}:{i + 1}")
                         return False
                     last_hash = actual_hash
             return True
         except Exception as e:
-            logger.error(f"Failed to verify {log_path.name}: {e}")
+            logger.error(f"[ERROR] Failed to verify {log_path.name}: {e}")
             return False
 
     def verify(self, pqc_verify_tail_lines: int = 50) -> bool:
@@ -228,11 +230,11 @@ class IntegrityVerifier:
                 Defaults to 50 for fast startup. Pass a value like 10**9
                 for exhaustive verification (``llm-cli-security verify``).
         """
-        logger.info("System Integrity: Verifying application files...")
+        logger.info("[INFO] System Integrity: Verifying application files...")
 
         raw_manifest = self._load_manifest()
         if not raw_manifest:
-            logger.error("Integrity Failure: Manifest not found.")
+            logger.error("[ERROR] Integrity Failure: Manifest not found.")
             return False
 
         trusted_manifest: dict[str, str] | None = None
@@ -256,13 +258,15 @@ class IntegrityVerifier:
                     if not PQCProvider.verify(
                         manifest_data.encode(), signature, pqc_pub
                     ):
-                        logger.error("Integrity Failure: Manifest signature mismatch.")
+                        logger.error(
+                            "[ERROR] Integrity Failure: Manifest signature mismatch."
+                        )
                         logger.error(
                             "Try running 'llm-cli-security manifest' to re-sign."
                         )
                         return False
                 except Exception as e:
-                    logger.error(f"PQC verification error: {e}")
+                    logger.error(f"[ERROR] PQC verification error: {e}")
                     logger.error(
                         "Run 'llm-cli-security keygen' or "
                         "'llm-cli-security manifest' to fix."
@@ -278,17 +282,17 @@ class IntegrityVerifier:
         for rel_path, trusted_hash in trusted_manifest.items():
             current_hash = current_manifest.get(rel_path)
             if current_hash is None:
-                logger.error(f"Integrity Failure: Missing file {rel_path}")
+                logger.error(f"[ERROR] Integrity Failure: Missing file {rel_path}")
                 files_ok = False
             elif current_hash != trusted_hash:
-                logger.error(f"Integrity Failure: Hash mismatch for {rel_path}")
+                logger.error(f"[ERROR] Integrity Failure: Hash mismatch for {rel_path}")
                 files_ok = False
 
         # Check for unauthorized new files
         for rel_path in current_manifest:
             if rel_path not in trusted_manifest:
                 logger.error(
-                    f"Integrity Failure: Unauthorized new file detected: {rel_path}"
+                    f"[ERROR] Integrity Failure: Unauthorized file: {rel_path}"
                 )
                 files_ok = False
 
@@ -301,7 +305,7 @@ class IntegrityVerifier:
         # Audit log check
         audit_ok = self.verify_audit_log(pqc_verify_tail_lines=pqc_verify_tail_lines)
         if not audit_ok:
-            logger.error("Integrity Failure: Audit log verification failed.")
+            logger.error("[ERROR] Integrity Failure: Audit log verification failed.")
             logger.error(
                 "This may be caused by a key change or manual log tampering. "
                 "If you are developing and changed your identity keys, you may need "
@@ -312,7 +316,7 @@ class IntegrityVerifier:
 
     def rebuild_manifest(self) -> bool:
         """Force rebuild of the integrity manifest (Admin Action)."""
-        logger.info("Establishing new integrity baseline...")
+        logger.info("[INFO] Establishing new integrity baseline...")
         try:
             from llm_cli.security.identity import IdentityManager
 
@@ -328,7 +332,7 @@ class IntegrityVerifier:
         # Also check the audit log and warn the user if it's currently broken.
         if not self.verify_audit_log():
             logger.warning(
-                "[bold yellow]WARNING[/bold yellow] Warning: The audit log has a "
+                "[bold yellow]WARNING[/bold yellow] [WARNING] The audit log has a "
                 "signature mismatch. The manifest was updated successfully, but "
                 "the system will still fail the integrity check on startup until "
                 "the audit log is fixed."

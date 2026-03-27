@@ -265,7 +265,7 @@ class ChatSession:
                 )
                 data = []
             except Exception as e:
-                console.print(f"[bold red]Error: {e}[/bold red]")
+                console.print(f"[bold red][ERROR] {e}[/bold red]")
                 data = []
 
         try:

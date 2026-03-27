@@ -288,7 +288,7 @@ def main() -> None:
 
     provider = args.provider.lower()
     if provider not in MODEL_LISTING_REGISTRY:
-        console.print(f"[bold red]Error: Unknown provider '{provider}'.[/bold red]")
+        console.print(f"[bold red][ERROR] Unknown provider '{provider}'.[/bold red]")
         available = ", ".join(sorted(MODEL_LISTING_REGISTRY.keys()))
         console.print(f"Available providers: {available}")
         sys.exit(1)

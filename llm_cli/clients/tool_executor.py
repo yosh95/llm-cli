@@ -130,7 +130,7 @@ def execute_tool_call(
 
     except Exception as e:
         logger.exception("Unexpected error during tool execution")
-        ctx.error_message = f"Internal Error: {e}"
+        ctx.error_message = f"[ERROR] Internal Error: {e}"
         return _create_error_response(ctx), None
 
     response = ContentPart(
@@ -405,7 +405,7 @@ def _run_pre_approval_validation(ctx: ToolExecutionContext) -> bool:
         report_error(ctx.error_message)
         return False
     except Exception as e:
-        ctx.error_message = f"Validation error: {e}"
+        ctx.error_message = f"[ERROR] Validation error: {e}"
         report_error(ctx.error_message)
         return False
 
@@ -533,7 +533,11 @@ def _execute_function(ctx: ToolExecutionContext) -> bool:
             # Only sign if it's not already an error message and it's a local tool.
             # Remote tools (MCP) are signed by the server if Zero Trust is enabled.
             res_str = str(result)
-            if not (res_str.startswith("Error:") or "DENIED Access Denied:" in res_str):
+            if not (
+                res_str.startswith("[ERROR]")
+                or "[DENIED] Access Denied:" in res_str
+                or res_str.startswith("Error:")
+            ):
                 from llm_cli.security.pqc import PQCAgilityManager, sign_tool_result
 
                 variant = PQCAgilityManager.get_required_level(ctx.name, args=ctx.args)
@@ -612,7 +616,7 @@ def _post_process_result(ctx: ToolExecutionContext) -> bool:
     ctx.result_data = res_str
     print_block(
         escape(res_str),
-        title="OK Tool Output",
+        title="[OK] Tool Output",
         style="green",
     )
     return True
@@ -644,8 +648,13 @@ def _truncate_output(res_str: str) -> str:
 
 def _create_error_response(ctx: ToolExecutionContext) -> ContentPart:
     err = ctx.error_message or "Unknown error"
-    if not err.startswith("Error:") and not err.startswith("Security Error:"):
-        err = f"Error: {err}"
+    if (
+        not err.startswith("[ERROR]")
+        and not err.startswith("[DENIED]")
+        and not err.startswith("Error:")
+        and not err.startswith("Security Error:")
+    ):
+        err = f"[ERROR] {err}"
     return ContentPart(
         function_response={
             "id": ctx.tool_id,

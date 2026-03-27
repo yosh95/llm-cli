@@ -30,7 +30,7 @@ class UnifiedClient:
             if active_providers:
                 provider_name = active_providers[0]
             else:
-                console.print("[bold red]Error: No active providers found.[/bold red]")
+                console.print("[bold red][ERROR] No active providers found.[/bold red]")
                 import sys
 
                 sys.exit(1)
@@ -39,7 +39,7 @@ class UnifiedClient:
         client_class = client_registry.get_client_class(provider_name)
         if not client_class:
             console.print(
-                f"[bold red]Error: Provider {provider_name} not found.[/bold red]"
+                f"[bold red][ERROR] Provider {provider_name} not found.[/bold red]"
             )
             import sys
 

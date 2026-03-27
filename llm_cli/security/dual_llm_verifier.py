@@ -41,21 +41,21 @@ def verify_tool_call(
     client_class = client_registry.get_client_class(provider_alias)
     if not client_class:
         msg = f"Dual LLM: Provider '{provider_alias}' not found."
-        logger.error(msg)
-        return False, f"Provider not found: {msg}"
+        logger.error(f"[ERROR] {msg}")
+        return False, f"[ERROR] Provider not found: {msg}"
 
     try:
         # Cast to Any because concrete subclasses handle 'spec' internally
         client = cast(Any, client_class)(initial_model_alias=model_alias)
     except Exception as e:
         msg = f"Dual LLM: Initialization failed: {e}"
-        logger.error(msg)
-        return False, f"Initialization error: {msg}"
+        logger.error(f"[ERROR] {msg}")
+        return False, f"[ERROR] Initialization error: {msg}"
 
     if not client.api_key:
         msg = f"Dual LLM: API key missing for {provider_alias}."
-        logger.error(msg)
-        return False, f"API key missing: {msg}"
+        logger.error(f"[ERROR] {msg}")
+        return False, f"[ERROR] API key missing: {msg}"
 
     system_prompt = (
         "You are a security guard for an AI agent.\n"
@@ -161,6 +161,6 @@ def verify_tool_call(
         return is_safe, reason
 
     except Exception as e:
-        logger.error(f"Dual LLM Verification error: {e}")
+        logger.error(f"[ERROR] Dual LLM Verification error: {e}")
         # Return False to trigger the human-in-the-loop fallback in tool_executor
-        return False, f"Verification process failed: {e}"
+        return False, f"[ERROR] Verification process failed: {e}"

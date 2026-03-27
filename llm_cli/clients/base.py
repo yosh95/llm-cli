@@ -520,7 +520,7 @@ class BaseLlmClient(ABC):
             except Exception:
                 if e.response.text:
                     error_msg += f"\nResponse: {e.response.text}"
-        console.print(f"[bold red]{provider} Error: {error_msg}[/bold red]")
+        console.print(f"[bold red][{provider} ERROR] {error_msg}[/bold red]")
 
     def _save_inline_media_and_get_log_entry(
         self, inline_data: dict[str, Any], hint_text: str = ""

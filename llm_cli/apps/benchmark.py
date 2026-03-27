@@ -49,7 +49,7 @@ def run_benchmark(provider: str, model: str, iterations: int = 5) -> None:
             else:
                 latencies.append(elapsed)
     except Exception as e:
-        console.print(f"\n[red]Error during benchmark execution: {e}[/red]")
+        console.print(f"\n[red][ERROR] Error during benchmark execution: {e}[/red]")
         return
     finally:
         # Restore original config
@@ -57,21 +57,19 @@ def run_benchmark(provider: str, model: str, iterations: int = 5) -> None:
         config_manager.set("security", "dual_llm_model", original_model)
 
     if not latencies:
-        msg = (
-            "\n[bold red]Benchmark failed: No successful requests completed.[/bold red]"
-        )
+        msg = "\n[bold red][ERROR] Benchmark failed: No successful requests.[/bold red]"
         console.print(msg)
         return
 
     avg_latency = sum(latencies) / len(latencies)
-    console.print("\n[bold green]Benchmark Results:[/bold green]")
+    console.print("\n[bold green][SUCCESS] Benchmark Results:[/bold green]")
     console.print(f"  Average Latency: [bold]{avg_latency:.2f}s[/bold]")
     console.print(f"  Min Latency:     {min(latencies):.2f}s")
     console.print(f"  Max Latency:     {max(latencies):.2f}s")
 
     if avg_latency > 2.0:
         console.print(
-            "[yellow]Warning: Latency is high (>2s). "
+            "[yellow][WARNING] Latency is high (>2s). "
             "Consider using a faster model.[/yellow]"
         )
 

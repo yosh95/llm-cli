@@ -116,14 +116,14 @@ class PolicyEngine:
         if risk_level == RiskLevel.HIGH and not has_pqc:
             if security_level == "high":
                 msg = (
-                    f"DENIED Access Denied: High-risk tool "
+                    f"[DENIED] Access Denied: High-risk tool "
                     f"'{tool_name}' requires PQC proof."
                 )
                 logger.warning(msg)
                 return False
             else:
                 logger.info(
-                    f"WARNING Standard Mode: Permitting "
+                    f"[WARNING] Standard Mode: Permitting "
                     f"high-risk tool '{tool_name}' without PQC proof."
                 )
 
@@ -134,7 +134,7 @@ class PolicyEngine:
             tool_name, arguments, {"scopes": {tool_name: global_scope}}
         ):
             logger.warning(
-                f"DENIED Access Denied: Arguments out of scope for tool '{tool_name}'"
+                f"[DENIED] Access Denied: Arguments out of scope for tool '{tool_name}'"
             )
             return False
 
@@ -142,7 +142,7 @@ class PolicyEngine:
         if not self._global_guardrails(tool_name, arguments):
             return False
 
-        logger.info("OK Access Granted")
+        logger.info("[OK] Access Granted")
         return True
 
     def _verify_scope(

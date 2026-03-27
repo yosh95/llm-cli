@@ -90,7 +90,7 @@ def run_client_cli(config: ClientConfig) -> None:
     # Check for at least one active provider
     active_providers = config_manager.get_active_providers()
     if not active_providers:
-        console.print("[bold red]Error: No active LLM providers found.[/bold red]")
+        console.print("[bold red][ERROR] No active LLM providers found.[/bold red]")
         console.print(
             "\nPlease set an API key environment variable for at least one provider:"
         )
@@ -106,12 +106,12 @@ def run_client_cli(config: ClientConfig) -> None:
         sys.exit(1)
 
     if args.stdout and args.mcp:
-        console.print("[red]Error: --stdout and --mcp cannot be used together.[/red]")
+        console.print("[red][ERROR] --stdout and --mcp cannot be used together.[/red]")
         sys.exit(1)
 
     if args.stdout and args.mcp_server:
         console.print(
-            "[red]Error: --stdout and --mcp-server cannot be used together.[/red]"
+            "[red][ERROR] --stdout and --mcp-server cannot be used together.[/red]"
         )
         sys.exit(1)
 
@@ -127,7 +127,7 @@ def run_client_cli(config: ClientConfig) -> None:
             run_mcp_server()
             sys.exit(0)
         except (ImportError, Exception) as e:
-            console.print(f"[red]Failed to start MCP server: {e}[/red]")
+            console.print(f"[red][ERROR] Failed to start MCP server: {e}[/red]")
             sys.exit(1)
 
     stdout = args.stdout or not sys.stdin.isatty()
@@ -169,7 +169,7 @@ def run_client_cli(config: ClientConfig) -> None:
             client.process_sources(args.sources)
         else:
             if stdout:
-                console.print("[red]Error: --stdout requires input[/red]")
+                console.print("[red][ERROR] --stdout requires input[/red]")
                 console.print("[red](from stdin or arguments).[/red]")
                 sys.exit(1)
             client.talk()

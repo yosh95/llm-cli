@@ -261,8 +261,8 @@ class PythonSecurityScanner(ast.NodeVisitor):
                     else:
                         # VULN-002 Mitigation: Detect non-literal elements in the list
                         self.warnings.append(
-                            "Security Warning: subprocess call with non-literal "
-                            "elements in the command list."
+                            "[WARNING] Security Warning: subprocess call with "
+                            "non-literal elements in the command list."
                         )
             elif isinstance(first_arg, ast.Constant) and isinstance(
                 first_arg.value, str
@@ -271,8 +271,8 @@ class PythonSecurityScanner(ast.NodeVisitor):
             else:
                 # VULN-002 Mitigation: Detect non-literal first argument (variable)
                 self.warnings.append(
-                    "Security Warning: subprocess call with non-literal command "
-                    "argument."
+                    "[WARNING] Security Warning: subprocess call with "
+                    "non-literal command argument."
                 )
 
         # 2. Check for shell=True
@@ -531,6 +531,6 @@ def analyze_python_safety(code: str) -> tuple[bool, list[str], list[str]]:
         is_safe = len(scanner.violations) == 0 and len(scanner.warnings) == 0
         return is_safe, scanner.violations, scanner.warnings
     except SyntaxError as e:
-        return False, [f"Syntax Error: {e}"], []
+        return False, [f"[ERROR] Syntax Error: {e}"], []
     except Exception as e:
-        return False, [f"Analysis Error: {e}"], []
+        return False, [f"[ERROR] Analysis Error: {e}"], []

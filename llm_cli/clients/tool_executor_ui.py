@@ -86,8 +86,8 @@ def display_tool_request(ctx: Any, auto_approved: bool = False) -> None:
         if k in ("explanation", "thought", "reasoning"):
             continue
         val_str = repr(v)
-        if len(val_str) > 120:
-            val_str = val_str[:120] + "..."
+        if len(val_str) > 50:
+            val_str = val_str[:50] + "..."
         arg_parts.append(f"  {k} = {val_str}")
 
     args_block = "\n".join(arg_parts) if arg_parts else "  (no arguments)"

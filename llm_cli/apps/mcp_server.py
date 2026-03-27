@@ -79,7 +79,7 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
             else:
                 # Token present but invalid -> Treat as attack attempt (Deny)
                 logger.warning("Invalid Auth Token provided. Access Denied.")
-                return "[ERROR] Authentication Failed: Invalid Token."
+                return "[DENIED] Access Denied: Authentication Failed: Invalid Token."
         else:
             # Case B: No Token - Apply Missing Token Policy
             logger.info(
@@ -87,7 +87,7 @@ def secure_tool_wrapper(func: Callable[..., Any], tool_name: str) -> Callable[..
                 f"'{MISSING_TOKEN_POLICY}'"
             )
             if MISSING_TOKEN_POLICY == "deny":
-                return "[ERROR] Access Denied: Authentication required."
+                return "[DENIED] Access Denied: Authentication required."
 
             # Assign the fallback identity
             user_context = {

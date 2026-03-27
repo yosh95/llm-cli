@@ -113,7 +113,7 @@ def handle_provider(ctx: CommandContext) -> bool:
 
     config_section = client_registry.get_config_section(args)
     if not config_section or config_section not in active_providers:
-        console.print(f"[red]Error: {args} is inactive or unknown.[/red]")
+        console.print(f"[red][ERROR] {args} is inactive or unknown.[/red]")
         return True
 
     client_class = client_registry.get_client_class(args)

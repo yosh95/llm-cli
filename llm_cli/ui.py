@@ -22,12 +22,12 @@ def print_block(
 
 
 def report_error(message: str) -> None:
-    console.print(f"[bold red]Error: {message}[/bold red]")
+    console.print(f"[bold red][ERROR] {message}[/bold red]")
 
 
 def report_warning(message: str) -> None:
-    console.print(f"[bold yellow]Warning: {message}[/bold yellow]")
+    console.print(f"[bold yellow][WARNING] {message}[/bold yellow]")
 
 
 def report_success(message: str) -> None:
-    console.print(f"[bold green]SUCCESS: {message}[/bold green]")
+    console.print(f"[bold green][SUCCESS] {message}[/bold green]")

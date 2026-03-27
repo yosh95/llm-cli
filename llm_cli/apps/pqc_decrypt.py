@@ -12,14 +12,14 @@ def decrypt_log_file(input_path: Path, output_path: Path | None = None) -> None:
     Decrypts ML-KEM encrypted entries in an audit log file.
     """
     if not input_path.exists():
-        print(f"Error: File {input_path} not found.")
+        print(f"[ERROR] File {input_path} not found.")
         sys.exit(1)
 
     # Load the private key for decryption
     try:
         priv_kem = IdentityManager._get_kem_private_key_content()
     except Exception as e:
-        print(f"Error: Failed to load PQC private key: {e}")
+        print(f"[ERROR] Failed to load PQC private key: {e}")
         sys.exit(1)
 
     decrypted_entries = []
@@ -35,7 +35,7 @@ def decrypt_log_file(input_path: Path, output_path: Path | None = None) -> None:
 
                 decrypted_entries.append(entry)
             except Exception as e:
-                print(f"Warning: Failed to process line {i + 1}: {e}")
+                print(f"[WARNING] Failed to process line {i + 1}: {e}")
                 decrypted_entries.append(
                     {"error": f"Decryption failed: {str(e)}", "raw": line}
                 )

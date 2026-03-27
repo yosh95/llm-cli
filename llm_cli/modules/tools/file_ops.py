@@ -189,7 +189,7 @@ def list_files_in_directory(
         except PermissionError:
             results.append(
                 f"{'[ERR]':<7} {' ' * 20} {' ' * 10}  "
-                f"Permission Denied: {current_path.name}"
+                f"[DENIED] Permission Denied: {current_path.name}"
             )
             return
 
@@ -227,12 +227,12 @@ def validate_read_file(path: str, **_kwargs: Any) -> bool | str:
     try:
         p = validate_path(path)
         if not p.is_file():
-            return f"Error: '{path}' is not a file."
+            return f"[ERROR] '{path}' is not a file."
         return True
     except PathValidationError as e:
-        return f"Security Error: {e}"
+        return f"[ERROR] Security Error: {e}"
     except Exception as e:
-        return f"Error during validation: {e}"
+        return f"[ERROR] Error during validation: {e}"
 
 
 @tool(

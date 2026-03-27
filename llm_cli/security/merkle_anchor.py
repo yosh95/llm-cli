@@ -177,10 +177,12 @@ class SessionAnchorManager:
                     anchor_file.unlink()
                     deleted_count += 1
                 except Exception as e:
-                    logger.error(f"Failed to delete orphaned anchor {anchor_file}: {e}")
+                    logger.error(
+                        f"[ERROR] Failed to delete orphaned anchor {anchor_file}: {e}"
+                    )
 
         if deleted_count > 0:
-            logger.info(f"Cleaned up {deleted_count} orphaned session anchors.")
+            logger.info(f"[OK] Cleaned up {deleted_count} orphaned session anchors.")
 
         return deleted_count
 
@@ -191,7 +193,7 @@ class SessionAnchorManager:
         """
         anchor_path = ANCHOR_DIR / f"{trace_id}.anchor.json"
         if not anchor_path.exists():
-            logger.error(f"Anchor not found for session {trace_id}")
+            logger.error(f"[ERROR] Anchor not found for session {trace_id}")
             return False
 
         try:
@@ -218,7 +220,9 @@ class SessionAnchorManager:
                 if not PQCProvider.verify(
                     message.encode(), signature, pqc_pub, variant=variant
                 ):
-                    logger.error(f"Anchor signature mismatch for session {trace_id}")
+                    logger.error(
+                        f"[ERROR] Anchor signature mismatch for session {trace_id}"
+                    )
                     return False
                 logger.debug(f"Anchor signature for {trace_id} verified.")
 
@@ -226,7 +230,7 @@ class SessionAnchorManager:
             entries = SessionAnchorManager.get_session_entries(trace_id)
             if len(entries) != anchor.get("entry_count"):
                 logger.error(
-                    f"Entry count mismatch for session {trace_id}. "
+                    f"[ERROR] Entry count mismatch for session {trace_id}. "
                     f"Expected {anchor.get('entry_count')}, found {len(entries)}"
                 )
                 return False
@@ -235,7 +239,7 @@ class SessionAnchorManager:
             for entry in entries:
                 provided_hash = entry.get("hash")
                 if not provided_hash:
-                    logger.error(f"Entry missing hash in session {trace_id}")
+                    logger.error(f"[ERROR] Entry missing hash in session {trace_id}")
                     return False
                 provided_hash = str(provided_hash)
 
@@ -252,7 +256,7 @@ class SessionAnchorManager:
 
                 if provided_hash != actual_hash:
                     logger.error(
-                        f"Entry content tampered for trace {trace_id}. "
+                        f"[ERROR] Entry content tampered for trace {trace_id}. "
                         f"Provided: {provided_hash}, Actual: {actual_hash}"
                     )
                     return False
@@ -263,14 +267,16 @@ class SessionAnchorManager:
 
             if tree.root_hex != root_hex:
                 logger.error(
-                    f"Merkle Root mismatch for session {trace_id}. "
+                    f"[ERROR] Merkle Root mismatch for session {trace_id}. "
                     f"Anchor says {root_hex}, but recalculated {tree.root_hex}"
                 )
                 return False
 
-            logger.info(f"Session {trace_id} integrity verified via Merkle Anchor.")
+            logger.info(
+                f"[SUCCESS] Session {trace_id} integrity verified via Merkle Anchor."
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Failed to verify session {trace_id}: {e}")
+            logger.error(f"[ERROR] Failed to verify session {trace_id}: {e}")
             return False

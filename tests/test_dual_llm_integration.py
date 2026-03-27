@@ -120,10 +120,10 @@ def test_tool_executor_soft_fail_on_api_key_missing(session, tool_call_part):
         patch("llm_cli.ui.report_warning") as mock_warn,
     ):
         # _run_dual_llm_verification should return True (user approved manually)
-        from llm_cli.clients.tool_executor import (
-            ToolExecutionContext,
-            _run_dual_llm_verification,
+        from llm_cli.clients.tool_executor_security import (
+            run_dual_llm_verification as _run_dual_llm_verification,
         )
+        from llm_cli.clients.tool_executor_types import ToolExecutionContext
         from llm_cli.modules.models import ContentPart
 
         part = ContentPart(function_call={"id": "c1", "name": "test_tool", "args": {}})
@@ -171,11 +171,11 @@ def test_tool_executor_soft_fail_on_api_key_missing_user_rejects(session, tool_c
         patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True),
         patch("llm_cli.ui.report_warning"),
     ):
-        from llm_cli.clients.tool_executor import (
-            ToolExecutionContext,
-            _get_user_approval,
-            _run_dual_llm_verification,
+        from llm_cli.clients.tool_executor import _get_user_approval
+        from llm_cli.clients.tool_executor_security import (
+            run_dual_llm_verification as _run_dual_llm_verification,
         )
+        from llm_cli.clients.tool_executor_types import ToolExecutionContext
         from llm_cli.modules.models import ContentPart
 
         part = ContentPart(function_call={"id": "c1", "name": "test_tool", "args": {}})
@@ -225,10 +225,10 @@ def test_soft_fail_reasons_all_trigger_human_fallback(session, tool_call_part, r
         ),
         patch("llm_cli.ui.report_warning"),
     ):
-        from llm_cli.clients.tool_executor import (
-            ToolExecutionContext,
-            _run_dual_llm_verification,
+        from llm_cli.clients.tool_executor_security import (
+            run_dual_llm_verification as _run_dual_llm_verification,
         )
+        from llm_cli.clients.tool_executor_types import ToolExecutionContext
         from llm_cli.modules.models import ContentPart
 
         part = ContentPart(function_call={"id": "c1", "name": "test_tool", "args": {}})
@@ -286,7 +286,7 @@ def test_tool_executor_passes_on_dual_llm_success(session, tool_call_part):
             ),
         ),
         patch(
-            "llm_cli.clients.tool_executor._verify_pqc_signature",
+            "llm_cli.clients.tool_executor.verify_pqc_signature",
             side_effect=lambda data, *_, **__: (
                 data.get("result") if isinstance(data, dict) else data
             ),

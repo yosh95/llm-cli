@@ -4,10 +4,8 @@ import pytest
 
 from llm_cli.clients.base import BaseLlmClient, ProviderSpec
 from llm_cli.clients.session import ChatSession
-from llm_cli.clients.tool_executor import (
-    ToolExecutionContext,
-    execute_tool_call,
-)
+from llm_cli.clients.tool_executor import execute_tool_call
+from llm_cli.clients.tool_executor_types import ToolExecutionContext
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 
 
@@ -88,9 +86,9 @@ def test_execute_tool_call_success(session, tool_call_part):
                 ),
             ):
                 with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
-                    # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
+                    # Patch verify_pqc_signature to avoid failure due to missing signature in mock tools
                     with patch(
-                        "llm_cli.clients.tool_executor._verify_pqc_signature",
+                        "llm_cli.clients.tool_executor.verify_pqc_signature",
                         side_effect=mock_verify,
                     ):
                         res_part, injected = execute_tool_call(session, tool_call_part)
@@ -163,9 +161,9 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
                 ),
             ):
                 with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):
-                    # Patch _verify_pqc_signature to avoid failure due to missing signature in mock tools
+                    # Patch verify_pqc_signature to avoid failure due to missing signature in mock tools
                     with patch(
-                        "llm_cli.clients.tool_executor._verify_pqc_signature",
+                        "llm_cli.clients.tool_executor.verify_pqc_signature",
                         side_effect=mock_verify,
                     ):
                         res_part, injected = execute_tool_call(session, tool_call_part)
@@ -178,7 +176,7 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
 
 def test_code_safety_check_blocks_unsafe_code(session):
     """Test that static analysis blocks dangerous Python code."""
-    from llm_cli.clients.tool_executor import _run_code_safety_check
+    from llm_cli.clients.tool_executor_security import run_code_safety_check
 
     part = ContentPart(
         function_call={
@@ -189,11 +187,11 @@ def test_code_safety_check_blocks_unsafe_code(session):
     ctx = ToolExecutionContext(session, part)
 
     with patch(
-        "llm_cli.clients.tool_executor.analyze_python_safety",
+        "llm_cli.clients.tool_executor_security.analyze_python_safety",
         return_value=(False, ["Dangerous import"], []),
     ):
         # By default it should fail if analyze_python_safety returns False
-        result = _run_code_safety_check(ctx)
+        result = run_code_safety_check(ctx)
         assert result is False
         assert "blocked" in ctx.error_message.lower()
 
@@ -219,7 +217,7 @@ def test_pqc_verification_post_process(session):
         return_value=b"pubkey",
     ):
         with patch("llm_cli.security.pqc.PQCProvider.verify", return_value=True):
-            with patch("llm_cli.clients.tool_executor.report_success") as mock_success:
+            with patch("llm_cli.clients.tool_executor_security.report_success") as mock_success:
                 success = _post_process_result(ctx)
                 assert success is True
                 assert ctx.result_data == "Secret Data"

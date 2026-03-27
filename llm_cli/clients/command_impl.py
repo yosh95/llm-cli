@@ -235,13 +235,6 @@ def handle_info(ctx: CommandContext) -> bool:
     active_tools_count = len(client.active_tools)
     table.add_row("[bold cyan]Tools[/bold cyan]", f"{tools_status} ({active_tools_count} active)")
 
-    # Tool list (compact)
-    if client.active_tools:
-        tools_list = ", ".join(sorted(client.active_tools))
-        if len(tools_list) > 60:
-            tools_list = tools_list[:57] + "..."
-        table.add_row("", f"[dim]{tools_list}[/dim]")
-
     # System Prompt status
     sp_status = "[green]On[/green]" if client.system_prompt_enabled else "[yellow]Off[/yellow]"
     table.add_row("[bold cyan]System Prompt[/bold cyan]", sp_status)

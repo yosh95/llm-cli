@@ -223,6 +223,29 @@ class OpenAICompatibleClient(BaseLlmClient):
         return msgs
 
     def _build_responses_items(self, data: list[DataSource]) -> list[dict[str, Any]]:
+        # Pre-scan: collect call_ids that have a matching function_call_output
+        # in the very next TOOL message.  Any call_id NOT in this set will be
+        # skipped when building the payload so orphaned function_call items
+        # (e.g. tool calls whose result was never recorded because the user
+        # switched provider mid-ReAct loop) don't cause a 422 from the API.
+        resolved_call_ids: set[str] = set()
+        for idx, m in enumerate(self.conversation):
+            if m.role != Role.MODEL:
+                continue
+            next_m = (
+                self.conversation[idx + 1] if idx + 1 < len(self.conversation) else None
+            )
+            if next_m and next_m.role == Role.TOOL:
+                for p in next_m.parts:
+                    if not isinstance(p, ContentPart):
+                        continue
+                    fr = p.function_response
+                    if fr is None:
+                        continue
+                    uid = fr.get("call_id") or fr.get("id")
+                    if uid:
+                        resolved_call_ids.add(uid)
+
         items: list[dict[str, Any]] = []
         if self.system_prompt and self.system_prompt_enabled:
             items.append(
@@ -271,18 +294,21 @@ class OpenAICompatibleClient(BaseLlmClient):
                     if part.thought:
                         parts.append({"type": "thought", "text": part.thought})
                     if part.function_call and role == "assistant":
+                        fc = part.function_call
+                        call_id = fc.get("call_id") or fc.get("id")
+                        # Skip orphaned function_calls (no matching output)
+                        if call_id and call_id not in resolved_call_ids:
+                            continue
                         if parts:
                             self._merge(items, role, parts)
                             parts = []
                         items.append(
                             {
                                 "type": "function_call",
-                                "id": part.function_call.get("id"),
-                                "call_id": part.function_call.get("call_id"),
-                                "name": part.function_call.get("name"),
-                                "arguments": json.dumps(
-                                    part.function_call.get("args", {})
-                                ),
+                                "id": fc.get("id"),
+                                "call_id": fc.get("call_id"),
+                                "name": fc.get("name"),
+                                "arguments": json.dumps(fc.get("args", {})),
                                 "status": "completed",
                             }
                         )

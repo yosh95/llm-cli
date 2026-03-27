@@ -94,10 +94,16 @@ class ClaudeClient(BaseLlmClient):
                                 }
                             )
                     if p.function_call:
+                        # Use call_id if present (Grok/OpenAI Responses API),
+                        # otherwise fall back to id.  This must match the
+                        # tool_use_id used in the corresponding tool_result block.
+                        tool_use_id = p.function_call.get(
+                            "call_id"
+                        ) or p.function_call.get("id")
                         content.append(
                             {
                                 "type": "tool_use",
-                                "id": p.function_call.get("id"),
+                                "id": tool_use_id,
                                 "name": p.function_call.get("name"),
                                 "input": p.function_call.get("args", {}),
                             }

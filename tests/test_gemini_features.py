@@ -65,7 +65,7 @@ def test_gemini_saves_image_and_displays_thought(mock_config, mock_gemini_respon
 
 
 def test_gemini_send_builds_correct_url(mock_config):
-    """Verify _send calls the generateContent endpoint (not interactions)."""
+    """Verify _send calls the generateContent endpoint."""
     response_payload = {
         "candidates": [{"content": {"role": "model", "parts": [{"text": "Hello!"}]}}],
         "usageMetadata": {"totalTokenCount": 5},
@@ -82,7 +82,6 @@ def test_gemini_send_builds_correct_url(mock_config):
 
         called_url = mock_post.call_args[0][0]
         assert ":generateContent" in called_url
-        assert "interactions" not in called_url
 
 
 def test_gemini_stateless_full_history_sent(mock_config):
@@ -331,11 +330,3 @@ def test_gemini_thinking_response_parsed(mock_config):
 
         assert thought == "My reasoning here."
         assert text == "The answer is 42."
-
-
-def test_gemini_no_interaction_id_attribute(mock_config):
-    """GeminiClient must not carry any interaction-ID state."""
-    client = GeminiClient(stdout=True)
-    assert not hasattr(client, "last_interaction_id"), (
-        "GeminiClient should not have last_interaction_id after migration to generateContent API"
-    )

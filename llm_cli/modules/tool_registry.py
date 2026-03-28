@@ -276,22 +276,6 @@ class ToolRegistry:
             spec.append({"function_declarations": functions})
         return spec
 
-    def get_gemini_interactions_spec(
-        self, names: list[str], provider: str = "google"
-    ) -> list[dict[str, Any]]:
-        spec: list[dict[str, Any]] = []
-        spec.append({"type": "google_search"})
-        for t in self._get_active(names, provider=provider):
-            spec.append(
-                {
-                    "type": "function",
-                    "name": t["name"],
-                    "description": t["description"],
-                    "parameters": t["parameters"],
-                }
-            )
-        return spec
-
     def get_openai_spec(self, names: list[str], provider: str = "openai") -> list[dict[str, Any]]:
         is_responses_api = provider == "openai"
         spec = []

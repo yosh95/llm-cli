@@ -87,7 +87,7 @@ class AppConfig:
         mcp_servers = [McpServerConfig(**s) for s in data.get("mcp_servers", [])]
 
         providers = {}
-        provider_names = ["google", "openai", "anthropic", "xai", "brave", "ollama"]
+        provider_names = ["google", "openai", "anthropic", "ollama"]
         for name in provider_names:
             if name in data:
                 p_data = data[name]

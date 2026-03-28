@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 from llm_cli.clients.claude import ClaudeClient
 from llm_cli.clients.gemini import GeminiClient
-from llm_cli.clients.grok import GrokClient
 from llm_cli.clients.openai import OpenAIClient
 from llm_cli.modules.models import DataSource
 
@@ -38,15 +37,6 @@ class TestPDFProcessing:
         result = client._process_single_source(str(temp_pdf_file))
         assert isinstance(result, DataSource)
         assert result.content_type == "application/pdf"
-
-    def test_grok_pdf_extraction(self, mock_config, temp_pdf_file):  # noqa: ARG002
-        """Test that Grok processes PDFs via text extraction."""
-        client = GrokClient(initial_model_alias="default", stdout=True)
-        assert client.pdf_as_base64 is False
-
-        result = client._process_single_source(str(temp_pdf_file))
-        assert isinstance(result, DataSource)
-        assert result.content_type == "text/plain"
 
     def test_gemini_build_message_with_pdf(
         self,

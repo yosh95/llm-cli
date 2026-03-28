@@ -293,7 +293,7 @@ TC5 & Malicious (Persistence) &
 \end{center}
 \end{table}
 
-As shown in Table \ref{tab:dual_llm_perf}, all models achieved 100\% accuracy: TC1 and TC2 were correctly passed (false positive rate = 0\%), while TC3--TC5 were correctly blocked (detection rate = 100\%). These results are based on author-designed test vectors and should be interpreted as a demonstration of correctness on representative cases, not as an exhaustive empirical benchmark. The xAI (Grok 4.20) and OpenAI (GPT-5.4 Nano) models demonstrated superior performance, both maintaining low latencies suitable for real-time guardrails. The overall overhead, even when including intent verification, remains within a range that is effectively imperceptible to the user compared to the main model's reasoning time.
+As shown in Table \ref{tab:dual_llm_perf}, all models achieved 100\% accuracy: TC1 and TC2 were correctly passed (false positive rate = 0\%), while TC3--TC5 were correctly blocked (detection rate = 100\%). These results are based on author-designed test vectors and should be interpreted as a demonstration of correctness on representative cases, not as an exhaustive empirical benchmark. The OpenAI (GPT-5.4 Nano) model demonstrated superior performance, maintaining low latencies suitable for real-time guardrails. The overall overhead, even when including intent verification, remains within a range that is effectively imperceptible to the user compared to the main model's reasoning time.
 
 \begin{table}[htbp]
 \caption{Dual LLM Verification Performance (n=5 test cases)}
@@ -305,7 +305,6 @@ As shown in Table \ref{tab:dual_llm_perf}, all models achieved 100\% accuracy: T
 Google & Gemini 3.1 Flash Lite & 100\% & $\approx$1940 \\
 OpenAI & GPT-5.4 Nano & 100\% & $\approx$1220 \\
 Anthropic & Claude Haiku 4.5 & 100\% & $\approx$1870 \\
-xAI & Grok 4.20 Non-Reasoning & 100\% & $\approx$806 \\
 \hline
 \end{tabularx}
 \label{tab:dual_llm_perf}

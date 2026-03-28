@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/yosh95/llm-cli/actions/workflows/ci.yml/badge.svg?branch=main)
 
-`llm-cli` is a high-assurance command-line tool designed for interacting with Large Language Models (LLMs). It provides a unified, stable interface for Gemini, OpenAI, Claude, xAI, and local models via Ollama, prioritizing cognitive focus, secure execution, and extensible automation.
+`llm-cli` is a high-assurance command-line tool designed for interacting with Large Language Models (LLMs). It provides a unified, stable interface for Gemini, OpenAI, Claude, and local models via Ollama, prioritizing cognitive focus, secure execution, and extensible automation.
 
 [English] | [日本語](#japanese-description)
 
@@ -47,11 +47,11 @@ The accompanying [Technical Report](paper/comprehensive_framework/paper.pdf) det
 2.  **Set API Keys**: `llm-cli` requires API keys to be set as environment variables.
     ```bash
     export GEMINI_API_KEY="your-api-key"
-    # Supported: GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, OLLAMA_API_KEY
+    # Supported: GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, OLLAMA_API_KEY
     ```
 3.  **Chat**: Type `llm-cli` to start an interactive session.
     *   **Automatic Initialization**: On the first run, `~/.llm_cli/config.toml` is automatically created.
-    *   **Native Web Search**: Gemini, Claude, and Grok support built-in web search automatically using your provider API key. No separate search API key is required.
+    *   **Native Web Search**: Gemini and Claude support built-in web search automatically using your provider API key. No separate search API key is required.
 4.  **Configure (Optional)**: To customize behavior or add MCP servers, edit the configuration file:
     ```bash
     # Edit ~/.llm_cli/config.toml to modify settings.
@@ -73,7 +73,7 @@ llm-cli "Analyze this website" https://example.com
 
 ## GEMINI Core Features (Product Ready)
 
-- **Unified Provider Access**: Seamlessly switch between Google (Gemini), OpenAI, Anthropic (Claude), xAI (Grok), and **Local LLMs (Ollama)**.
+- **Unified Provider Access**: Seamlessly switch between Google (Gemini), OpenAI, Anthropic (Claude), and **Local LLMs (Ollama)**.
 - **Autonomous Agent**: Let the AI manage files, execute Python code (replacing risky shell commands), and search the web using **Provider-Native Search** (Gemini Grounding, Claude Web Search, etc.).
 - **Config-free Execution**: Start using immediately by just providing an environment variable.
 - **MCP (Model Context Protocol) Support**: Connect to remote resources or services via custom servers.
@@ -167,7 +167,7 @@ For detailed architectural insights and the academic background of our security 
 
 # llm-cli: 複数LLM対応 統合コマンドラインインターフェース
 
-`llm-cli` は、Gemini, OpenAI, Claude, Grok、および Ollama を介したローカルLLMを一元的に操作できる、高い安全性を備えたCLIツールです。開発者の「深い集中（Deep Work）」を妨げない安定した対話環境と、プロフェッショナルな要求に応える高度なセキュリティ機能を両立しています。
+`llm-cli` は、Gemini, OpenAI, Claude、および Ollama を介したローカルLLMを一元的に操作できる、高い安全性を備えたCLIツールです。開発者の「深い集中（Deep Work）」を妨げない安定した対話環境と、プロフェッショナルな要求に応える高度なセキュリティ機能を両立しています。
 
 ---
 
@@ -208,11 +208,11 @@ For detailed architectural insights and the academic background of our security 
 2.  **APIキーの設定**: APIキーを環境変数として設定します。
     ```bash
     export GEMINI_API_KEY="your-api-key"
-    # 対応: GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, OLLAMA_API_KEY
+    # 対応: GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, OLLAMA_API_KEY
     ```
 3.  **対話開始**: `llm-cli` コマンドでスタート。
     *   **設定の自動生成**: 初回起動時に `~/.llm_cli/config.toml` が自動的に作成されます。
-    *   **ネイティブWeb検索**: Gemini, Claude, Grok はプロバイダーのAPIキーのみで、組み込みのWeb検索（Grounding）を自動的に利用可能です。別途検索APIキーを用意する必要はありません。
+    *   **ネイティブWeb検索**: Gemini, Claude はプロバイダーのAPIキーのみで、組み込みのWeb検索（Grounding）を自動的に利用可能です。別途検索APIキーを用意する必要はありません。
 4.  **詳細設定 (任意)**: MCPサーバーの追加や動作のカスタマイズを行いたい場合は、生成された設定ファイルを編集します。
     ```bash
     # ~/.llm_cli/config.toml を編集して設定を調整してください。

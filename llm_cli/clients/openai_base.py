@@ -12,7 +12,7 @@ from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 class OpenAICompatibleClient(BaseLlmClient):
     """
     Base class for LLM clients that use the OpenAI Chat Completions
-    or Responses API format. Used by OpenAI, Ollama, Grok, and others.
+    or Responses API format. Used by OpenAI, Ollama, and others.
     """
 
     def _build_openai_payload(
@@ -324,7 +324,7 @@ class OpenAICompatibleClient(BaseLlmClient):
         user_prompt: str,
         json_mode: bool = False,
     ) -> str:
-        # Check if the provider uses Responses API (OpenAI, xAI)
+        # Check if the provider uses Responses API (OpenAI)
         # We assume subclasses set api_url or similar if needed.
         # Here we use a generic POST if we can find the URL.
         url = getattr(self, "api_url", "")

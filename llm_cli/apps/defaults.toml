@@ -20,7 +20,6 @@ max_audit_archives = 10
 #   - OpenAI:       OPENAI_API_KEY
 #   - Anthropic:    ANTHROPIC_API_KEY
 #   - Google/Gemini: GEMINI_API_KEY (or GOOGLE_API_KEY)
-#   - xAI/Grok:     XAI_API_KEY
 #   - Ollama:       OLLAMA_API_KEY (required even for local usage)
 
 # Security Level (high | standard)
@@ -117,16 +116,6 @@ default = "claude-sonnet-4-6"
 haiku = "claude-haiku-4-5-20251001"
 sonnet = "claude-sonnet-4-6"
 opus = "claude-opus-4-6"
-
-# =============================================================================
-# xAI (Grok)
-# =============================================================================
-[xai]
-[xai.models]
-default = "grok-4-1-fast-reasoning"
-non-reasoning = "grok-4-1-fast-non-reasoning"
-reasoning = "grok-4-1-fast-reasoning"
-image = "grok-imagine-image-pro"
 
 # =============================================================================
 # Ollama (Local LLMs)

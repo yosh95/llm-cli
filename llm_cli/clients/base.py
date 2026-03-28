@@ -302,8 +302,6 @@ class BaseLlmClient(ABC):
             "openai": "[bold green]OPENAI[/bold green]",
             "anthropic": "[bold yellow]ANTHROPIC[/bold yellow]",
             "claude": "[bold yellow]ANTHROPIC[/bold yellow]",
-            "xai": "[bold white]XAI[/bold white]",
-            "grok": "[bold white]XAI[/bold white]",
             "ollama": "[bold cyan]OLLAMA[/bold cyan]",
         }
         for k, v in icons.items():

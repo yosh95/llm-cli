@@ -20,7 +20,7 @@ def verify_tool_call(
 ) -> tuple[bool, str]:
     """
     Verify a tool call against the user's original prompt using a fast Dual LLM.
-    Supports Gemini, OpenAI, Claude, Grok, and Ollama.
+    Supports Gemini, OpenAI, Claude, and Ollama.
     Function calling is disabled for this verification pass.
 
     The secondary LLM is asked to return:

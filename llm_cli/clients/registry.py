@@ -55,6 +55,4 @@ client_registry.register("openai", "llm_cli.clients.openai", "OpenAIClient", "op
 client_registry.register("gpt", "llm_cli.clients.openai", "OpenAIClient", "openai")
 client_registry.register("anthropic", "llm_cli.clients.claude", "ClaudeClient", "anthropic")
 client_registry.register("claude", "llm_cli.clients.claude", "ClaudeClient", "anthropic")
-client_registry.register("xai", "llm_cli.clients.grok", "GrokClient", "xai")
-client_registry.register("grok", "llm_cli.clients.grok", "GrokClient", "xai")
 client_registry.register("ollama", "llm_cli.clients.ollama", "OllamaClient", "ollama")

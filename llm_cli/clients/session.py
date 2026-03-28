@@ -37,7 +37,7 @@ MAX_TURNS = 20
 def _sanitize_tool_history(conversation: list[Message]) -> list[Message]:
     """Remove or flatten orphaned tool_use / tool_result pairs.
 
-    When switching providers (e.g. Grok → Claude) the conversation may contain
+    When switching providers (e.g. OpenAI → Claude) the conversation may contain
     tool-call messages that were produced by the previous provider.  Claude
     requires that every ``tool_result`` block is immediately preceded by an
     ``assistant`` message that contains a matching ``tool_use`` block with the

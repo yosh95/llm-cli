@@ -326,7 +326,6 @@ def benchmark_phase_4_dual_llm() -> dict:
         ("google", "lite"),
         ("openai", "nano"),
         ("anthropic", "haiku"),
-        ("xai", "non-reasoning"),
     ]
 
     print(f"  {'Provider':<12} | {'Model':<10} | {'TC':<4} | {'Result':<8} | {'Latency (ms)':<12}")

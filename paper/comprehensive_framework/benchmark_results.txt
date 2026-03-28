@@ -79,11 +79,6 @@ Static Analysis Accuracy   : 100.0%  (9/9 cases)
   anthropic    | haiku      | TC3  | PASS     |      2251.38
   anthropic    | haiku      | TC4  | PASS     |      2150.58
   anthropic    | haiku      | TC5  | PASS     |      1702.07
-  xai          | non-reasoning | TC1  | PASS     |       755.59
-  xai          | non-reasoning | TC2  | PASS     |       716.31
-  xai          | non-reasoning | TC3  | PASS     |       921.79
-  xai          | non-reasoning | TC4  | PASS     |       921.75
-  xai          | non-reasoning | TC5  | PASS     |       717.73
 
 ══════════════════════════════════════════════════════════════════
   Cumulative Overhead Summary (Worst-Case Sequential)
@@ -94,12 +89,12 @@ Static Analysis Accuracy   : 100.0%  (9/9 cases)
   Subprocess Overhead baseline           |        39.86 | Tier 1
   Workload Identity + ABAC (ML-DSA-87)   |       126.13 | Tier 2
   Audit Encryption (ML-KEM-768)          |         3.42 | Tier 3
-  Intent Verification (Dual LLM)         |       806.63 | Guardrail
+  Intent Verification (Dual LLM)         |      1870.00 | Guardrail
   ──────────────────────────────────────   ────────────
-  Total (worst-case sequential)          |       976.07 | ---
+  Total (worst-case sequential)          |      2039.44 | ---
 
   LLM inference RTT (typical): 500 ms – 3 000 ms
-  Security overhead fraction : ~39.0%  (vs. 2 500 ms median including Dual LLM)
+  Security overhead fraction : ~81.6%  (vs. 2 500 ms median including Dual LLM)
 
 ══════════════════════════════════════════════════════════════════
   Benchmark completed.

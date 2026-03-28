@@ -120,7 +120,6 @@ class ConfigManager:
                 "google": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
                 "openai": ["OPENAI_API_KEY"],
                 "anthropic": ["ANTHROPIC_API_KEY"],
-                "xai": ["XAI_API_KEY"],
                 "ollama": ["OLLAMA_API_KEY"],
             }
             env_vars = env_map.get(section, [])
@@ -154,7 +153,7 @@ class ConfigManager:
     def get_active_providers(self) -> list[str]:
         """Returns a list of providers that have an API key set in env vars."""
         active = []
-        for provider in ["google", "openai", "anthropic", "xai", "ollama"]:
+        for provider in ["google", "openai", "anthropic", "ollama"]:
             if self.get(provider, "api_key"):
                 active.append(provider)
         return active

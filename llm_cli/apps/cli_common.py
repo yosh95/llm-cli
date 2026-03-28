@@ -89,7 +89,6 @@ def run_client_cli(config: ClientConfig) -> None:
         console.print("  - [cyan]GEMINI_API_KEY[/cyan] (or GOOGLE_API_KEY)")
         console.print("  - [cyan]OPENAI_API_KEY[/cyan]")
         console.print("  - [cyan]ANTHROPIC_API_KEY[/cyan]")
-        console.print("  - [cyan]XAI_API_KEY[/cyan]")
         console.print("  - [cyan]OLLAMA_API_KEY[/cyan] (required for remote Ollama)")
         console.print(
             "\n[yellow]Note: Ollama is available without a key if hosted on localhost.[/yellow]"

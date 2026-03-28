@@ -33,7 +33,7 @@ def test_provider_specs_generation():
 
     # 1. OpenAI Spec (Responses API format)
     openai_spec = registry.get_openai_spec(test_names, provider="openai")
-    # Native web_search is added for openai/xai
+    # Native web_search is added for openai
     found_web_search = False
     for spec in openai_spec:
         assert "type" in spec

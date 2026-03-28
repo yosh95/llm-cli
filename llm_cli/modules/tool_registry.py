@@ -293,12 +293,12 @@ class ToolRegistry:
         return spec
 
     def get_openai_spec(self, names: list[str], provider: str = "openai") -> list[dict[str, Any]]:
-        is_responses_api = provider in ("openai", "xai")
+        is_responses_api = provider == "openai"
         spec = []
 
         for t in self._get_active(names, provider=provider):
             if is_responses_api:
-                # Responses API (/v1/responses) used by OpenAI and xAI
+                # Responses API (/v1/responses) used by OpenAI
                 # uses a flat structure for function tools.
                 spec.append(
                     {
@@ -321,7 +321,7 @@ class ToolRegistry:
                     }
                 )
 
-        # Both OpenAI and xAI use Responses API with native web_search support
+        # OpenAI uses Responses API with native web_search support
         if is_responses_api:
             # Note: OpenAI's Responses API fails if 'name' is provided for web_search.
             spec.append({"type": "web_search"})

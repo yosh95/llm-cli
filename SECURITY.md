@@ -383,7 +383,6 @@ Latency varies based on the provider and network conditions. We recommend "lite"
 | Google | `gemini-3.1-flash-lite-preview` | 100% | ~1940 |
 | OpenAI | `gpt-5.4-nano` | 100% | ~1220 |
 | Anthropic | `claude-haiku-4-5...` | 100% | ~1870 |
-| xAI | `grok-4.20-non-reasoning` | 100% | ~806 |
 
 ---
 

@@ -20,16 +20,31 @@ def _get_result_text(result: str | dict) -> str:
 
 
 def test_write_and_read_file(tmp_path, monkeypatch):
-    """Test writing a file and then reading it back."""
+    """Test writing a file and then reading it back with diff results."""
     monkeypatch.chdir(tmp_path)
 
     test_path = "subdir/test.txt"
     content = "Hello, LLM tools!"
 
-    # Test create_or_overwrite_file
+    # Test create_or_overwrite_file (New File)
     write_result = _get_result_text(create_or_overwrite_file(test_path, content))
-    assert "Successfully wrote" in write_result
+    assert "Successfully created" in write_result
+    assert "+++ b/subdir/test.txt" in write_result
+    assert "+Hello, LLM tools!" in write_result
     assert (tmp_path / test_path).exists()
+
+    # Test create_or_overwrite_file (Overwrite)
+    new_content = "Hello, updated tools!"
+    overwrite_result = _get_result_text(create_or_overwrite_file(test_path, new_content))
+    assert "Successfully overwrote" in overwrite_result
+    assert "--- a/subdir/test.txt" in overwrite_result
+    assert "+++ b/subdir/test.txt" in overwrite_result
+    assert "-Hello, LLM tools!" in overwrite_result
+    assert "+Hello, updated tools!" in overwrite_result
+
+    # Test create_or_overwrite_file (Identical)
+    identical_result = _get_result_text(create_or_overwrite_file(test_path, new_content))
+    assert "content was identical" in identical_result
 
 
 def test_file_ops_security_block(tmp_path, monkeypatch):

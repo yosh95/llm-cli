@@ -252,5 +252,45 @@ def create_or_overwrite_file(path: str, content: str, **_kwargs: Any) -> str:
     """Create a new file or overwrite an existing one with the provided content."""
     p = validate_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
+
+    exists_before = p.exists()
+    old_content = None
+    if exists_before:
+        try:
+            old_content = p.read_text(encoding="utf-8")
+        except Exception:
+            # Fallback if file is binary or unreadable as text
+            pass
+
     p.write_text(content, encoding="utf-8")
-    return f"Successfully wrote to {path}"
+
+    if old_content is not None:
+        diff = "".join(
+            difflib.unified_diff(
+                old_content.splitlines(keepends=True),
+                content.splitlines(keepends=True),
+                fromfile=f"a/{path}",
+                tofile=f"b/{path}",
+                n=3,
+            )
+        )
+        if not diff:
+            return f"Successfully wrote to {path} (content was identical)."
+        return f"Successfully overwrote {path}.\n\n{diff}"
+    else:
+        # Show full content as a diff from /dev/null for new files (or unreadable ones)
+        diff = "".join(
+            difflib.unified_diff(
+                [],
+                content.splitlines(keepends=True),
+                fromfile="/dev/null",
+                tofile=f"b/{path}",
+                n=3,
+            )
+        )
+        msg = (
+            f"Successfully overwrote {path} (previous content was unreadable)."
+            if exists_before
+            else f"Successfully created {path}."
+        )
+        return f"{msg}\n\n{diff}"

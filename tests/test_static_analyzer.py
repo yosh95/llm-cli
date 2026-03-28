@@ -190,3 +190,50 @@ class TestModuleAliasTracking:
         code = "import subprocess as sp; sp.run(['ls', '-la'])"
         is_safe, issues, _ = analyze_python_safety(code)
         assert is_safe is True, f"Expected safe, but got issues={issues}"
+
+
+# ============================================================
+# New tests: Obfuscation & Keyword Construction
+# ============================================================
+
+
+class TestObfuscationDefense:
+    """
+    Tests for defense against code obfuscation and dynamic keyword construction.
+    """
+
+    def test_obfuscation_module_blocked(self):
+        """Modules commonly used for obfuscation (base64, codecs, etc.) must be blocked."""
+        for mod in ["base64", "binascii", "quopri", "uu", "codecs"]:
+            code = f"import {mod}"
+            is_safe, issues, _ = analyze_python_safety(code)
+            assert is_safe is False, f"Expected {mod} to be blocked"
+            assert any(mod in i.lower() for i in issues)
+
+    def test_dynamic_keyword_construction_blocked(self):
+        """Constructing dangerous keywords via string concatenation must be blocked."""
+        test_cases = [
+            ("ex" + "ec", "'ex' + 'ec'"),
+            ("ev" + "al", "'ev' + 'al'"),
+            ("__impor" + "t__", "'__impor' + 't__'"),
+            ("o" + "s", "'o' + 's'"),
+            ("__clas" + "s__", "'__clas' + 's__'"),
+        ]
+        for keyword, pattern in test_cases:
+            code = f"x = {pattern}"
+            is_safe, issues, _ = analyze_python_safety(code)
+            assert is_safe is False, (
+                f"Expected construction of '{keyword}' via {pattern} to be blocked"
+            )
+            assert any("obfuscated" in i.lower() and keyword in i.lower() for i in issues)
+
+    def test_safe_concatenation_allowed(self):
+        """Normal string concatenation (e.g. for paths) must still be allowed."""
+        safe_codes = [
+            "path = '/usr/local' + '/bin'",
+            "greeting = 'Hello, ' + 'World!'",
+            "filename = 'test_' + 'suffix.txt'",
+        ]
+        for code in safe_codes:
+            is_safe, issues, _ = analyze_python_safety(code)
+            assert is_safe is True, f"Expected safe code to pass: {code}, issues={issues}"

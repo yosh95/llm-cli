@@ -52,6 +52,8 @@ parses it into an Abstract Syntax Tree and applies a whitelist-based scanner:
 | Inline execution | `python3 -c "import os; ..."` (VULN-001 fix) |
 | Dynamic commands | `subprocess.run(cmd)` where `cmd` is a variable (VULN-002 fix) |
 | Reflection APIs | `__subclasses__`, `globals()`, `vars()` |
+| Obfuscated keywords | `"ex" + "ec"` (Dynamic keyword construction) |
+| Obfuscation modules | `base64`, `codecs`, `binascii`, `quopri`, `uu` |
 
 ### Path Guardrails
 

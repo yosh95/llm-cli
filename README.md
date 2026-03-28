@@ -107,6 +107,7 @@ As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** complia
   [security]
   security_level = "standard"
   ```
+- **AST-based Static Analysis**: Every Python script is inspected before execution to block dangerous modules (`os.system`, `base64`, `socket`, etc.), reflection attacks, and **obfuscated keyword construction** (e.g., `"ex" + "ec"`).
 - **Path Guardrails**: Tools are restricted by path attributes (defaulting to the current directory). The policy engine now inspects multiple argument names (`path`, `directory`, `file`, `src`, `dest`, etc.) to prevent bypass.
 - **Explanation Enforcement**: Every tool mandates an `explanation` parameter, forcing the LLM to justify its intent.
 
@@ -248,6 +249,7 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
   [security]
   security_level = "standard"
   ```
+- **AST静的解析**: 全てのPythonスクリプトは実行前に解析され、危険なモジュール（`os.system`, `base64`, `socket`等）やリフレクション攻撃、さらに**難読化されたキーワード構築**（例：`"ex" + "ec"`）を遮断します。
 - **パス・ガードレール**: 操作可能な範囲を属性（ディレクトリ・パスなど）で制限します。
 
 ### 2. アイデンティティと非否認性 (実験的参照実装)

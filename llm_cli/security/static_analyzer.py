@@ -51,10 +51,15 @@ class PythonSecurityScanner(ast.NodeVisitor):
         "trio",
         "anyio",
         "asyncio",
-        # --- Dangerous serialisation ---
+        # --- Dangerous serialisation & encoding (obfuscation risk) ---
         "pickle",
         "marshal",
         "shelve",
+        "base64",
+        "binascii",
+        "quopri",
+        "uu",
+        "codecs",
         # --- Low-level system access ---
         "ctypes",
         "pty",
@@ -422,8 +427,8 @@ class PythonSecurityScanner(ast.NodeVisitor):
         # Extract the literal string key, if present.
         slice_node = node.slice
         # Python 3.9+: slice is a plain node; 3.8: wrapped in Index.
-        if isinstance(slice_node, ast.Index):  # type: ignore[attr-defined]
-            slice_node = slice_node.value  # type: ignore[attr-defined]
+        if hasattr(ast, "Index") and isinstance(slice_node, ast.Index):
+            slice_node = getattr(slice_node, "value", slice_node)
 
         if isinstance(slice_node, ast.Constant) and isinstance(slice_node.value, str):
             key = slice_node.value
@@ -433,6 +438,32 @@ class PythonSecurityScanner(ast.NodeVisitor):
                     f"'{key}' is forbidden (potential __builtins__ bypass)."
                 )
 
+        self.generic_visit(node)
+
+    def visit_BinOp(self, node: ast.BinOp) -> None:
+        """
+        Detect obfuscated keywords via string concatenation, e.g., "ex" + "ec".
+        """
+        if isinstance(node.op, ast.Add):
+            # Check for constant string + constant string
+            if (
+                isinstance(node.left, ast.Constant)
+                and isinstance(node.left.value, str)
+                and isinstance(node.right, ast.Constant)
+                and isinstance(node.right.value, str)
+            ):
+                combined = node.left.value + node.right.value
+                # Check against all dangerous lists
+                if (
+                    combined in self.DANGEROUS_FUNCTIONS
+                    or combined in self.DANGEROUS_ATTRIBUTES
+                    or combined in self.DANGEROUS_MODULES
+                    or combined in self.RESTRICTED_MODULES
+                ):
+                    self.violations.append(
+                        f"Security Violation: Obfuscated dangerous keyword "
+                        f"construction '{combined}' detected."
+                    )
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:

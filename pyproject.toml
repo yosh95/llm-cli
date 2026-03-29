@@ -28,7 +28,6 @@ dependencies = [
     "cryptography>=46.0.0",
     "dilithium-py",
     "kyber-py",
-    "numpy",
     "psutil",
 ]
 

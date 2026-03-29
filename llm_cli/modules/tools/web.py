@@ -72,6 +72,31 @@ def web_tool_handler(
 )
 @web_tool_handler
 def read_url_content(url: str, start_line: int = 1, end_line: int | None = None) -> str:
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    # 1. Scheme Validation
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return f"Error: Invalid URL scheme '{parsed.scheme}'. Only http and https are allowed."
+
+    # 2. SSRF Protection: Block access to private/reserved IP addresses
+    try:
+        hostname = parsed.hostname
+        if not hostname:
+            return "Error: Invalid URL (no hostname)."
+
+        # Resolve hostname to IP to check against private ranges
+        ip_addr = socket.gethostbyname(hostname)
+        ip = ipaddress.ip_address(ip_addr)
+
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
+            return f"Error: Access to private/local network address '{ip_addr}' is forbidden."
+    except Exception as e:
+        # If hostname can't be resolved, it's safer to block it unless it's a valid public DNS
+        return f"Error: Could not validate URL destination: {e}"
+
     from llm_cli.modules.media_utils import fetch_url_content
 
     content, ctype = fetch_url_content(url, pdf_as_base64=False)

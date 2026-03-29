@@ -77,7 +77,7 @@ def search_files(
 
     for root, dirs, files in os.walk(base_path, topdown=True):
         if time.time() - start_time > SEARCH_TIMEOUT:
-            results.append("Error: Search timed out after 60 seconds.")
+            results.append(f"Error: Search timed out after {SEARCH_TIMEOUT} seconds.")
             break
 
         dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDE_DIRS and not d.startswith(".")]

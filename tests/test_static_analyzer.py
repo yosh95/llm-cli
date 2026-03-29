@@ -203,12 +203,16 @@ class TestObfuscationDefense:
     """
 
     def test_obfuscation_module_blocked(self):
-        """Modules commonly used for obfuscation (base64, codecs, etc.) must be blocked."""
+        """Modules commonly used for obfuscation (base64, codecs, etc.) must be blocked or warned."""
         for mod in ["base64", "binascii", "quopri", "uu", "codecs"]:
             code = f"import {mod}"
-            is_safe, issues, _ = analyze_python_safety(code)
-            assert is_safe is False, f"Expected {mod} to be blocked"
-            assert any(mod in i.lower() for i in issues)
+            is_safe, violations, warnings = analyze_python_safety(code)
+            assert is_safe is False, f"Expected {mod} to be blocked or warned"
+            # Now these are in warnings, not violations (issues)
+            combined_issues = violations + warnings
+            assert any(mod in i.lower() for i in combined_issues), (
+                f"Module {mod} not found in issues"
+            )
 
     def test_dynamic_keyword_construction_blocked(self):
         """Constructing dangerous keywords via string concatenation must be blocked."""

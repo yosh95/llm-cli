@@ -232,5 +232,5 @@ def sign_tool_result(
         )
         return signed
     except Exception as exc:
-        logger.debug("Failed to sign tool result: %s", exc)
+        logger.warning("[WARNING] Failed to sign tool result: %s", exc)
         return result_text

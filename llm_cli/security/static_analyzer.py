@@ -21,11 +21,6 @@ class PythonSecurityScanner(ast.NodeVisitor):
     # - Introspection: builtins, importlib  — bypass module sandboxing.
     # - Code gen     : code, codeop  — REPL-style dynamic execution.
     # - Concurrency  : multiprocessing  — spawns unrestricted child processes.
-    #
-    # Note on 'asyncio': It is included in DANGEROUS_MODULES to prevent user-supplied
-    # scripts from opening raw network connections via the event loop. However,
-    # llm_cli's internal infrastructure (MCP manager, tool registry) uses asyncio
-    # safely for its own orchestration.
     DANGEROUS_MODULES = {
         # --- Network I/O ---
         "socket",
@@ -50,16 +45,10 @@ class PythonSecurityScanner(ast.NodeVisitor):
         "httpcore",
         "trio",
         "anyio",
-        "asyncio",
         # --- Dangerous serialisation & encoding (obfuscation risk) ---
         "pickle",
         "marshal",
         "shelve",
-        "base64",
-        "binascii",
-        "quopri",
-        "uu",
-        "codecs",
         # --- Low-level system access ---
         "ctypes",
         "pty",
@@ -79,6 +68,17 @@ class PythonSecurityScanner(ast.NodeVisitor):
         "cupy",
         # --- Unrestricted child-process spawning ---
         "multiprocessing",
+    }
+
+    # Modules that trigger a warning for human review, but not a hard block.
+    # Used for modules with high utility but potential for abuse (e.g. obfuscation).
+    SUSPICIOUS_MODULES = {
+        "base64",
+        "binascii",
+        "quopri",
+        "uu",
+        "codecs",
+        "asyncio",  # Allowed for orchestration, but flagged for review in user scripts
     }
 
     # Modules that are allowed but have restricted members (granular check)
@@ -355,6 +355,10 @@ class PythonSecurityScanner(ast.NodeVisitor):
 
             if module_name in self.DANGEROUS_MODULES:
                 self.violations.append(f"High-risk module import detected: {alias.name}")
+            elif module_name in self.SUSPICIOUS_MODULES:
+                self.warnings.append(
+                    f"[WARNING] Security Warning: suspicious module import detected: {alias.name}"
+                )
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -368,6 +372,10 @@ class PythonSecurityScanner(ast.NodeVisitor):
             self.found_modules.add(base_module)
             if base_module in self.DANGEROUS_MODULES:
                 self.violations.append(f"High-risk module import detected: {node.module}")
+            elif base_module in self.SUSPICIOUS_MODULES:
+                self.warnings.append(
+                    f"[WARNING] Security Warning: suspicious module import detected: {node.module}"
+                )
 
             # Granular check for restricted modules
             if base_module in self.RESTRICTED_MODULES:

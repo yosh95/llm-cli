@@ -51,6 +51,14 @@ class BaseLlmClient(ABC):
         self.preferred_pdf_as_base64: bool = spec.pdf_as_base64
         self.live_debug: bool = live_debug
 
+        # 4. Tool & Helper State
+        from llm_cli.modules.tool_registry import registry
+
+        self.active_tools = (
+            initial_tools if initial_tools is not None else list(registry.tools.keys())
+        )
+        self.tools_enabled: bool = True
+
         # 2. Model State
         self.model: str = ""
         self.current_alias: str = ""
@@ -64,14 +72,6 @@ class BaseLlmClient(ABC):
         self.system_prompt: str = ""
         self.system_prompt_enabled: bool = not disable_system_prompt
         self._refresh_system_prompt()
-
-        # 4. Tool & Helper State
-        from llm_cli.modules.tool_registry import registry
-
-        self.active_tools = (
-            initial_tools if initial_tools is not None else list(registry.tools.keys())
-        )
-        self.tools_enabled: bool = True
 
         self.media_manager = MediaManager(spec.pdf_as_base64)
         self.request_timeout: int | None = None
@@ -122,6 +122,8 @@ class BaseLlmClient(ABC):
             self.current_alias = alias
             self.model_config = config_manager.get_model_config(self.config_section, alias)
             self.model = self.model_config.get("model", self.available_models[alias])
+            # Load tools_enabled from config, default to True
+            self.tools_enabled = self.model_config.get("tools", True)
             return True
         return False
 
@@ -129,6 +131,7 @@ class BaseLlmClient(ABC):
         self.current_alias = "custom"
         self.model = model_name
         self.model_config = {}
+        self.tools_enabled = True
 
     def refresh_config(self) -> None:
         """Refreshes configuration settings from config_manager."""

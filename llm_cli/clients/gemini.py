@@ -156,21 +156,39 @@ class GeminiClient(BaseLlmClient):
                     contents.append({"role": "user", "parts": tool_parts})
             else:
                 msg_parts: list[dict[str, Any]] = []
+                prev_thought_sig: str | None = None
                 for p in msg.parts:
                     if isinstance(p, str):
                         msg_parts.append({"text": p})
+                        prev_thought_sig = None
                     elif isinstance(p, ContentPart):
                         thought_sig = p.thought_signature
                         if p.thought:
-                            part_dict = {"thought": True, "text": p.thought}
+                            part_dict: dict[str, Any] = {"thought": True, "text": p.thought}
                             if thought_sig:
                                 part_dict["thoughtSignature"] = thought_sig
                             msg_parts.append(part_dict)
-                        if p.text and p.text.strip():
+                            # If the same ContentPart also carries text, emit it immediately
+                            # after the thought part and attach the same signature.
+                            if p.text and p.text.strip():
+                                text_dict: dict[str, Any] = {"text": p.text}
+                                effective_sig = thought_sig or prev_thought_sig
+                                if effective_sig:
+                                    text_dict["thoughtSignature"] = effective_sig
+                                msg_parts.append(text_dict)
+                            # Propagate signature to the next part in case it is a bare
+                            # text ContentPart that was emitted separately by the parser.
+                            prev_thought_sig = thought_sig
+                        elif p.text and p.text.strip():
                             part_dict = {"text": p.text}
-                            if thought_sig and not p.thought:
-                                part_dict["thoughtSignature"] = thought_sig
+                            # Attach own signature; fall back to the preceding thought's
+                            # signature so that a text part immediately following a thought
+                            # part always carries a thoughtSignature as required by the API.
+                            effective_sig = thought_sig or prev_thought_sig
+                            if effective_sig:
+                                part_dict["thoughtSignature"] = effective_sig
                             msg_parts.append(part_dict)
+                            prev_thought_sig = None
                         if p.inline_data:
                             part_dict = {
                                 "inlineData": {
@@ -181,6 +199,7 @@ class GeminiClient(BaseLlmClient):
                             if thought_sig:
                                 part_dict["thoughtSignature"] = thought_sig
                             msg_parts.append(part_dict)
+                            prev_thought_sig = None
                         if p.function_call and p.function_call.get("id") in responded_tool_ids:
                             part_dict = {
                                 "functionCall": {
@@ -192,6 +211,7 @@ class GeminiClient(BaseLlmClient):
                             if thought_sig:
                                 part_dict["thoughtSignature"] = thought_sig
                             msg_parts.append(part_dict)
+                            prev_thought_sig = None
                 if msg_parts:
                     contents.append(
                         {

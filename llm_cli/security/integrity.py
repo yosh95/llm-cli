@@ -29,6 +29,9 @@ class IntegrityVerifier:
 
     def __init__(self, base_path: Path):
         self.base_path = base_path
+        self.last_files_ok = True
+        self.last_audit_ok = True
+        self.last_manifest_ok = True
 
     def _calculate_hash(self, file_path: Path) -> str:
         """Calculate SHA-256 hash of a file."""
@@ -224,11 +227,16 @@ class IntegrityVerifier:
                 Defaults to 50 for fast startup. Pass a value like 10**9
                 for exhaustive verification (``llm-cli-security verify``).
         """
+        self.last_files_ok = True
+        self.last_audit_ok = True
+        self.last_manifest_ok = True
+
         logger.info("[INFO] System Integrity: Verifying application files...")
 
         raw_manifest = self._load_manifest()
         if not raw_manifest:
             logger.error("[ERROR] Integrity Failure: Manifest not found.")
+            self.last_manifest_ok = False
             return False
 
         trusted_manifest: dict[str, str] | None = None
@@ -252,12 +260,14 @@ class IntegrityVerifier:
                     if not PQCProvider.verify(manifest_data.encode(), signature, pqc_pub):
                         logger.error("[ERROR] Integrity Failure: Manifest signature mismatch.")
                         logger.error("Try running 'llm-cli-security manifest' to re-sign.")
+                        self.last_manifest_ok = False
                         return False
                 except Exception as e:
                     logger.error(f"[ERROR] PQC verification error: {e}")
                     logger.error(
                         "Run 'llm-cli-security keygen' or 'llm-cli-security manifest' to fix."
                     )
+                    self.last_manifest_ok = False
                     return False
         else:
             trusted_manifest = raw_manifest
@@ -281,6 +291,8 @@ class IntegrityVerifier:
                 logger.error(f"[ERROR] Integrity Failure: Unauthorized file: {rel_path}")
                 files_ok = False
 
+        self.last_files_ok = files_ok
+
         if not files_ok:
             logger.error(
                 "Run 'llm-cli-security manifest' to update the integrity baseline "
@@ -289,6 +301,8 @@ class IntegrityVerifier:
 
         # Audit log check
         audit_ok = self.verify_audit_log(pqc_verify_tail_lines=pqc_verify_tail_lines)
+        self.last_audit_ok = audit_ok
+
         if not audit_ok:
             logger.error("[ERROR] Integrity Failure: Audit log verification failed.")
             logger.error(
@@ -320,7 +334,9 @@ class IntegrityVerifier:
                 "[bold yellow]WARNING[/bold yellow] [WARNING] The audit log has a "
                 "signature mismatch. The manifest was updated successfully, but "
                 "the system will still fail the integrity check on startup until "
-                "the audit log is fixed."
+                "the audit log is fixed.\n"
+                "[bold red]To fix this, you may need to clear the audit log (rm audit.jsonl) "
+                "if you recently changed your identity keys.[/bold red]"
             )
         return True
 
@@ -405,21 +421,49 @@ def verify_installation() -> None:
             return
 
         from rich.panel import Panel
-
         from llm_cli.ui import console
+
+        message_lines = [
+            "[bold red]CRITICAL: SYSTEM INTEGRITY FAILURE[/bold red]",
+            "",
+            "Unauthorized modifications were detected in the application files or audit logs.",
+            "For security, the startup process has been aborted.",
+            "",
+        ]
+
+        if not verifier.last_files_ok or not verifier.last_manifest_ok:
+            message_lines.extend(
+                [
+                    "[bold yellow]If you modified the source code intentionally, run:[/bold yellow]",
+                    "[bold cyan]llm-cli-security manifest[/bold cyan]",
+                    "",
+                ]
+            )
+
+        if not verifier.last_audit_ok:
+            message_lines.extend(
+                [
+                    "[bold red]ACTION REQUIRED: Audit Log Corruption Detected[/bold red]",
+                    "The audit log signature verification failed.",
+                    "If you recently changed your identity keys, you MUST clear the log:",
+                    "[bold yellow]rm audit.jsonl[/bold yellow]",
+                    "",
+                ]
+            )
+
+        # Fallback note if everything seems ok but verify() returned False (should not happen normally)
+        if (
+            verifier.last_files_ok
+            and verifier.last_audit_ok
+            and verifier.last_manifest_ok
+        ):
+            message_lines.append(
+                "[dim]Please check the error logs above for more details.[/dim]"
+            )
 
         console.print(
             Panel(
-                "[bold red]CRITICAL: SYSTEM INTEGRITY FAILURE[/bold red]\n\n"
-                "Unauthorized modifications were detected in the application files "
-                "or audit logs.\n"
-                "For security, the startup process has been aborted.\n\n"
-                "[bold yellow]If you modified the source code intentionally, "
-                "run:[/bold yellow]\n"
-                "[bold cyan]llm-cli-security manifest[/bold cyan]\n\n"
-                "[dim]Note: If the failure is in the audit log (Signature mismatch), "
-                "you may need to clear 'audit.jsonl' if you recently changed your "
-                "identity keys.[/dim]",
+                "\n".join(message_lines),
                 title="[bold red]Security Guard[/bold red]",
                 border_style="red",
                 expand=False,

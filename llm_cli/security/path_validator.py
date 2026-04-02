@@ -1,5 +1,6 @@
 # llm_cli/security/path_validator.py
 
+import fnmatch
 from pathlib import Path
 
 from llm_cli.clients.config import config_manager
@@ -17,7 +18,12 @@ def validate_path(path: str) -> Path:
     1. Prevents directory traversal (..).
     2. Checks against whitelist (allowed_paths).
     3. Checks against blacklist (blocked_paths).
-    4. Protects the core security directory (Root of Trust).
+    4. Checks against filename blocklist (blocked_filenames) — fnmatch patterns
+       matched against the file's bare name (e.g. ".env*", "*.pem").
+       Unlike blocked_paths (which targets directories or absolute paths),
+       blocked_filenames protects sensitive files that live *inside* the
+       allowed working directory and would otherwise pass the whitelist check.
+    5. Protects the core security directory (Root of Trust).
 
     TOCTOU mitigation: resolve() is called **exactly once** and the resulting
     canonical Path object is used for every subsequent comparison.  Callers
@@ -38,6 +44,7 @@ def validate_path(path: str) -> Path:
 
     allowed_paths = security_config.get("allowed_paths", ["."])
     blocked_paths = security_config.get("blocked_paths", [])
+    blocked_filenames = security_config.get("blocked_filenames", [])
 
     # 1. Check for directory traversal patterns (lexical pre-filter)
     if ".." in path:
@@ -64,7 +71,18 @@ def validate_path(path: str) -> Path:
             except (ValueError, OSError):
                 continue
 
-        # 3. Whitelist check: Must stay within one of the allowed paths
+        # 3. Filename blocklist — fnmatch patterns matched against the bare filename.
+        # This protects files like .env, .env.local, id_rsa that live *inside*
+        # the allowed working directory and would otherwise pass the whitelist.
+        filename = path_obj.name
+        for pattern in blocked_filenames:
+            if fnmatch.fnmatch(filename, pattern):
+                raise PathValidationError(
+                    f"Access to filename '{filename}' is forbidden "
+                    f"(matches blocked pattern '{pattern}')."
+                )
+
+        # 4. Whitelist check: Must stay within one of the allowed paths
         is_allowed = False
         for allowed_path_str in allowed_paths:
             try:

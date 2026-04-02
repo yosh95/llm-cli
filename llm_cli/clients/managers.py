@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
-from llm_cli.ui import console
 
 
 class SessionManager:
@@ -103,9 +102,11 @@ class MediaManager:
 
     def save_inline_media(
         self, inline_data: dict[str, Any], hint_text: str = ""
-    ) -> tuple[str | None, Path | None]:
+    ) -> tuple[str | None, str | None]:
+        """Saves inline media and returns (display_text, file_path_str)."""
         mime_type = inline_data.get("mimeType", "")
-        if not mime_type.startswith("image/"):
+        # Support image, audio, video
+        if not any(mime_type.startswith(t) for t in ["image/", "audio/", "video/"]):
             return None, None
 
         import base64
@@ -114,23 +115,37 @@ class MediaManager:
         from llm_cli.clients.config import config_manager
         from llm_cli.modules.media_utils import generate_safe_filename
 
-        save_dir = Path(config_manager.get("general", "image_save_path") or ".").expanduser()
+        save_dir_str = config_manager.get("general", "image_save_path") or "."
+        save_dir = Path(save_dir_str).expanduser()
         save_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        target_path = save_dir / generate_safe_filename(
-            hint_text, ext=(mimetypes.guess_extension(mime_type) or ".png").strip(".")
-        )
+
+        ext = (mimetypes.guess_extension(mime_type) or ".png").strip(".")
+        target_path = save_dir / generate_safe_filename(hint_text, ext=ext)
 
         try:
             data = inline_data["data"]
+            # Fix base64 padding
             missing_padding = len(data) % 4
             if missing_padding:
                 data += "=" * (4 - missing_padding)
+
             target_path.write_bytes(base64.b64decode(data))
-            return (
-                f"\n\n[bold blue]IMAGE[/bold blue] Image generated and "
-                f"saved to: **{target_path}**\n",
-                target_path,
-            )
+
+            # Result format depends on whether it's an image (Markdown) or other
+            if mime_type.startswith("image/"):
+                display_text = (
+                    f"\n\n[bold blue]IMAGE[/bold blue] Image generated and saved to: "
+                    f"**{target_path}**\n"
+                )
+            else:
+                display_text = (
+                    f"\n\n[bold cyan]MEDIA[/bold cyan] Media ({mime_type}) "
+                    f"generated and saved to: **{target_path}**\n"
+                )
+
+            return display_text, str(target_path)
         except Exception as e:
-            console.print(f"[red]Failed to save image: {e}[/red]")
+            from llm_cli.ui import console
+
+            console.print(f"[red]Failed to save media: {e}[/red]")
         return None, None

@@ -499,5 +499,6 @@ class BaseLlmClient(ABC):
 
     def _save_inline_media_and_get_log_entry(
         self, inline_data: dict[str, Any], hint_text: str = ""
-    ) -> tuple[str | None, Path | None]:
+    ) -> tuple[str | None, str | None]:
+        """Saves media and returns (display_text, file_path_str)."""
         return self.media_manager.save_inline_media(inline_data, hint_text)

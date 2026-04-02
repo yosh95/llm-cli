@@ -22,8 +22,7 @@ consts.CONFIG_FILE_PATH = consts.CONFIG_DIR / "config.toml"
 consts.AUDIT_LOG_PATH = consts.LOG_DIR / "audit.jsonl"
 llm_cli.clients.config.CONFIG_FILE_PATH = consts.CONFIG_FILE_PATH
 
-# Inject dummy configuration to allow module-level checks in tools/web.py to pass
-# during test collection.
+# Inject dummy configuration
 config_manager._config_cache = {
     "google": {
         "api_key": "dummy_test_key",
@@ -48,6 +47,30 @@ config_manager._config_cache = {
         ],
     },
 }
+
+
+@pytest.fixture(autouse=True)
+def prevent_magicmock_directories(monkeypatch):
+    """
+    Prevent 'MagicMock/' directories from being created during tests.
+    """
+    from llm_cli.clients.session import ChatSession
+
+    original_setup = ChatSession._setup_from_client
+
+    def patched_setup(self):
+        # Force history_path to be a temporary one or None if it's a Mock
+        if hasattr(self.client, "history_path"):
+            h = self.client.history_path
+            if hasattr(h, "assert_called") or "Mock" in str(h):
+                self.client.history_path = None
+        if hasattr(self.client, "chat_log_path"):
+            c = self.client.chat_log_path
+            if hasattr(c, "assert_called") or "Mock" in str(c):
+                self.client.chat_log_path = None
+        return original_setup(self)
+
+    monkeypatch.setattr(ChatSession, "_setup_from_client", patched_setup)
 
 
 @pytest.fixture

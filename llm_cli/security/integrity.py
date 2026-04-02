@@ -421,6 +421,7 @@ def verify_installation() -> None:
             return
 
         from rich.panel import Panel
+
         from llm_cli.ui import console
 
         message_lines = [
@@ -434,7 +435,7 @@ def verify_installation() -> None:
         if not verifier.last_files_ok or not verifier.last_manifest_ok:
             message_lines.extend(
                 [
-                    "[bold yellow]If you modified the source code intentionally, run:[/bold yellow]",
+                    "[bold yellow]If you modified source code intentionally, run:[/bold yellow]",
                     "[bold cyan]llm-cli-security manifest[/bold cyan]",
                     "",
                 ]
@@ -451,15 +452,9 @@ def verify_installation() -> None:
                 ]
             )
 
-        # Fallback note if everything seems ok but verify() returned False (should not happen normally)
-        if (
-            verifier.last_files_ok
-            and verifier.last_audit_ok
-            and verifier.last_manifest_ok
-        ):
-            message_lines.append(
-                "[dim]Please check the error logs above for more details.[/dim]"
-            )
+        # Fallback note if everything seems ok but verify() returned False
+        if verifier.last_files_ok and verifier.last_audit_ok and verifier.last_manifest_ok:
+            message_lines.append("[dim]Please check the error logs above for more details.[/dim]")
 
         console.print(
             Panel(

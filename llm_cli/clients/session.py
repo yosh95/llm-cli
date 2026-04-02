@@ -417,9 +417,15 @@ class ChatSession:
 
     def process_and_print(self, data: list[DataSource]) -> None:
         """Orchestrate the full ReAct loop for one user turn."""
+        self.client.conversation = _sanitize_tool_history(self.client.conversation)
         log_chat(self, data, role="User")
         while True:
-            _, duration = self._run_single_turn(data)
+            response_text, duration = self._run_single_turn(data)
+            if response_text is None:
+                # If _send failed or was interrupted, stop the ReAct loop.
+                # If Claude returns thinking but no text, response_text is "".
+                break
+
             next_data = self._process_tool_loop(duration)
             if next_data is None:
                 break

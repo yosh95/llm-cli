@@ -215,6 +215,13 @@ class ConfigManager:
             # Re-sync AppConfig
             self._app_config = AppConfig.from_dict(self._config_cache)
 
+    @classmethod
+    def reset(cls) -> None:
+        """Resets the singleton state for testing."""
+        cls._config_cache = None
+        cls._app_config = None
+        cls._env_loaded = False
+
 
 # Global instance
 config_manager = ConfigManager()

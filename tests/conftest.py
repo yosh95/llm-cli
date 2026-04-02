@@ -22,31 +22,38 @@ consts.CONFIG_FILE_PATH = consts.CONFIG_DIR / "config.toml"
 consts.AUDIT_LOG_PATH = consts.LOG_DIR / "audit.jsonl"
 llm_cli.clients.config.CONFIG_FILE_PATH = consts.CONFIG_FILE_PATH
 
-# Inject dummy configuration
-config_manager._config_cache = {
-    "google": {
-        "api_key": "dummy_test_key",
-        "cse_id": "dummy_test_cse_id",
-    },
-    "openai": {"api_key": "dummy_openai_key"},
-    "anthropic": {"api_key": "dummy_anthropic_key"},
-    "security": {
-        "allowed_paths": ["."],
-        "blocked_paths": [
-            "/etc",
-            "/var",
-            "/root",
-            "/bin",
-            "/sbin",
-            "/usr",
-            "/dev",
-            "/proc",
-            "/sys",
-            "/boot",
-            "~/.ssh",
-        ],
-    },
-}
+
+@pytest.fixture(autouse=True)
+def reset_config_manager():
+    """Reset the ConfigManager singleton before each test."""
+    config_manager.reset()
+
+    # Inject dummy configuration as a default for tests
+    config_manager._config_cache = {
+        "google": {
+            "api_key": "dummy_test_key",
+            "cse_id": "dummy_test_cse_id",
+        },
+        "openai": {"api_key": "dummy_openai_key"},
+        "anthropic": {"api_key": "dummy_anthropic_key"},
+        "security": {
+            "allowed_paths": ["."],
+            "blocked_paths": [
+                "/etc",
+                "/var",
+                "/root",
+                "/bin",
+                "/sbin",
+                "/usr",
+                "/dev",
+                "/proc",
+                "/sys",
+                "/boot",
+                "~/.ssh",
+            ],
+        },
+    }
+    yield
 
 
 @pytest.fixture(autouse=True)

@@ -474,6 +474,30 @@ class PythonSecurityScanner(ast.NodeVisitor):
                     )
         self.generic_visit(node)
 
+    def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
+        """
+        Detect obfuscated keywords in f-strings, e.g., f"{'ex'}{'ec'}".
+        """
+        parts = []
+        for val in node.values:
+            if isinstance(val, ast.Constant) and isinstance(val.value, str):
+                parts.append(val.value)
+            elif isinstance(val, ast.FormattedValue) and isinstance(val.value, ast.Constant):
+                parts.append(str(val.value.value))
+
+        combined = "".join(parts)
+        if (
+            combined in self.DANGEROUS_FUNCTIONS
+            or combined in self.DANGEROUS_ATTRIBUTES
+            or combined in self.DANGEROUS_MODULES
+            or combined in self.RESTRICTED_MODULES
+        ):
+            self.violations.append(
+                f"Security Violation: Obfuscated dangerous keyword construction "
+                f"via f-string '{combined}' detected."
+            )
+        self.generic_visit(node)
+
     def visit_Call(self, node: ast.Call) -> None:
         # --- Direct calls: eval(...), exec(...), or their function-level aliases ---
         if isinstance(node.func, ast.Name):
@@ -481,6 +505,28 @@ class PythonSecurityScanner(ast.NodeVisitor):
             actual_func = self._resolve_func(func_id)
             if actual_func in self.DANGEROUS_FUNCTIONS:
                 self.violations.append(f"High-risk function call detected: {func_id}")
+
+            # Detect getattr(..., "exec") etc.
+            if actual_func == "getattr" and len(node.args) >= 2:
+                attr_arg = node.args[1]
+                attr_name = ""
+                if isinstance(attr_arg, ast.Constant) and isinstance(attr_arg.value, str):
+                    attr_name = attr_arg.value
+                elif isinstance(attr_arg, ast.BinOp):
+                    # Try to resolve concatenated strings
+                    try:
+                        if isinstance(attr_arg.left, ast.Constant) and isinstance(
+                            attr_arg.right, ast.Constant
+                        ):
+                            attr_name = str(attr_arg.left.value) + str(attr_arg.right.value)
+                    except Exception:
+                        pass
+
+                if attr_name in self.DANGEROUS_FUNCTIONS or attr_name in self.DANGEROUS_ATTRIBUTES:
+                    self.violations.append(
+                        f"Security Violation: Attempt to access dangerous attribute "
+                        f"'{attr_name}' via getattr() is forbidden."
+                    )
 
             # Sensitive path access in open()
             if func_id == "open":

@@ -20,159 +20,23 @@ from prompt_toolkit.shortcuts import CompleteStyle
 from rich.rule import Rule
 
 from llm_cli.clients.completer import LlmCliCompleter
+from llm_cli.clients.config import config_manager
 from llm_cli.clients.exceptions import (
     CheckpointRequest,
     ExitRequest,
     TemplateRequest,
 )
-from llm_cli.clients.session_helper import handle_checkpoint, log_chat
+from llm_cli.clients.session_helper import (
+    handle_checkpoint,
+    log_chat,
+    sanitize_tool_history,
+)
 from llm_cli.clients.session_ui import SessionUI, kb, kb_exit, merge_key_bindings
 from llm_cli.modules.custom_markdown import CustomMarkdown
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.ui import console
 
-MAX_TURNS = 20
-
-
-def _sanitize_tool_history(conversation: list[Message]) -> list[Message]:
-    """Remove or flatten orphaned tool_use / tool_result pairs.
-
-    When switching providers (e.g. OpenAI → Claude) the conversation may contain
-    tool-call messages that were produced by the previous provider.  Claude
-    requires that every ``tool_result`` block is immediately preceded by an
-    ``assistant`` message that contains a matching ``tool_use`` block with the
-    same ``id``.  If that invariant is violated (different ID schemes, a 503
-    that interrupted the response, etc.) Claude returns a 400 error.
-
-    This function collapses any MODEL message that carries *only* tool-call
-    parts (no visible text) together with the following TOOL message into a
-    single plain-text USER message that summarises what happened.  Pairs that
-    *do* match are left intact so that a Claude-originated tool sequence
-    continues to work correctly after an in-session provider switch.
-    """
-    if not conversation:
-        return conversation
-
-    # Build a set of tool-use ids that appear in MODEL messages so we can
-    # verify that the subsequent TOOL messages actually match.
-    sanitized: list[Message] = []
-    i = 0
-    while i < len(conversation):
-        msg = conversation[i]
-
-        # Only inspect proper Message objects with function_call parts.
-        # Plain dicts (e.g. from legacy sessions or tests) are passed through.
-        if not isinstance(msg, Message):
-            sanitized.append(msg)
-            i += 1
-            continue
-
-        if msg.role == Role.MODEL:
-            call_parts = [p for p in msg.parts if isinstance(p, ContentPart) and p.function_call]
-            text_parts = [
-                p
-                for p in msg.parts
-                if (isinstance(p, str) and p.strip())
-                or (isinstance(p, ContentPart) and p.text and not p.is_diagnostic)
-            ]
-
-            if call_parts:
-                # Collect the IDs that *this* assistant message advertises.
-                # Use the same call_id-or-id priority as _build_claude_messages.
-                advertised_ids: set[str] = set()
-                for cp in call_parts:
-                    fc = cp.function_call or {}
-                    uid = fc.get("call_id") or fc.get("id")
-                    if uid:
-                        advertised_ids.add(uid)
-
-                # Look ahead: is the next message a TOOL message?
-                next_msg = conversation[i + 1] if i + 1 < len(conversation) else None
-                if not next_msg or next_msg.role != Role.TOOL:
-                    # Orphaned tool_use with no following tool_result at all
-                    # (e.g. the ReAct loop was cancelled with Ctrl+C before the
-                    # result was recorded).  Flatten to plain text so Claude
-                    # doesn't see an unmatched tool_use block.
-                    summary_lines: list[str] = []
-                    if text_parts:
-                        for p in text_parts:
-                            t = p if isinstance(p, str) else (p.text or "")
-                            if t.strip():
-                                summary_lines.append(t.strip())
-                    for cp in call_parts:
-                        fc = cp.function_call or {}
-                        summary_lines.append(
-                            f"[Tool call: {fc.get('name', '?')} "
-                            f"(id={fc.get('call_id') or fc.get('id', '?')}) — "
-                            f"cancelled, no result]"
-                        )
-                    combined = "\n".join(summary_lines)
-                    sanitized.append(
-                        Message(
-                            role=Role.MODEL,
-                            parts=[ContentPart(text=combined)],
-                        )
-                    )
-                    i += 1
-                    continue
-                if next_msg.role == Role.TOOL:
-                    result_ids: set[str] = set()
-                    for p in next_msg.parts:
-                        if isinstance(p, ContentPart) and p.function_response:
-                            fr = p.function_response
-                            uid = fr.get("call_id") or fr.get("id")
-                            if uid:
-                                result_ids.add(uid)
-
-                    # If IDs match (or both sets are empty) keep the pair as-is.
-                    if advertised_ids == result_ids or (not advertised_ids and not result_ids):
-                        sanitized.append(msg)
-                        sanitized.append(next_msg)
-                        i += 2
-                        continue
-
-                    # Mismatch — flatten both messages into descriptive text.
-                    summary_lines = []
-                    if text_parts:
-                        for p in text_parts:
-                            t = p if isinstance(p, str) else (p.text or "")
-                            if t.strip():
-                                summary_lines.append(t.strip())
-                    for cp in call_parts:
-                        fc = cp.function_call or {}
-                        summary_lines.append(
-                            f"[Tool call: {fc.get('name', '?')} "
-                            f"(id={fc.get('call_id') or fc.get('id', '?')})]"
-                        )
-                    for p in next_msg.parts:
-                        if isinstance(p, ContentPart) and p.function_response:
-                            fr = p.function_response
-                            result = fr.get("response", {}).get("result", "") or ""
-                            summary_lines.append(
-                                f"[Tool result: {fr.get('name', '?')} → {str(result)[:200]}]"
-                            )
-                    combined = "\n".join(summary_lines)
-                    # Emit as assistant text + user acknowledgement so the
-                    # alternating role constraint is preserved.
-                    sanitized.append(
-                        Message(
-                            role=Role.MODEL,
-                            parts=[ContentPart(text=combined)],
-                        )
-                    )
-                    sanitized.append(
-                        Message(
-                            role=Role.USER,
-                            parts=["(Tool results incorporated above.)"],
-                        )
-                    )
-                    i += 2
-                    continue
-
-        sanitized.append(msg)
-        i += 1
-
-    return sanitized
+# MAX_TURNS is now in consts as DEFAULT_MAX_TURNS
 
 
 class ChatSession:
@@ -214,7 +78,7 @@ class ChatSession:
     def switch_client(self, new_client: BaseLlmClient) -> None:
         """Explicitly switch the active client and sync state."""
         old_client = self.client
-        new_client.conversation = _sanitize_tool_history(old_client.conversation)
+        new_client.conversation = sanitize_tool_history(old_client.conversation)
         new_client.active_tools = old_client.active_tools
         new_client.tools_enabled = old_client.tools_enabled
         new_client.live_debug = old_client.live_debug
@@ -284,7 +148,8 @@ class ChatSession:
     def _should_checkpoint(self) -> bool:
         """Suggest checkpoint if conversation is getting long."""
         model_turns = len([m for m in self.client.conversation if m.role == Role.MODEL])
-        if model_turns >= MAX_TURNS:
+        max_turns = int(config_manager.get("general", "max_turns") or 20)
+        if model_turns >= max_turns:
             msg = f"Context is large ({model_turns} turns). Summarize and compress? (y/N): "
             if self.ui.confirm(msg):
                 handle_checkpoint(self)
@@ -417,7 +282,7 @@ class ChatSession:
 
     def process_and_print(self, data: list[DataSource]) -> None:
         """Orchestrate the full ReAct loop for one user turn."""
-        self.client.conversation = _sanitize_tool_history(self.client.conversation)
+        self.client.conversation = sanitize_tool_history(self.client.conversation)
         log_chat(self, data, role="User")
         while True:
             response_text, duration = self._run_single_turn(data)

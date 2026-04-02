@@ -7,9 +7,10 @@ from llm_cli.clients.registry import client_registry
 
 logger = logging.getLogger(__name__)
 
-# When confidence falls below this threshold the result is treated as
-# "uncertain" and the caller is expected to escalate to human review.
-_LOW_CONFIDENCE_THRESHOLD: float = 0.7
+# Load threshold from config with a safe fallback
+_LOW_CONFIDENCE_THRESHOLD: float = float(
+    config_manager.get("security", "dual_llm_confidence_threshold") or 0.7
+)
 
 
 def verify_tool_call(

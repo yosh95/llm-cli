@@ -20,97 +20,105 @@ def log_audit(
     context: dict[str, Any] | None = None,
 ) -> None:
     """
-    Enhanced structured audit logging with Chained Hashing.
+    Enhanced structured audit logging with Chained Hashing and file locking for process-safety.
     """
     path = AUDIT_LOG_PATH
     max_lines = int(config_manager.get("general", "max_audit_log_lines") or 10000)
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        timestamp = datetime.datetime.now().isoformat()
 
-        # Prepare context info
-        ctx = context or {}
-        trace_id = ctx.get("trace_id", "-")
-        subject = ctx.get("user_id", "unknown")
-        audience = ctx.get("audience", "-")
-        model = ctx.get("model", "-")
-
-        # Get previous hash to create a chain
-        prev_hash = _get_last_log_hash(path)
-
-        # --- PQC-Confidentiality: Encrypt 'args' with ML-KEM ---
-        final_args = args
-        pqc_encrypted = False
+        # File Locking mechanism for concurrent access
+        lock_fd = None
         try:
-            from llm_cli.security.identity import IdentityManager
-            from llm_cli.security.pqc import SecureStorage
+            import fcntl
 
-            # Encrypt arguments for high-risk and medium-risk tools.
-            # High-risk tools (e.g. execute_python, edit_file) carry code or
-            # file contents.  Medium-risk tools (e.g. read_file_content,
-            # search_files) carry file paths that may themselves be sensitive —
-            # encrypting them prevents leaking workspace layout in plain-text logs.
-            high_risk_tools = set(config_manager.get("security", "high_risk_tools") or [])
-            medium_risk_tools = set(config_manager.get("security", "medium_risk_tools") or [])
-            if tool_name in high_risk_tools or tool_name in medium_risk_tools:
-                pub_kem = IdentityManager._get_kem_public_key_content()
-                args_bytes = json.dumps(args).encode()
-                final_args = SecureStorage.encrypt(args_bytes, pub_kem)
-                pqc_encrypted = True
-        except Exception as e:
-            logger.debug(f"PQC encryption skipped for audit log: {e}")
+            lock_path = path.with_suffix(".lock")
+            lock_fd = lock_path.open("w")
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        except (ImportError, OSError):
+            pass
 
-        log_entry = {
-            "timestamp": timestamp,
-            "trace_id": trace_id,
-            "subject": subject,
-            "audience": audience,
-            "model": model,
-            "event_type": "tool_call",
-            "tool": tool_name,
-            "args": final_args,
-            "pqc_confidential": pqc_encrypted,
-            "output": str(_output)[:256] if _output else None,  # Truncate output
-            "status": "SUCCESS" if not error else f"FAILED: {error}",
-            "exit_code": exit_code,
-            "prev_hash": prev_hash,
-        }
-
-        # Calculate hash of the current entry (excluding the hash itself and PQC sig)
-        entry_str = json.dumps(log_entry, sort_keys=True)
-        current_hash = hashlib.sha256(entry_str.encode()).hexdigest()
-        log_entry["hash"] = current_hash
-
-        # --- PQC-Audit-Chain: Sign the current entry hash with ML-DSA ---
         try:
-            import base64
+            timestamp = datetime.datetime.now().isoformat()
+            ctx = context or {}
+            trace_id = ctx.get("trace_id", "-")
+            subject = ctx.get("user_id", "unknown")
+            audience = ctx.get("audience", "-")
+            model = ctx.get("model", "-")
 
-            from llm_cli.security.identity import IdentityManager
-            from llm_cli.security.pqc import PQCAgilityManager, PQCProvider
+            prev_hash = _get_last_log_hash(path)
 
-            # Determine required security level based on tool risk and
-            # ARGS (Dynamic Context)
-            variant = PQCAgilityManager.get_required_level(tool_name, args=args)
+            final_args = args
+            pqc_encrypted = False
+            try:
+                from llm_cli.security.identity import IdentityManager
+                from llm_cli.security.pqc import SecureStorage
 
-            pqc_priv = IdentityManager._get_pqc_private_key_content(variant=variant)
-            # Use the agility-aware variant for signing
-            pqc_sig = PQCProvider.sign(current_hash.encode(), pqc_priv, variant=variant)
+                high_risk_tools = set(config_manager.get("security", "high_risk_tools") or [])
+                medium_risk_tools = set(config_manager.get("security", "medium_risk_tools") or [])
+                if tool_name in high_risk_tools or tool_name in medium_risk_tools:
+                    pub_kem = IdentityManager._get_kem_public_key_content()
+                    args_bytes = json.dumps(args).encode()
+                    final_args = SecureStorage.encrypt(args_bytes, pub_kem)
+                    pqc_encrypted = True
+            except Exception as e:
+                logger.debug(f"PQC encryption skipped for audit log: {e}")
 
-            log_entry["pqc_signature"] = base64.b64encode(pqc_sig).decode()
-            log_entry["pqc_algorithm"] = variant
+            log_entry = {
+                "timestamp": timestamp,
+                "trace_id": trace_id,
+                "subject": subject,
+                "audience": audience,
+                "model": model,
+                "event_type": "tool_call",
+                "tool": tool_name,
+                "args": final_args,
+                "pqc_confidential": pqc_encrypted,
+                "output": str(_output)[:256] if _output else None,
+                "status": "SUCCESS" if not error else f"FAILED: {error}",
+                "exit_code": exit_code,
+                "prev_hash": prev_hash,
+            }
+
+            entry_str = json.dumps(log_entry, sort_keys=True)
+            current_hash = hashlib.sha256(entry_str.encode()).hexdigest()
+            log_entry["hash"] = current_hash
+
+            try:
+                import base64
+
+                from llm_cli.security.identity import IdentityManager
+                from llm_cli.security.pqc import PQCAgilityManager, PQCProvider
+
+                variant = PQCAgilityManager.get_required_level(tool_name, args=args)
+                pqc_priv = IdentityManager._get_pqc_private_key_content(variant=variant)
+                pqc_sig = PQCProvider.sign(current_hash.encode(), pqc_priv, variant=variant)
+
+                log_entry["pqc_signature"] = base64.b64encode(pqc_sig).decode()
+                log_entry["pqc_algorithm"] = variant
+            except Exception as e:
+                logger.debug(f"PQC signing skipped for audit log: {e}")
+
+            with path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(log_entry) + "\n")
+
+            _trim_log_file(path, max_lines)
+
         except Exception as e:
-            # Fallback for environments without PQC keys or during setup
-            logger.debug(f"PQC signing skipped for audit log: {e}")
+            logger.error(f"Internal audit logging error: {e}")
+        finally:
+            if lock_fd:
+                try:
+                    import fcntl
 
-        # Write as JSONL
-        with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-
-        _trim_log_file(path, max_lines)
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                    lock_fd.close()
+                except Exception:
+                    pass
 
     except Exception as e:
-        logger.error(f"Failed to write audit log: {e}")
+        logger.error(f"Failed to write audit log (pre-lock): {e}")
 
 
 def _get_last_log_hash(path: Path) -> str:

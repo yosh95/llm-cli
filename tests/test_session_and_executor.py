@@ -157,7 +157,13 @@ def test_execute_tool_call_with_injected_data(session, tool_call_part):
             with patch(
                 "llm_cli.clients.config.config_manager.get",
                 side_effect=lambda section, key: (
-                    ["test_tool"] if section == "security" and key == "low_risk_tools" else "low"
+                    ["test_tool"]
+                    if section == "security" and key == "low_risk_tools"
+                    else (
+                        "low"
+                        if section == "security" and key == "auto_approval_level"
+                        else (0.0 if key == "auto_approval_delay" else None)
+                    )
                 ),
             ):
                 with patch("llm_cli.security.identity.IdentityManager._ensure_keys"):

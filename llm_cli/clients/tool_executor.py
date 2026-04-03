@@ -151,7 +151,20 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
 
         if is_auto_approved:
             logger.debug(f"Auto-approving '{ctx.name}' (Risk: {ctx.risk_level.value})")
-            display_execution_details(ctx, auto_approved=True)
+            delay = float(config_manager.get("general", "auto_approval_delay") or 0.0)
+            display_execution_details(ctx, auto_approved=True, delay=delay)
+
+            # Brief pause for human reading of reasoning/args before execution.
+            if delay > 0:
+                import time
+
+                try:
+                    time.sleep(delay)
+                except (KeyboardInterrupt, EOFError):
+                    ctx.error_message = "Operation cancelled by user."
+                    ctx.aborted = True
+                    return False
+
             return True
 
     # 3. Manual Approval Flow

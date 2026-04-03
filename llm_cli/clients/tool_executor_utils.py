@@ -14,9 +14,11 @@ from .tool_executor_ui import (
 )
 
 
-def display_execution_details(ctx: ToolExecutionContext, auto_approved: bool = False) -> None:
+def display_execution_details(
+    ctx: ToolExecutionContext, auto_approved: bool = False, delay: float = 0.0
+) -> None:
     """Displays tool request and relevant previews (diffs, code)."""
-    display_tool_request(ctx, auto_approved=auto_approved)
+    display_tool_request(ctx, auto_approved=auto_approved, delay=delay)
     if any(k in ctx.name for k in ("write_file", "create_or_overwrite_file")):
         preview_diff(ctx.args)
     elif "edit_file" in ctx.name:

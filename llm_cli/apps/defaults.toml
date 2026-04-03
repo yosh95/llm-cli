@@ -11,6 +11,7 @@ max_turns = 20
 max_security_log_lines = 1000
 max_audit_log_lines = 10000
 max_audit_archives = 10
+auto_approval_delay = 2.0  # Seconds to wait before auto-approved tool execution
 
 # =============================================================================
 # Security & API Keys

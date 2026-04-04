@@ -1,4 +1,5 @@
 import argparse
+import logging
 import sys
 import time
 
@@ -79,6 +80,7 @@ def main() -> None:
         description="Benchmark Dual LLM latency for specific providers and models.",
         add_help=True,
     )
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument(
         "provider",
         nargs="?",
@@ -98,6 +100,10 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    # Set default log level (with debug support)
+    log_level = logging.DEBUG if args.debug else logging.WARNING
+    logging.basicConfig(level=log_level, stream=sys.stderr)
 
     if not args.provider or not args.model:
         parser.print_help()

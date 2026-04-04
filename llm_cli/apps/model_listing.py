@@ -7,6 +7,7 @@ Provides a single CLI command to list available models for any provider.
 
 import argparse
 import datetime
+import logging
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -232,6 +233,7 @@ def main() -> None:
     setup_permissions()
 
     parser = argparse.ArgumentParser(description="Unified LLM Model Listing CLI")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument(
         "provider",
         nargs="?",
@@ -241,6 +243,10 @@ def main() -> None:
     parser.add_argument("-v", action="store_true", help="Verbose output (table format)")
 
     args = parser.parse_args()
+
+    # Set default log level (with debug support)
+    log_level = logging.DEBUG if args.debug else logging.WARNING
+    logging.basicConfig(level=log_level, stream=sys.stderr)
 
     if not args.provider:
         parser.print_help()

@@ -8,7 +8,6 @@ from llm_cli.security.integrity import IntegrityVerifier
 from llm_cli.security.permissions import setup_permissions
 from llm_cli.ui import console
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -17,6 +16,7 @@ def main() -> None:
     setup_permissions()
 
     parser = argparse.ArgumentParser(description="LLM-CLI Identity and Integrity Management Tool")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # keygen command
@@ -62,6 +62,10 @@ def main() -> None:
 
     try:
         args = parser.parse_args()
+
+        # Set default log level (with debug support)
+        log_level = logging.DEBUG if args.debug else logging.WARNING
+        logging.basicConfig(level=log_level, stream=sys.stderr)
 
         if args.command == "keygen":
             console.print("[bold cyan]Generating Identity Keys...[/bold cyan]")

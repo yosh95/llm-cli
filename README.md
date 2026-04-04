@@ -135,12 +135,19 @@ Inside the `llm-cli` interactive session:
 - `/cp`: Checkpoint (Summarize and clear history).
 - `/mcp`: Toggle or manage MCP server integrations.
 
-###  Performance & Benchmarking
-To measure the latency of the Dual LLM verification (intent check):
-```bash
-llm-cli-benchmark-dual
-```
-This helps you choose the most efficient "fast model" (like Gemini Flash or GPT-4o-mini) for background security checks.
+###  Logging & Troubleshooting
+By default, `llm-cli` and its related tools suppress all informational logs and only show `WARNING` or `ERROR` messages. If you encounter issues:
+- **Enable Debug Mode**: Add the `--debug` flag to any tool to see detailed execution logs:
+  ```bash
+  llm-cli --debug "query"
+  llm-cli-security --debug verify
+  ```
+- **MCP Debugging**: To troubleshoot the MCP server (which is often spawned by a third-party client), use the `MCP_DEBUG` environment variable:
+  ```bash
+  export MCP_DEBUG=1
+  # Then start your MCP client (e.g., Claude Desktop)
+  ```
+- **Log Location**: Security and audit logs are stored in `~/.llm_cli/audit.jsonl`.
 
 ### LLM Power User Tips
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
@@ -279,12 +286,19 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
 - `/cp`: チェックポイント (会話の要約と履歴のクリア)。
 - `/mcp`: MCP サーバー連携の切り替えと管理。
 
-###  パフォーマンスとベンチマーク
-Dual LLM 検証 (意図確認) のレイテンシを測定するには:
-```bash
-llm-cli-benchmark-dual
-```
-このコマンドにより、バックグラウンドでのセキュリティチェックに最適な高速モデル (Gemini Flash や GPT-4o-mini など) を選択する際の参考にできます。
+###  ログとトラブルシューティング
+デフォルトでは、`llm-cli` およびその関連ツールは、`WARNING` または `ERROR` メッセージのみを表示し、情報のログは表示されません。
+- **デバッグモードの有効化**: ツールの実行時に `--debug` フラグを追加して、詳細なログを表示します。
+  ```bash
+  llm-cli --debug "query"
+  llm-cli-security --debug verify
+  ```
+- **MCP のデバッグ**: 3rdパーティのクライアント（Claude Desktop 等）から起動される MCP サーバーのトラブルシューティングには、`MCP_DEBUG` 環境変数を使用します。
+  ```bash
+  export MCP_DEBUG=1
+  # その後、お使いの MCP クライアントを起動してください。
+  ```
+- **ログの場所**: セキュリティおよび監査ログは `~/.llm_cli/audit.jsonl` に保存されています。
 
 ### LLM パワーユーザー向け機能
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。

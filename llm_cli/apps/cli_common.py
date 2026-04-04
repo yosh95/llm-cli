@@ -3,6 +3,7 @@
 """Shared CLI entry point functionality for all LLM clients."""
 
 import argparse
+import logging
 import sys
 from dataclasses import dataclass, field
 from typing import Any
@@ -49,6 +50,7 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
     parser.add_argument("--mcp", action="store_true", help="Enable MCP integration")
     parser.add_argument("--mcp-server", action="store_true", help="Run as an MCP server")
     parser.add_argument("--session", help="Load a saved session JSON file on startup")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
     for arg_name, arg_config in config.extra_args:
         parser.add_argument(arg_name, **arg_config)
@@ -59,6 +61,10 @@ def create_standard_parser(config: ClientConfig) -> argparse.ArgumentParser:
 def run_client_cli(config: ClientConfig) -> None:
     parser = create_standard_parser(config)
     args = parser.parse_args()
+
+    # Set default log level (with debug support)
+    log_level = logging.DEBUG if args.debug else logging.WARNING
+    logging.basicConfig(level=log_level, stream=sys.stderr)
 
     if args.mcp_server:
         # Redirect Rich console to stderr early to avoid corrupting JSON-RPC on stdout

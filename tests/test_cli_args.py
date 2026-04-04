@@ -47,12 +47,14 @@ def test_removed_no_system_prompt_argument(parser):
         parser.parse_args(["--no-system-prompt"])
 
 
-def test_removed_debug_argument(parser):
-    """Test that the -d/--debug argument is removed and raises an error."""
+def test_debug_argument(parser):
+    """Test that the --debug argument is accepted and -d is not."""
+    args = parser.parse_args(["--debug"])
+    assert args.debug is True
+
+    # -d is not currently supported as a short flag
     with pytest.raises(SystemExit):
         parser.parse_args(["-d"])
-    with pytest.raises(SystemExit):
-        parser.parse_args(["--debug"])
 
 
 def test_removed_init_config_argument(parser):

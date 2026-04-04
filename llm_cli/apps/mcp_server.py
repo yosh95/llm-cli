@@ -20,8 +20,7 @@ from llm_cli.ui import console
 # This prevents initialization messages from corrupting the JSON-RPC stream on stdout.
 console.file = sys.stderr
 
-# Configure logging to stderr because stdout is used for MCP JSON-RPC
-logging.basicConfig(level=logging.INFO, stream=sys.stderr)
+# Logger instance (configuration moved to main)
 logger = logging.getLogger(__name__)
 
 # Load User Configuration for Security Policies
@@ -192,6 +191,11 @@ def create_mcp_server() -> FastMCP:
 
 def main() -> None:
     """Run the MCP server in stdio mode."""
+    # Ensure logging is configured if not already handled by the caller
+    if not logging.getLogger().hasHandlers():
+        level = logging.DEBUG if os.environ.get("MCP_DEBUG") == "1" else logging.WARNING
+        logging.basicConfig(level=level, stream=sys.stderr)
+
     mcp = create_mcp_server()
     logger.info("Starting LLM-CLI MCP Server (stdio)...")
     mcp.run()

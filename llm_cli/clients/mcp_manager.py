@@ -12,7 +12,7 @@ from llm_cli.security.identity import IdentityManager
 from llm_cli.ui import console
 
 # Set up logging for MCP client
-logging.basicConfig(level=logging.WARN, stream=sys.stderr)
+logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
 

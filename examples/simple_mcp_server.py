@@ -4,7 +4,7 @@ import sys
 from llm_cli.mcp_server_lib import FastMCP
 
 # Configure logging to stderr because stdout is used for MCP JSON-RPC
-logging.basicConfig(level=logging.INFO, stream=sys.stderr)
+logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
 # Create a simple MCP server named "test-server"

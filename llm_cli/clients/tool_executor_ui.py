@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
 
-from llm_cli.ui import console, print_block
+from llm_cli.ui import console, print_block, print_panel
 
 # ---------------------------------------------------------------------------
 # Risk-level visual vocabulary
@@ -53,10 +53,10 @@ def display_reasoning(ctx: Any) -> None:
     if explanation:
         display_name = ctx.session.client.get_display_name()
         dur = f" ({ctx.duration:.1f}s)" if ctx.duration else ""
-        print_block(
+        print_panel(
             explanation,
             title=f"[bold cyan]{display_name} (Reasoning){dur}[/bold cyan]",
-            style="cyan",
+            border_style="cyan",
         )
 
 

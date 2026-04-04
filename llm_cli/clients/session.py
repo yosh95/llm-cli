@@ -223,10 +223,10 @@ class ChatSession:
             self.client.last_usage = usage
 
         if thought_text:
-            self.ui.print_block(
+            self.ui.print_panel(
                 CustomMarkdown(thought_text),
                 title=f"[bold dim]Thought ({duration:.1f}s)[/bold dim]",
-                style="dim",
+                border_style="dim",
             )
 
         if response_text:

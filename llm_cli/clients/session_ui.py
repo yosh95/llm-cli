@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.shortcuts import CompleteStyle
 
-from llm_cli.ui import console, print_block
+from llm_cli.ui import console, print_block, print_panel
 
 if TYPE_CHECKING:
     from prompt_toolkit import PromptSession
@@ -114,6 +114,16 @@ class SessionUI:
     ) -> None:
         """Print content with background color (no border) for easier copying."""
         print_block(renderable, title, style)
+
+    def print_panel(
+        self,
+        renderable: Any,
+        title: str | None = None,
+        style: str | None = None,
+        border_style: str | None = None,
+    ) -> None:
+        """Print content inside a Rich Panel."""
+        print_panel(renderable, title, style, border_style)
 
     def confirm(self, message: str, exit_on_escape: bool = False) -> bool:
         """Helper to ask for a y/n confirmation."""

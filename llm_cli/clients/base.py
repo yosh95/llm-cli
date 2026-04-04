@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,8 @@ from llm_cli.clients.config import config_manager
 from llm_cli.clients.managers import MediaManager, SessionManager
 from llm_cli.modules.models import ContentPart, DataSource, Message, Role
 from llm_cli.ui import console, report_error, report_success
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -235,61 +238,60 @@ class BaseLlmClient(ABC):
 
     def _log_debug(self, response_obj: Any = None, request_payload: Any = None) -> None:
         """
-        Logs detailed request and response data when live_debug is enabled.
-        Uses Rich for pretty-printing JSON payloads.
+        Logs detailed request and response data to the logger at DEBUG level.
+        Includes API URL, headers, and pretty-printed JSON bodies.
         """
-        if not self.live_debug:
+        if not logger.isEnabledFor(logging.DEBUG):
             return
 
         import json
 
-        from rich.rule import Rule
-        from rich.syntax import Syntax
-
-        if request_payload:
-            payload_str = json.dumps(request_payload, indent=2, ensure_ascii=False)
-            console.print(
-                Rule(
-                    "[bold magenta]DEBUG: Request Payload[/bold magenta]",
-                    style="magenta",
-                )
-            )
-            console.print(
-                Syntax(
-                    payload_str,
-                    "json",
-                    word_wrap=True,
-                )
+        # 1. Request details
+        if response_obj is not None and hasattr(response_obj, "request"):
+            req = response_obj.request
+            logger.debug(
+                f"Request Headers: {json.dumps(dict(req.headers), indent=2, ensure_ascii=False)}"
             )
 
+            # Use provided request_payload if available, else try to get from request.body
+            body = request_payload
+            if body is None and req.body:
+                try:
+                    if isinstance(req.body, bytes):
+                        body = json.loads(req.body.decode("utf-8"))
+                    else:
+                        body = json.loads(req.body)
+                except Exception:
+                    body = req.body
+
+            if body:
+                if isinstance(body, (dict, list)):
+                    logger.debug(f"Request Body:\n{json.dumps(body, indent=2, ensure_ascii=False)}")
+                else:
+                    logger.debug(f"Request Body: {body}")
+
+        # 2. Response details
         if response_obj is not None:
-            try:
-                # Show URL if available
-                if hasattr(response_obj, "url"):
-                    console.print(f"[magenta]URL:[/magenta] [dim]{response_obj.url}[/dim]")
+            if hasattr(response_obj, "status_code"):
+                logger.debug(f"Response Status: {response_obj.status_code}")
 
-                # Handle requests.Response objects
+            if hasattr(response_obj, "headers"):
+                logger.debug(
+                    "Response Headers: "
+                    f"{json.dumps(dict(response_obj.headers), indent=2, ensure_ascii=False)}"
+                )
+
+            try:
                 if hasattr(response_obj, "json"):
                     res_json = response_obj.json()
-                    res_str = json.dumps(res_json, indent=2, ensure_ascii=False)
-                    console.print(Rule("[bold cyan]DEBUG: Response JSON[/bold cyan]", style="cyan"))
-                    console.print(
-                        Syntax(
-                            res_str,
-                            "json",
-                            word_wrap=True,
-                        )
+                    logger.debug(
+                        f"Response Body:\n{json.dumps(res_json, indent=2, ensure_ascii=False)}"
                     )
-                else:
-                    # Fallback for other object types
-                    res_str = str(response_obj)
-                    console.print(Rule("[bold cyan]DEBUG: Response Data[/bold cyan]", style="cyan"))
-                    console.print(res_str)
-            except Exception as e:
-                console.print(f"[dim red]Debug logging failed: {e}[/dim red]")
+                elif hasattr(response_obj, "text"):
+                    logger.debug(f"Response Body: {response_obj.text}")
+            except Exception:
                 if hasattr(response_obj, "text"):
-                    console.print(Rule("[bold cyan]DEBUG: Raw Response[/bold cyan]", style="cyan"))
-                    console.print(response_obj.text)
+                    logger.debug(f"Response Body: {response_obj.text}")
 
     def _set_initial_model(self, initial_model_alias: str) -> None:
         if not self.set_model(initial_model_alias):

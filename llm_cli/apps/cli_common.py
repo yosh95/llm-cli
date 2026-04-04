@@ -140,7 +140,7 @@ def run_client_cli(config: ClientConfig) -> None:
         "initial_tools": initial_tools,
         "disable_system_prompt": False,
         "enable_mcp": enable_mcp,
-        "live_debug": False,
+        "live_debug": args.debug,
     }
 
     if config.supports_provider_selection and getattr(args, "provider", None):

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -215,6 +216,11 @@ def handle_tools(ctx: CommandContext) -> bool:
 
 def handle_debug(ctx: CommandContext) -> bool:
     ctx.client.live_debug = not ctx.client.live_debug
+
+    # Sync root logger level with live_debug flag
+    log_level = logging.DEBUG if ctx.client.live_debug else logging.WARNING
+    logging.getLogger().setLevel(log_level)
+
     status = "ENABLED" if ctx.client.live_debug else "DISABLED"
     console.print(f"[magenta]Live debug mode {status}.[/magenta]")
     return True

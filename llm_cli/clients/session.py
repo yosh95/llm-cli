@@ -17,7 +17,6 @@ except ImportError:
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.shortcuts import CompleteStyle
-from rich.rule import Rule
 
 from llm_cli.clients.completer import LlmCliCompleter
 from llm_cli.clients.config import config_manager
@@ -235,14 +234,11 @@ class ChatSession:
                 print(response_text)
             else:
                 title_str = f"[bold cyan]{display_name} ({duration:.1f}s)[/bold cyan]"
-                if self.client._has_pending_tool_calls():
-                    self.ui.print_block(
-                        CustomMarkdown(response_text), title=title_str, style="cyan"
-                    )
-                else:
-                    console.print(Rule(title=title_str, style="cyan"))
-                    console.print(CustomMarkdown(response_text))
-                    console.print(Rule(style="cyan"))
+                self.ui.print_panel(
+                    CustomMarkdown(response_text),
+                    title=title_str,
+                    border_style="cyan",
+                )
 
             log_chat(self, response_text, role=self.client.model)
         return response_text, duration

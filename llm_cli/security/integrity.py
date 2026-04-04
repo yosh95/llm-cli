@@ -429,7 +429,6 @@ def verify_installation() -> None:
             "",
             "Unauthorized modifications were detected in the application files or audit logs.",
             "For security, the startup process has been aborted.",
-            "",
         ]
 
         if not verifier.last_files_ok or not verifier.last_manifest_ok:
@@ -437,7 +436,6 @@ def verify_installation() -> None:
                 [
                     "[bold yellow]If you modified source code intentionally, run:[/bold yellow]",
                     "[bold cyan]llm-cli-security manifest[/bold cyan]",
-                    "",
                 ]
             )
 
@@ -448,7 +446,6 @@ def verify_installation() -> None:
                     "The audit log signature verification failed.",
                     "If you recently changed your identity keys, you MUST clear the log:",
                     "[bold yellow]rm audit.jsonl[/bold yellow]",
-                    "",
                 ]
             )
 

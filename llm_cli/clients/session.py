@@ -234,10 +234,10 @@ class ChatSession:
                 print(response_text)
             else:
                 title_str = f"[bold cyan]{display_name} ({duration:.1f}s)[/bold cyan]"
-                self.ui.print_panel(
+                self.ui.print_block(
                     CustomMarkdown(response_text),
                     title=title_str,
-                    border_style="cyan",
+                    style="cyan",
                 )
 
             log_chat(self, response_text, role=self.client.model)

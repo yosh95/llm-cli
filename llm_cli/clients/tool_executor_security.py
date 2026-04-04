@@ -8,7 +8,7 @@ from llm_cli.clients.tool_executor_types import ToolExecutionContext
 from llm_cli.security.static_analyzer import analyze_python_safety
 from llm_cli.ui import (
     console,
-    print_block,
+    print_panel,
     report_error,
     report_success,
 )
@@ -193,11 +193,11 @@ def run_code_safety_check(ctx: ToolExecutionContext) -> bool:
         # 1. Critical Violations: Strict block, no bypass.
         if violations:
             violation_str = "\n".join(f"• {v}" for v in violations)
-            print_block(
+            print_panel(
                 f"[bold red][bold yellow]WARNING[/bold yellow]  "
                 f"Security Violation:[/bold red]\n{violation_str}",
                 title="Static Analysis Critical Block",
-                style="red",
+                border_style="red",
             )
             ctx.error_message = "Critical security violation in code. Execution blocked."
             log_audit(

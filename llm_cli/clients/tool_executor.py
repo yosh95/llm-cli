@@ -11,7 +11,7 @@ from llm_cli.modules.tool_registry import registry
 from llm_cli.security.cass import RiskLevel
 from llm_cli.ui import (
     console,
-    print_block,
+    print_panel,
     report_error,
 )
 
@@ -172,10 +172,10 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
 
     if ctx.security_warnings:
         for title, warning in ctx.security_warnings:
-            print_block(
+            print_panel(
                 warning,
                 title=title,
-                style="red",
+                border_style="red",
             )
 
     try:

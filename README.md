@@ -30,6 +30,12 @@ The accompanying [Technical Report](paper/comprehensive_framework/paper.pdf) det
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/architecture_diagram_en.png" width="800" alt="llm-cli Architecture & Security Guardrails" />
 </p>
 
+<p align="center">
+  <img src="images/architecture_diagram_simple.png" width="800" alt="llm-cli Simplified Architecture Flow" />
+  <br>
+  <em>Simplified Architecture Flow (TikZ version)</em>
+</p>
+
 ---
 
 ##  Quick Start
@@ -204,6 +210,14 @@ For detailed architectural insights and the academic background of our security 
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/architecture_diagram_ja.png" width="800" alt="llm-cli アーキテクチャと多層防御" />
 </p>
+
+<p align="center">
+  <img src="images/architecture_diagram_simple.png" width="800" alt="llm-cli 簡易アーキテクチャフロー" />
+  <br>
+  <em>簡易アーキテクチャフロー (TikZ版)</em>
+</p>
+
+---
 
 ##  クイックスタート
 

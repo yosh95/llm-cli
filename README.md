@@ -77,7 +77,7 @@ llm-cli "Summarize this PDF" ./document.pdf
 llm-cli "Analyze this website" https://example.com
 ```
 
-## GEMINI Core Features (Product Ready)
+## Core Features
 
 - **Unified Provider Access**: Seamlessly switch between Google (Gemini), OpenAI, Anthropic (Claude), and **Local LLMs (Ollama)**.
 - **Autonomous Agent**: Let the AI manage files, execute Python code (replacing risky shell commands), and search the web using **Provider-Native Search** (Gemini Grounding, Claude Web Search, etc.).
@@ -87,7 +87,7 @@ llm-cli "Analyze this website" https://example.com
 - **Operational Stability**: A clean, flicker-free UI designed for long-term "Deep Work" sessions and SSH-based environments.
 - **Human-in-the-Loop**: All critical actions (file edits, code execution) require explicit human approval by default.
 
-### AGENT Autonomous Agent & Tool Use
+### Autonomous Agent & Tool Use
 The AI agent autonomously uses tools to perform complex tasks, such as file management, web search, and Python execution. Web search is powered by the LLM provider's native capabilities where available, ensuring high-quality real-time information with citations.
 
 <p align="center">
@@ -96,11 +96,11 @@ The AI agent autonomously uses tools to perform complex tasks, such as file mana
 
 ---
 
-## SEC️ Security & Governance (High-Assurance Framework)
+## Security & Governance (High-Assurance Framework)
 
 As a tool designed with **CISSP/CISA/CCSP** principles and **EU AI Act** compliance in mind, `llm-cli` implements a multi-layered security architecture to mitigate the risks associated with autonomous AI agents.
 
-### 1. Zero Trust & Access Control (ABAC)
+### 1. Access Control (ABAC)
 `llm-cli` implements **Attribute-Based Access Control (ABAC)**, providing granular security based on execution context and resource attributes.
 - **Risk-based Scaling**: Security requirements automatically scale based on the tool's risk level (HIGH/MEDIUM/LOW).
 - **Intent Verification (Dual LLM)**: High-risk actions are cross-verified by a separate, lightweight "Verifier" LLM (e.g., Gemini Flash Lite) to ensure the proposed tool call aligns with the user's original intent, mitigating sophisticated prompt injection.
@@ -155,7 +155,7 @@ By default, `llm-cli` and its related tools suppress all informational logs and 
   ```
 - **Log Location**: Security and audit logs are stored in `~/.llm_cli/audit.jsonl`.
 
-### LLM Power User Tips
+### Power User Tips
 - **Backgrounding (`Ctrl+Z`)**: Suspend the session to perform shell operations, then use `fg` to return.
 - **External Editor (`Ctrl+X, Ctrl+E`)**: Open the current prompt in your default editor (`vim`, `nano`, etc.) for complex editing.
 - **Templates**: Define reusable prompts in `~/.llm_cli/config.toml` and call them with `/t <name>`.
@@ -166,7 +166,7 @@ By default, `llm-cli` and its related tools suppress all informational logs and 
   ```
 - **Disabling Tools Manually**: Use `/tools off` to prevent errors when using a model that doesn't support function calling.
 
-## KEY Security Management
+## Security Management
 Use the `llm-cli-security` tool to manage your cryptographic identity:
 ```bash
 llm-cli-security keygen     # Generate RSA and PQC (ML-DSA/ML-KEM) keys
@@ -245,7 +245,7 @@ For detailed architectural insights and the academic background of our security 
     ```
 5.  **ヘルプ**: チャット内で `/help` と入力するとコマンド一覧が表示されます。
 
-## GEMINI 主な機能 (実用ツールとして)
+## 主な機能 (実用ツールとして)
 
 - **統合インターフェース**: `llm-cli` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
 - **自律型エージェント**: ファイル操作、Python実行、Web検索、URL解析をAIが自律的に実行。Web検索はプロバイダー提供の**ネイティブ検索機能**（Gemini Grounding, Claude Web Search等）を使用します。
@@ -254,14 +254,14 @@ For detailed architectural insights and the academic background of our security 
 - **マルチモーダル対応**: 画像、PDF、音声、動画の入力をサポート。画像生成も可能。
 - **集中力を削がないUI**: 画面のちらつきを抑え、SSH越しでも安定して動作するクリーンなターミナル出力。
 
-### AGENT 自律型エージェントのツール実行
+### 自律型エージェントのツール実行
 AIがファイル操作、Web検索、Python実行などのツールを自律的に使用し、複雑なタスクを遂行します。Web検索はLLMプロバイダーの機能を直接利用するため、精度の高い情報と出典（引用）の確認が可能です。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/screenshot-tool-calling.png" width="800" alt="自律型エージェントのツール実行" />
 </p>
 
-## SEC️ セキュリティとガバナンス (プロフェッショナル向け)
+## セキュリティとガバナンス (プロフェッショナル向け)
 
 本ツールは **CISSP/CISA/CCSP** の各ドメインにおける管理策、および **EU AI Act（欧州AI法）** の技術的要件を意識して設計されています。
 
@@ -314,7 +314,7 @@ AIがファイル操作、Web検索、Python実行などのツールを自律的
   ```
 - **ログの場所**: セキュリティおよび監査ログは `~/.llm_cli/audit.jsonl` に保存されています。
 
-### LLM パワーユーザー向け機能
+### パワーユーザー向け機能
 - **一時中断 (`Ctrl+Z`)**: セッションをバックグラウンドに送り、シェルに戻る。`fg` で復帰可能。
 - **外部エディタ編集 (`Ctrl+X, Ctrl+E`)**: プロンプト入力を `vim` や `nano` で編集。
 - **テンプレート**: 頻繁に使うプロンプトを `~/.llm_cli/config.toml` に定義し、`/t <名前>` で呼び出し。

@@ -1,4 +1,4 @@
-.PHONY: help install lint format test coverage check clean paper
+.PHONY: help install lint format test coverage check clean paper diagrams
 
 # Default target
 help:
@@ -9,6 +9,7 @@ help:
 	@echo "  make format   - Run formatter (ruff)"
 	@echo "  make test     - Run tests"
 	@echo "  make coverage - Run tests with coverage report (terminal & html)"
+	@echo "  make diagrams - Build architecture diagrams (PDF & PNG)"
 	@echo "  make paper    - Build LaTeX papers"
 	@echo "  make clean    - Remove temporary files and caches"
 
@@ -32,12 +33,16 @@ test: lint
 coverage: lint
 	pytest --cov=llm_cli --cov-report=term-missing --cov-report=html tests/
 
+diagrams:
+	$(MAKE) -C architecture_diagrams
+
 paper:
 	$(MAKE) -C paper
 
 clean:
 	@echo "Cleaning up..."
 	$(MAKE) -C paper clean
+	$(MAKE) -C architecture_diagrams clean
 	rm -rf .ruff_cache/
 	rm -rf .pytest_cache/
 	rm -rf .mypy_cache/

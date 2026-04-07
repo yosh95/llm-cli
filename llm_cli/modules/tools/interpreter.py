@@ -92,6 +92,8 @@ def execute_python(code: str, **kwargs: Any) -> Any:
 
     # Read memory limit from config, default to 1024MB (1GB)
     mem_limit_mb = int(str(config_manager.get("general", "max_command_memory_mb") or "1024"))
+    # Read file size limit from config, default to 100MB
+    file_limit_mb = int(str(config_manager.get("general", "max_command_file_size_mb") or "100"))
 
     # Environment variables filtering
     safe_env_keys = {
@@ -177,7 +179,9 @@ def execute_python(code: str, **kwargs: Any) -> Any:
 
     if platform.system() != "Windows":
         exec_kwargs["start_new_session"] = True
-        exec_kwargs["preexec_fn"] = lambda: set_resource_limits(mem_limit_mb, timeout)
+        exec_kwargs["preexec_fn"] = lambda: set_resource_limits(
+            mem_limit_mb, timeout, file_limit_mb
+        )
 
     try:
         # We use shell=False for security, running the script file directly

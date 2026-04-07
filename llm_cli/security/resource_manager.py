@@ -17,7 +17,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
+def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int, file_limit_mb: int = 50) -> None:
     """Sets resource limits for the current/child process (Unix-only via preexec_fn)."""
     if resource is None:
         return
@@ -37,7 +37,7 @@ def set_resource_limits(mem_limit_mb: int, cpu_limit_sec: int) -> None:
             logger.debug("Skipping RLIMIT_AS on Termux/Android to prevent SIGABRT.")
 
         # Limit file size
-        file_limit = 50 * 1024 * 1024
+        file_limit = file_limit_mb * 1024 * 1024
         resource.setrlimit(resource.RLIMIT_FSIZE, (file_limit, file_limit))
 
     except Exception as e:

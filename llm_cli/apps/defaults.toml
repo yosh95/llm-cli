@@ -7,6 +7,7 @@ pdf_as_base64 = true
 request_timeout = 1800
 command_timeout = 300
 max_command_memory_mb = 1024
+max_command_file_size_mb = 100
 max_turns = 20
 max_security_log_lines = 1000
 max_audit_log_lines = 10000

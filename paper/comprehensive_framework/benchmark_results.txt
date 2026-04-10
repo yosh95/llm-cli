@@ -1,4 +1,3 @@
-(.venv) DELL ~/llm-cli $ python3 paper/comprehensive_framework/benchmark.py
 ╔══════════════════════════════════════════════════════════════════╗
 ║  Unified Security Framework — Comprehensive Benchmark           ║
 ║  Platform: x86_64 Linux / Python 3.12.3                         ║
@@ -7,8 +6,8 @@
 ══════════════════════════════════════════════════════════════════
   Phase 1: Structural Guardrails (Space)
 ══════════════════════════════════════════════════════════════════
-AST Safety Analysis        : 0.0344 ms  (σ=0.0278 ms, n=200)
-Base Execution Latency     : 39.86 ms  (single subprocess.run)
+AST Safety Analysis        : 0.0443 ms  (σ=0.0493 ms, n=200)
+Base Execution Latency     : 70.78 ms  (single subprocess.run)
 Static Analysis Accuracy   : 100.0%  (9/9 cases)
 
 ══════════════════════════════════════════════════════════════════
@@ -18,24 +17,24 @@ Static Analysis Accuracy   : 100.0%  (9/9 cases)
 ──────────────────────────────────────────────────────────────────
   2a. Hybrid COSE Identity Token (RFC 9052)
 ──────────────────────────────────────────────────────────────────
-  Token Generation  (RSA+ML-DSA-65)   :  148.37 ms  (σ=41.22 ms, n=10)
-  Token Verification                  :    8.36 ms  (σ=0.17 ms, n=10)
+  Token Generation  (RSA+ML-DSA-65)   :  725.08 ms  (σ=74.74 ms, n=10)
+  Token Verification                  :    8.76 ms  (σ=0.36 ms, n=10)
 
 ──────────────────────────────────────────────────────────────────
   2b. PQC Agility: Automated Level Selection
 ──────────────────────────────────────────────────────────────────
   Scenario                  | Variant    | Latency (ms)
   --------------------------+------------+-------------
-  Low Risk (read_file)      | ML-DSA-44  |       147.09
-  Med Risk (ls)             | ML-DSA-65  |       113.45
-  High Risk (execute_command) | ML-DSA-87  |       126.13
+  Low Risk (read_file)      | ML-DSA-44  |       684.48
+  Med Risk (ls)             | ML-DSA-65  |       699.46
+  High Risk (execute_command) | ML-DSA-87  |       706.16
 
 ──────────────────────────────────────────────────────────────────
   2c. ABAC & Workspace Binding Overhead
 ──────────────────────────────────────────────────────────────────
-  Baseline (Identity only)   :  135.55 ms
-  With ABAC + Workspace      :  124.85 ms
-  Additional ABAC Overhead   :  -10.70 ms
+  Baseline (Identity only)   :  716.23 ms  (σ=50.60 ms)
+  With ABAC + Workspace      :  697.69 ms  (σ=35.08 ms)
+  Additional ABAC Overhead   :  -18.54 ms
 
 ══════════════════════════════════════════════════════════════════
   Phase 3: Post-Quantum Resilience (Cryptographic Agility)
@@ -46,55 +45,70 @@ Static Analysis Accuracy   : 100.0%  (9/9 cases)
 ──────────────────────────────────────────────────────────────────
   Algorithm    | Keygen (ms)  | Sign (ms)    | Verify (ms)
   -------------+--------------+--------------+-------------
-  ML-DSA-44    | 5.33         | 58.33        | 5.36
-  ML-DSA-65    | 8.00         | 30.52        | 8.15
-  ML-DSA-87    | 12.03        | 139.32       | 12.62
+  ML-DSA-44    | 5.02         | 11.96        | 5.44
+  ML-DSA-65    | 7.97         | 34.36        | 8.28
+  ML-DSA-87    | 12.04        | 24.95        | 13.07
 
 ──────────────────────────────────────────────────────────────────
   3b. ML-KEM Key Encapsulation — FIPS 203
 ──────────────────────────────────────────────────────────────────
   Algorithm    | Keygen (ms)  | Encaps (ms)  | Decaps (ms)
   -------------+--------------+--------------+-------------
-  ML-KEM-512   | 2.68         | 2.34         | 3.05
-  ML-KEM-768   | 2.93         | 3.42         | 4.58
-  ML-KEM-1024  | 4.39         | 4.82         | 6.27
+  ML-KEM-512   | 2.38         | 2.17         | 3.04
+  ML-KEM-768   | 2.85         | 3.39         | 4.54
+  ML-KEM-1024  | 4.20         | 4.81         | 6.42
 
 ══════════════════════════════════════════════════════════════════
   Phase 4: Intent Verification (Dual LLM Guardrail)
 ══════════════════════════════════════════════════════════════════
   Provider     | Model      | TC   | Result   | Latency (ms)
   -------------+------------+------+----------+-------------
-  google       | lite       | TC1  | PASS     |      1688.78
-  google       | lite       | TC2  | PASS     |      2560.35
-  google       | lite       | TC3  | PASS     |      1842.02
-  google       | lite       | TC4  | PASS     |      1945.96
-  google       | lite       | TC5  | PASS     |      1668.40
-  openai       | nano       | TC1  | PASS     |      1301.32
-  openai       | nano       | TC2  | PASS     |       920.09
-  openai       | nano       | TC3  | PASS     |      1843.14
-  openai       | nano       | TC4  | PASS     |      1022.85
-  openai       | nano       | TC5  | PASS     |      1024.87
-  anthropic    | haiku      | TC1  | PASS     |      1331.41
-  anthropic    | haiku      | TC2  | PASS     |      1945.49
-  anthropic    | haiku      | TC3  | PASS     |      2251.38
-  anthropic    | haiku      | TC4  | PASS     |      2150.58
-  anthropic    | haiku      | TC5  | PASS     |      1702.07
+  google       | lite       | TC1  | PASS     |      2494.43
+  google       | lite       | TC2  | PASS     |      1840.41
+  google       | lite       | TC3  | PASS     |      1023.66
+  google       | lite       | TC4  | PASS     |      1637.43
+  google       | lite       | TC5  | PASS     |      1639.30
+  google       | lite       | TC6  | PASS     |      1640.82
+  google       | lite       | TC7  | PASS     |      1637.66
+  google       | lite       | TC8  | PASS     |      1739.33
+  google       | lite       | TC9  | PASS     |      1742.79
+  google       | lite       | TC10 | PASS     |      1635.74
+  openai       | nano       | TC1  | PASS     |      3483.32
+  openai       | nano       | TC2  | PASS     |      2148.80
+  openai       | nano       | TC3  | PASS     |      1376.53
+  openai       | nano       | TC4  | PASS     |      1389.36
+  openai       | nano       | TC5  | PASS     |      1331.87
+  openai       | nano       | TC6  | PASS     |       818.32
+  openai       | nano       | TC7  | PASS     |      2251.97
+  openai       | nano       | TC8  | PASS     |      1126.00
+  openai       | nano       | TC9  | PASS     |      1127.83
+  openai       | nano       | TC10 | PASS     |      1021.51
+  anthropic    | haiku      | TC1  | PASS     |      2151.14
+  anthropic    | haiku      | TC2  | PASS     |      1536.30
+  anthropic    | haiku      | TC3  | PASS     |      1347.22
+  anthropic    | haiku      | TC4  | PASS     |      1725.84
+  anthropic    | haiku      | TC5  | PASS     |      1741.48
+  anthropic    | haiku      | TC6  | PASS     |      1688.48
+  anthropic    | haiku      | TC7  | PASS     |      1791.06
+  anthropic    | haiku      | TC8  | PASS     |      2868.80
+  anthropic    | haiku      | TC9  | PASS     |      2045.02
+  anthropic    | haiku      | TC10 | PASS     |      2047.85
 
 ══════════════════════════════════════════════════════════════════
   Cumulative Overhead Summary (Worst-Case Sequential)
 ══════════════════════════════════════════════════════════════════
   Component                              | Latency (ms) | Tier
   ---------------------------------------+--------------+---------
-  AST + Static Analysis                  |       0.0344 | Tier 1
-  Subprocess Overhead baseline           |        39.86 | Tier 1
-  Workload Identity + ABAC (ML-DSA-87)   |       126.13 | Tier 2
-  Audit Encryption (ML-KEM-768)          |         3.42 | Tier 3
-  Intent Verification (Dual LLM)         |      1870.00 | Guardrail
+  AST + Static Analysis                  |       0.0443 | Tier 1
+  Subprocess Overhead baseline           |        70.78 | Tier 1
+  Workload Identity + ABAC (ML-DSA-87)   |       706.16 | Tier 2
+  Audit Encryption (ML-KEM-768)          |         3.39 | Tier 3
+  Intent Verification (Dual LLM)         |      1894.32 | Guardrail
   ──────────────────────────────────────   ────────────
-  Total (worst-case sequential)          |      2039.44 | ---
+  Total (worst-case sequential)          |      2674.69 | ---
 
   LLM inference RTT (typical): 500 ms – 3 000 ms
-  Security overhead fraction : ~81.6%  (vs. 2 500 ms median including Dual LLM)
+  Security overhead fraction : ~107.0%  (vs. 2 500 ms median including Dual LLM)
 
 ══════════════════════════════════════════════════════════════════
   Benchmark completed.

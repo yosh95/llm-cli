@@ -65,7 +65,9 @@ def search_files(
     """Search for a pattern in files, excluding common cache directories."""
     base_path = validate_path(directory or ".")
     if not base_path.exists():
-        return f"Error: Directory '{directory}' does not exist."
+        return f"Error: Directory '{base_path}' does not exist."
+    if not base_path.is_dir():
+        return f"Error: '{base_path}' is not a directory."
 
     try:
         regex = re.compile(query, re.MULTILINE)
@@ -153,7 +155,9 @@ def list_files_in_directory(
     """Lists files in a directory tree with metadata."""
     base_path = validate_path(directory or ".")
     if not base_path.exists():
-        return f"Error: Directory '{directory}' does not exist."
+        return f"Error: Directory '{base_path}' does not exist."
+    if not base_path.is_dir():
+        return f"Error: '{base_path}' is not a directory."
 
     if ignore_patterns is None:
         ignore_patterns = list(DEFAULT_EXCLUDE_DIRS)

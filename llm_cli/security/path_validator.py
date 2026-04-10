@@ -30,12 +30,13 @@ def validate_path(path: str) -> Path:
     MUST use the returned object for all further path operations to avoid a
     second resolve() that could race against a symlink swap.
     """
-    # Strip surrounding quotes if the LLM accidentally included them
-    path = path.strip()
-    if (path.startswith('"') and path.endswith('"')) or (
-        path.startswith("'") and path.endswith("'")
-    ):
-        path = path[1:-1]
+    # Robustly strip surrounding quotes and whitespace
+    path = path.strip().strip("'").strip('"').strip()
+
+    # Normalize trailing slashes (pathlib.Path handles this, but we'll be explicit)
+    # except for the root itself.
+    if path and path != "/" and path.endswith("/"):
+        path = path.rstrip("/")
 
     from llm_cli.consts import LLM_CLI_BASE_DIR
 

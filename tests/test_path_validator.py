@@ -99,6 +99,21 @@ class TestPathValidator:
         with pytest.raises(PathValidationError, match="Access to path is forbidden\\."):
             validate_path("dir/../../etc/passwd")
 
+    def test_normalization(self):
+        """Should normalize quotes, whitespace and trailing slashes."""
+        cwd = Path.cwd().resolve()
+
+        # Trailing slash
+        assert validate_path("tests/").resolve() == (cwd / "tests").resolve()
+
+        # Quotes
+        assert validate_path("'tests'").resolve() == (cwd / "tests").resolve()
+        assert validate_path('"tests/"').resolve() == (cwd / "tests").resolve()
+
+        # Whitespace
+        assert validate_path("  tests  ").resolve() == (cwd / "tests").resolve()
+        assert validate_path(" ' tests/ ' ").resolve() == (cwd / "tests").resolve()
+
     def test_blocks_absolute_system_paths(self):
         """Should block absolute paths to system directories."""
         # /etc/passwd and /var/... should be blocked by the blacklist first

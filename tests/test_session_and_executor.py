@@ -224,7 +224,11 @@ def test_pqc_verification_post_process(session):
     ):
         with patch("llm_cli.security.pqc.PQCProvider.verify", return_value=True):
             with patch("llm_cli.clients.tool_executor_security.report_success") as mock_success:
-                success = _post_process_result(ctx)
-                assert success is True
-                assert ctx.result_data == "Secret Data"
-                mock_success.assert_called_once()
+                # Mock logger to enable DEBUG so report_success is called
+                with patch(
+                    "llm_cli.clients.tool_executor_security.logger.isEnabledFor", return_value=True
+                ):
+                    success = _post_process_result(ctx)
+                    assert success is True
+                    assert ctx.result_data == "Secret Data"
+                    mock_success.assert_called_once()

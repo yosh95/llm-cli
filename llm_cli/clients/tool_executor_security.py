@@ -94,8 +94,9 @@ def run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
 
     from llm_cli.security.dual_llm_verifier import verify_tool_call
 
-    prompt_msg = f"[bold cyan]Dual LLM verifying intent for '{ctx.name}'...[/bold cyan]"
-    console.print(prompt_msg)
+    if logger.isEnabledFor(logging.DEBUG):
+        prompt_msg = f"[bold cyan]Dual LLM verifying intent for '{ctx.name}'...[/bold cyan]"
+        console.print(prompt_msg)
 
     # Include the last tool result to help the verifier understand why this tool
     # is being called (e.g., to fix an error found in the previous step).
@@ -169,7 +170,8 @@ def run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
             )
             return False
     else:
-        report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
+        if logger.isEnabledFor(logging.DEBUG):
+            report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
         return True
 
 
@@ -303,7 +305,8 @@ def verify_pqc_signature(
 
         sig = base64.urlsafe_b64decode(str(sig_b64) + "==")
         if PQCProvider.verify(f"{v_id}:{content_str}".encode(), sig, pqc_pub, variant=variant):
-            report_success(f"PQC Verified ({variant}) (ID: {v_id})")
+            if logger.isEnabledFor(logging.DEBUG):
+                report_success(f"PQC Verified ({variant}) (ID: {v_id})")
             # --- RECURSION with depth tracking ---
             return verify_pqc_signature(content, risk_level, server_id=server_id, _depth=_depth + 1)
         else:

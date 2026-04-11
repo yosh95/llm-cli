@@ -24,7 +24,7 @@ class OllamaClient(OpenAICompatibleClient):
             spec=ProviderSpec(
                 api_key_name="api_key",
                 config_section="ollama",
-                pdf_as_base64=False,  # Per user instruction: don't make pdf to base64
+                pdf_as_base64=False,
             ),
             **kwargs,
         )

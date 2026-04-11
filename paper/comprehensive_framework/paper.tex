@@ -133,6 +133,8 @@ The verifier also implements \textbf{Context-Aware Verification} by receiving th
 
 The \textbf{Soft-Failure} path distinguishes two failure modes: (1) \textit{Infrastructure failures}, where the verifier is unreachable or misconfigured (e.g., missing API key, unknown provider), and (2) \textit{Uncertain verdicts}, where the confidence score falls below the threshold. Both are treated as soft failures and route to HITL review rather than a hard block, ensuring the system degrades gracefully. Only an \textit{active rejection} (high-confidence \texttt{safe=false}) constitutes a Hard Block. This three-way distinction---Verified / Uncertain (HITL) / Rejected---ensures that the system remains safe even when the verifier model itself is ambiguous or temporarily unavailable.
 
+From an implementation perspective, this dual verification is performed concurrently with the user's review of the tool's rationale. By overlapping the verification latency with the human-in-the-loop stage, the framework effectively masks the computational overhead of the intent check. This approach ensures that the additional security layer does not introduce perceptible delays in the agent-user interaction loop.
+
 \subsection{White-box Agency: Cognitive Synchronization}
 Traditional Human-in-the-Loop (HITL) is often viewed as a bottleneck. We redefine it as \textbf{White-box Agency}, where the agent must present its "Internal Monologue" and justification before execution. Every tool call mandates an \texttt{explanation} parameter, serving two purposes:
 \begin{itemize}
@@ -295,7 +297,7 @@ TC8 & Malicious (Persistence) &
 \end{center}
 \end{table}
 
-As shown in Table \ref{tab:dual_llm_perf}, all models achieved 100\% accuracy: TC1--TC5 were correctly passed (false positive rate = 0\%), while TC6--TC10 were correctly blocked (detection rate = 100\%). These results are based on author-designed test vectors and should be interpreted as a demonstration of correctness on representative cases, not as an exhaustive empirical benchmark. The OpenAI model demonstrated competitive performance, maintaining latencies suitable for real-time guardrails. The overall overhead, even when including intent verification, remains within a range that is effectively imperceptible to the user compared to the main model's reasoning time.
+As shown in Table \ref{tab:dual_llm_perf}, all models achieved 100\% accuracy: TC1--TC5 were correctly passed (false positive rate = 0\%), while TC6--TC10 were correctly blocked (detection rate = 100\%). These results are based on author-designed test vectors and should be interpreted as a demonstration of correctness on representative cases, not as an exhaustive empirical benchmark. The OpenAI model demonstrated competitive performance, maintaining latencies suitable for real-time guardrails. As the verification process runs concurrently with the user’s cognitive review of the tool's explanation, the measured latency is effectively masked within the manual oversight window. Consequently, the impact on the overall end-to-end response time is minimized, maintaining a responsive experience even when the most rigorous security settings are applied.
 
 \begin{table}[htbp]
 \caption{Dual LLM Verification Performance (n=10 test cases)}

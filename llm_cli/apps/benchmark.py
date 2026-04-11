@@ -76,44 +76,44 @@ def run_benchmark(provider: str, model: str, iterations: int = 5) -> None:
 
 def main() -> None:
     """Entry point for the benchmark tool."""
-    parser = argparse.ArgumentParser(
-        description="Benchmark Dual LLM latency for specific providers and models.",
-        add_help=True,
-    )
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    parser.add_argument(
-        "provider",
-        nargs="?",
-        help="The LLM provider alias (e.g., google, openai, anthropic, ollama)",
-    )
-    parser.add_argument(
-        "model",
-        nargs="?",
-        help="The model name or alias (e.g., lite, flash, gpt-4o-mini)",
-    )
-    parser.add_argument(
-        "--iterations",
-        "-n",
-        type=int,
-        default=5,
-        help="Number of iterations (default: 5)",
-    )
-
-    args = parser.parse_args()
-
-    # Set default log level (with debug support)
-    log_level = logging.DEBUG if args.debug else logging.WARNING
-    logging.basicConfig(level=log_level, stream=sys.stderr)
-
-    if not args.provider or not args.model:
-        parser.print_help()
-        console.print("\n[bold]Available Providers (Aliases):[/bold]")
-        info = client_registry.get_provider_info()
-        for alias in sorted(info.keys()):
-            console.print(f"  - [cyan]{alias}[/cyan]")
-        sys.exit(0)
-
     try:
+        parser = argparse.ArgumentParser(
+            description="Benchmark Dual LLM latency for specific providers and models.",
+            add_help=True,
+        )
+        parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+        parser.add_argument(
+            "provider",
+            nargs="?",
+            help="The LLM provider alias (e.g., google, openai, anthropic, ollama)",
+        )
+        parser.add_argument(
+            "model",
+            nargs="?",
+            help="The model name or alias (e.g., lite, flash, gpt-4o-mini)",
+        )
+        parser.add_argument(
+            "--iterations",
+            "-n",
+            type=int,
+            default=5,
+            help="Number of iterations (default: 5)",
+        )
+
+        args = parser.parse_args()
+
+        # Set default log level (with debug support)
+        log_level = logging.DEBUG if args.debug else logging.WARNING
+        logging.basicConfig(level=log_level, stream=sys.stderr)
+
+        if not args.provider or not args.model:
+            parser.print_help()
+            console.print("\n[bold]Available Providers (Aliases):[/bold]")
+            info = client_registry.get_provider_info()
+            for alias in sorted(info.keys()):
+                console.print(f"  - [cyan]{alias}[/cyan]")
+            sys.exit(0)
+
         run_benchmark(args.provider, args.model, args.iterations)
     except KeyboardInterrupt:
         console.print("\n[yellow]Benchmark cancelled by user.[/yellow]")

@@ -144,8 +144,8 @@ def benchmark_phase_2_identity_abac() -> dict:
         ("High Risk (execute_command)", "ML-DSA-87", {"command": "rm -rf /"}),
     ]
 
-    print(f"  {'Scenario':<25} | {'Variant':<10} | {'Latency (ms)':<12}")
-    print(f"  {'-' * 25}-+-{'-' * 10}-+-{'-' * 12}")
+    print(f"  {'Scenario':<27} | {'Variant':<10} | {'Latency (ms)':<12}")
+    print(f"  {'-' * 27}-+-{'-' * 10}-+-{'-' * 12}")
 
     for label, variant, args in scenarios:
         # Use risk_level directly to force the variant for benchmarking
@@ -156,7 +156,7 @@ def benchmark_phase_2_identity_abac() -> dict:
             return IdentityManager.generate_token(tool_name=name, args=args_dict)
 
         m, s = _timeit(_run_gen, reps=10)
-        print(f"  {label:<25} | {variant:<10} | {m:>12.2f}")
+        print(f"  {label:<27} | {variant:<10} | {m:>12.2f}")
         results[f"gen_lat_{variant}"] = m
 
     # 2c. ABAC Claim Overhead -------------------------------------------------
@@ -483,18 +483,24 @@ def print_summary(r1: dict, r2: dict, r3: dict, r4: dict) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    sys_info = f"{platform.machine()} {platform.system()} / Python {platform.python_version()}"
-    print("╔══════════════════════════════════════════════════════════════════╗")
-    print("║  Unified Security Framework — Comprehensive Benchmark            ║")
-    print(f"║  Platform: {sys_info:<52}  ║")
-    print("╚══════════════════════════════════════════════════════════════════╝")
+    try:
+        sys_info = f"{platform.machine()} {platform.system()} / Python {platform.python_version()}"
+        print("╔══════════════════════════════════════════════════════════════════╗")
+        print("║  Unified Security Framework — Comprehensive Benchmark            ║")
+        print(f"║  Platform: {sys_info:<52}  ║")
+        print("╚══════════════════════════════════════════════════════════════════╝")
 
-    r1 = benchmark_phase_1_guardrails()
-    r2 = benchmark_phase_2_identity_abac()
-    r3 = benchmark_phase_3_pqc()
-    r4 = benchmark_phase_4_dual_llm()
-    print_summary(r1, r2, r3, r4)
+        r1 = benchmark_phase_1_guardrails()
+        r2 = benchmark_phase_2_identity_abac()
+        r3 = benchmark_phase_3_pqc()
+        r4 = benchmark_phase_4_dual_llm()
+        print_summary(r1, r2, r3, r4)
 
-    print(f"\n{'═' * 66}")
-    print("  Benchmark completed.")
-    print(f"{'═' * 66}\n")
+        print(f"\n{'═' * 66}")
+        print("  Benchmark completed.")
+        print(f"{'═' * 66}\n")
+    except KeyboardInterrupt:
+        print("\n\n[!] Benchmark interrupted by user. Exiting...")
+        import sys
+
+        sys.exit(0)

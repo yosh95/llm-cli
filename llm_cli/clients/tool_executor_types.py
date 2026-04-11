@@ -43,6 +43,7 @@ class ToolExecutionContext:
     risk_level: RiskLevel = field(init=False)
     security_requirements: SecurityPosture = field(init=False)
     server_name: str | None = field(init=False, default=None)
+    verification_task: Any = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         call = self.part.function_call

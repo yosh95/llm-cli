@@ -16,9 +16,10 @@ from llm_cli.ui import (
 )
 
 from .tool_executor_security import (
+    finish_dual_llm_verification,
     run_code_safety_check,
-    run_dual_llm_verification,
     run_security_checks,
+    start_dual_llm_verification,
     verify_pqc_signature,
 )
 from .tool_executor_types import AgentContext, ToolExecutionContext
@@ -55,10 +56,8 @@ def execute_tool_call(
         if not run_code_safety_check(ctx):
             return create_error_response(ctx), None
 
-        # 3. Dynamic Intent Verification (Dual LLM)
-        # Slower, remote, but only for "safe" code
-        if not run_dual_llm_verification(ctx):
-            return create_error_response(ctx), None
+        # 3. Dynamic Intent Verification (Dual LLM) - Start in background
+        start_dual_llm_verification(ctx)
 
         # 4. Final Human-in-the-Loop Validation
         if not _run_pre_approval_validation(ctx):
@@ -150,22 +149,30 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
                 is_auto_approved = True
 
         if is_auto_approved:
-            logger.debug(f"Auto-approving '{ctx.name}' (Risk: {ctx.risk_level.value})")
-            delay = float(config_manager.get("general", "auto_approval_delay") or 0.0)
-            display_execution_details(ctx, auto_approved=True, delay=delay)
+            # For auto-approved tools, we still check the Dual LLM verdict before execution.
+            # finish_dual_llm_verification() will wait for the background task to complete.
+            if not finish_dual_llm_verification(ctx):
+                return False
 
-            # Brief pause for human reading of reasoning/args before execution.
-            if delay > 0:
-                import time
+            # If finish_dual_llm_verification added a warning (low confidence/soft fail),
+            # we MUST downgrade to manual approval.
+            if not ctx.security_warnings:
+                logger.debug(f"Auto-approving '{ctx.name}' (Risk: {ctx.risk_level.value})")
+                delay = float(config_manager.get("general", "auto_approval_delay") or 0.0)
+                display_execution_details(ctx, auto_approved=True, delay=delay)
 
-                try:
-                    time.sleep(delay)
-                except (KeyboardInterrupt, EOFError):
-                    ctx.error_message = "Operation cancelled by user."
-                    ctx.aborted = True
-                    return False
+                # Brief pause for human reading of reasoning/args before execution.
+                if delay > 0:
+                    import time
 
-            return True
+                    try:
+                        time.sleep(delay)
+                    except (KeyboardInterrupt, EOFError):
+                        ctx.error_message = "Operation cancelled by user."
+                        ctx.aborted = True
+                        return False
+
+                return True
 
     # 3. Manual Approval Flow
     display_execution_details(ctx, auto_approved=False)
@@ -202,6 +209,13 @@ def _get_user_approval(ctx: ToolExecutionContext) -> bool:
             else "Error: Operation denied."
         )
         return False
+
+    # 4. Final Verification check: Even if user said 'y', we block if Dual LLM found
+    # a hard violation. If the verifier result was already used to show a warning,
+    # this will be a no-op returning True.
+    if not finish_dual_llm_verification(ctx):
+        return False
+
     return True
 
 

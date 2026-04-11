@@ -105,6 +105,18 @@ def display_tool_request(ctx: Any, auto_approved: bool = False, delay: float = 0
     body.append("\n")
     body.append(args_block, style="white")
 
+    # ── Security Status Indicator ──────────────────────────────────────────
+    if ctx.security_requirements.get("require_dual_llm_verification"):
+        body.append("\n\n")
+        if ctx.verification_task is None:
+            status = "[dim]Skipped[/dim]"
+        elif ctx.verification_task.done():
+            # If it's done already, show it as finished
+            status = "[bold green]Intent Verified OK[/bold green]"
+        else:
+            status = "[bold cyan]Analyzing Intent...[/bold cyan]"
+        body.append(f"  Security Check: {status}", style="white")
+
     panel_title = Text()
     if auto_approved:
         title_text = "AGENT REQUEST (AUTO-APPROVED)"

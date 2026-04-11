@@ -1,6 +1,7 @@
 # llm_cli/clients/tool_executor_security.py
 
 import logging
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
 from llm_cli.clients.config import config_manager
@@ -81,61 +82,84 @@ def run_security_checks(ctx: ToolExecutionContext) -> bool:
     return True
 
 
-def run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
-    """Verifies intent using a second LLM if required by CASS."""
-    from llm_cli.security.audit import log_audit
+# Global executor for security verification tasks
+_verification_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="security_verify")
 
+
+def start_dual_llm_verification(ctx: ToolExecutionContext) -> None:
+    """
+    Starts intent verification using a second LLM in a background thread.
+    The result is stored in ctx.verification_task (a Future).
+    """
     if not ctx.security_requirements.get("require_dual_llm_verification"):
-        return True
+        return
 
     user_prompt = ctx.session.client.get_last_user_prompt()
     if not user_prompt:
-        return True
+        return
 
     from llm_cli.security.dual_llm_verifier import verify_tool_call
 
+    # Define the worker function that will run in a thread
+    def _verify() -> tuple[bool, str]:
+        last_tool_result = ctx.session.client.get_last_tool_result()
+        return verify_tool_call(user_prompt, ctx.name, ctx.args, last_tool_result=last_tool_result)
+
     if logger.isEnabledFor(logging.DEBUG):
-        prompt_msg = f"[bold cyan]Dual LLM verifying intent for '{ctx.name}'...[/bold cyan]"
+        prompt_msg = (
+            f"[bold cyan]Dual LLM verifying intent for '{ctx.name}' (background)...[/bold cyan]"
+        )
         console.print(prompt_msg)
 
-    # Include the last tool result to help the verifier understand why this tool
-    # is being called (e.g., to fix an error found in the previous step).
-    last_tool_result = ctx.session.client.get_last_tool_result()
+    # Launch the verification in the background
+    ctx.verification_task = _verification_executor.submit(_verify)
 
-    is_safe, reason = verify_tool_call(
-        user_prompt, ctx.name, ctx.args, last_tool_result=last_tool_result
-    )
+
+def finish_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
+    """
+    Waits for the background Dual LLM verification task and processes the result.
+    If no task was started, returns True.
+    """
+    from llm_cli.security.audit import log_audit
+
+    if ctx.verification_task is None:
+        return True
+
+    task: Future = ctx.verification_task
+    try:
+        # Wait for the result. In 'standard' or 'low' auto-approval modes,
+        # this will likely be finished already by the time user hits 'y'.
+        is_safe, reason = task.result(timeout=30)  # 30s safeguard
+    except Exception as e:
+        logger.error(f"[ERROR] Dual LLM Verification task failed: {e}")
+        # Fallback to human in case of task execution errors
+        from llm_cli.ui import report_warning
+
+        report_warning(f"Dual LLM Verification failed during execution: {e}")
+        ctx.security_warnings.append(
+            ("Verification Error", f"The background verification task encountered an error: {e}")
+        )
+        return True
+
     if not is_safe:
         # Distinguish between "verification infrastructure unavailable" (soft failure)
         # and "intent check actively rejected the call" (hard security block).
-        #
-        # Soft-failure reasons returned by verify_tool_call when the secondary LLM
-        # cannot be reached or is not configured:
-        #   - "Verification process failed: ..."  (network / API error)
-        #   - "API key missing"                   (provider has no key set)
-        #   - "Provider not found"                (unknown provider alias)
-        #   - "Initialization error: ..."         (client construction failed)
         _SOFT_FAIL_PREFIXES = (
             "Verification process failed",
             "API key missing",
             "Provider not found",
             "Initialization error",
-            # Low-confidence verdicts (confidence < threshold) are annotated by
-            # verify_tool_call() with this prefix and routed to human review
-            # rather than being treated as a hard security block.
             "[LOW_CONFIDENCE:",
         )
         is_soft_failure = any(reason.startswith(p) for p in _SOFT_FAIL_PREFIXES)
 
         # In case of low confidence or transient errors, we offer manual approval.
-        # Hard security blocks (reason NOT starting with soft fail prefixes)
-        # will stay as a hard error.
         if is_soft_failure:
             from llm_cli.ui import report_warning
 
             report_warning(
-                f"Dual LLM Verification unavailable or low-confidence: {reason}\n"
-                "Falling back to manual approval."
+                f"Dual LLM Verification uncertain or unavailable: {reason}\n"
+                "Review the intent carefully before proceeding."
             )
 
             # Fallback to human: Let the main approval logic handle it
@@ -170,9 +194,19 @@ def run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
             )
             return False
     else:
-        if logger.isEnabledFor(logging.DEBUG):
-            report_success(f"Dual LLM Verified: {reason or 'Matched user intent'}")
+        # Always report success to the console so the user knows the background
+        # check passed.
+        report_success(f"Dual LLM Intent Verified: {reason or 'OK'}")
         return True
+
+
+def run_dual_llm_verification(ctx: ToolExecutionContext) -> bool:
+    """
+    Synchronous wrapper for Dual LLM verification.
+    Used for tests or synchronous callers.
+    """
+    start_dual_llm_verification(ctx)
+    return finish_dual_llm_verification(ctx)
 
 
 def run_code_safety_check(ctx: ToolExecutionContext) -> bool:

@@ -74,6 +74,7 @@ def test_tool_executor_blocks_on_dual_llm_violation(session, tool_call_part):
         patch("llm_cli.security.identity.IdentityManager._ensure_keys"),
         patch("llm_cli.security.policy.policy_engine.evaluate", return_value=True),
     ):
+        session._get_input.return_value = "y"
         res_part, injected = execute_tool_call(session, tool_call_part)
 
         # It should return an error part and NOT execute the tool
@@ -136,7 +137,7 @@ def test_tool_executor_soft_fail_on_api_key_missing(session, tool_call_part):
         mock_warn.assert_called_once()
         warn_msg = mock_warn.call_args[0][0]
         assert "API key missing" in warn_msg
-        assert "Falling back to manual approval" in warn_msg
+        assert "Review the intent carefully before proceeding." in warn_msg
 
 
 def test_tool_executor_soft_fail_on_api_key_missing_user_rejects(session, tool_call_part):

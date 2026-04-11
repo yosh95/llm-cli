@@ -160,7 +160,7 @@ api_url = "http://localhost:11434/v1/chat/completions"
 # [[mcp_servers]]
 # name = "remote-agent"
 # command = "ssh"
-# args = ["-t", "user@remote-host", "llm-cli", "--mcp-server"]
+# args = ["-T", "user@remote-host", "llm-cli", "--mcp-server"]
 # zero_trust = true
 
 # =============================================================================

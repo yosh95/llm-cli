@@ -40,7 +40,7 @@ Tokyo, Japan}
 \maketitle
 
 \begin{abstract}
-As Large Language Model (LLM) agents transition from passive chatbots to autonomous entities capable of executing system-level tools via protocols like the Model Context Protocol (MCP), they introduce a critical "Agency Gap." Traditional security perimeters are insufficient for protecting against prompt injection and future cryptographic threats. This paper proposes a unified security framework designed to protect agent-based systems across three integrated dimensions: Space, Behavior, and Time, while ensuring human-centric governance. First, we establish \textit{Structural Guardrails} (Space) using AST-based static analysis and environment isolation. Second, we implement \textit{Behavioral Zero-Trust} through verifiable workload identity and \textit{White-box Agency}, leveraging Human-in-the-Loop (HITL) not just for security, but for cognitive synchronization and early loop detection. Finally, we ensure \textit{Temporal Sovereignty} (Time) by integrating a dual-layered integrity architecture (Hashed Chain and Merkle Tree) with Post-Quantum Cryptography (PQC). Our evaluation demonstrates that this architecture provides robust, multi-layered defense and enhances agent transparency with minimal computational overhead.
+As Large Language Model (LLM) agents transition from passive chatbots to autonomous entities capable of executing system-level tools via protocols like the Model Context Protocol (MCP), they introduce a critical "Agency Gap." Traditional security perimeters are insufficient for protecting against prompt injection and future cryptographic threats. This paper proposes a unified security framework designed to protect agent-based systems across three integrated dimensions: Space, Behavior, and Time, while ensuring human-centric governance. First, we establish \textit{Structural Guardrails} (Space) using AST-based static analysis and environment isolation. Second, we implement \textit{Behavioral Zero-Trust} through verifiable workload identity and \textit{White-box Agency}, leveraging Human-in-the-Loop (HITL) not just for security, but for cognitive synchronization and early loop detection. Finally, we ensure \textit{Temporal Sovereignty} (Time) by integrating a dual-layered integrity architecture (Hashed Chain and Merkle Tree) with Post-Quantum Cryptography (PQC). Our evaluation demonstrates that this architecture provides robust, multi-layered defense and enhances agent transparency. The local security stack (AST analysis, PQC identity, and audit encryption) imposes under 710\,ms of overhead on pure-Python reference implementations, representing a modest ``security speed bump'' relative to the 500\,ms--3000\,ms round-trip time of cloud LLM inference. Intent verification via a secondary LLM adds network-bound latency that is effectively masked by the concurrent Human-in-the-Loop review window.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -208,7 +208,11 @@ To ensure verifiable workload identity without the overhead of JSON-based JWT, w
 A fundamental challenge in high-assurance agentic systems is the "Isolation Paradox": a system that is perfectly secure often becomes unusable within existing heterogeneous ecosystems. To address this, we introduce a tiered security level model. By default, the system operates in \textit{High-Assurance} mode, strictly enforcing PQC-signed identity tokens and tool responses. To ensure interoperability with standard MCP clients (e.g., Cursor) or third-party MCP servers that do not yet support our PQC-hybrid protocol, a \textit{Standard Compatibility} mode is provided. In this mode, PQC enforcement is downgraded to logged warnings, allowing the agent to function in mixed-trust environments while maintaining an audit trail of unverified actions.
 
 \section{Evaluation}
-We evaluated the framework on two reference platforms: a primary workstation running an AMD Ryzen 5 8540U (Zen 4, 16\,GB RAM) under WSL2, and a secondary machine running an Intel Core i7-7700 (Kaby Lake) under native Linux. In Table~\ref{tab:total_perf}, the column \textit{x86\_64 (Zen 4)} reports measurements from the primary WSL2 environment, and \textit{Native (Ref)} reports measurements from the native Linux environment on the i7-7700 system; the latter serves as a reference to illustrate how overhead behaves on older, non-virtualised hardware. The framework's reliability and security protocol compliance were verified through an extensive automated test suite of over 250 unit and integration tests, ensuring regression resistance across all three tiers.
+We evaluated the framework on two reference platforms: (1) an AMD Ryzen 5 8540U (Zen 4, 16\,GB RAM) running Python 3.12 under WSL2 on Windows, and (2) an Intel Core i7-7700 (Kaby Lake, 16\,GB RAM) running Python 3.12 on bare-metal native Linux. In Table~\ref{tab:total_perf}, the column \textit{WSL2 (Ryzen 5 8540U)} reports measurements from the first environment, and \textit{Bare-metal (i7-7700)} reports measurements from the second.
+
+A noteworthy observation is that the WSL2 environment recorded lower ML-DSA latencies ($\approx$684--706\,ms) than the bare-metal i7-7700 ($\approx$1234--1248\,ms). This counter-intuitive result is attributed to two platform-specific factors: (a) the Ryzen 5 8540U benefits from the newer Zen 4 microarchitecture, which offers substantially higher single-thread IPC for the integer-heavy lattice arithmetic in pure-Python ML-DSA; and (b) WSL2 on a laptop platform introduces variable thermal and scheduler behavior that, in this test configuration, did not penalize compute-bound workloads. The WSL2 figures should therefore be read as \emph{indicative} of Zen 4 performance characteristics rather than as a comparison of virtualisation overhead. Readers deploying on older hardware should refer to the bare-metal i7-7700 column as a conservative baseline.
+
+The framework's reliability and security protocol compliance were verified through an extensive automated test suite of over 250 unit and integration tests, ensuring regression resistance across all three tiers.
 
 \textit{Scope of this evaluation:} This section is intended to demonstrate \textit{architectural feasibility} and \textit{protocol overhead}---not to provide statistically comprehensive or independently validated coverage. The test vectors are author-designed to verify that each defense layer behaves correctly on representative cases. Direct quantitative comparison against systems such as Guardrails AI or NeMo Guardrails is deferred, as those systems target a different abstraction layer (output filtering) and operate under different assumptions (no tool-call schema, no cryptographic identity), making side-by-side benchmarking on a shared test suite a non-trivial research contribution in its own right.
 
@@ -228,7 +232,7 @@ Tier 2 (White-box) & \textbf{Reasoning Loops} & \textbf{100.0\% (3/3)} \\
 Tier 2 (ABAC) & Unauthorized Workspace & 100.0\% (3/3) \\
 Tier 2 (Trust) & \textbf{Distributed Trust} & \textbf{100.0\% (4/4)} \\
 Tier 3 (PQC) & Future Decryption & 100.0\% (Immunity) \\
-Tier 4 (Dual LLM) & Malicious Intent & 100.0\% (5/5) \\
+Dual LLM Guardrail & Malicious Intent & 100.0\% (5/5) \\
 \hline
 \end{tabularx}
 \label{tab:security_eval}
@@ -236,24 +240,27 @@ Tier 4 (Dual LLM) & Malicious Intent & 100.0\% (5/5) \\
 \end{table}
 
 \subsection{Performance Latency}
-As shown in Table \ref{tab:total_perf}, the cumulative overhead is remarkably low, remaining well under one second for the entire security stack on the local security primitives alone. On the primary test hardware (AMD Ryzen 5 8540U, WSL2), the high-risk ML-DSA-87 identity generation was measured at $\approx$706\,ms ($n=10$ trials) after optimization. All cryptographic latencies are measured from pure-Python reference implementations ({\tt dilithium-py}, {\tt kyber-py}); native C/Rust bindings would yield substantially lower values. This "Security Speed Bump" represents only a small fraction of the 500\,ms--3000\,ms RTT typical of cloud-based LLM inference, ensuring that the local security stack does not compromise the agent's responsiveness.
+Table~\ref{tab:total_perf} reports the latency of each local security primitive. The \textit{subprocess baseline} row is included for reference to characterise the execution environment, but is \emph{not} counted as security overhead, since process spawning occurs independently of the framework's security stack. The true cumulative security overhead---comprising AST analysis, ML-DSA-87 identity signing, and ML-KEM-768 audit encryption---is $\approx$710\,ms on WSL2 (Ryzen 5 8540U) and $\approx$1252\,ms on bare-metal (i7-7700). All cryptographic latencies are measured from pure-Python reference implementations ({\tt dilithium-py}, {\tt kyber-py}); native C/Rust bindings would yield substantially lower values. Even at the higher bare-metal figure, this "Security Speed Bump" is bounded and one-time-per-tool-call, remaining well within the 500\,ms--3000\,ms RTT typical of cloud-based LLM inference.
 
-\textit{Measurement Note on ABAC Overhead:} In our measurements, the marginal overhead of adding ABAC claims to the identity token was found to be negligible. Specifically, in some trial runs, the mean latency for token generation with ABAC claims was slightly lower than the baseline (e.g., -18.54\,ms in Table~\ref{tab:total_perf}). We attribute this to measurement jitter and Python's garbage collection cycles during benchmarking, given that the standard deviation ($\sigma \approx 50$\,ms) exceeds the observed difference. This confirms that the computational cost of policy-based claim injection is functionally zero compared to the underlying cryptographic signing operation.
+\textit{Measurement Note on ABAC Overhead:} In both environments, the marginal overhead of adding ABAC claims to the identity token was found to be negligible. The measured difference was $-18.54$\,ms (WSL2, $\sigma=50.60$\,ms) and $-15.54$\,ms (bare-metal, $\sigma=64.25$\,ms). In both cases, $|\Delta| < \sigma$, confirming that the observed negative delta is attributable to measurement jitter and Python's garbage-collection cycles rather than a genuine speedup. The computational cost of policy-based claim injection is functionally zero relative to the underlying cryptographic signing operation.
 
 \begin{table}[htbp]
-\caption{System Latency Comparison (ms)}
+\caption{Local Security Primitive Latency (ms). \textit{Subprocess baseline} shown for reference only; excluded from security totals.}
 \begin{center}
 \begin{tabularx}{\columnwidth}{|l|X|X|}
 \hline
-\textbf{Component} & \textbf{x86\_64 (Zen 4)} & \textbf{Native (Ref)} \\
+\textbf{Component} &
+  \textbf{\shortstack{WSL2\\(Ryzen 5\\8540U)}} &
+  \textbf{\shortstack{Bare-metal\\(i7-7700)}} \\
 \hline
-AST + Static Analysis & 0.04 & 0.05 \\
-Subprocess Overhead & 70.78 & 27.43 \\
-Identity Gen (ML-DSA-44) & 684.48 & 68.20 \\
-Identity Gen (ML-DSA-87) & 706.16 & 165.30 \\
-KEM Encapsulation (L3) & 3.39 & 4.37 \\
+AST + Static Analysis           &  0.04   &  0.03   \\
+Identity Gen (ML-DSA-44)        & 684.48  & 1233.73 \\
+Identity Gen (ML-DSA-87)        & 706.16  & 1248.00 \\
+KEM Encapsulation (ML-KEM-768)  &   3.39  &    4.40 \\
 \hline
-\textbf{Total (Worst-Case)} & \textbf{780.37} & \textbf{197.15} \\
+\textbf{Security Total}         & \textbf{709.59} & \textbf{1252.43} \\
+\hline
+\textit{Subprocess (ref.)}      & \textit{70.78}  & \textit{24.02}  \\
 \hline
 \end{tabularx}
 \label{tab:total_perf}
@@ -297,25 +304,30 @@ TC8 & Malicious (Persistence) &
 \end{center}
 \end{table}
 
-As shown in Table \ref{tab:dual_llm_perf}, all models achieved 100\% accuracy: TC1--TC5 were correctly passed (false positive rate = 0\%), while TC6--TC10 were correctly blocked (detection rate = 100\%). These results are based on author-designed test vectors and should be interpreted as a demonstration of correctness on representative cases, not as an exhaustive empirical benchmark. The OpenAI model demonstrated competitive performance, maintaining latencies suitable for real-time guardrails. As the verification process runs concurrently with the user’s cognitive review of the tool's explanation, the measured latency is effectively masked within the manual oversight window. Consequently, the impact on the overall end-to-end response time is minimized, maintaining a responsive experience even when the most rigorous security settings are applied.
+As shown in Table~\ref{tab:dual_llm_perf}, all three providers achieved 100\% classification accuracy across both test environments. TC1--TC5 (benign) were correctly \emph{allowed} (false positive rate = 0/5 = 0\%), while TC6--TC10 (adversarial) were correctly \emph{blocked} (detection rate = 5/5 = 100\%). A note on the raw benchmark output: the \texttt{PASS} label in the benchmark log denotes \emph{test-case outcome}---i.e., the verifier's decision matched the expected label---not that the tool call was allowed. Adversarial cases TC6--TC10 record \texttt{PASS} precisely because the verifier correctly returned \texttt{safe=false} and blocked execution. These results are based on author-designed test vectors and should be interpreted as a demonstration of correctness on representative cases, not as a statistically exhaustive empirical benchmark.
+
+Mean latency was broadly consistent across platforms, as cloud API round-trip time dominates over local processing differences. On WSL2 (Ryzen 5 8540U), mean latencies were $\approx$1703\,ms (Google), $\approx$1608\,ms (OpenAI), and $\approx$1894\,ms (Anthropic). On bare-metal (i7-7700), the corresponding figures were $\approx$1871\,ms, $\approx$1851\,ms, and $\approx$1913\,ms respectively (Table~\ref{tab:dual_llm_perf}). As the verification process runs concurrently with the user's cognitive review of the tool's explanation, the measured latency is effectively masked within the manual oversight window. Consequently, the impact on the overall end-to-end response time is minimized, maintaining a responsive experience even when the most rigorous security settings are applied.
 
 \begin{table}[htbp]
-\caption{Dual LLM Verification Performance (n=10 test cases)}
+\caption{Dual LLM Verification Performance (n=10 per environment).
+Acc.: 5/5 benign allowed (FP\,=\,0\%), 5/5 adversarial blocked (DR\,=\,100\%).}
 \begin{center}
-\begin{tabularx}{\columnwidth}{|l|l|C|C|}
+\begin{tabularx}{\columnwidth}{|l|l|C|C|C|}
 \hline
-\textbf{Provider} & \textbf{Model} & \textbf{Accuracy} & \textbf{Latency (ms)} \\
+\textbf{Provider} & \textbf{Model} & \textbf{Acc.} &
+  \textbf{\shortstack{WSL2\\(ms)}} &
+  \textbf{\shortstack{Bare-metal\\(ms)}} \\
 \hline
-Google & Gemini 3.1 Flash Lite & 100\% & $\approx$1707 \\
-OpenAI & GPT-5.4 Nano & 100\% & $\approx$1609 \\
-Anthropic & Claude Haiku 4.5 & 100\% & $\approx$1889 \\
+Google    & Gemini 3.1 Flash Lite & 100\% & $\approx$1703 & $\approx$1871 \\
+OpenAI    & GPT-5.4 Nano          & 100\% & $\approx$1608 & $\approx$1851 \\
+Anthropic & Claude Haiku 4.5      & 100\% & $\approx$1894 & $\approx$1913 \\
 \hline
 \end{tabularx}
 \label{tab:dual_llm_perf}
 \end{center}
 \end{table}
 
-{\small\textit{Reproducibility note:} Latency figures reflect single-pass wall-clock measurements from a residential broadband connection and are subject to network jitter and API-side queuing. Model version identifiers correspond to the API snapshots available at the time of measurement; future model updates may affect both latency and detection behavior. Readers wishing to reproduce these results should pin the model versions listed above and use the provided \texttt{llm-cli-benchmark-dual} command.}
+{\small\textit{Reproducibility note:} Dual LLM latency figures represent the mean of 10 single-pass wall-clock measurements per provider per environment from a residential broadband connection, and are subject to network jitter and API-side queuing. Local PQC primitive latencies were obtained from the benchmark scripts included in the repository (\texttt{llm-cli-benchmark-dual}) under the platform configurations described above. Model version identifiers correspond to the API snapshots available at the time of measurement; future model updates may affect both latency and detection behavior.}
 
 \section{Conclusion}
 Securing autonomous agents requires a transition from probabilistic "alignment" to a deterministic, human-centric framework. By integrating Structural Guardrails, White-box Agency, and a Dual-Layered PQC Audit architecture, our reference framework demonstrates how AI agency can remain transparent, verifiable, and resilient across spatial and temporal domains. While further independent validation is required for production use, this architecture provides a concrete baseline for high-assurance agentic systems.

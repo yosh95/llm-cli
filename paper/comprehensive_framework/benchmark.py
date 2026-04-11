@@ -485,8 +485,8 @@ def print_summary(r1: dict, r2: dict, r3: dict, r4: dict) -> None:
 if __name__ == "__main__":
     sys_info = f"{platform.machine()} {platform.system()} / Python {platform.python_version()}"
     print("╔══════════════════════════════════════════════════════════════════╗")
-    print("║  Unified Security Framework — Comprehensive Benchmark           ║")
-    print(f"║  Platform: {sys_info:<52} ║")
+    print("║  Unified Security Framework — Comprehensive Benchmark            ║")
+    print(f"║  Platform: {sys_info:<52}  ║")
     print("╚══════════════════════════════════════════════════════════════════╝")
 
     r1 = benchmark_phase_1_guardrails()

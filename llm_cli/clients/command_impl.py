@@ -22,7 +22,7 @@ from llm_cli.clients.exceptions import (
     TemplateRequest,
 )
 from llm_cli.modules.models import ContentPart, Role
-from llm_cli.ui import console
+from llm_cli.ui import console, report_error
 
 if TYPE_CHECKING:
     from llm_cli.clients.command_dispatcher import CommandContext
@@ -149,13 +149,19 @@ def handle_load(ctx: CommandContext) -> bool:
 
 
 def handle_attach(ctx: CommandContext) -> bool:
-    if not ctx.args:
+    source = ctx.args.strip()
+    if not source:
         return True
-    res = ctx.client._process_single_source(ctx.args)
+    res = ctx.client._process_single_source(source)
     if res and res.is_file_or_url:
-        console.print(f"[green]Attached {res.content_type}: {ctx.args}[/green]")
+        console.print(f"[green]Attached {res.content_type}: {source}[/green]")
         if ctx.pending_data is not None:
             ctx.pending_data.append(res)
+    else:
+        if source.startswith("http"):
+            report_error(f"Failed to fetch or invalid URL: {source}")
+        else:
+            report_error(f"File not found: {source}")
     return True
 
 

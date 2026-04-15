@@ -29,7 +29,7 @@ def test_provider_specs_generation():
     """Verify that provider-specific specifications are correctly generated."""
 
     # We'll use a few existing tools or create test ones
-    test_names = ["search_files", "read_file_content"]
+    test_names = ["search_files", "grep_files", "read_file_content"]
 
     # 1. OpenAI Spec (Responses API format)
     openai_spec = registry.get_openai_spec(test_names, provider="openai")
@@ -87,6 +87,7 @@ def test_tool_discovery():
 
     expected_tools = [
         "search_files",
+        "grep_files",
         "list_files_in_directory",
         "read_file_content",
         "edit_file",

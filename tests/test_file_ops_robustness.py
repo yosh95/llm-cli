@@ -1,6 +1,6 @@
 import pytest
 
-from llm_cli.modules.tools.file_ops import list_files_in_directory, search_files
+from llm_cli.modules.tools.file_ops import grep_files, list_files_in_directory
 
 
 def _get_result_text(result: str | dict) -> str:
@@ -63,7 +63,7 @@ def test_search_files_with_trailing_slash(setup_test_dirs, monkeypatch):
     monkeypatch.chdir(setup_test_dirs)
 
     # Test search with trailing slash
-    res = _get_result_text(search_files(directory="subdir/", query="content1"))
+    res = _get_result_text(grep_files(directory="subdir/", query="content1"))
     assert "file1.txt:1:content1" in res
     assert "Error" not in res
 
@@ -72,6 +72,6 @@ def test_search_files_with_quotes_and_whitespace(setup_test_dirs, monkeypatch):
     monkeypatch.chdir(setup_test_dirs)
 
     # Test search with quotes and whitespace
-    res = _get_result_text(search_files(directory=" 'subdir/' ", query="content2"))
+    res = _get_result_text(grep_files(directory=" 'subdir/' ", query="content2"))
     assert "file2.txt:1:content2" in res
     assert "Error" not in res

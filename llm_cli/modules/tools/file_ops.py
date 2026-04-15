@@ -34,9 +34,9 @@ def format_size(size_bytes: int) -> str:
 
 
 @tool(
-    name="search_files",
+    name="grep_files",
     desc=(
-        "Search for a regex pattern in files within a directory. "
+        "Search for a regex pattern in files within a directory (like grep). "
         "Automatically excludes common junk directories like .git, node_modules, and "
         "cache to provide clean and fast results."
     ),
@@ -47,7 +47,10 @@ def format_size(size_bytes: int) -> str:
                 "type": "string",
                 "description": "Directory to search in (default: current directory).",
             },
-            "query": {"type": "string", "description": "Regex pattern to search for."},
+            "query": {
+                "type": "string",
+                "description": "Regex pattern to search for in file contents.",
+            },
             "file_pattern": {
                 "type": "string",
                 "description": "File pattern to include (e.g., '*.py').",
@@ -57,7 +60,7 @@ def format_size(size_bytes: int) -> str:
     },
 )
 @file_tool_handler
-def search_files(
+def grep_files(
     directory: str = ".",
     query: str = "",
     file_pattern: str | None = None,
@@ -109,6 +112,70 @@ def search_files(
                 continue
 
     return "\n".join(results) if results else "No matches found."
+
+
+@tool(
+    name="search_files",
+    desc="Search for files or directories by name pattern within a directory.",
+    params={
+        "type": "object",
+        "properties": {
+            "directory": {
+                "type": "string",
+                "description": "Directory to search in (default: current directory).",
+            },
+            "pattern": {
+                "type": "string",
+                "description": "Pattern to match (e.g., 'test*.py' or '*config*').",
+            },
+            "exclude_patterns": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of patterns to exclude.",
+            },
+        },
+        "required": ["pattern"],
+    },
+)
+@file_tool_handler
+def search_files(
+    directory: str = ".",
+    pattern: str = "*",
+    exclude_patterns: list[str] | None = None,
+) -> str:
+    """Find files by name pattern."""
+    base_path = validate_path(directory or ".")
+    if not base_path.exists():
+        return f"Error: Directory '{base_path}' does not exist."
+
+    results = []
+    ignore_list = list(DEFAULT_EXCLUDE_DIRS)
+    if exclude_patterns:
+        ignore_list.extend(exclude_patterns)
+
+    for root, dirs, files in os.walk(base_path):
+        # Filter directories to skip descending into them
+        dirs[:] = [d for d in dirs if d not in ignore_list and not d.startswith(".")]
+
+        for name in dirs + files:
+            # Skip hidden files/dirs and those in the ignore list
+            if name.startswith(".") or name in ignore_list:
+                continue
+
+            # Check against explicit exclude patterns
+            if exclude_patterns and any(fnmatch.fnmatch(name, p) for p in exclude_patterns):
+                continue
+
+            if fnmatch.fnmatch(name, pattern):
+                full_path = Path(root) / name
+                rel_path = full_path.relative_to(base_path)
+                item_type = "[D]" if full_path.is_dir() else "[F]"
+                results.append(f"{item_type} {rel_path}")
+
+            if len(results) >= MAX_SEARCH_RESULTS:
+                return "\n".join(results) + "\n... (Listing truncated)"
+
+    return "\n".join(results) if results else "No files found matching the pattern."
 
 
 @tool(

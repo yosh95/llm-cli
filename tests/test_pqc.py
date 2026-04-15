@@ -213,7 +213,7 @@ class TestPQCAgilityManager:
                     "medium_risk_tools": [
                         "read_file_content",
                         "list_files_in_directory",
-                        "search_files",
+                        "grep_files",
                         "search_web",
                         "read_url_content",
                     ],
@@ -242,7 +242,7 @@ class TestPQCAgilityManager:
         moderate_risk = [
             "read_file_content",  # actual registered tool name
             "list_files_in_directory",
-            "search_files",
+            "grep_files",
             "search_web",
             "read_url_content",
         ]

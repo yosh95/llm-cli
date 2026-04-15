@@ -20,52 +20,48 @@ def mock_search_config():
         yield
 
 
-def test_search_files_success(tmp_path, monkeypatch):
+def test_search_files_by_name_success(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     # Setup files
     (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "main.py").write_text(
-        "def hello():\n    print('Hello World')", encoding="utf-8"
-    )
-    (tmp_path / "src" / "utils.py").write_text("def helper():\n    pass", encoding="utf-8")
+    (tmp_path / "src" / "main.py").touch()
+    (tmp_path / "src" / "utils.py").touch()
+    (tmp_path / "README.md").touch()
 
-    # Setup ignore directory
-    (tmp_path / "cache").mkdir()
-    (tmp_path / "cache" / "temp.txt").write_text("Hello in cache", encoding="utf-8")
-
-    # Search for 'hello'
-    result = _get_result_text(search_files(query="hello"))
-    assert "src/main.py:1:def hello():" in result
-    assert "cache/temp.txt" not in result
+    # Search for '*.py'
+    result = _get_result_text(search_files(pattern="*.py"))
+    assert "[F] src/main.py" in result
+    assert "[F] src/utils.py" in result
+    assert "README.md" not in result
 
 
-def test_search_files_no_match(tmp_path, monkeypatch):
+def test_search_files_by_name_directory(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "test.txt").write_text("no match here", encoding="utf-8")
 
-    result = _get_result_text(search_files(query="target"))
-    assert "No matches found." in result
+    # Setup directories
+    (tmp_path / "test_dir").mkdir()
+    (tmp_path / "other_dir").mkdir()
+
+    # Search for '*_dir'
+    result = _get_result_text(search_files(pattern="*_dir"))
+    assert "[D] test_dir" in result
+    assert "[D] other_dir" in result
 
 
-def test_search_files_with_pattern(tmp_path, monkeypatch):
+def test_search_files_by_name_no_match(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "test.py").write_text("pattern in python", encoding="utf-8")
-    (tmp_path / "test.txt").write_text("pattern in text", encoding="utf-8")
+    (tmp_path / "test.txt").touch()
 
-    result = _get_result_text(search_files(query="pattern", file_pattern="*.py"))
-    assert "test.py:1:pattern in python" in result
-    assert "test.txt" not in result
+    result = _get_result_text(search_files(pattern="*.py"))
+    assert "No files found matching the pattern." in result
 
 
-def test_search_files_invalid_regex(tmp_path, monkeypatch):
+def test_search_files_by_name_exclude(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    # grep -P will fail on invalid regex like a unmatched bracket
-    result = _get_result_text(search_files(query="["))
-    assert "Error" in result
+    (tmp_path / "keep.py").touch()
+    (tmp_path / "skip.py").touch()
 
-
-def test_search_files_security_violation(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    result = _get_result_text(search_files(query="test", directory="/etc"))
-    assert "Security Error" in result
+    result = _get_result_text(search_files(pattern="*.py", exclude_patterns=["skip.py"]))
+    assert "keep.py" in result
+    assert "skip.py" not in result

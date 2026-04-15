@@ -50,7 +50,7 @@ blocked_paths = [
 # Filename blocklist — fnmatch patterns matched against the bare filename.
 # Unlike blocked_paths, these protect sensitive files that live *inside* the
 # working directory (allowed_paths). The agent cannot read them via
-# read_file_content or search_files. If access is truly needed, it must go
+# read_file_content, grep_files or search_files. If access is truly needed, it must go
 # through execute_python (HIGH risk, always HITL).
 blocked_filenames = [
     # Environment / secrets files
@@ -78,11 +78,12 @@ high_risk_tools = [
 ]
 medium_risk_tools = [
     "read_file_content", # Reads file contents and exposes them to the LLM (no writes)
-    "search_files",      # Full-text scans and exposes file contents to the LLM (no writes)
+    "grep_files",        # Full-text scans and exposes file contents to the LLM (no writes)
 ]
 # Low-risk tools that only expose metadata, never file contents
 low_risk_tools = [
     "list_files_in_directory", # File names, sizes, timestamps only (no content exposure)
+    "search_files",            # File name pattern matching only (no content exposure)
 ]
 
 # Security Posture (CASS)

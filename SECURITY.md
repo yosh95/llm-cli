@@ -176,7 +176,7 @@ claims.  Risk-level classification in `defaults.toml`:
 ```toml
 [security]
 high_risk_tools   = ["execute_python", "edit_file", "create_or_overwrite_file"]
-medium_risk_tools = ["read_file_content", "list_files_in_directory", "search_files"]
+medium_risk_tools = ["read_file_content", "list_files_in_directory", "search_files", "grep_files"]
 # All other tools → low risk
 ```
 
@@ -405,7 +405,7 @@ blocked_paths            = ["/etc", "/var", "/root", "~/.ssh"]
 high_risk_tools          = ["execute_python", "edit_file",
                             "create_or_overwrite_file"]
 medium_risk_tools        = ["read_file_content", "list_files_in_directory",
-                            "search_files"]
+                            "search_files", "grep_files"]
 
 # Dual LLM Verification
 dual_llm_verification    = true

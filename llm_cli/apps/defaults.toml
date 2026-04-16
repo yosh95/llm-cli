@@ -142,7 +142,7 @@ opus = "claude-opus-4-7"
 [ollama]
 api_url = "http://localhost:11434/v1/chat/completions"
 [ollama.models]
-# default = "llama3.2:3b" # Commented out to prevent auto-activation without user config
+# default = "gemma4:e4b" # Commented out to prevent auto-activation without user config
 
 # =============================================================================
 # Model Context Protocol (MCP) Servers

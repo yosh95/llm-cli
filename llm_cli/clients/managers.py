@@ -133,14 +133,10 @@ class MediaManager:
 
             # Result format depends on whether it's an image (Markdown) or other
             if mime_type.startswith("image/"):
-                display_text = (
-                    f"\n\n[bold blue]IMAGE[/bold blue] Image generated and saved to: "
-                    f"**{target_path}**\n"
-                )
+                display_text = f"\n\n**IMAGE** Image generated and saved to: **{target_path}**\n"
             else:
                 display_text = (
-                    f"\n\n[bold cyan]MEDIA[/bold cyan] Media ({mime_type}) "
-                    f"generated and saved to: **{target_path}**\n"
+                    f"\n\n**MEDIA ({mime_type})** generated and saved to: **{target_path}**\n"
                 )
 
             return display_text, str(target_path)

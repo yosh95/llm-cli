@@ -259,9 +259,13 @@ class ToolRegistry:
         return active
 
     def get_gemini_spec(self, names: list[str], provider: str = "google") -> list[dict[str, Any]]:
+        active_names = self.get_active_names(names, provider=provider)
         spec: list[dict[str, Any]] = []
+
         # 1. Native Google Search tool (Grounding with Google Search)
-        spec.append({"google_search": {}})
+        # Exclusive: Disable native search if a local search tool (brave_search) is active
+        if "brave_search" not in active_names:
+            spec.append({"google_search": {}})
 
         # 2. Local function declarations
         functions = [
@@ -277,6 +281,7 @@ class ToolRegistry:
         return spec
 
     def get_openai_spec(self, names: list[str], provider: str = "openai") -> list[dict[str, Any]]:
+        active_names = self.get_active_names(names, provider=provider)
         is_responses_api = provider == "openai"
         spec = []
 
@@ -308,20 +313,27 @@ class ToolRegistry:
         # OpenAI uses Responses API with native web_search support
         if is_responses_api:
             # Note: OpenAI's Responses API fails if 'name' is provided for web_search.
-            spec.append({"type": "web_search"})
+            # Exclusive: Disable native search if a local search tool (brave_search) is active
+            if "brave_search" not in active_names:
+                spec.append({"type": "web_search"})
         return spec
 
     def get_anthropic_spec(
         self, names: list[str], provider: str = "anthropic"
     ) -> list[dict[str, Any]]:
+        active_names = self.get_active_names(names, provider=provider)
         spec: list[dict[str, Any]] = []
+
         # Native Anthropic Web Search tool (using latest 20260209 version)
-        spec.append(
-            {
-                "type": "web_search_20260209",
-                "name": "web_search",
-            }
-        )
+        # Exclusive: Disable native search if a local search tool (brave_search) is active
+        if "brave_search" not in active_names:
+            spec.append(
+                {
+                    "type": "web_search_20260209",
+                    "name": "web_search",
+                }
+            )
+
         # Local tools
         for t in self._get_active(names, provider=provider):
             spec.append(

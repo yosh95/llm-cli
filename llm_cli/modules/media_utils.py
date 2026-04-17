@@ -6,6 +6,7 @@ import ipaddress
 import logging
 import re
 import socket
+import time
 import urllib.parse
 import uuid
 from io import BytesIO
@@ -31,24 +32,28 @@ def validate_url(url: str) -> bool:
             return False
 
         # Resolve all IPs for the hostname to prevent DNS rebinding and
-        # numeric IP bypass
-        try:
-            for _, _, _, _, sockaddr in socket.getaddrinfo(
-                hostname, None, proto=socket.IPPROTO_TCP
-            ):
-                ip_str = sockaddr[0]
-                ip = ipaddress.ip_address(ip_str)
-                if (
-                    ip.is_private
-                    or ip.is_loopback
-                    or ip.is_link_local
-                    or ip.is_reserved
-                    or ip.is_multicast
-                    or ip_str == "0.0.0.0"
-                ):
-                    return False
-        except (socket.gaierror, ValueError):
-            return False
+        # numeric IP bypass. Retry once on DNS failure.
+        for attempt in range(2):
+            try:
+                addr_info = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
+                for _, _, _, _, sockaddr in addr_info:
+                    ip_str = sockaddr[0]
+                    ip = ipaddress.ip_address(ip_str)
+                    if (
+                        ip.is_private
+                        or ip.is_loopback
+                        or ip.is_link_local
+                        or ip.is_reserved
+                        or ip.is_multicast
+                        or ip_str == "0.0.0.0"
+                    ):
+                        return False
+                break  # Success
+            except (socket.gaierror, ValueError):
+                if attempt == 0:
+                    time.sleep(0.5)
+                    continue
+                return False
 
         return True
     except Exception:
@@ -56,6 +61,7 @@ def validate_url(url: str) -> bool:
 
 
 def read_pdf_text(source: Path | BytesIO) -> str:
+    # ... (rest of the file remains same until fetch_url_content)
     """Reads PDF text using pdfplumber, prioritizing Japanese text continuity."""
     try:
         with pdfplumber.open(source) as pdf:
@@ -110,68 +116,78 @@ def encode_file_base64(path: Path) -> str:
 def fetch_url_content(url: str, pdf_as_base64: bool = True) -> tuple[str | None, str | None]:
     if not validate_url(url):
         return None, None
-    try:
-        # Disable automatic redirect following so we can validate every hop.
-        # Without this, a redirect from a public URL to an internal address
-        # (e.g. http://169.254.169.254/) would bypass the validate_url() check
-        # performed above — a classic SSRF via open redirect.
-        response = curl_requests.get(
-            url,
-            impersonate="chrome",
-            headers={"Connection": "close"},
-            timeout=30,
-            allow_redirects=False,
-        )
 
-        # If the server issues a redirect, re-validate the destination before
-        # following it.  We follow at most one level manually; deeper chains
-        # are refused to prevent redirect-loop abuse.
-        if response.status_code in (301, 302, 303, 307, 308):
-            location = response.headers.get("Location", "").strip()
-            if not location or not validate_url(location):
-                logger.warning(f"SSRF guard: redirect from '{url}' to '{location}' blocked.")
-                return None, None
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Disable automatic redirect following so we can validate every hop.
+            # Without this, a redirect from a public URL to an internal address
+            # (e.g. http://169.254.169.254/) would bypass the validate_url() check
+            # performed above — a classic SSRF via open redirect.
             response = curl_requests.get(
-                location,
+                url,
                 impersonate="chrome",
                 headers={"Connection": "close"},
                 timeout=30,
-                allow_redirects=False,  # no further hops
+                allow_redirects=False,
             )
-            # A second redirect is refused outright.
+
+            # If the server issues a redirect, re-validate the destination before
+            # following it.  We follow at most one level manually; deeper chains
+            # are refused to prevent redirect-loop abuse.
             if response.status_code in (301, 302, 303, 307, 308):
-                logger.warning(f"SSRF guard: chained redirect from '{location}' refused.")
-                return None, None
-
-        response.raise_for_status()
-        content_type = response.headers.get("Content-Type", "").split(";")[0]
-
-        if content_type == "application/pdf":
-            if pdf_as_base64:
-                return (
-                    base64.b64encode(response.content).decode("utf-8"),
-                    content_type,
+                location = response.headers.get("Location", "").strip()
+                if not location or not validate_url(location):
+                    logger.warning(f"SSRF guard: redirect from '{url}' to '{location}' blocked.")
+                    return None, None
+                response = curl_requests.get(
+                    location,
+                    impersonate="chrome",
+                    headers={"Connection": "close"},
+                    timeout=30,
+                    allow_redirects=False,  # no further hops
                 )
-            else:
-                return read_pdf_text(BytesIO(response.content)), "text/plain"
+                # A second redirect is refused outright.
+                if response.status_code in (301, 302, 303, 307, 308):
+                    logger.warning(f"SSRF guard: chained redirect from '{location}' refused.")
+                    return None, None
 
-        if "text/html" in content_type:
-            # Using markdownify to convert HTML to Markdown text
-            html_content = re.sub(r"(?is)<script.*?>.*?</script>", "", response.text)
-            html_content = re.sub(r"(?is)<style.*?>.*?</style>", "", html_content)
-            text = markdownify.markdownify(html_content, heading_style="ATX")
-            return text, "text/plain"
+            response.raise_for_status()
+            break  # Success
+        except Exception as e:
+            if attempt < max_retries - 1 and (
+                "curl: (6)" in str(e) or "Could not resolve host" in str(e) or "timed out" in str(e)
+            ):
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            logger.warning(f"Failed to fetch URL content from {url}: {e}")
+            return None, None
 
-        if content_type.startswith("text/"):
-            return response.text, "text/plain"
+    content_type = response.headers.get("Content-Type", "").split(";")[0]
 
-        if any(t in content_type for t in ["image/", "audio/", "video/"]):
-            return (base64.b64encode(response.content).decode("utf-8"), content_type)
+    if content_type == "application/pdf":
+        if pdf_as_base64:
+            return (
+                base64.b64encode(response.content).decode("utf-8"),
+                content_type,
+            )
+        else:
+            return read_pdf_text(BytesIO(response.content)), "text/plain"
 
-        return None, None
-    except Exception as e:
-        logger.warning(f"Failed to fetch URL content from {url}: {e}")
-        return None, None
+    if "text/html" in content_type:
+        # Using markdownify to convert HTML to Markdown text
+        html_content = re.sub(r"(?is)<script.*?>.*?</script>", "", response.text)
+        html_content = re.sub(r"(?is)<style.*?>.*?</style>", "", html_content)
+        text = markdownify.markdownify(html_content, heading_style="ATX")
+        return text, "text/plain"
+
+    if content_type.startswith("text/"):
+        return response.text, "text/plain"
+
+    if any(t in content_type for t in ["image/", "audio/", "video/"]):
+        return (base64.b64encode(response.content).decode("utf-8"), content_type)
+
+    return None, None
 
 
 def process_file(path: Path, pdf_as_base64: bool = True) -> dict[str, Any] | None:

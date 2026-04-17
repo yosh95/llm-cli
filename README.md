@@ -57,7 +57,8 @@ The accompanying [Technical Report](paper/comprehensive_framework/paper.pdf) det
     ```
 3.  **Chat**: Type `llm-cli` to start an interactive session.
     *   **Automatic Initialization**: On the first run, `~/.llm_cli/config.toml` is automatically created.
-    *   **Native Web Search**: Gemini and Claude support built-in web search automatically using your provider API key. No separate search API key is required.
+    *   **Native Web Search**: Gemini, OpenAI, and Claude support built-in web search automatically using your provider API key.
+    *   **Brave Search**: Support for the Brave Search API is also available for comprehensive searching across all providers (requires `BRAVE_API_KEY`).
 4.  **Configure (Optional)**: To customize behavior or add MCP servers, edit the configuration file:
     ```bash
     # Edit ~/.llm_cli/config.toml to modify settings.
@@ -80,7 +81,7 @@ llm-cli "Analyze this website" https://example.com
 ## Core Features
 
 - **Unified Provider Access**: Seamlessly switch between Google (Gemini), OpenAI, Anthropic (Claude), and **Local LLMs (Ollama)**.
-- **Autonomous Agent**: Let the AI manage files, execute Python code (replacing risky shell commands), and search the web using **Provider-Native Search** (Gemini Grounding, Claude Web Search, etc.).
+- **Autonomous Agent**: Let the AI manage files, execute Python code (replacing risky shell commands), and search the web using **Provider-Native Search** (Gemini Grounding, OpenAI/Claude Web Search) or **Brave Search**.
 - **Config-free Execution**: Start using immediately by just providing an environment variable.
 - **MCP (Model Context Protocol) Support**: Connect to remote resources or services via custom servers.
 - **Multimodal capabilities**: Support for Images, PDFs, Audio, and Video.
@@ -88,7 +89,7 @@ llm-cli "Analyze this website" https://example.com
 - **Human-in-the-Loop**: All critical actions (file edits, code execution) require explicit human approval by default.
 
 ### Autonomous Agent & Tool Use
-The AI agent autonomously uses tools to perform complex tasks, such as file management, web search, and Python execution. Web search is powered by the LLM provider's native capabilities where available, ensuring high-quality real-time information with citations.
+The AI agent autonomously uses tools to perform complex tasks, such as file management, web search, and Python execution. Web search is powered by the LLM provider's native capabilities (Gemini Grounding, OpenAI/Claude Web Search) or the Brave Search API, ensuring high-quality real-time information with citations.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/screenshot-tool-calling.png" width="800" alt="Autonomous Agent and Tool Use" />
@@ -239,7 +240,8 @@ For detailed architectural insights and the academic background of our security 
     ```
 3.  **対話開始**: `llm-cli` コマンドでスタート。
     *   **設定の自動生成**: 初回起動時に `~/.llm_cli/config.toml` が自動的に作成されます。
-    *   **ネイティブWeb検索**: Gemini, Claude はプロバイダーのAPIキーのみで、組み込みのWeb検索（Grounding）を自動的に利用可能です。別途検索APIキーを用意する必要はありません。
+    *   **ネイティブWeb検索**: Gemini, OpenAI, Claude はプロバイダーのAPIキーのみで、組み込みのWeb検索（Grounding等）を自動的に利用可能です。別途検索APIキーを用意する必要はありません。
+    *   **Brave Search**: すべてのプロバイダーで利用可能な共通のWeb検索ツールとして Brave Search API をサポートしています（`BRAVE_API_KEY` が必要）。
 4.  **詳細設定 (任意)**: MCPサーバーの追加や動作のカスタマイズを行いたい場合は、生成された設定ファイルを編集します。
     ```bash
     # ~/.llm_cli/config.toml を編集して設定を調整してください。
@@ -249,14 +251,14 @@ For detailed architectural insights and the academic background of our security 
 ## 主な機能 (実用ツールとして)
 
 - **統合インターフェース**: `llm-cli` コマンド一つで主要なクラウドLLMと **Ollama (Local)** にアクセス。
-- **自律型エージェント**: ファイル操作、Python実行、Web検索、URL解析をAIが自律的に実行。Web検索はプロバイダー提供の**ネイティブ検索機能**（Gemini Grounding, Claude Web Search等）を使用します。
+- **自律型エージェント**: ファイル操作、Python実行、Web検索、URL解析をAIが自律的に実行。Web検索はプロバイダー提供の**ネイティブ検索機能**（Gemini Grounding, OpenAI/Claude Web Search等）または **Brave Search** を使用します。
 - **設定不要の即時利用**: 環境変数を設定するだけで、セットアップの手間なく利用可能。
 - **MCP (Model Context Protocol) 対応**: リモートサーバーや外部サービスとの連携をサポート。
 - **マルチモーダル対応**: 画像、PDF、音声、動画の入力をサポート。画像生成も可能。
 - **集中力を削がないUI**: 画面のちらつきを抑え、SSH越しでも安定して動作するクリーンなターミナル出力。
 
 ### 自律型エージェントのツール実行
-AIがファイル操作、Web検索、Python実行などのツールを自律的に使用し、複雑なタスクを遂行します。Web検索はLLMプロバイダーの機能を直接利用するため、精度の高い情報と出典（引用）の確認が可能です。
+AIがファイル操作、Web検索、Python実行などのツールを自律的に使用し、複雑なタスクを遂行します。Web検索はLLMプロバイダーの機能（Gemini Grounding, OpenAI/Claude Web Search）または Brave Search API を直接利用するため、精度の高い情報と出典（引用）の確認が可能です。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/yosh95/llm-cli/main/images/screenshot-tool-calling.png" width="800" alt="自律型エージェントのツール実行" />

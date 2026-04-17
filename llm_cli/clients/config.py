@@ -120,6 +120,7 @@ class ConfigManager:
                 "google": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
                 "openai": ["OPENAI_API_KEY"],
                 "anthropic": ["ANTHROPIC_API_KEY"],
+                "brave": ["BRAVE_API_KEY"],
                 "ollama": ["OLLAMA_API_KEY"],
             }
             env_vars = env_map.get(section, [])
@@ -127,6 +128,12 @@ class ConfigManager:
                 val = os.environ.get(env_var)
                 if val:
                     return val
+
+            # Fallback to config file if not in environment
+            config_dict = self.load_config()
+            val = config_dict.get(section, {}).get("api_key")
+            if val:
+                return val
 
             # Special case for Ollama: Bypass API key requirement if hosted on localhost
             # and a model is explicitly configured.

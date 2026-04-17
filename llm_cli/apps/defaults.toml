@@ -32,11 +32,11 @@ security_level = "high"
 
 # Auto-Approval Policy
 # Controls which tools can run without human intervention.
-# - "none":   All tools require manual approval (Default / Safest).
+# - "none":   All tools require manual approval (Safest).
 # - "low":    Only low_risk_tools (e.g., list_files) are auto-approved.
 # - "medium": Low and medium risk tools are auto-approved.
 # Note: Any 'verification_warning' from Dual LLM will always force manual approval.
-auto_approval_level = "medium"
+auto_approval_level = "none"
 
 # Path-based access control (Resource Attributes)
 allowed_paths = ["."]
@@ -75,6 +75,7 @@ high_risk_tools = [
     "edit_file",                # Partial file overwrite: irreversible change
     "create_or_overwrite_file", # Full file overwrite: irreversible change
     "read_url_content",         # External network call: SSRF / data-exfiltration risk
+    "brave_search",             # External network call: data-exfiltration risk
 ]
 medium_risk_tools = [
     "read_file_content", # Reads file contents and exposes them to the LLM (no writes)
@@ -142,7 +143,7 @@ opus = "claude-opus-4-7"
 [ollama]
 api_url = "http://localhost:11434/v1/chat/completions"
 [ollama.models]
-# default = "gemma4:e4b" # Commented out to prevent auto-activation without user config
+# default = "gemma4:e2b" # Commented out to prevent auto-activation without user config
 
 # =============================================================================
 # Model Context Protocol (MCP) Servers

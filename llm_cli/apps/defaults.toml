@@ -24,6 +24,7 @@ auto_approval_delay = 2.0  # Seconds to wait before auto-approved tool execution
 #   - Anthropic:    ANTHROPIC_API_KEY
 #   - Google/Gemini: GEMINI_API_KEY (or GOOGLE_API_KEY)
 #   - Ollama:       OLLAMA_API_KEY (required even for local usage)
+#   - Brave Search:  BRAVE_API_KEY
 
 # Security Level (high | standard)
 # - high (default): Strict PQC enforcement for all high-risk tool calls.
@@ -183,4 +184,11 @@ api_url = "http://localhost:11434/v1/chat/completions"
 # 4. Security vulnerabilities.
 # 5. Adherence to coding standards and best practices.
 # """
+
+# =============================================================================
+# Brave Search
+# =============================================================================
+[brave]
+# Brave Search API key (Alternative to BRAVE_API_KEY environment variable)
+# api_key = "your-brave-api-key"
 

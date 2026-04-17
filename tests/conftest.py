@@ -36,6 +36,7 @@ def reset_config_manager():
         },
         "openai": {"api_key": "dummy_openai_key"},
         "anthropic": {"api_key": "dummy_anthropic_key"},
+        "brave": {"api_key": "dummy_brave_key"},
         "security": {
             "allowed_paths": ["."],
             "blocked_paths": [

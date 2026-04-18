@@ -115,7 +115,8 @@ def display_tool_request(ctx: Any, auto_approved: bool = False, delay: float = 0
             status = "[bold green]Intent Verified OK[/bold green]"
         else:
             status = "[bold cyan]Analyzing Intent...[/bold cyan]"
-        body.append(f"  Security Check: {status}", style="white")
+        body.append("  Security Check: ", style="white")
+        body.append(Text.from_markup(status))
 
     panel_title = Text()
     if auto_approved:
